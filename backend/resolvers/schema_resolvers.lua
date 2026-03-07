@@ -1,0 +1,161 @@
+local spaces_mod = require('core.spaces')
+local views_mod = require('core.views')
+local triggers = require('core.triggers')
+local executor = require('graphql.executor')
+local fio = require('fio')
+local list_relations
+list_relations = function(space_id)
+  local result = { }
+  local _list_0 = box.space._tdb_relations.index.by_from:select({
+    space_id
+  })
+  for _index_0 = 1, #_list_0 do
+    local t = _list_0[_index_0]
+    table.insert(result, {
+      id = t[1],
+      fromSpaceId = t[2],
+      fromFieldId = t[3],
+      toSpaceId = t[4],
+      toFieldId = t[5],
+      name = t[6]
+    })
+  end
+  return result
+end
+local create_relation
+create_relation = function(name, from_space_id, from_field_id, to_space_id, to_field_id)
+  local uuid_mod = require('uuid')
+  local rid = tostring(uuid_mod.new())
+  box.space._tdb_relations:insert({
+    rid,
+    from_space_id,
+    from_field_id,
+    to_space_id,
+    to_field_id,
+    name
+  })
+  return {
+    id = rid,
+    name = name,
+    fromSpaceId = from_space_id,
+    fromFieldId = from_field_id,
+    toSpaceId = to_space_id,
+    toFieldId = to_field_id
+  }
+end
+local delete_relation
+delete_relation = function(id)
+  box.space._tdb_relations:delete(id)
+  return true
+end
+local Query = {
+  spaces = function(_, args, ctx)
+    return spaces_mod.list_spaces()
+  end,
+  space = function(_, args, ctx)
+    return spaces_mod.get_space(args.id)
+  end,
+  views = function(_, args, ctx)
+    return views_mod.list_views(args.spaceId)
+  end,
+  view = function(_, args, ctx)
+    return views_mod.get_view(args.id)
+  end,
+  relations = function(_, args, ctx)
+    return list_relations(args.spaceId)
+  end
+}
+local Mutation = {
+  createSpace = function(_, args, ctx)
+    local i = args.input
+    local result = spaces_mod.create_user_space(i.name, i.description)
+    spaces_mod.add_field(result.id, 'id', 'Sequence', true, 'Identifiant auto-incrémenté')
+    executor.reinit_schema()
+    return spaces_mod.get_space(result.id)
+  end,
+  updateSpace = function(_, args, ctx)
+    local t = box.space._tdb_spaces:get(args.id)
+    if not (t) then
+      error("Space not found")
+    end
+    local now = os.time()
+    local name = args.input.name or t[2]
+    local desc = args.input.description or t[3]
+    box.space._tdb_spaces:replace({
+      args.id,
+      name,
+      desc,
+      t[4],
+      now
+    })
+    local result = spaces_mod.get_space(args.id)
+    executor.reinit_schema()
+    return result
+  end,
+  deleteSpace = function(_, args, ctx)
+    box.space._tdb_spaces:delete(args.id)
+    executor.reinit_schema()
+    return true
+  end,
+  addField = function(_, args, ctx)
+    local i = args.input
+    local result = spaces_mod.add_field(args.spaceId, i.name, i.fieldType, i.notNull, i.description, i.formula, i.triggerFields)
+    executor.reinit_schema()
+    local sp_meta = box.space._tdb_spaces:get(args.spaceId)
+    if sp_meta then
+      triggers.register_space_trigger(sp_meta[2])
+    end
+    return result
+  end,
+  removeField = function(_, args, ctx)
+    local fld = box.space._tdb_fields:get(args.fieldId)
+    local sp_meta = fld and box.space._tdb_spaces:get(fld[2])
+    spaces_mod.remove_field(args.fieldId)
+    executor.reinit_schema()
+    if sp_meta then
+      triggers.register_space_trigger(sp_meta[2])
+    end
+    return true
+  end,
+  reorderFields = function(_, args, ctx)
+    local result = spaces_mod.reorder_fields(args.spaceId, args.fieldIds)
+    executor.reinit_schema()
+    return result
+  end,
+  createView = function(_, args, ctx)
+    local i = args.input
+    return views_mod.create_view(args.spaceId, i.name, i.viewType, i.config)
+  end,
+  updateView = function(_, args, ctx)
+    views_mod.update_view(args.id, args.input)
+    return views_mod.get_view(args.id)
+  end,
+  deleteView = function(_, args, ctx)
+    views_mod.delete_view(args.id)
+    return true
+  end,
+  createRelation = function(_, args, ctx)
+    local i = args.input
+    local result = create_relation(i.name, i.fromSpaceId, i.fromFieldId, i.toSpaceId, i.toFieldId)
+    executor.reinit_schema()
+    return result
+  end,
+  deleteRelation = function(_, args, ctx)
+    local result = delete_relation(args.id)
+    executor.reinit_schema()
+    return result
+  end
+}
+local Space = {
+  fields = function(obj, args, ctx)
+    return spaces_mod.list_fields(obj.id)
+  end,
+  views = function(obj, args, ctx)
+    return views_mod.list_views(obj.id)
+  end
+}
+return {
+  Query = Query,
+  Mutation = Mutation,
+  Space = Space
+}

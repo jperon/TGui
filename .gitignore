@@ -1,0 +1,18 @@
+# Vendor bundles (large, regenerate with `make vendor`)
+frontend/vendor/
+
+# Docker data volumes
+data/
+
+# Node (if ever used for tooling)
+node_modules/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db

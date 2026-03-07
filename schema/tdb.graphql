@@ -1,0 +1,317 @@
+"""
+tdb GraphQL Schema
+Grist-like GUI for Tarantool: spaces (tables), views, relations, users, groups, permissions.
+"""
+
+# ────────────────────────────────────────────────────────────────────────────
+# Root types
+# ────────────────────────────────────────────────────────────────────────────
+
+schema {
+  query:    Query
+  mutation: Mutation
+}
+
+type Query {
+  # Spaces (user-defined tables)
+  spaces:          [Space!]!
+  space(id: ID!):  Space
+
+  # Views (per-space)
+  views(spaceId: ID!):    [View!]!
+  view(id: ID!):          View
+
+  # Custom views (YAML dashboard layouts)
+  customViews:            [CustomView!]!
+  customView(id: ID!):    CustomView
+
+  # Raw data from a user space
+  records(spaceId: ID!, filter: RecordFilter, limit: Int, offset: Int): RecordPage!
+  record(spaceId: ID!, id: ID!): Record
+
+  # Relations
+  relations(spaceId: ID!): [Relation!]!
+
+  # Auth
+  me: User
+
+  # Admin
+  users:           [User!]!
+  user(id: ID!):   User
+  groups:          [Group!]!
+  group(id: ID!):  Group
+}
+
+type Mutation {
+  # Spaces
+  createSpace(input: CreateSpaceInput!):   Space!
+  updateSpace(id: ID!, input: UpdateSpaceInput!): Space!
+  deleteSpace(id: ID!):                    Boolean!
+
+  # Fields
+  addField(spaceId: ID!, input: FieldInput!): Field!
+  removeField(fieldId: ID!):               Boolean!
+  reorderFields(spaceId: ID!, fieldIds: [ID!]!): [Field!]!
+
+  # Views
+  createView(spaceId: ID!, input: CreateViewInput!):   View!
+  updateView(id: ID!, input: UpdateViewInput!):         View!
+  deleteView(id: ID!):                                  Boolean!
+
+  # Relations
+  createRelation(input: CreateRelationInput!): Relation!
+  deleteRelation(id: ID!):                     Boolean!
+
+  # Custom views (YAML dashboard layouts)
+  createCustomView(input: CreateCustomViewInput!): CustomView!
+  updateCustomView(id: ID!, input: UpdateCustomViewInput!): CustomView!
+  deleteCustomView(id: ID!):                       Boolean!
+
+  # Records (CRUD on user-defined spaces)
+  insertRecord(spaceId: ID!, data: JSON!):       Record!
+  updateRecord(spaceId: ID!, id: ID!, data: JSON!): Record!
+  deleteRecord(spaceId: ID!, id: ID!):           Boolean!
+
+  # Auth
+  login(username: String!, password: String!):   AuthPayload!
+  logout:                                        Boolean!
+  createUser(input: CreateUserInput!):           User!
+
+  # Groups & membership
+  createGroup(input: CreateGroupInput!):         Group!
+  deleteGroup(id: ID!):                          Boolean!
+  addMember(userId: ID!, groupId: ID!):          Boolean!
+  removeMember(userId: ID!, groupId: ID!):       Boolean!
+
+  # Permissions
+  grant(groupId: ID!, input: PermissionInput!):  Permission!
+  revoke(permissionId: ID!):                     Boolean!
+}
+
+# ────────────────────────────────────────────────────────────────────────────
+# Core types
+# ────────────────────────────────────────────────────────────────────────────
+
+type Space {
+  id:          ID!
+  name:        String!
+  description: String
+  fields:      [Field!]!
+  views:       [View!]!
+  createdAt:   String!
+  updatedAt:   String!
+}
+
+type Field {
+  id:            ID!
+  spaceId:       ID!
+  name:          String!
+  fieldType:     FieldType!
+  notNull:       Boolean!
+  position:      Int!
+  description:   String
+  formula:       String
+  triggerFields: [String!]
+}
+
+enum FieldType {
+  String
+  Int
+  Float
+  Boolean
+  ID
+  UUID
+  Sequence
+  Any
+  Map
+  Array
+}
+
+type View {
+  id:        ID!
+  spaceId:   ID!
+  name:      String!
+  viewType:  ViewType!
+  config:    JSON
+  createdAt: String!
+  updatedAt: String!
+}
+
+enum ViewType {
+  grid
+  form
+  gallery
+}
+
+type Relation {
+  id:           ID!
+  name:         String!
+  fromSpaceId:  ID!
+  fromFieldId:  ID!
+  toSpaceId:    ID!
+  toFieldId:    ID!
+}
+
+type CustomView {
+  id:          ID!
+  name:        String!
+  description: String
+  yaml:        String!
+  createdAt:   String!
+  updatedAt:   String!
+}
+
+# ────────────────────────────────────────────────────────────────────────────
+# Records (dynamic data)
+# ────────────────────────────────────────────────────────────────────────────
+
+type Record {
+  id:   ID!
+  data: JSON!
+}
+
+type RecordPage {
+  items:      [Record!]!
+  total:      Int!
+  offset:     Int!
+  limit:      Int!
+}
+
+input RecordFilter {
+  field:    String
+  op:       FilterOp
+  value:    String
+  and:      [RecordFilter!]
+  or:       [RecordFilter!]
+}
+
+enum FilterOp {
+  EQ
+  NEQ
+  LT
+  GT
+  LTE
+  GTE
+  CONTAINS
+  STARTS_WITH
+}
+
+# ────────────────────────────────────────────────────────────────────────────
+# Auth types
+# ────────────────────────────────────────────────────────────────────────────
+
+type AuthPayload {
+  token:   String!
+  user:    User!
+}
+
+type User {
+  id:         ID!
+  username:   String!
+  email:      String!
+  groups:     [Group!]!
+  createdAt:  String!
+}
+
+type Group {
+  id:          ID!
+  name:        String!
+  description: String
+  members:     [User!]!
+  permissions: [Permission!]!
+  createdAt:   String!
+}
+
+type Permission {
+  id:           ID!
+  groupId:      ID!
+  resourceType: String!
+  resourceId:   ID!
+  level:        PermissionLevel!
+}
+
+enum PermissionLevel {
+  read
+  write
+  admin
+}
+
+# ────────────────────────────────────────────────────────────────────────────
+# Input types
+# ────────────────────────────────────────────────────────────────────────────
+
+input CreateSpaceInput {
+  name:        String!
+  description: String
+}
+
+input UpdateSpaceInput {
+  name:        String
+  description: String
+}
+
+input FieldInput {
+  name:          String!
+  fieldType:     FieldType!
+  notNull:       Boolean
+  description:   String
+  formula:       String
+  triggerFields: [String!]
+}
+
+input CreateViewInput {
+  name:      String!
+  viewType:  ViewType!
+  config:    JSON
+}
+
+input UpdateViewInput {
+  name:      String
+  viewType:  ViewType
+  config:    JSON
+}
+
+input CreateRelationInput {
+  name:        String!
+  fromSpaceId: ID!
+  fromFieldId: ID!
+  toSpaceId:   ID!
+  toFieldId:   ID!
+}
+
+input CreateCustomViewInput {
+  name:        String!
+  description: String
+  yaml:        String!
+}
+
+input UpdateCustomViewInput {
+  name:        String
+  description: String
+  yaml:        String
+}
+
+input CreateUserInput {
+  username: String!
+  email:    String!
+  password: String!
+}
+
+input CreateGroupInput {
+  name:        String!
+  description: String
+}
+
+input PermissionInput {
+  resourceType: String!
+  resourceId:   ID
+  level:        PermissionLevel!
+}
+
+# ────────────────────────────────────────────────────────────────────────────
+# Scalar: JSON (opaque pass-through)
+# ────────────────────────────────────────────────────────────────────────────
+
+scalar JSON
+
+scalar Any

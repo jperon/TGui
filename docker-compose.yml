@@ -1,0 +1,18 @@
+services:
+  tarantool:
+    build: .
+    image: tdb-tarantool
+    command: tarantool /app/backend/init.lua
+    volumes:
+      - ./backend:/app/backend:ro
+      - ./frontend:/app/frontend:ro
+      - ./schema:/app/schema:ro
+      - tdb_data:/var/lib/tarantool
+    ports:
+      - "3301:3301"   # Tarantool binary port
+      - "8080:8080"   # HTTP GUI port
+    environment:
+      TT_LOG_LEVEL: "5"
+
+volumes:
+  tdb_data:

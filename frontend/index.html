@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>tdb</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2389b4fa'/><text x='50%' y='54%' dominant-baseline='middle' text-anchor='middle' font-family='system-ui,sans-serif' font-weight='700' font-size='18' fill='%231e1e2e'>db</text></svg>" />
+  <link rel="stylesheet" href="/vendor/tui-grid.bundle.css" />
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Login overlay -->
+    <div id="login-overlay" class="overlay">
+      <div class="login-box">
+        <h1>tdb</h1>
+        <input id="login-username" type="text"     placeholder="Nom d'utilisateur" />
+        <input id="login-password" type="password" placeholder="Mot de passe" />
+        <button id="login-btn">Connexion</button>
+        <p id="login-error" class="error"></p>
+      </div>
+    </div>
+
+    <!-- Main layout (hidden until logged in) -->
+    <div id="main" class="hidden">
+
+      <!-- Sidebar -->
+      <nav id="sidebar">
+        <div class="sidebar-header">
+          <span class="logo">tdb</span>
+        </div>
+
+        <!-- Section: Données brutes -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">
+            <span>Données</span>
+            <button id="new-space-btn" title="Nouvel espace">＋</button>
+          </div>
+          <ul id="space-list"></ul>
+        </div>
+
+        <!-- Section: Vues personnalisées -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">
+            <span>Vues</span>
+            <button id="new-view-btn" title="Nouvelle vue">＋</button>
+          </div>
+          <ul id="custom-view-list"></ul>
+        </div>
+
+        <div class="sidebar-footer">
+          <span id="current-user"></span>
+          <button id="logout-btn">Déconnexion</button>
+        </div>
+      </nav>
+
+      <!-- Content area -->
+      <main id="content">
+
+        <!-- Data toolbar (shown when a space is selected) -->
+        <div id="data-toolbar" class="hidden">
+          <span id="data-title" class="content-title"></span>
+          <button id="delete-rows-btn" class="toolbar-btn toolbar-btn--danger">🗑 Supprimer</button>
+          <button id="fields-btn" class="fields-btn">⊞ Champs</button>
+        </div>
+
+        <!-- YAML view toolbar (shown when a custom view is selected) -->
+        <div id="yaml-editor-panel" class="hidden">
+          <div class="yaml-editor-toolbar">
+            <span id="yaml-view-name" class="content-title"></span>
+            <button id="yaml-edit-btn" class="toolbar-btn">✎ Éditer la vue</button>
+            <button id="yaml-save-btn">💾 Enregistrer</button>
+            <button id="yaml-preview-btn">▶ Aperçu</button>
+            <button id="yaml-close-editor-btn" class="toolbar-btn">✕ Fermer l'éditeur</button>
+            <button id="yaml-delete-btn">🗑 Supprimer la vue</button>
+          </div>
+          <textarea id="yaml-editor" spellcheck="false"></textarea>
+        </div>
+
+        <!-- Content row: grid + optional fields panel -->
+        <div id="content-row">
+
+          <!-- Grid mount point -->
+          <div id="grid-container"></div>
+
+          <!-- Custom view mount point -->
+          <div id="custom-view-container" class="hidden"></div>
+
+          <!-- Fields panel (hidden by default) -->
+          <aside id="fields-panel" class="hidden">
+            <div class="fields-panel-header">
+              <span>Champs</span>
+              <button id="fields-panel-close">✕</button>
+            </div>
+            <ul id="fields-list"></ul>
+            <div class="fields-add-form">
+              <input id="field-name" type="text" placeholder="Nom du champ" />
+              <select id="field-type">
+                <option value="String">String</option>
+                <option value="Int">Int</option>
+                <option value="Float">Float</option>
+                <option value="Boolean">Boolean</option>
+                <option value="UUID">UUID</option>
+                <option value="Any">Any (type libre)</option>
+                <option value="Map">Map (objet JSON)</option>
+                <option value="Array">Array (tableau JSON)</option>
+                <option value="Sequence">Séquence (auto-incrément)</option>
+              </select>
+              <label><input id="field-notnull" type="checkbox" /> Requis</label>
+              <!-- Formula section -->
+              <div class="formula-section">
+                <div class="formula-type-row">
+                  <label class="formula-radio"><input type="radio" name="formula-type" value="none" checked /> Aucune formule</label>
+                  <label class="formula-radio"><input type="radio" name="formula-type" value="formula" /> Colonne calculée</label>
+                  <label class="formula-radio"><input type="radio" name="formula-type" value="trigger" /> Trigger formula</label>
+                </div>
+                <div id="formula-body" class="hidden">
+                  <textarea id="field-formula" rows="3" placeholder="Expression Lua, ex: self.prenom .. ' ' .. self.nom"></textarea>
+                  <div id="trigger-fields-row" class="hidden">
+                    <label class="formula-hint" for="field-trigger-fields">Déclencher quand :</label>
+                    <input id="field-trigger-fields" type="text"
+                      placeholder="* | nom, prenom | (vide = création seule)" />
+                    <span class="formula-hint">Vide = création seule · <code>*</code> = tout changement · liste de champs</span>
+                  </div>
+                </div>
+              </div>
+              <button id="field-add-btn">Ajouter</button>
+            </div>
+
+            <!-- Relations section -->
+            <div class="relations-section-header"><span>Relations</span></div>
+            <ul id="relations-list"></ul>
+            <div class="relations-add-form">
+              <input id="rel-name" type="text" placeholder="Nom de la relation" />
+              <select id="rel-from-field"><option value="">Champ source…</option></select>
+              <select id="rel-to-space"><option value="">Espace cible…</option></select>
+              <select id="rel-to-field"><option value="">Champ cible…</option></select>
+              <button id="rel-add-btn">Lier</button>
+            </div>
+          </aside>
+        </div>
+
+        <!-- Welcome placeholder -->
+        <div id="welcome" class="welcome">
+          <p>Sélectionnez un espace ou une vue dans la barre latérale.</p>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Vendor bundles -->
+  <script src="/vendor/tui-grid.bundle.js"></script>
+  <script src="/vendor/jsyaml.bundle.js"></script>
+
+  <!-- Application (CoffeeScript compiled) -->
+  <script src="/src/graphql_client.js"></script>
+  <script src="/src/auth.js"></script>
+  <script src="/src/spaces.js"></script>
+  <script src="/src/views/data_view.js"></script>
+  <script src="/src/views/custom_view.js"></script>
+  <script src="/src/app.js"></script>
+</body>
+</html>
