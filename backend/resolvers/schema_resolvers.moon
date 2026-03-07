@@ -71,7 +71,7 @@ Mutation =
 
   addField: (_, args, ctx) ->
     i = args.input
-    result = spaces_mod.add_field args.spaceId, i.name, i.fieldType, i.notNull, i.description, i.formula, i.triggerFields
+    result = spaces_mod.add_field args.spaceId, i.name, i.fieldType, i.notNull, i.description, i.formula, i.triggerFields, i.language
     executor.reinit_schema!
     sp_meta = box.space._tdb_spaces\get args.spaceId
     triggers.register_space_trigger sp_meta[2] if sp_meta

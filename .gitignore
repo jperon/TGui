@@ -20,5 +20,3 @@ node_modules/
 .DS_Store
 Thumbs.db
 
-# Compilateur MoonScript (installé dans backend/ mais ne fait pas partie du projet)
-backend/moonscript/

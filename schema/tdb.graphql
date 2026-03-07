@@ -112,6 +112,7 @@ type Field {
   description:   String
   formula:       String
   triggerFields: [String!]
+  language:      String
 }
 
 enum FieldType {
@@ -257,6 +258,7 @@ input FieldInput {
   description:   String
   formula:       String
   triggerFields: [String!]
+  language:      String
 }
 
 input CreateViewInput {

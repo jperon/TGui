@@ -10,6 +10,11 @@ RECORDS_QUERY = """
   }
 """
 
+# Convert a space name to a valid GraphQL identifier (mirrors backend gql_name).
+gqlName = (name) ->
+  s = name.replace(/[^\w]/g, '_')
+  if /^\d/.test(s) then '_' + s else s
+
 INSERT_RECORD = """
   mutation InsertRecord($spaceId: ID!, $data: JSON!) {
     insertRecord(spaceId: $spaceId, data: $data) { id data }
@@ -191,12 +196,26 @@ window.DataView = class DataView
     row
 
   load: ->
-    data = await GQL.query RECORDS_QUERY, { spaceId: @space.id, limit: 2000 }
-    @_rows = data.records.items.map (r) ->
-      parsed = if typeof r.data == 'string' then JSON.parse(r.data) else r.data
-      row = Object.assign {}, parsed
-      row.__rowId = r.id
-      row
+    fields       = @space.fields or []
+    formulaNames = new Set (f.name for f in fields when f.formula and f.formula != '' and not f.triggerFields)
+
+    if formulaNames.size > 0
+      # Use the space-specific dynamic resolver so formula fields are evaluated.
+      tname      = gqlName @space.name
+      fieldList  = (gqlName f.name for f in fields).join(' ')
+      spaceQuery = "query { #{tname}(limit: 2000) { items { #{fieldList} } } }"
+      data       = await GQL.query spaceQuery, {}
+      @_rows = data[tname].items.map (item) ->
+        row           = Object.assign {}, item
+        row.__rowId   = String item.id ? ''
+        row
+    else
+      data    = await GQL.query RECORDS_QUERY, { spaceId: @space.id, limit: 2000 }
+      @_rows  = data.records.items.map (r) ->
+        parsed      = if typeof r.data == 'string' then JSON.parse(r.data) else r.data
+        row         = Object.assign {}, parsed
+        row.__rowId = r.id
+        row
     @_applyData()
     @_rows
 

@@ -576,7 +576,7 @@ create_user_space = function(name, description)
   }
 end
 local add_field
-add_field = function(space_id, field_name, field_type, not_null, description, formula, trigger_fields)
+add_field = function(space_id, field_name, field_type, not_null, description, formula, trigger_fields, language)
   local uuid = require('uuid')
   local json = require('json')
   if not (FIELD_TYPES_SET[field_type]) then
@@ -602,9 +602,8 @@ add_field = function(space_id, field_name, field_type, not_null, description, fo
   }
   if formula and formula ~= '' then
     table.insert(tuple, formula)
-    if trigger_fields ~= nil then
-      table.insert(tuple, json.encode(trigger_fields))
-    end
+    table.insert(tuple, json.encode(trigger_fields))
+    table.insert(tuple, language or 'lua')
   end
   box.space._tdb_fields:insert(tuple)
   if field_type == 'Sequence' then
@@ -646,7 +645,8 @@ add_field = function(space_id, field_name, field_type, not_null, description, fo
     position = pos,
     description = description or '',
     formula = formula or '',
-    triggerFields = trigger_fields
+    triggerFields = trigger_fields,
+    language = language or 'lua'
   }
 end
 local remove_field
@@ -694,11 +694,19 @@ end
 local list_fields
 list_fields = function(space_id)
   local result = { }
+  local json = require('json')
   local _list_0 = box.space._tdb_fields.index.by_space_pos:select({
     space_id
   })
   for _index_0 = 1, #_list_0 do
     local t = _list_0[_index_0]
+    local trigger_raw = t[9]
+    local trigger_fields
+    if trigger_raw and trigger_raw ~= 'null' then
+      trigger_fields = json.decode(trigger_raw)
+    else
+      trigger_fields = nil
+    end
     table.insert(result, {
       id = t[1],
       spaceId = t[2],
@@ -708,7 +716,8 @@ list_fields = function(space_id)
       position = t[6],
       description = t[7],
       formula = t[8] or '',
-      triggerFields = t[9] and require('json').decode(t[9]) or nil
+      triggerFields = trigger_fields,
+      language = t[10] or 'lua'
     })
   end
   return result

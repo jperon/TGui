@@ -3,7 +3,7 @@
   // Space and field management.
   var ADD_FIELD, CREATE_RELATION, CREATE_SPACE, DELETE_RELATION, DELETE_SPACE, LIST_RELATIONS, LIST_SPACES, SPACE_FIELDS;
 
-  LIST_SPACES = `query { spaces { id name description fields { id name fieldType notNull position description formula triggerFields } } }`;
+  LIST_SPACES = `query { spaces { id name description fields { id name fieldType notNull position description formula triggerFields language } } }`;
 
   CREATE_SPACE = `mutation CreateSpace($input: CreateSpaceInput!) {
   createSpace(input: $input) { id name description }
@@ -16,7 +16,7 @@
   SPACE_FIELDS = `query SpaceFields($id: ID!) {
   space(id: $id) {
     id name description
-    fields { id name fieldType notNull position description formula triggerFields }
+    fields { id name fieldType notNull position description formula triggerFields language }
   }
 }`;
 
@@ -61,7 +61,7 @@
         return d.space;
       });
     },
-    addField: function(spaceId, name, fieldType, notNull = false, description = '', formula = null, triggerFields = null) {
+    addField: function(spaceId, name, fieldType, notNull = false, description = '', formula = null, triggerFields = null, language = 'lua') {
       var input;
       input = {name, fieldType, notNull, description};
       if (formula) {
@@ -69,6 +69,9 @@
       }
       if (triggerFields) {
         input.triggerFields = triggerFields;
+      }
+      if (language && language !== 'lua') {
+        input.language = language;
       }
       return GQL.mutate(ADD_FIELD, {spaceId, input}).then(function(d) {
         return d.addField;

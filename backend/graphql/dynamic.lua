@@ -1,6 +1,7 @@
 local json = require('json')
 local log = require('log')
 local spaces_mod = require('core.spaces')
+local triggers = require('core.triggers')
 local gql_name
 gql_name = function(name)
   local s = name:gsub('[^%w]', '_')
@@ -342,43 +343,35 @@ generate = function()
     for _index_1 = 1, #_list_4 do
       local f = _list_4[_index_1]
       if f.formula and f.formula ~= '' then
-        local fn_str = "return function(self, space) return " .. f.formula .. " end"
-        local ok_parse, compiled = pcall(load, fn_str)
-        if ok_parse and type(compiled) == 'function' then
-          local ok_init, formula_fn = pcall(compiled)
-          if ok_init and type(formula_fn) == 'function' then
-            tr[gql_name(f.name)] = (function(fn_cap, fk_nm_cap)
-              return function(obj, a, ctx)
-                local proxy = make_self_proxy(obj, fk_nm_cap)
-                local space_helper
-                space_helper = function(sname)
-                  local sp_box = box.space["data_" .. tostring(sname)]
-                  if not (sp_box) then
-                    return { }
-                  end
-                  local _accum_0 = { }
-                  local _len_0 = 1
-                  local _list_5 = sp_box:select({ })
-                  for _index_2 = 1, #_list_5 do
-                    local t = _list_5[_index_2]
-                    _accum_0[_len_0] = decode_tuple(t)
-                    _len_0 = _len_0 + 1
-                  end
-                  return _accum_0
+        local formula_fn = triggers.compile_formula(f.formula, f.name, (f.language or 'lua'))
+        if formula_fn then
+          tr[gql_name(f.name)] = (function(fn_cap, fk_nm_cap)
+            return function(obj, a, ctx)
+              local proxy = make_self_proxy(obj, fk_nm_cap)
+              local space_helper
+              space_helper = function(sname)
+                local sp_box = box.space["data_" .. tostring(sname)]
+                if not (sp_box) then
+                  return { }
                 end
-                local r_ok, val = pcall(fn_cap, proxy, space_helper)
-                if r_ok then
-                  return val
-                else
-                  return nil
+                local _accum_0 = { }
+                local _len_0 = 1
+                local _list_5 = sp_box:select({ })
+                for _index_2 = 1, #_list_5 do
+                  local t = _list_5[_index_2]
+                  _accum_0[_len_0] = decode_tuple(t)
+                  _len_0 = _len_0 + 1
                 end
+                return _accum_0
               end
-            end)(formula_fn, fk_name_map)
-          else
-            log.error("tdb dynamic: formula init error for field '" .. tostring(f.name) .. "': " .. tostring(formula_fn))
-          end
-        else
-          log.error("tdb dynamic: formula parse error for field '" .. tostring(f.name) .. "': " .. tostring(compiled))
+              local r_ok, val = pcall(fn_cap, proxy, space_helper)
+              if r_ok then
+                return val
+              else
+                return nil
+              end
+            end
+          end)(formula_fn, fk_name_map)
         end
       end
     end

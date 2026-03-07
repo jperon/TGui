@@ -242,10 +242,29 @@ make_fields_panel = function()
         H.div({
           id = 'formula-body',
           class = 'hidden',
+          H.div({
+            class = 'formula-lang-row',
+            H.label({
+              class = 'formula-hint',
+              ['for'] = 'formula-language',
+              'Langage :'
+            }),
+            H.select({
+              id = 'formula-language',
+              H.option({
+                value = 'lua',
+                'Lua'
+              }),
+              H.option({
+                value = 'moonscript',
+                'MoonScript'
+              })
+            })
+          }),
           H.textarea({
             id = 'field-formula',
             rows = '3',
-            placeholder = "Expression Lua, ex: self.prenom .. ' ' .. self.nom",
+            placeholder = "Expression (Lua : self.prenom .. ' ' .. self.nom)",
             ''
           }),
           H.div({

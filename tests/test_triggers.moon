@@ -123,6 +123,54 @@ R.describe "Triggers — compile_formula", ->
     R.nok fn
     R.ok err
 
+  R.it "formule MoonScript valide → compilée en fonction Lua", ->
+    -- Vérifier que moonscript.base est disponible et compile correctement
+    ok_ms, moon = pcall require, 'moonscript.base'
+    R.ok ok_ms, "moonscript.base doit être disponible"
+    moon_src = "return (self, space) -> (self.a or 0) + (self.b or 0)"
+    ok_c, lua_code = pcall moon.to_lua, moon_src
+    R.ok ok_c, "MoonScript → Lua: #{tostring lua_code}"
+    ok_l, compiled = pcall load, lua_code
+    R.ok ok_l, "load Lua: #{tostring compiled}"
+    ok2, fn = pcall compiled
+    R.ok ok2
+    R.eq type(fn), 'function'
+    R.eq fn({ a: 10, b: 5 }, nil), 15
+
+R.describe "Triggers — trigger formula MoonScript", ->
+  local ms_space_id, ms_data_space
+  MS_SP = "trig_moon_#{SUFFIX}"
+
+  R.it "créer un espace avec trigger formula MoonScript", ->
+    sp = spaces_mod.create_user_space MS_SP
+    ms_space_id = sp.id
+    ms_data_space = box.space["data_#{MS_SP}"]
+    R.ok ms_data_space
+    spaces_mod.add_field ms_space_id, 'a', 'Int'
+    spaces_mod.add_field ms_space_id, 'b', 'Int'
+    -- Trigger formula en MoonScript : additionner a et b
+    spaces_mod.add_field ms_space_id, 'somme', 'Int', false, '',
+      '(self.a or 0) + (self.b or 0)',
+      {'a', 'b'}, 'moonscript'
+    triggers.register_space_trigger MS_SP
+    R.ok ms_data_space
+
+  R.it "trigger MoonScript calcule la valeur à l'insertion", ->
+    id = 'moon_insert_1'
+    ms_data_space\insert { id, json.encode { a: 3, b: 7 } }
+    d = json.decode (ms_data_space\get id)[2]
+    R.eq d.somme, 10
+
+  R.it "trigger MoonScript recalcule à la mise à jour", ->
+    id = 'moon_update_1'
+    ms_data_space\insert { id, json.encode { a: 2, b: 4 } }
+    t = ms_data_space\get id
+    d = json.decode t[2]
+    d.a = 10
+    ms_data_space\replace { id, json.encode d }
+    d2 = json.decode (ms_data_space\get id)[2]
+    R.eq d2.somme, 14
+
 R.describe "Triggers — register_space_trigger", ->
   R.it "appel multiple sans erreur (idempotent)", ->
     ok, err = pcall triggers.register_space_trigger, SP_NAME

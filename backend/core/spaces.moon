@@ -227,7 +227,7 @@ create_user_space = (name, description) ->
   { id: sid, name: name, description: description or '', createdAt: now, updatedAt: now }
 
 -- Add a field definition to a space.
-add_field = (space_id, field_name, field_type, not_null, description, formula, trigger_fields) ->
+add_field = (space_id, field_name, field_type, not_null, description, formula, trigger_fields, language) ->
   uuid = require 'uuid'
   json = require 'json'
   error "Type de champ invalide : #{field_type}" unless FIELD_TYPES_SET[field_type]
@@ -238,8 +238,11 @@ add_field = (space_id, field_name, field_type, not_null, description, formula, t
   fid = tostring uuid.new!
   tuple = { fid, space_id, field_name, field_type, not_null or false, pos, description or '' }
   if formula and formula != ''
+    -- Index 8 : formule ; index 9 : trigger_fields (JSON, "null" si absent) ;
+    -- index 10 : langage. La présence systématique des trois garantit une position fixe.
     table.insert tuple, formula
-    table.insert tuple, json.encode(trigger_fields) if trigger_fields != nil
+    table.insert tuple, json.encode(trigger_fields)  -- "null" si trigger_fields est nil
+    table.insert tuple, language or 'lua'
   box.space._tdb_fields\insert tuple
   -- Create a Tarantool sequence for auto-increment fields and backfill existing records
   if field_type == 'Sequence'
@@ -256,7 +259,7 @@ add_field = (space_id, field_name, field_type, not_null, description, formula, t
   {
     id: fid, spaceId: space_id, name: field_name, fieldType: field_type,
     notNull: not_null or false, position: pos, description: description or '',
-    formula: formula or '', triggerFields: trigger_fields
+    formula: formula or '', triggerFields: trigger_fields, language: language or 'lua'
   }
 
 remove_field = (field_id) ->
@@ -289,7 +292,15 @@ get_space = (id) ->
 -- List fields for a space, sorted by position.
 list_fields = (space_id) ->
   result = {}
+  json = require 'json'
   for t in *box.space._tdb_fields.index.by_space_pos\select { space_id }
+    -- Index 9 peut être : nil (ancien tuple sans formula), "null" (formula sans trigger),
+    -- ou un JSON array (trigger formula). L'index 10 est le langage (nouveaux tuples).
+    trigger_raw = t[9]
+    trigger_fields = if trigger_raw and trigger_raw != 'null'
+      json.decode trigger_raw
+    else
+      nil
     table.insert result, {
       id:            t[1]
       spaceId:       t[2]
@@ -299,7 +310,8 @@ list_fields = (space_id) ->
       position:      t[6]
       description:   t[7]
       formula:       t[8] or ''
-      triggerFields: t[9] and require('json').decode(t[9]) or nil
+      triggerFields: trigger_fields
+      language:      t[10] or 'lua'
     }
   result
 

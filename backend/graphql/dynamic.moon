@@ -5,6 +5,7 @@
 json       = require 'json'
 log        = require 'log'
 spaces_mod = require 'core.spaces'
+triggers   = require 'core.triggers'
 
 -- Sanitize a name to a valid GraphQL identifier
 gql_name = (name) ->
@@ -221,25 +222,18 @@ generate = ->
 
     for f in *(sp.fields or {})
       if f.formula and f.formula != ''
-        fn_str = "return function(self, space) return " .. f.formula .. " end"
-        ok_parse, compiled = pcall load, fn_str
-        if ok_parse and type(compiled) == 'function'
-          ok_init, formula_fn = pcall compiled
-          if ok_init and type(formula_fn) == 'function'
-            tr[gql_name f.name] = ((fn_cap, fk_nm_cap) ->
-              (obj, a, ctx) ->
-                proxy = make_self_proxy obj, fk_nm_cap
-                space_helper = (sname) ->
-                  sp_box = box.space["data_#{sname}"]
-                  return {} unless sp_box
-                  [decode_tuple t for t in *sp_box\select {}]
-                r_ok, val = pcall fn_cap, proxy, space_helper
-                if r_ok then val else nil
-            )(formula_fn, fk_name_map)
-          else
-            log.error "tdb dynamic: formula init error for field '#{f.name}': #{formula_fn}"
-        else
-          log.error "tdb dynamic: formula parse error for field '#{f.name}': #{compiled}"
+        formula_fn = triggers.compile_formula f.formula, f.name, (f.language or 'lua')
+        if formula_fn
+          tr[gql_name f.name] = ((fn_cap, fk_nm_cap) ->
+            (obj, a, ctx) ->
+              proxy = make_self_proxy obj, fk_nm_cap
+              space_helper = (sname) ->
+                sp_box = box.space["data_#{sname}"]
+                return {} unless sp_box
+                [decode_tuple t for t in *sp_box\select {}]
+              r_ok, val = pcall fn_cap, proxy, space_helper
+              if r_ok then val else nil
+          )(formula_fn, fk_name_map)
 
     type_resolvers["#{tname}_record"] = tr
 

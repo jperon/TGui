@@ -16,10 +16,27 @@ active_triggers = {}
 -- ── Formula compilation ───────────────────────────────────────────────────────
 
 -- Compile a formula string into a Lua function(self, space).
+-- language: 'lua' (défaut) ou 'moonscript'.
+-- Pour MoonScript, la formule est une expression MoonScript ; elle est transpilée
+-- en Lua via moonscript.base.to_lua avant le load() habituel.
 -- Returns the compiled function, or nil + logs an error on failure.
-compile_formula = (formula, field_name) ->
-  fn_str = "return function(self, space) return " .. formula .. " end"
-  ok, compiled = pcall load, fn_str
+compile_formula = (formula, field_name, language) ->
+  -- Construire la chaîne Lua du chunk qui retourne la fonction
+  lua_chunk = if language == 'moonscript'
+    ok_ms, moon = pcall require, 'moonscript.base'
+    unless ok_ms
+      log.error "tdb triggers: moonscript.base non disponible pour '#{field_name}': #{moon}"
+      return nil
+    -- Encapsuler l'expression dans une lambda MoonScript : (self, space) -> <expr>
+    moon_src = "return (self, space) -> " .. formula
+    ok_c, lua_or_err = pcall moon.to_lua, moon_src
+    unless ok_c
+      log.error "tdb triggers: MoonScript parse error pour '#{field_name}': #{lua_or_err}"
+      return nil
+    lua_or_err
+  else
+    "return function(self, space) return " .. formula .. " end"
+  ok, compiled = pcall load, lua_chunk
   if not ok or type(compiled) != 'function'
     log.error "tdb triggers: parse error for field '#{field_name}': #{compiled}"
     return nil
@@ -162,15 +179,18 @@ register_space_trigger = (space_name) ->
   trigger_defs = {}
   fk_def_map   = nil  -- lazy-built once if needed
   for t in *box.space._tdb_fields.index.by_space\select { space_id }
-    formula       = t[8]
-    trigger_json  = t[9]
-    if formula and formula != '' and trigger_json != nil
+    formula      = t[8]
+    trigger_json = t[9]
+    language     = t[10] or 'lua'
+    -- Un trigger ne s'enregistre que si trigger_json est présent et non "null"
+    -- (les formula columns simples ont trigger_json = nil (ancien format) ou "null" (nouveau format))
+    if formula and formula != '' and trigger_json != nil and trigger_json != 'null'
       ok, trigger_fields_list = pcall json.decode, trigger_json
       unless ok
         log.error "tdb triggers: invalid JSON in trigger_fields for field '#{t[3]}': #{trigger_fields_list}"
         continue
       fk_def_map = build_fk_def_map(space_id) unless fk_def_map
-      fn = compile_formula formula, t[3]
+      fn = compile_formula formula, t[3], language
       if fn
         table.insert trigger_defs, {
           field_name:          t[3]
@@ -194,4 +214,4 @@ init_all_triggers = ->
   for t in *box.space._tdb_spaces\select {}
     register_space_trigger t[2]
 
-{ :register_space_trigger, :init_all_triggers }
+{ :compile_formula, :register_space_trigger, :init_all_triggers }

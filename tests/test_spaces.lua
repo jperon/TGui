@@ -59,6 +59,7 @@ R.describe("Spaces — ajout de champs", function()
     local f = spaces_mod.add_field(space_id, 'nom_complet', 'String', false, '', 'self.nom or ""')
     R.ok(f)
     R.eq(f.formula, 'self.nom or ""')
+    R.eq(f.language, 'lua')
     field_id_formula = f.id
   end)
   R.it("add_field avec triggerFields", function()
@@ -68,6 +69,12 @@ R.describe("Spaces — ajout de champs", function()
     R.ok(f)
     R.ok(f.triggerFields)
     return R.eq(f.triggerFields[1], 'nom')
+  end)
+  R.it("add_field avec language=moonscript", function()
+    local f = spaces_mod.add_field(space_id, 'nom_moon', 'String', false, '', '(self.nom or "") .. " (moon)"', nil, 'moonscript')
+    R.ok(f)
+    R.eq(f.language, 'moonscript')
+    return R.eq(f.formula, '(self.nom or "") .. " (moon)"')
   end)
   return R.it("add_field avec type invalide → erreur", function()
     return R.raises((function()
@@ -104,6 +111,18 @@ R.describe("Spaces — list_fields", function()
       local f = fields[_index_0]
       if f.name == 'nom_complet' then
         R.ok(f.formula and f.formula ~= '')
+        R.eq(f.language, 'lua')
+        return 
+      end
+    end
+    return R.ok(false)
+  end)
+  R.it("champ moonscript a son language dans list_fields", function()
+    local fields = spaces_mod.list_fields(space_id)
+    for _index_0 = 1, #fields do
+      local f = fields[_index_0]
+      if f.name == 'nom_moon' then
+        R.eq(f.language, 'moonscript')
         return 
       end
     end

@@ -98,7 +98,7 @@ local Mutation = {
   end,
   addField = function(_, args, ctx)
     local i = args.input
-    local result = spaces_mod.add_field(args.spaceId, i.name, i.fieldType, i.notNull, i.description, i.formula, i.triggerFields)
+    local result = spaces_mod.add_field(args.spaceId, i.name, i.fieldType, i.notNull, i.description, i.formula, i.triggerFields, i.language)
     executor.reinit_schema()
     local sp_meta = box.space._tdb_spaces:get(args.spaceId)
     if sp_meta then

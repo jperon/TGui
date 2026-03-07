@@ -61,6 +61,7 @@ R.describe "Spaces — ajout de champs", ->
     f = spaces_mod.add_field space_id, 'nom_complet', 'String', false, '', 'self.nom or ""'
     R.ok f
     R.eq f.formula, 'self.nom or ""'
+    R.eq f.language, 'lua'  -- langage par défaut
     field_id_formula = f.id
 
   R.it "add_field avec triggerFields", ->
@@ -70,6 +71,14 @@ R.describe "Spaces — ajout de champs", ->
     R.ok f
     R.ok f.triggerFields
     R.eq f.triggerFields[1], 'nom'
+
+  R.it "add_field avec language=moonscript", ->
+    f = spaces_mod.add_field space_id, 'nom_moon', 'String', false, '',
+        '(self.nom or "") .. " (moon)"',
+        nil, 'moonscript'
+    R.ok f
+    R.eq f.language, 'moonscript'
+    R.eq f.formula, '(self.nom or "") .. " (moon)"'
 
   R.it "add_field avec type invalide → erreur", ->
     R.raises (-> spaces_mod.add_field space_id, 'x', 'TypeInexistant'), 'invalide'
@@ -94,6 +103,15 @@ R.describe "Spaces — list_fields", ->
     for f in *fields
       if f.name == 'nom_complet'
         R.ok f.formula and f.formula != ''
+        R.eq f.language, 'lua'
+        return
+    R.ok false  -- champ non trouvé
+
+  R.it "champ moonscript a son language dans list_fields", ->
+    fields = spaces_mod.list_fields space_id
+    for f in *fields
+      if f.name == 'nom_moon'
+        R.eq f.language, 'moonscript'
         return
     R.ok false  -- champ non trouvé
 

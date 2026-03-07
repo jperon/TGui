@@ -65,6 +65,7 @@ window.App =
     fieldType:         -> document.getElementById 'field-type'
     fieldNotNull:      -> document.getElementById 'field-notnull'
     fieldFormula:      -> document.getElementById 'field-formula'
+    formulaLanguage:   -> document.getElementById 'formula-language'
     fieldTriggerFields: -> document.getElementById 'field-trigger-fields'
     formulaBody:       -> document.getElementById 'formula-body'
     triggerFieldsRow:  -> document.getElementById 'trigger-fields-row'
@@ -369,6 +370,7 @@ window.App =
       formulaType = document.querySelector('input[name="formula-type"]:checked').value
       formula       = null
       triggerFields = null
+      language      = @el.formulaLanguage()?.value or 'lua'
       if formulaType != 'none'
         formula = @el.fieldFormula().value.trim() or null
         if formulaType == 'trigger' and formula
@@ -379,12 +381,13 @@ window.App =
             triggerFields = []
           else
             triggerFields = (s.trim() for s in raw.split(',') when s.trim())
-      Spaces.addField(@_currentSpace.id, name, type, notNull, '', formula, triggerFields)
+      Spaces.addField(@_currentSpace.id, name, type, notNull, '', formula, triggerFields, language)
         .then =>
           @el.fieldName().value = ''
           @el.fieldFormula().value = ''
           @el.fieldTriggerFields().value = ''
           @el.fieldNotNull().checked = false
+          if @el.formulaLanguage() then @el.formulaLanguage().value = 'lua'
           document.querySelector('input[name="formula-type"][value="none"]').checked = true
           @el.formulaBody().classList.add 'hidden'
           @el.triggerFieldsRow().classList.add 'hidden'
@@ -441,6 +444,7 @@ window.App =
       # Formula / trigger badges
       if f.formula and f.formula != ''
         fb = document.createElement 'span'
+        langLabel = if f.language == 'moonscript' then ' [moon]' else ''
         if f.triggerFields
           fb.className = 'field-trigger-badge'
           triggerDesc =
@@ -448,11 +452,11 @@ window.App =
             else if f.triggerFields[0] == '*' then 'tout changement'
             else f.triggerFields.join(', ')
           fb.textContent = '⚡'
-          fb.title = "Trigger formula (#{triggerDesc}) : #{f.formula}"
+          fb.title = "Trigger formula#{langLabel} (#{triggerDesc}) : #{f.formula}"
         else
           fb.className = 'field-formula-badge'
           fb.textContent = 'λ'
-          fb.title = "Colonne calculée : #{f.formula}"
+          fb.title = "Colonne calculée#{langLabel} : #{f.formula}"
         name.appendChild fb
       del = document.createElement 'button'
       del.textContent = '✕'

@@ -106,6 +106,9 @@
       fieldFormula: function() {
         return document.getElementById('field-formula');
       },
+      formulaLanguage: function() {
+        return document.getElementById('formula-language');
+      },
       fieldTriggerFields: function() {
         return document.getElementById('field-trigger-fields');
       },
@@ -566,7 +569,7 @@
         });
       });
       return this.el.fieldAddBtn().addEventListener('click', () => {
-        var formula, formulaType, name, notNull, raw, s, triggerFields, type;
+        var formula, formulaType, language, name, notNull, raw, ref, s, triggerFields, type;
         if (!this._currentSpace) {
           return;
         }
@@ -579,6 +582,7 @@
         formulaType = document.querySelector('input[name="formula-type"]:checked').value;
         formula = null;
         triggerFields = null;
+        language = ((ref = this.el.formulaLanguage()) != null ? ref.value : void 0) || 'lua';
         if (formulaType !== 'none') {
           formula = this.el.fieldFormula().value.trim() || null;
           if (formulaType === 'trigger' && formula) {
@@ -589,11 +593,11 @@
               triggerFields = [];
             } else {
               triggerFields = (function() {
-                var i, len, ref, results;
-                ref = raw.split(',');
+                var i, len, ref1, results;
+                ref1 = raw.split(',');
                 results = [];
-                for (i = 0, len = ref.length; i < len; i++) {
-                  s = ref[i];
+                for (i = 0, len = ref1.length; i < len; i++) {
+                  s = ref1[i];
                   if (s.trim()) {
                     results.push(s.trim());
                   }
@@ -603,11 +607,14 @@
             }
           }
         }
-        return Spaces.addField(this._currentSpace.id, name, type, notNull, '', formula, triggerFields).then(() => {
+        return Spaces.addField(this._currentSpace.id, name, type, notNull, '', formula, triggerFields, language).then(() => {
           this.el.fieldName().value = '';
           this.el.fieldFormula().value = '';
           this.el.fieldTriggerFields().value = '';
           this.el.fieldNotNull().checked = false;
+          if (this.el.formulaLanguage()) {
+            this.el.formulaLanguage().value = 'lua';
+          }
           document.querySelector('input[name="formula-type"][value="none"]').checked = true;
           this.el.formulaBody().classList.add('hidden');
           this.el.triggerFieldsRow().classList.add('hidden');
@@ -624,7 +631,7 @@
       });
     },
     renderFieldsList: function() {
-      var badge, del, dragSrc, f, fb, fields, handle, i, j, len, len1, li, name, opt, req, results, sel, triggerDesc, ul;
+      var badge, del, dragSrc, f, fb, fields, handle, i, j, langLabel, len, len1, li, name, opt, req, results, sel, triggerDesc, ul;
       if (!this._currentSpace) {
         return;
       }
@@ -677,15 +684,16 @@
         // Formula / trigger badges
         if (f.formula && f.formula !== '') {
           fb = document.createElement('span');
+          langLabel = f.language === 'moonscript' ? ' [moon]' : '';
           if (f.triggerFields) {
             fb.className = 'field-trigger-badge';
             triggerDesc = f.triggerFields.length === 0 ? 'création' : f.triggerFields[0] === '*' ? 'tout changement' : f.triggerFields.join(', ');
             fb.textContent = '⚡';
-            fb.title = `Trigger formula (${triggerDesc}) : ${f.formula}`;
+            fb.title = `Trigger formula${langLabel} (${triggerDesc}) : ${f.formula}`;
           } else {
             fb.className = 'field-formula-badge';
             fb.textContent = 'λ';
-            fb.title = `Colonne calculée : ${f.formula}`;
+            fb.title = `Colonne calculée${langLabel} : ${f.formula}`;
           }
           name.appendChild(fb);
         }

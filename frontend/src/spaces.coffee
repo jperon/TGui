@@ -2,7 +2,7 @@
 # Space and field management.
 
 LIST_SPACES = """
-  query { spaces { id name description fields { id name fieldType notNull position description formula triggerFields } } }
+  query { spaces { id name description fields { id name fieldType notNull position description formula triggerFields language } } }
 """
 
 CREATE_SPACE = """
@@ -21,7 +21,7 @@ SPACE_FIELDS = """
   query SpaceFields($id: ID!) {
     space(id: $id) {
       id name description
-      fields { id name fieldType notNull position description formula triggerFields }
+      fields { id name fieldType notNull position description formula triggerFields language }
     }
   }
 """
@@ -66,10 +66,11 @@ window.Spaces =
   getWithFields: (id) ->
     GQL.query(SPACE_FIELDS, { id }).then (d) -> d.space
 
-  addField: (spaceId, name, fieldType, notNull = false, description = '', formula = null, triggerFields = null) ->
+  addField: (spaceId, name, fieldType, notNull = false, description = '', formula = null, triggerFields = null, language = 'lua') ->
     input = { name, fieldType, notNull, description }
     input.formula       = formula       if formula
     input.triggerFields = triggerFields if triggerFields
+    input.language      = language      if language and language != 'lua'
     GQL.mutate(ADD_FIELD, { spaceId, input })
       .then (d) -> d.addField
 

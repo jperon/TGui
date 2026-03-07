@@ -3,9 +3,25 @@ local log = require('log')
 local spaces_mod = require('core.spaces')
 local active_triggers = { }
 local compile_formula
-compile_formula = function(formula, field_name)
-  local fn_str = "return function(self, space) return " .. formula .. " end"
-  local ok, compiled = pcall(load, fn_str)
+compile_formula = function(formula, field_name, language)
+  local lua_chunk
+  if language == 'moonscript' then
+    local ok_ms, moon = pcall(require, 'moonscript.base')
+    if not (ok_ms) then
+      log.error("tdb triggers: moonscript.base non disponible pour '" .. tostring(field_name) .. "': " .. tostring(moon))
+      return nil
+    end
+    local moon_src = "return (self, space) -> " .. formula
+    local ok_c, lua_or_err = pcall(moon.to_lua, moon_src)
+    if not (ok_c) then
+      log.error("tdb triggers: MoonScript parse error pour '" .. tostring(field_name) .. "': " .. tostring(lua_or_err))
+      return nil
+    end
+    lua_chunk = lua_or_err
+  else
+    lua_chunk = "return function(self, space) return " .. formula .. " end"
+  end
+  local ok, compiled = pcall(load, lua_chunk)
   if not ok or type(compiled) ~= 'function' then
     log.error("tdb triggers: parse error for field '" .. tostring(field_name) .. "': " .. tostring(compiled))
     return nil
@@ -239,7 +255,8 @@ register_space_trigger = function(space_name)
       local t = _list_0[_index_0]
       local formula = t[8]
       local trigger_json = t[9]
-      if formula and formula ~= '' and trigger_json ~= nil then
+      local language = t[10] or 'lua'
+      if formula and formula ~= '' and trigger_json ~= nil and trigger_json ~= 'null' then
         local ok, trigger_fields_list = pcall(json.decode, trigger_json)
         if not (ok) then
           log.error("tdb triggers: invalid JSON in trigger_fields for field '" .. tostring(t[3]) .. "': " .. tostring(trigger_fields_list))
@@ -249,7 +266,7 @@ register_space_trigger = function(space_name)
         if not (fk_def_map) then
           fk_def_map = build_fk_def_map(space_id)
         end
-        local fn = compile_formula(formula, t[3])
+        local fn = compile_formula(formula, t[3], language)
         if fn then
           table.insert(trigger_defs, {
             field_name = t[3],
@@ -286,6 +303,7 @@ init_all_triggers = function()
   end
 end
 return {
+  compile_formula = compile_formula,
   register_space_trigger = register_space_trigger,
   init_all_triggers = init_all_triggers
 }
