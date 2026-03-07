@@ -17,8 +17,10 @@ resolve_value = function(value_node, variables)
   local _exp_0 = value_node.kind
   if 'Variable' == _exp_0 then
     return variables[value_node.name]
-  elseif 'IntValue' == _exp_0 or 'FloatValue' == _exp_0 then
-    return value_node.value
+  elseif 'IntValue' == _exp_0 then
+    return tonumber(value_node.value)
+  elseif 'FloatValue' == _exp_0 then
+    return tonumber(value_node.value)
   elseif 'StringValue' == _exp_0 then
     return value_node.value
   elseif 'BooleanValue' == _exp_0 then

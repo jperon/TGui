@@ -172,6 +172,10 @@ class Schema
   get_type: (name) =>
     @types[name] or error "Unknown type: #{name}"
 
+  -- Returns a type by name, or nil if not found (no error)
+  find_type: (name) =>
+    @types[name]
+
   -- Get the resolver function for a field
   get_resolver: (type_name, field_name) =>
     type_resolvers = @resolvers[type_name]

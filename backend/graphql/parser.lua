@@ -59,8 +59,9 @@ do
       if tok.type == T.BRACE_L then
         return self:parse_operation_definition()
       end
+      local description = nil
       if tok.type == T.BLOCK_STRING or tok.type == T.STRING then
-        self.pos = self.pos + 1
+        description = self:consume(self:peek().type).value
         tok = self:peek()
       end
       if tok.type == T.NAME then
@@ -70,7 +71,7 @@ do
         elseif 'fragment' == _exp_0 then
           return self:parse_fragment_definition()
         elseif 'type' == _exp_0 or 'interface' == _exp_0 or 'union' == _exp_0 or 'enum' == _exp_0 or 'input' == _exp_0 or 'scalar' == _exp_0 or 'directive' == _exp_0 or 'schema' == _exp_0 or 'extend' == _exp_0 then
-          return self:parse_type_system_definition()
+          return self:parse_type_system_definition(description)
         end
       end
       return error("Unexpected token: " .. tostring(tok.type) .. " " .. tostring(tok.value))
@@ -239,13 +240,13 @@ do
         self:consume(T.INT)
         return {
           kind = 'IntValue',
-          value = tonumber(tok.value)
+          value = tok.value
         }
       elseif T.FLOAT == _exp_0 then
         self:consume(T.FLOAT)
         return {
           kind = 'FloatValue',
-          value = tonumber(tok.value)
+          value = tok.value
         }
       elseif T.STRING == _exp_0 then
         self:consume(T.STRING)
@@ -373,11 +374,8 @@ do
         arguments = args
       }
     end,
-    parse_type_system_definition = function(self)
-      local description = nil
-      if self:peek().type == T.STRING or self:peek().type == T.BLOCK_STRING then
-        description = self:consume(self:peek().type).value
-      end
+    parse_type_system_definition = function(self, description)
+      description = description or nil
       local kw = self:peek().value
       local _exp_0 = kw
       if 'schema' == _exp_0 then
@@ -490,11 +488,10 @@ do
         if self:peek().type == T.PIPE then
           self:consume(T.PIPE)
         end
-        while self:peek().type == T.NAME do
+        table.insert(types, self:consume(T.NAME).value)
+        while self:peek().type == T.PIPE do
+          self:consume(T.PIPE)
           table.insert(types, self:consume(T.NAME).value)
-          if self:peek().type == T.PIPE then
-            self:consume(T.PIPE)
-          end
         end
       end
       return {
@@ -772,11 +769,10 @@ do
         if self:peek().type == T.PIPE then
           self:consume(T.PIPE)
         end
-        while self:peek().type == T.NAME do
+        table.insert(types, self:consume(T.NAME).value)
+        while self:peek().type == T.PIPE do
+          self:consume(T.PIPE)
           table.insert(types, self:consume(T.NAME).value)
-          if self:peek().type == T.PIPE then
-            self:consume(T.PIPE)
-          end
         end
       end
       return {

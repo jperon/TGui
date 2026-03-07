@@ -184,6 +184,9 @@ do
     get_type = function(self, name)
       return self.types[name] or error("Unknown type: " .. tostring(name))
     end,
+    find_type = function(self, name)
+      return self.types[name]
+    end,
     get_resolver = function(self, type_name, field_name)
       local type_resolvers = self.resolvers[type_name]
       if type_resolvers then

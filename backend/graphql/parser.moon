@@ -52,9 +52,10 @@ class Parser
     if tok.type == T.BRACE_L
       return @parse_operation_definition!
 
-    -- Skip leading description strings (block or regular) before SDL definitions
+    -- Read optional leading description before SDL definitions
+    description = nil
     if tok.type == T.BLOCK_STRING or tok.type == T.STRING
-      @pos += 1
+      description = @consume(@peek!.type).value
       tok = @peek!
 
     if tok.type == T.NAME
@@ -65,7 +66,7 @@ class Parser
           return @parse_fragment_definition!
         -- SDL definitions
         when 'type', 'interface', 'union', 'enum', 'input', 'scalar', 'directive', 'schema', 'extend'
-          return @parse_type_system_definition!
+          return @parse_type_system_definition description
 
     error "Unexpected token: #{tok.type} #{tok.value}"
 
@@ -192,10 +193,10 @@ class Parser
       when T.BRACE_L   then @parse_object_value is_const
       when T.INT
         @consume T.INT
-        { kind: 'IntValue', value: tonumber tok.value }
+        { kind: 'IntValue', value: tok.value }
       when T.FLOAT
         @consume T.FLOAT
-        { kind: 'FloatValue', value: tonumber tok.value }
+        { kind: 'FloatValue', value: tok.value }
       when T.STRING
         @consume T.STRING
         { kind: 'StringValue', value: tok.value }
@@ -282,11 +283,9 @@ class Parser
   -- SDL / Type system definitions
   -- ────────────────────────────────────────────────────────────────────────
 
-  parse_type_system_definition: =>
-    -- optional description (block string or string before keyword)
-    description = nil
-    if @peek!.type == T.STRING or @peek!.type == T.BLOCK_STRING
-      description = @consume(@peek!.type).value
+  parse_type_system_definition: (description) =>
+    -- description already consumed by parse_definition if present
+    description = description or nil
 
     kw = @peek!.value
     switch kw
@@ -354,9 +353,10 @@ class Parser
     if @peek!.type == T.EQUALS
       @consume T.EQUALS
       if @peek!.type == T.PIPE then @consume T.PIPE
-      while @peek!.type == T.NAME
+      table.insert types, @consume(T.NAME).value
+      while @peek!.type == T.PIPE
+        @consume T.PIPE
         table.insert types, @consume(T.NAME).value
-        if @peek!.type == T.PIPE then @consume T.PIPE
     { kind: 'UnionTypeDefinition', description: description, name: name, directives: dirs, types: types }
 
   parse_enum_type: (description) =>
@@ -531,9 +531,10 @@ class Parser
     if @peek!.type == T.EQUALS
       @consume T.EQUALS
       if @peek!.type == T.PIPE then @consume T.PIPE
-      while @peek!.type == T.NAME
+      table.insert types, @consume(T.NAME).value
+      while @peek!.type == T.PIPE
+        @consume T.PIPE
         table.insert types, @consume(T.NAME).value
-        if @peek!.type == T.PIPE then @consume T.PIPE
     { kind: 'UnionTypeExtension', name: name, directives: dirs, types: types }
 
   parse_scalar_type_extension: =>

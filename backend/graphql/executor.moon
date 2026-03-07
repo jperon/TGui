@@ -23,8 +23,10 @@ resolve_value = (value_node, variables) ->
   switch value_node.kind
     when 'Variable'
       variables[value_node.name]
-    when 'IntValue', 'FloatValue'
-      value_node.value
+    when 'IntValue'
+      tonumber value_node.value
+    when 'FloatValue'
+      tonumber value_node.value
     when 'StringValue'
       value_node.value
     when 'BooleanValue'
