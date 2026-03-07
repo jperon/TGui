@@ -1,5 +1,8 @@
 # Vendor bundles (large, regenerate with `make vendor`)
+# Les bundles actifs (tui-grid, jsyaml) sont commités ; le reste est ignoré.
 frontend/vendor/
+!frontend/vendor/tui-grid.bundle.*
+!frontend/vendor/jsyaml.bundle.*
 
 # Docker data volumes
 data/
