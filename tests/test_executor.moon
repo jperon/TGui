@@ -84,9 +84,16 @@ R.describe "Executor — requêtes simples", ->
     R.eq res.data.answer, 42
     R.eq res.data.flag, true
 
-  R.it "champ null retourne nil", ->
+  R.it "champ null → présent en JSON null (pas clé absente)", ->
+    -- Garantit {"data":{"nullField":null}} et non {"data":[]}
+    -- Ce bug causait l'échec du login après expiration de session.
+    -- Note : en LuaJIT, cdata(NULL) == nil est true ; on vérifie via type() et l'encodage JSON.
+    json = require 'json'
     res = run "{ nullField }"
-    R.is_nil res.data.nullField
+    R.ok res.data
+    R.eq type(res.data.nullField), 'cdata', "nullField doit être un cdata (json.NULL)"
+    encoded = json.encode res.data
+    R.matches encoded, '"nullField"'
 
   R.it "champ non-null retournant nil → erreur", ->
     res = run "{ errField }"
@@ -180,7 +187,8 @@ R.describe "Executor — erreurs", ->
   R.it "parse error → erreur retournée", ->
     res = run '{ unclosed {'
     R.ok res.errors
-    R.is_nil res.data
+    -- data vaut json.NULL (cdata) en cas d'erreur fatale ; type() == 'cdata' le confirme
+    R.eq type(res.data), 'cdata', "data doit être json.NULL en cas d'erreur"
 
   R.it "schéma non initialisé → erreur", ->
     executor2 = require 'graphql.executor'
@@ -191,12 +199,12 @@ R.describe "Executor — erreurs", ->
     -- Remettre le schéma de test
     executor2.init schema
 
-  R.it "champ inexistant → nil dans data (pas d'erreur bloquante)", ->
-    -- Le champ demandé n'existe pas dans le schéma : erreur ou nil
+  R.it "champ inexistant → null JSON dans data", ->
+    -- Un champ absent du schéma résout à null (pas d'erreur, clé présente)
+    json = require 'json'
     res = run '{ nonExistentField }'
-    -- selon l'implémentation : errors ou data.nonExistentField nil
-    has_error = (res.errors and #res.errors > 0) or (res.data and res.data.nonExistentField == nil)
-    R.ok has_error
+    R.ok res.data
+    R.eq res.data.nonExistentField, json.NULL
 
 R.describe "Executor — sélection d'opération", ->
   R.it "opération nommée choisie", ->

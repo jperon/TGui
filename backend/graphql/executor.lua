@@ -2,6 +2,7 @@ local parse
 parse = require('graphql.parser').parse
 local build_schema
 build_schema = require('graphql.schema').build_schema
+local json_null = (require('json')).NULL
 local _schema = nil
 local _reinit_fn = nil
 local extend
@@ -152,7 +153,7 @@ do
       local op = self:_find_operation()
       if not (op) then
         return {
-          data = nil,
+          data = json_null,
           errors = {
             {
               message = 'No operation found'
@@ -174,7 +175,7 @@ do
       local root_type = self.schema.types[root_type_name]
       if not (root_type) then
         return {
-          data = nil,
+          data = json_null,
           errors = {
             {
               message = "Root type '" .. tostring(root_type_name) .. "' not found"
@@ -228,10 +229,14 @@ do
           return self:resolve_field(type_name, f.name, f.node, parent_obj, path)
         end)
         if ok then
-          result[rkey] = val
+          if val == nil then
+            result[rkey] = json_null
+          else
+            result[rkey] = val
+          end
         else
           self:add_error(tostring(val), extend(path, rkey))
-          result[rkey] = nil
+          result[rkey] = json_null
         end
       end
       return result
@@ -371,7 +376,7 @@ execute = function(opts)
   local context = opts.context or { }
   if not (_schema) then
     return {
-      data = nil,
+      data = json_null,
       errors = {
         {
           message = 'Schema not initialized'
@@ -382,7 +387,7 @@ execute = function(opts)
   local ok, doc = pcall(parse, query)
   if not (ok) then
     return {
-      data = nil,
+      data = json_null,
       errors = {
         {
           message = 'Parse error: ' .. tostring(doc)

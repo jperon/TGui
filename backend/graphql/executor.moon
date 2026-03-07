@@ -4,6 +4,10 @@
 { :parse }        = require 'graphql.parser'
 { :build_schema } = require 'graphql.schema'
 
+-- Sentinel JSON null : représente "null" en JSON sans supprimer la clé du tableau Lua.
+-- json.encode(json.NULL) → "null" ; indispensable pour les champs nullables.
+json_null = (require 'json').NULL
+
 -- Active schema (set via init)
 _schema    = nil
 _reinit_fn = nil
@@ -126,7 +130,7 @@ class Executor
     -- Find the operation to execute
     op = @_find_operation!
     unless op
-      return { data: nil, errors: { {message: 'No operation found'} } }
+      return { data: json_null, errors: { {message: 'No operation found'} } }
 
     root_type_name = switch op.operation
       when 'query'        then @schema.query_type
@@ -136,7 +140,7 @@ class Executor
 
     root_type = @schema.types[root_type_name]
     unless root_type
-      return { data: nil, errors: { {message: "Root type '#{root_type_name}' not found"} } }
+      return { data: json_null, errors: { {message: "Root type '#{root_type_name}' not found"} } }
 
     data = @execute_selection_set op.selectionSet, root_type_name, {}, {}
     result = { data: data }
@@ -168,10 +172,12 @@ class Executor
       ok, val = pcall ->
         @resolve_field type_name, f.name, f.node, parent_obj, path
       if ok
-        result[rkey] = val
+        -- Utiliser json_null pour les valeurs nil : garantit que la clé est présente
+        -- dans le résultat JSON ("field": null) et non absente (ce qui donnerait []).
+        result[rkey] = if val == nil then json_null else val
       else
         @add_error tostring(val), extend(path, rkey)
-        result[rkey] = nil
+        result[rkey] = json_null
     result
 
   resolve_field: (type_name, field_name, field_node, parent_obj, path) =>
@@ -271,11 +277,11 @@ execute = (opts) ->
   context        = opts.context or {}
 
   unless _schema
-    return { data: nil, errors: { {message: 'Schema not initialized'} } }
+    return { data: json_null, errors: { {message: 'Schema not initialized'} } }
 
   ok, doc = pcall parse, query
   unless ok
-    return { data: nil, errors: { {message: 'Parse error: ' .. tostring(doc)} } }
+    return { data: json_null, errors: { {message: 'Parse error: ' .. tostring(doc)} } }
 
   exec = Executor _schema, doc, variables, operation_name, context
   exec\execute!
