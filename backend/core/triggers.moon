@@ -165,7 +165,10 @@ register_space_trigger = (space_name) ->
     formula       = t[8]
     trigger_json  = t[9]
     if formula and formula != '' and trigger_json != nil
-      trigger_fields_list = json.decode trigger_json
+      ok, trigger_fields_list = pcall json.decode, trigger_json
+      unless ok
+        log.error "tdb triggers: invalid JSON in trigger_fields for field '#{t[3]}': #{trigger_fields_list}"
+        continue
       fk_def_map = build_fk_def_map(space_id) unless fk_def_map
       fn = compile_formula formula, t[3]
       if fn

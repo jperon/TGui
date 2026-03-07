@@ -11,6 +11,15 @@ local FIELD_TYPES = {
   'Map',
   'Array'
 }
+local FIELD_TYPES_SET
+do
+  local _tbl_0 = { }
+  for _index_0 = 1, #FIELD_TYPES do
+    local v = FIELD_TYPES[_index_0]
+    _tbl_0[v] = true
+  end
+  FIELD_TYPES_SET = _tbl_0
+end
 local SYSTEM_SPACES = {
   _tdb_spaces = {
     format = {
@@ -570,6 +579,9 @@ local add_field
 add_field = function(space_id, field_name, field_type, not_null, description, formula, trigger_fields)
   local uuid = require('uuid')
   local json = require('json')
+  if not (FIELD_TYPES_SET[field_type]) then
+    error("Type de champ invalide : " .. tostring(field_type))
+  end
   local pos = 1
   local _list_0 = box.space._tdb_fields.index.by_space:select({
     space_id

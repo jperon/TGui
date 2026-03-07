@@ -6,8 +6,6 @@ views_mod   = require 'core.views'
 triggers    = require 'core.triggers'
 executor    = require 'graphql.executor'
 
-fio = require 'fio'
-
 -- ────────────────────────────────────────────────────────────────────────────
 -- Relation helpers (stored in _tdb_relations)
 -- ────────────────────────────────────────────────────────────────────────────

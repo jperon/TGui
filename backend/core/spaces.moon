@@ -6,6 +6,7 @@ log = require 'log'
 
 -- Field type constants (mirrors GraphQL scalar names)
 FIELD_TYPES = { 'String', 'Int', 'Float', 'Boolean', 'ID', 'UUID', 'Sequence', 'Any', 'Map', 'Array' }
+FIELD_TYPES_SET = { v, true for v in *FIELD_TYPES }
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- Space descriptors
@@ -229,6 +230,7 @@ create_user_space = (name, description) ->
 add_field = (space_id, field_name, field_type, not_null, description, formula, trigger_fields) ->
   uuid = require 'uuid'
   json = require 'json'
+  error "Type de champ invalide : #{field_type}" unless FIELD_TYPES_SET[field_type]
   -- compute next position
   pos = 1
   for _ in *box.space._tdb_fields.index.by_space\select { space_id }

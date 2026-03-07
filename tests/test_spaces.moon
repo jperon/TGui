@@ -71,6 +71,9 @@ R.describe "Spaces — ajout de champs", ->
     R.ok f.triggerFields
     R.eq f.triggerFields[1], 'nom'
 
+  R.it "add_field avec type invalide → erreur", ->
+    R.raises (-> spaces_mod.add_field space_id, 'x', 'TypeInexistant'), 'invalide'
+
 R.describe "Spaces — list_fields", ->
   R.it "retourne les champs triés par position", ->
     fields = spaces_mod.list_fields space_id

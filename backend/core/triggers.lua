@@ -234,23 +234,35 @@ register_space_trigger = function(space_name)
     space_id
   })
   for _index_0 = 1, #_list_0 do
-    local t = _list_0[_index_0]
-    local formula = t[8]
-    local trigger_json = t[9]
-    if formula and formula ~= '' and trigger_json ~= nil then
-      local trigger_fields_list = json.decode(trigger_json)
-      if not (fk_def_map) then
-        fk_def_map = build_fk_def_map(space_id)
+    local _continue_0 = false
+    repeat
+      local t = _list_0[_index_0]
+      local formula = t[8]
+      local trigger_json = t[9]
+      if formula and formula ~= '' and trigger_json ~= nil then
+        local ok, trigger_fields_list = pcall(json.decode, trigger_json)
+        if not (ok) then
+          log.error("tdb triggers: invalid JSON in trigger_fields for field '" .. tostring(t[3]) .. "': " .. tostring(trigger_fields_list))
+          _continue_0 = true
+          break
+        end
+        if not (fk_def_map) then
+          fk_def_map = build_fk_def_map(space_id)
+        end
+        local fn = compile_formula(formula, t[3])
+        if fn then
+          table.insert(trigger_defs, {
+            field_name = t[3],
+            fn = fn,
+            trigger_fields_list = trigger_fields_list,
+            fk_def_map = fk_def_map
+          })
+        end
       end
-      local fn = compile_formula(formula, t[3])
-      if fn then
-        table.insert(trigger_defs, {
-          field_name = t[3],
-          fn = fn,
-          trigger_fields_list = trigger_fields_list,
-          fk_def_map = fk_def_map
-        })
-      end
+      _continue_0 = true
+    until true
+    if not _continue_0 then
+      break
     end
   end
   if #trigger_defs == 0 then

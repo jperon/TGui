@@ -88,6 +88,12 @@ R.describe "Executor — requêtes simples", ->
     res = run "{ nullField }"
     R.is_nil res.data.nullField
 
+  R.it "champ non-null retournant nil → erreur", ->
+    res = run "{ errField }"
+    R.ok res.errors, "doit retourner une erreur"
+    R.ok #res.errors > 0
+    R.matches tostring(res.errors[1].message), 'null'
+
   R.it "__typename retourne le nom du type", ->
     res = run "{ __typename }"
     R.eq res.data['__typename'], 'Query'

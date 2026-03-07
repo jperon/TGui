@@ -2,7 +2,6 @@ local spaces_mod = require('core.spaces')
 local views_mod = require('core.views')
 local triggers = require('core.triggers')
 local executor = require('graphql.executor')
-local fio = require('fio')
 local list_relations
 list_relations = function(space_id)
   local result = { }
