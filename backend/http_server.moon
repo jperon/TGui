@@ -8,6 +8,7 @@ fio = require 'fio'
 log = require 'log'
 
 graphql = require 'graphql.executor'
+index  = require 'index'
 
 FRONTEND_DIR = '/app/frontend'
 
@@ -32,10 +33,7 @@ read_file = (path) ->
 
 serve_static = (req) ->
   url_path = req.path
-  -- default to index.html
-  if url_path == '/' or url_path == '' or url_path == nil
-    url_path = '/index.html'
-
+  -- Les requêtes vers / sont gérées par serve_index ; ici on ne sert que les assets.
   disk_path = FRONTEND_DIR .. url_path
   content = read_file disk_path
   unless content
@@ -76,6 +74,9 @@ handle_graphql = (req) ->
   result = graphql.execute { query, variables, op_name, context: ctx }
   req\render { status: 200, json: result }
 
+serve_index = (req) ->
+  { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' }, body: index.render! }
+
 start = (opts = {}) ->
   host = opts.host or '0.0.0.0'
   port = opts.port or 8080
@@ -83,8 +84,8 @@ start = (opts = {}) ->
   server = http.new host, port, { log_requests: true }
 
   server\route { path: '/graphql', method: 'POST' }, handle_graphql
-  server\route { path: '/' },                        serve_static
-  server\route { path: '/.*' },                      serve_static
+  server\route { path: '/' },    serve_index
+  server\route { path: '/.*' },  serve_static
 
   server\start!
   log.info "tdb HTTP server listening on #{host}:#{port}"

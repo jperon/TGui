@@ -4,6 +4,7 @@ local json = require('json')
 local fio = require('fio')
 local log = require('log')
 local graphql = require('graphql.executor')
+local index = require('index')
 local FRONTEND_DIR = '/app/frontend'
 local mime_types = {
   html = 'text/html; charset=utf-8',
@@ -33,9 +34,6 @@ end
 local serve_static
 serve_static = function(req)
   local url_path = req.path
-  if url_path == '/' or url_path == '' or url_path == nil then
-    url_path = '/index.html'
-  end
   local disk_path = FRONTEND_DIR .. url_path
   local content = read_file(disk_path)
   if not (content) then
@@ -108,6 +106,16 @@ handle_graphql = function(req)
     json = result
   })
 end
+local serve_index
+serve_index = function(req)
+  return {
+    status = 200,
+    headers = {
+      ['content-type'] = 'text/html; charset=utf-8'
+    },
+    body = index.render()
+  }
+end
 local start
 start = function(opts)
   if opts == nil then
@@ -124,7 +132,7 @@ start = function(opts)
   }, handle_graphql)
   server:route({
     path = '/'
-  }, serve_static)
+  }, serve_index)
   server:route({
     path = '/.*'
   }, serve_static)
