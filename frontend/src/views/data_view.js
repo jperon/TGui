@@ -115,37 +115,12 @@
     }
 
     async mount() {
-      var bar, col, columns, editableCols, f, fields, fkMap, fkOptions, formulaNames, input, label, ref, saved, seqNames, wrapper;
+      var col, columns, editableCols, f, fields, fkMap, fkOptions, formulaNames, ref, saved, seqNames, wrapper;
       this._mounted = true;
       this.container.innerHTML = '';
-      // Formula filter bar
-      bar = document.createElement('div');
-      bar.className = 'dv-filter-bar';
-      label = document.createElement('span');
-      label.className = 'dv-filter-label';
-      label.textContent = '⚗ Filtre :';
-      input = document.createElement('input');
-      input.type = 'text';
-      input.className = 'dv-filter-input';
-      input.placeholder = 'ex: self.disponible == true  (MoonScript/Lua, self = enregistrement)';
-      input.value = this._formulaFilter;
-      input.addEventListener('input', () => {
-        var val;
-        clearTimeout(this._formulaTimer);
-        val = input.value.trim();
-        input.classList.toggle('active', val !== '');
-        return this._formulaTimer = setTimeout(() => {
-          this._formulaFilter = val;
-          return this.load();
-        }, 400);
-      });
-      bar.appendChild(label);
-      bar.appendChild(input);
-      this.container.appendChild(bar);
       wrapper = document.createElement('div');
-      wrapper.style.cssText = 'width:100%;flex:1;min-height:0;';
+      wrapper.style.cssText = 'width:100%;height:100%;';
       this.container.appendChild(wrapper);
-      this.container.style.cssText = 'display:flex;flex-direction:column;height:100%;';
       fields = this.space.fields || [];
       seqNames = new Set((function() {
         var j, len, results;

@@ -60,6 +60,7 @@ window.App =
     adminNavSnapshot:  -> document.getElementById 'admin-nav-snapshot'
     dataToolbar:       -> document.getElementById 'data-toolbar'
     dataTitle:         -> document.getElementById 'data-title'
+    formulaFilterInput: -> document.getElementById 'formula-filter-input'
     renameSpaceBtn:    -> document.getElementById 'rename-space-btn'
     deleteSpaceBtn:    -> document.getElementById 'delete-space-btn'
     fieldsBtn:         -> document.getElementById 'fields-btn'
@@ -613,6 +614,11 @@ window.App =
     relations = await Spaces.listRelations(space.id)
     @_activeDataView = new DataView container, space, null, relations
     @_activeDataView.mount()
+    # Reset filter bar
+    input = @el.formulaFilterInput()
+    if input
+      input.value = ''
+      input.classList.remove 'active'
 
   # ── Custom views (Vues section) ──────────────────────────────────────────────
   loadCustomViews: ->
@@ -763,6 +769,16 @@ window.App =
   _bindDataToolbar: ->
     @el.deleteRowsBtn().addEventListener 'click', =>
       @_activeDataView?.deleteSelected()
+
+    # Formula filter input (debounced, sends to active DataView)
+    @_formulaTimer = null
+    @el.formulaFilterInput().addEventListener 'input', (e) =>
+      clearTimeout @_formulaTimer
+      val = e.target.value.trim()
+      e.target.classList.toggle 'active', val != ''
+      @_formulaTimer = setTimeout =>
+        @_activeDataView?.setFormulaFilter val
+      , 400
 
     @el.deleteSpaceBtn().addEventListener 'click', =>
       return unless @_currentSpace

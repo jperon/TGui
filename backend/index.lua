@@ -417,8 +417,17 @@ make_content = function()
         '🗑'
       }),
       H.div({
-        class = 'toolbar-spacer',
-        ''
+        class = 'toolbar-filter',
+        H.span({
+          class = 'toolbar-filter-label',
+          '⚗'
+        }),
+        H.input({
+          id = 'formula-filter-input',
+          type = 'text',
+          class = 'toolbar-filter-input',
+          placeholder = 'Filtre (ex: self.disponible == true)'
+        })
       }),
       H.button({
         id = 'delete-rows-btn',

@@ -90,33 +90,9 @@ window.DataView = class DataView
     @_mounted = true
     @container.innerHTML = ''
 
-    # Formula filter bar
-    bar = document.createElement 'div'
-    bar.className = 'dv-filter-bar'
-    label = document.createElement 'span'
-    label.className = 'dv-filter-label'
-    label.textContent = '⚗ Filtre :'
-    input = document.createElement 'input'
-    input.type = 'text'
-    input.className = 'dv-filter-input'
-    input.placeholder = 'ex: self.disponible == true  (MoonScript/Lua, self = enregistrement)'
-    input.value = @_formulaFilter
-    input.addEventListener 'input', =>
-      clearTimeout @_formulaTimer
-      val = input.value.trim()
-      input.classList.toggle 'active', val != ''
-      @_formulaTimer = setTimeout =>
-        @_formulaFilter = val
-        @load()
-      , 400
-    bar.appendChild label
-    bar.appendChild input
-    @container.appendChild bar
-
     wrapper = document.createElement 'div'
-    wrapper.style.cssText = 'width:100%;flex:1;min-height:0;'
+    wrapper.style.cssText = 'width:100%;height:100%;'
     @container.appendChild wrapper
-    @container.style.cssText = 'display:flex;flex-direction:column;height:100%;'
 
     fields   = @space.fields or []
     seqNames     = new Set (f.name for f in fields when f.fieldType == 'Sequence')

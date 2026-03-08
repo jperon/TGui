@@ -90,6 +90,9 @@
       dataTitle: function() {
         return document.getElementById('data-title');
       },
+      formulaFilterInput: function() {
+        return document.getElementById('formula-filter-input');
+      },
       renameSpaceBtn: function() {
         return document.getElementById('rename-space-btn');
       },
@@ -942,7 +945,7 @@
       }
     },
     _mountDataView: async function(space) {
-      var container, ref, relations;
+      var container, input, ref, relations;
       if ((ref = this._activeDataView) != null) {
         if (typeof ref.unmount === "function") {
           ref.unmount();
@@ -951,7 +954,13 @@
       container = this.el.gridContainer();
       relations = (await Spaces.listRelations(space.id));
       this._activeDataView = new DataView(container, space, null, relations);
-      return this._activeDataView.mount();
+      this._activeDataView.mount();
+      // Reset filter bar
+      input = this.el.formulaFilterInput();
+      if (input) {
+        input.value = '';
+        return input.classList.remove('active');
+      }
     },
     // ── Custom views (Vues section) ──────────────────────────────────────────────
     loadCustomViews: function() {
@@ -1179,6 +1188,18 @@
       this.el.deleteRowsBtn().addEventListener('click', () => {
         var ref;
         return (ref = this._activeDataView) != null ? ref.deleteSelected() : void 0;
+      });
+      // Formula filter input (debounced, sends to active DataView)
+      this._formulaTimer = null;
+      this.el.formulaFilterInput().addEventListener('input', (e) => {
+        var val;
+        clearTimeout(this._formulaTimer);
+        val = e.target.value.trim();
+        e.target.classList.toggle('active', val !== '');
+        return this._formulaTimer = setTimeout(() => {
+          var ref;
+          return (ref = this._activeDataView) != null ? ref.setFormulaFilter(val) : void 0;
+        }, 400);
       });
       this.el.deleteSpaceBtn().addEventListener('click', async() => {
         var name;
