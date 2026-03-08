@@ -301,6 +301,7 @@ make_content = ->
           }
         }
         H.div {class: 'yaml-modal-body',
+          H.div {id: 'yaml-validation-msg', class: 'yaml-validation-msg hidden', ''}
           H.div {id: 'yaml-cm-editor', ''}
           H.div {id: 'schema-browser', class: 'schema-browser', ''}
         }
@@ -334,6 +335,7 @@ make_body = ->
     H.script {src: '/vendor/tui-grid.bundle.js', ''}
     H.script {src: '/vendor/jsyaml.bundle.js', ''}
     H.script {src: '/vendor/codemirror.bundle.js', ''}
+    H.script {src: '/src/modal.js', ''}
     H.script {src: '/src/graphql_client.js', ''}
     H.script {src: '/src/auth.js', ''}
     H.script {src: '/src/spaces.js', ''}

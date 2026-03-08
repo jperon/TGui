@@ -293,8 +293,8 @@
         }
         return Promise.all(ops).then(() => {
           return this.load();
-        }).catch(function(err) {
-          return console.error('afterChange', err);
+        }).catch((err) => {
+          return this._showError(`Erreur d'enregistrement : ${err.message}`);
         });
       });
       return (await this.load());
@@ -435,8 +435,8 @@
         data: JSON.stringify(data)
       }).then(() => {
         return this.load();
-      }).catch(function(err) {
-        return console.error('insertBlank', err);
+      }).catch((err) => {
+        return this._showError(`Erreur insertion : ${err.message}`);
       });
     }
 
@@ -463,8 +463,8 @@
       });
       return Promise.all(ops).then(() => {
         return this.load();
-      }).catch(function(err) {
-        return console.error('deleteSelected', err);
+      }).catch((err) => {
+        return this._showError(`Erreur suppression : ${err.message}`);
       });
     }
 
@@ -475,6 +475,35 @@
     setFilter(filter) {
       this.filter = filter;
       return this._applyData();
+    }
+
+    // ── Error display ─────────────────────────────────────────────────────────────
+    _showError(msg) {
+      var close;
+      if (!this._errorBanner) {
+        this._errorBanner = document.createElement('div');
+        this._errorBanner.className = 'data-view-error-banner';
+        close = document.createElement('button');
+        close.textContent = '✕';
+        close.onclick = () => {
+          return this._clearError();
+        };
+        this._errorBanner.appendChild(close);
+        this._errorText = document.createElement('span');
+        this._errorBanner.appendChild(this._errorText);
+        this.container.insertBefore(this._errorBanner, this.container.firstChild);
+      }
+      this._errorText.textContent = msg;
+      this._errorBanner.classList.remove('hidden');
+      clearTimeout(this._errorTimer);
+      return this._errorTimer = setTimeout((() => {
+        return this._clearError();
+      }), 6000);
+    }
+
+    _clearError() {
+      var ref;
+      return (ref = this._errorBanner) != null ? ref.classList.add('hidden') : void 0;
     }
 
     // ── Column width persistence ──────────────────────────────────────────────────

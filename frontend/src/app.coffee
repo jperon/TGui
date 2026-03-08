@@ -189,21 +189,21 @@ window.App =
   # ── Sidebar ─────────────────────────────────────────────────────────────────
   _bindSidebar: ->
     @el.newSpaceBtn().addEventListener 'click', =>
-      name = prompt 'Nom du nouvel espace :'
+      name = await tdbPrompt 'Nom du nouvel espace :'
       return unless name?.trim()
       Spaces.create(name.trim())
         .then => @_loadAll()
-        .catch (err) -> alert "Erreur : #{err.message}"
+        .catch (err) -> tdbAlert "Erreur : #{err.message}", 'error'
 
     @el.newViewBtn().addEventListener 'click', =>
-      name = prompt 'Nom de la nouvelle vue :'
+      name = await tdbPrompt 'Nom de la nouvelle vue :'
       return unless name?.trim()
       GQL.mutate(CREATE_CUSTOM_VIEW, { input: { name: name.trim(), yaml: "layout:\n  direction: vertical\n  children: []\n" } })
         .then (data) =>
           @loadCustomViews().then =>
             cv = data.createCustomView
             @selectCustomView cv
-        .catch (err) -> alert "Erreur : #{err.message}"
+        .catch (err) -> tdbAlert "Erreur : #{err.message}", 'error'
 
     # Menu profil utilisateur
     @el.currentUserBtn().addEventListener 'click', =>
@@ -279,16 +279,16 @@ window.App =
         btnPwd.title = 'Changer le mot de passe'
         btnPwd.addEventListener 'click', =>
           uid = u.id
-          newPwd = prompt "Nouveau mot de passe pour #{u.username} :"
+          newPwd = await tdbPrompt "Nouveau mot de passe pour #{u.username} :"
           return unless newPwd?.trim()
           GQL.mutate('mutation SetPwd($uid: ID!, $pwd: String!) { adminSetPassword(userId: $uid, newPassword: $pwd) }', { uid, pwd: newPwd })
-            .then -> alert 'Mot de passe changé.'
-            .catch (err) -> alert "Erreur : #{err.message}"
+            .then -> tdbAlert 'Mot de passe changé.', 'info'
+            .catch (err) -> tdbAlert "Erreur : #{err.message}", 'error'
         li.appendChild btnPwd
         ul.appendChild li
       # Bouton créer
       @el.adminCreateUserBtn().onclick = => @el.createUserDialog().classList.remove 'hidden'
-    .catch (err) -> alert "Erreur chargement utilisateurs : #{err.message}"
+    .catch (err) -> tdbAlert "Erreur chargement utilisateurs : #{err.message}", 'error'
 
   _loadAdminGroups: ->
     Auth.listGroups().then (groups) =>
@@ -308,14 +308,14 @@ window.App =
           btnDel.addEventListener 'click', =>
             gid = g.id
             gname = g.name
-            return unless confirm "Supprimer le groupe « #{gname} » ?"
+            return unless await tdbConfirm "Supprimer le groupe « #{gname} » ?"
             Auth.deleteGroup(gid)
               .then => @_loadAdminGroups()
-              .catch (err) -> alert "Erreur : #{err.message}"
+              .catch (err) -> tdbAlert "Erreur : #{err.message}", 'error'
           li.appendChild btnDel
         ul.appendChild li
       @el.adminCreateGroupBtn().onclick = => @el.createGroupDialog().classList.remove 'hidden'
-    .catch (err) -> alert "Erreur chargement groupes : #{err.message}"
+    .catch (err) -> tdbAlert "Erreur chargement groupes : #{err.message}", 'error'
 
   # ── Dialog: changement de mot de passe ──────────────────────────────────────
   _openChangePasswordDialog: ->
@@ -346,7 +346,7 @@ window.App =
             localStorage.setItem 'tdb_password_changed', '1'
             @el.changePasswordDialog().classList.add 'hidden'
             @el.defaultPasswordWarning().classList.add 'hidden'
-            alert 'Mot de passe changé avec succès.'
+            tdbAlert 'Mot de passe changé avec succès.', 'info'
           else
             @el.cpError().textContent = 'Erreur : mot de passe actuel incorrect.'
         .catch (err) =>
@@ -414,7 +414,7 @@ window.App =
         a.download = fname
         a.click()
         URL.revokeObjectURL url
-      .catch (err) -> alert "Erreur export : #{err.message}"
+      .catch (err) -> tdbAlert "Erreur export : #{err.message}", 'error'
 
     @el.snapshotExportSchemaBtn().addEventListener 'click', => _doExport false
     @el.snapshotExportFullBtn().addEventListener   'click', => _doExport true
@@ -453,7 +453,7 @@ window.App =
       return unless @_snapshotYaml
       mode = document.querySelector('input[name="snapshot-mode"]:checked')?.value or 'merge'
       if mode == 'replace'
-        unless confirm "⚠ Mode Remplacement : toutes les données existantes seront effacées. Continuer ?"
+        unless await tdbConfirm "⚠ Mode Remplacement : toutes les données existantes seront effacées. Continuer ?"
           return
       @el.snapshotImportConfirmBtn().disabled = true
       GQL.mutate("""
@@ -547,7 +547,7 @@ window.App =
       .then (spaces) =>
         @_allSpaces = spaces
         @renderSpaceList spaces
-      .catch (err) -> console.error 'loadSpaces', err
+      .catch (err) -> tdbAlert "Erreur chargement espaces : #{err.message}", 'error'
 
   renderSpaceList: (spaces) ->
     ul = @el.spaceList()
@@ -592,7 +592,7 @@ window.App =
         @_currentSpace = full
         @el.dataTitle().textContent = full.name
         @_mountDataView full
-      .catch (err) -> console.error 'selectSpace', err
+      .catch (err) -> tdbAlert "Erreur chargement espace : #{err.message}", 'error'
 
   # Keep @_allSpaces in sync after any field mutation on the current space.
   # If a custom view is active, rebuilds it so widgets get the fresh columns.
@@ -611,7 +611,7 @@ window.App =
   loadCustomViews: ->
     GQL.query(LIST_CUSTOM_VIEWS)
       .then (data) => @renderCustomViewList data.customViews
-      .catch (err) -> console.error 'loadCustomViews', err
+      .catch (err) -> tdbAlert "Erreur chargement vues : #{err.message}", 'error'
 
   renderCustomViewList: (views) ->
     ul = @el.customViewList()
@@ -671,7 +671,7 @@ window.App =
     @el.yamlDeleteBtn().addEventListener 'click', =>
       cv = @_currentCustomView
       return unless cv
-      return unless confirm "Supprimer la vue « #{cv.name} » ?"
+      return unless await tdbConfirm "Supprimer la vue « #{cv.name} » ?"
       GQL.mutate(DELETE_CUSTOM_VIEW, { id: cv.id })
         .then =>
           @_currentCustomView = null
@@ -681,7 +681,7 @@ window.App =
           @el.customViewContainer().classList.add 'hidden'
           @el.welcome().classList.remove 'hidden'
           @loadCustomViews()
-        .catch (err) -> alert "Erreur : #{err.message}"
+        .catch (err) -> tdbAlert "Erreur : #{err.message}", 'error'
 
     @el.yamlModalSaveBtn().addEventListener 'click', =>
       cv = @_currentCustomView
@@ -693,7 +693,7 @@ window.App =
           @el.yamlModal().classList.add 'hidden'
           @_renderCustomViewPreview yaml
           @loadCustomViews()
-        .catch (err) -> alert "Erreur : #{err.message}"
+        .catch (err) -> tdbAlert "Erreur : #{err.message}", 'error'
 
     @el.yamlModalCloseBtn().addEventListener 'click', =>
       @el.yamlModal().classList.add 'hidden'
@@ -715,11 +715,24 @@ window.App =
         lineWrapping: true
         tabSize: 2
         indentWithTabs: false
-      # When the user manually edits the YAML, re-sync the ERD builder state.
+      # When the user manually edits the YAML, re-sync the ERD builder and validate.
       # 'setValue' origin = programmatic; anything else = user input.
       @_cmYaml.on 'change', (cm, change) =>
-        return if change.origin == 'setValue'
+        unless @_yamlValidMsg
+          @_yamlValidMsg = document.getElementById 'yaml-validation-msg'
+        # Programmatic setValue: clear any stale error and skip ERD sync
+        if change.origin == 'setValue'
+          @_yamlValidMsg?.classList.add 'hidden'
+          return
         @_yamlBuilder?.reloadFromYaml cm.getValue()
+        # Live YAML validation feedback while user types
+        try
+          jsyaml.load cm.getValue()
+          @_yamlValidMsg?.classList.add 'hidden'
+        catch e
+          if @_yamlValidMsg
+            @_yamlValidMsg.textContent = "YAML invalide : #{e.message}"
+            @_yamlValidMsg.classList.remove 'hidden'
     @_cmYaml.setValue cv.yaml or ''
     setTimeout (=> @_cmYaml.refresh()), 10
     # Schema browser
@@ -747,7 +760,7 @@ window.App =
     @el.deleteSpaceBtn().addEventListener 'click', =>
       return unless @_currentSpace
       name = @_currentSpace.name
-      return unless confirm "Supprimer l'espace « #{name} » et toutes ses données ?"
+      return unless await tdbConfirm "Supprimer l'espace « #{name} » et toutes ses données ?"
       Spaces.delete(@_currentSpace.id)
         .then =>
           @_currentSpace = null
@@ -758,11 +771,11 @@ window.App =
           @el.fieldsBtn().classList.remove 'active'
           @el.welcome().classList.remove 'hidden'
           @_loadAll()
-        .catch (err) -> alert "Erreur : #{err.message}"
+        .catch (err) -> tdbAlert "Erreur : #{err.message}", 'error'
 
     @el.renameSpaceBtn().addEventListener 'click', =>
       return unless @_currentSpace
-      newName = prompt "Nouveau nom de l'espace :", @_currentSpace.name
+      newName = await tdbPrompt "Nouveau nom de l'espace :", @_currentSpace.name
       return unless newName?.trim() and newName.trim() != @_currentSpace.name
       Spaces.update(@_currentSpace.id, newName.trim())
         .then (updated) =>
@@ -771,7 +784,7 @@ window.App =
           # Update sidebar
           li = @el.spaceList().querySelector("li[data-id='#{updated.id}']")
           li.textContent = updated.name if li
-        .catch (err) -> alert "Erreur : #{err.message}"
+        .catch (err) -> tdbAlert "Erreur : #{err.message}", 'error'
 
   # ── Fields panel ─────────────────────────────────────────────────────────────
   _bindFieldsPanel: ->
@@ -837,7 +850,13 @@ window.App =
       name    = @el.fieldName().value.trim()
       type    = @el.fieldType().value
       notNull = @el.fieldNotNull().checked
-      return unless name
+      unless name
+        @el.fieldName().classList.add 'input-error'
+        @el.fieldName().placeholder = 'Le nom est requis !'
+        @el.fieldName().focus()
+        return
+      @el.fieldName().classList.remove 'input-error'
+      @el.fieldName().placeholder = 'Nom du champ'
 
       if @_editingFieldId
         # ── Update existing field ──────────────────────────────────────────
@@ -865,7 +884,7 @@ window.App =
               @_syncSpaceFields full
               @renderFieldsList()
               @_mountDataView full
-          .catch (err) -> alert "Erreur : #{err.message}"
+          .catch (err) -> tdbAlert "Erreur : #{err.message}", 'error'
         @_resetFieldForm()
 
       else if type == 'Relation'
@@ -874,7 +893,9 @@ window.App =
         return unless toSpaceId
         Spaces.getWithFields(toSpaceId).then (targetSpace) =>
           idField = (targetSpace.fields or []).find (f) -> f.fieldType == 'Sequence'
-          return alert "L'espace cible n'a pas de champ Séquence." unless idField
+          unless idField
+            tdbAlert "L'espace cible n'a pas de champ Séquence.", 'warn'
+            return
           Spaces.addField(@_currentSpace.id, name, 'Int', notNull, '')
             .then (newField) =>
               Spaces.createRelation(name, @_currentSpace.id, newField.id, toSpaceId, idField.id)
@@ -884,8 +905,8 @@ window.App =
                     @_syncSpaceFields full
                     @renderFieldsList()
                     @_mountDataView full
-                .catch (err) -> alert "Erreur : #{err.message}"
-            .catch (err) -> alert "Erreur : #{err.message}"
+                .catch (err) -> tdbAlert "Erreur : #{err.message}", 'error'
+            .catch (err) -> tdbAlert "Erreur : #{err.message}", 'error'
         @_resetFieldForm()
 
       else
@@ -911,7 +932,7 @@ window.App =
               @_syncSpaceFields full
               @renderFieldsList()
               @_mountDataView full
-          .catch (err) -> alert "Erreur : #{err.message}"
+          .catch (err) -> tdbAlert "Erreur : #{err.message}", 'error'
         @_resetFieldForm()
 
   _onFieldTypeChange: ->
@@ -1066,7 +1087,7 @@ window.App =
         del.style.cssText = 'margin-left:.2rem;background:none;border:none;cursor:pointer;color:#aaa;font-size:.9rem;'
         do (fieldId = f.id, fieldName = f.name, relation = rel) =>
           del.addEventListener 'click', =>
-            return unless confirm "Supprimer le champ « #{fieldName} » ?"
+            return unless await tdbConfirm "Supprimer le champ « #{fieldName} » ?"
             doDelete = =>
               GQL.mutate(REMOVE_FIELD, { fieldId })
                 .then =>
@@ -1075,9 +1096,9 @@ window.App =
                     @_syncSpaceFields full
                     @renderFieldsList()
                     @_mountDataView full
-                .catch (err) -> alert "Erreur : #{err.message}"
+                .catch (err) -> tdbAlert "Erreur : #{err.message}", 'error'
             if relation
-              Spaces.deleteRelation(relation.id).then(doDelete).catch (err) -> alert "Erreur : #{err.message}"
+              Spaces.deleteRelation(relation.id).then(doDelete).catch (err) -> tdbAlert "Erreur : #{err.message}", 'error'
             else
               doDelete()
 
@@ -1118,7 +1139,7 @@ window.App =
               @_syncSpaceFields @_currentSpace
               @renderFieldsList()
               @_mountDataView @_currentSpace
-            .catch (err) -> console.error 'reorderFields', err
+            .catch (err) -> tdbAlert "Erreur réordonnancement : #{err.message}", 'error'
         ul.appendChild li
 
 # ── Entry point ────────────────────────────────────────────────────────────────

@@ -775,6 +775,11 @@ make_content = function()
         H.div({
           class = 'yaml-modal-body',
           H.div({
+            id = 'yaml-validation-msg',
+            class = 'yaml-validation-msg hidden',
+            ''
+          }),
+          H.div({
             id = 'yaml-cm-editor',
             ''
           }),
@@ -842,6 +847,10 @@ make_body = function()
     }),
     H.script({
       src = '/vendor/codemirror.bundle.js',
+      ''
+    }),
+    H.script({
+      src = '/src/modal.js',
       ''
     }),
     H.script({

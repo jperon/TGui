@@ -155,13 +155,20 @@ window.CustomView = class CustomView
       # Evaluate computed columns (client-side JS expressions on each row)
       computed = wNode.computed or []
       computedFns = []
+      formulaErrors = []
       for col in computed
         do (col) ->
           try
-            fn = new Function('row', "try { return (#{col.expr}); } catch(e) { return null; }")
+            fn = new Function('row', "try { return (#{col.expr}); } catch(e) { return '⚠ ' + e.message; }")
             computedFns.push { as: col.as, fn }
           catch e
-            computedFns.push { as: col.as, fn: -> null }
+            formulaErrors.push "#{col.as}: #{e.message}"
+            computedFns.push { as: col.as, fn: -> "⚠ formule invalide" }
+      if formulaErrors.length > 0
+        errDiv = document.createElement 'p'
+        errDiv.style.cssText = 'color:#c55;padding:.3rem .5rem;font-size:.85rem;margin:0'
+        errDiv.textContent = "Formule invalide : #{formulaErrors.join('; ')}"
+        container.appendChild errDiv
 
       # Augment rows with computed values
       if computedFns.length > 0

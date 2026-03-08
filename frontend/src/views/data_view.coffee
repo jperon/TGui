@@ -185,7 +185,8 @@ window.DataView = class DataView
           data[n] = sentinelPatch[n] ? @_defaultValues[n] ? '' for n in colNames
           ops.push GQL.mutate INSERT_RECORD, { spaceId: @space.id, data: JSON.stringify(data) }
 
-      Promise.all(ops).then(=> @load()).catch (err) -> console.error 'afterChange', err
+      Promise.all(ops).then(=> @load()).catch (err) =>
+        @_showError "Erreur d'enregistrement : #{err.message}"
 
     await @load()
 
@@ -246,7 +247,7 @@ window.DataView = class DataView
     data[f.name] = '' for f in fields when not seqNames.has(f.name) and not formulaNames.has(f.name)
     GQL.mutate(INSERT_RECORD, { spaceId: @space.id, data: JSON.stringify(data) })
       .then(=> @load())
-      .catch (err) -> console.error 'insertBlank', err
+      .catch (err) => @_showError "Erreur insertion : #{err.message}"
 
   deleteSelected: ->
     keys    = @_grid.getCheckedRowKeys()
@@ -258,7 +259,7 @@ window.DataView = class DataView
     return unless toDelete.length
     ops = toDelete.map (row) =>
       GQL.mutate DELETE_RECORD, { spaceId: @space.id, id: row.__rowId }
-    Promise.all(ops).then(=> @load()).catch (err) -> console.error 'deleteSelected', err
+    Promise.all(ops).then(=> @load()).catch (err) => @_showError "Erreur suppression : #{err.message}"
 
   setDefaultValues: (values) ->
     @_defaultValues = values or {}
@@ -266,6 +267,26 @@ window.DataView = class DataView
   setFilter: (filter) ->
     @filter = filter
     @_applyData()
+
+  # ── Error display ─────────────────────────────────────────────────────────────
+  _showError: (msg) ->
+    unless @_errorBanner
+      @_errorBanner = document.createElement 'div'
+      @_errorBanner.className = 'data-view-error-banner'
+      close = document.createElement 'button'
+      close.textContent = '✕'
+      close.onclick = => @_clearError()
+      @_errorBanner.appendChild close
+      @_errorText = document.createElement 'span'
+      @_errorBanner.appendChild @_errorText
+      @container.insertBefore @_errorBanner, @container.firstChild
+    @_errorText.textContent = msg
+    @_errorBanner.classList.remove 'hidden'
+    clearTimeout @_errorTimer
+    @_errorTimer = setTimeout (=> @_clearError()), 6000
+
+  _clearError: ->
+    @_errorBanner?.classList.add 'hidden'
 
   # ── Column width persistence ──────────────────────────────────────────────────
   _lsKey: -> "tdb_colwidths_#{@space.id}"

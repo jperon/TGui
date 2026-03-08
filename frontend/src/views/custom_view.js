@@ -216,7 +216,7 @@
         return results;
       })();
       return Spaces.aggregateSpace(spaceName, groupBy, aggInput).then((rows) => {
-        var c, col, computed, computedFns, i, j, k, keys, l, len, len1, len2, len3, len4, len5, len6, len7, m, n, o, p, q, ref, ref1, row, tbl, tbody, td, th, thead, tr, v;
+        var c, col, computed, computedFns, errDiv, formulaErrors, i, j, k, keys, l, len, len1, len2, len3, len4, len5, len6, len7, m, n, o, p, q, ref, ref1, row, tbl, tbody, td, th, thead, tr, v;
         container.innerHTML = '';
         if (!(rows && rows.length > 0)) {
           container.innerHTML = "<p style='color:#aaa;padding:.5rem'>Aucun résultat.</p>";
@@ -225,26 +225,34 @@
         // Evaluate computed columns (client-side JS expressions on each row)
         computed = wNode.computed || [];
         computedFns = [];
+        formulaErrors = [];
         for (i = 0, len = computed.length; i < len; i++) {
           col = computed[i];
           (function(col) {
             var e, fn;
             try {
-              fn = new Function('row', `try { return (${col.expr}); } catch(e) { return null; }`);
+              fn = new Function('row', `try { return (${col.expr}); } catch(e) { return '⚠ ' + e.message; }`);
               return computedFns.push({
                 as: col.as,
                 fn
               });
             } catch (error) {
               e = error;
+              formulaErrors.push(`${col.as}: ${e.message}`);
               return computedFns.push({
                 as: col.as,
                 fn: function() {
-                  return null;
+                  return "⚠ formule invalide";
                 }
               });
             }
           })(col);
+        }
+        if (formulaErrors.length > 0) {
+          errDiv = document.createElement('p');
+          errDiv.style.cssText = 'color:#c55;padding:.3rem .5rem;font-size:.85rem;margin:0';
+          errDiv.textContent = `Formule invalide : ${formulaErrors.join('; ')}`;
+          container.appendChild(errDiv);
         }
         // Augment rows with computed values
         if (computedFns.length > 0) {
