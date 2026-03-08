@@ -18,19 +18,23 @@ svgEl = (tag, attrs = {}) ->
 
 class YamlBuilder
 
-  constructor: ({@container, @allSpaces, @allRelations, @onChange}) ->
+  constructor: ({@container, @allSpaces, @allRelations, @onChange, initialYaml}) ->
     @_widgets   = []
     @_idCounter = 1
     @_positions = {}   # spaceId -> { x, y, width, height }
 
     # Lookup maps
-    @_spaceById = {}
-    @_fieldById = {}   # [spaceId][fieldId] -> field obj
+    @_spaceById  = {}
+    @_fieldById  = {}   # [spaceId][fieldId] -> field obj
+    @_nameToSpId = {}   # spaceName -> spaceId
     for sp in (@allSpaces or [])
-      @_spaceById[sp.id] = sp
-      @_fieldById[sp.id] = {}
+      @_spaceById[sp.id]   = sp
+      @_nameToSpId[sp.name] = sp.id
+      @_fieldById[sp.id]   = {}
       for f in (sp.fields or [])
         @_fieldById[sp.id][f.id] = f
+
+    @_loadFromYaml initialYaml if initialYaml
 
   # ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -47,6 +51,54 @@ class YamlBuilder
   _makeId: (spaceName) ->
     s = (spaceName or 'widget').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
     s or "w#{@_idCounter}"
+
+  # ── YAML hydration ───────────────────────────────────────────────────────────
+  # Parse an existing YAML string and populate @_widgets so ERD reflects
+  # what is already defined. Called once in the constructor with initialYaml.
+
+  _loadFromYaml: (yaml) ->
+    return unless yaml and yaml.trim().length > 0
+    try
+      parsed = jsyaml.load yaml
+    catch
+      return
+    return unless parsed
+
+    # Collect all widget nodes recursively from the layout tree
+    collectWidgets = (node) ->
+      return [] unless node
+      if node.widget                         then [node.widget]
+      else if node.layout?.children         then node.layout.children.reduce ((acc, c) -> acc.concat collectWidgets c), []
+      else                                       []
+
+    widgetDefs = collectWidgets parsed
+
+    KNOWN_REG = ['type', 'space', 'id', 'columns', 'depends_on']
+    KNOWN_AGG = ['type', 'space', 'groupBy']
+    for w in widgetDefs
+      continue unless w.space
+      spaceId = @_nameToSpId[w.space]
+      continue unless spaceId    # unknown space → skip
+
+      if w.type == 'aggregate'
+        unless @_aggWidgetForSpace spaceId
+          extra = {}
+          extra[k] = v for k, v of w when k not in KNOWN_AGG
+          @_widgets.push { type: 'aggregate', spaceId, spaceName: w.space, groupBy: (w.groupBy or []).slice(), _extra: extra }
+      else
+        unless @_widgetForSpace spaceId
+          id = w.id or @_makeId(w.space)
+          @_idCounter++
+          dependsOn = null
+          if w.depends_on
+            dependsOn =
+              widgetId:   w.depends_on.widget
+              field:      w.depends_on.field
+              from_field: w.depends_on.from_field or 'id'
+          columns = (w.columns or []).slice()
+          extra = {}
+          extra[k] = v for k, v of w when k not in KNOWN_REG
+          @_widgets.push { id, spaceId, spaceName: w.space, columns, dependsOn, _extra: extra }
 
   # ── State mutation ───────────────────────────────────────────────────────────
 
@@ -101,18 +153,31 @@ class YamlBuilder
 
   _notify: -> @onChange? @toYaml()
 
+  # Re-synchronise ERD state from an updated YAML string (called when the
+  # CodeMirror editor changes externally, i.e. the user typed manually).
+  # Only updates the ERD state; does NOT trigger onChange (to avoid loop).
+  reloadFromYaml: (yaml) ->
+    @_widgets   = []
+    @_idCounter = 1
+    @_loadFromYaml yaml
+    @_render()
+
   # ── YAML generation ──────────────────────────────────────────────────────────
 
   toYaml: ->
     return "layout:\n  direction: vertical\n  children: []\n" if @_widgets.length == 0
     children = for w in @_widgets
       if w.type == 'aggregate'
+        # Put structural keys first, then pass-through (_extra: title, computed, etc.)
         wObj = { type: 'aggregate', space: w.spaceName }
+        Object.assign wObj, (w._extra or {})
         wObj.groupBy   = w.groupBy.slice() if w.groupBy?.length > 0
-        wObj.aggregate = [{ fn: 'count', as: 'nb' }]
+        wObj.aggregate ?= [{ fn: 'count', as: 'nb' }]
         { widget: wObj }
       else
+        # Put structural keys first, then pass-through (_extra: title, etc.)
         wObj = { space: w.spaceName }
+        Object.assign wObj, (w._extra or {})
         wObj.id      = w.id              if @_needsId w
         wObj.columns = w.columns.slice() if w.columns.length > 0
         if w.dependsOn

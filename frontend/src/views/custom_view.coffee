@@ -152,10 +152,29 @@ window.CustomView = class CustomView
         container.innerHTML = "<p style='color:#aaa;padding:.5rem'>Aucun résultat.</p>"
         return
 
+      # Evaluate computed columns (client-side JS expressions on each row)
+      computed = wNode.computed or []
+      computedFns = []
+      for col in computed
+        do (col) ->
+          try
+            fn = new Function('row', "try { return (#{col.expr}); } catch(e) { return null; }")
+            computedFns.push { as: col.as, fn }
+          catch e
+            computedFns.push { as: col.as, fn: -> null }
+
+      # Augment rows with computed values
+      if computedFns.length > 0
+        for row in rows
+          for c in computedFns
+            row[c.as] = c.fn row
+
       # Build column list from first row keys (preserve groupBy order first)
       keys = groupBy.slice()
       for agg in aggInput
         keys.push agg.as unless agg.as in keys
+      for col in computed
+        keys.push col.as unless col.as in keys
 
       tbl = document.createElement 'table'
       tbl.className = 'agg-table'

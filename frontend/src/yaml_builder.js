@@ -32,7 +32,7 @@
   };
 
   YamlBuilder = class YamlBuilder {
-    constructor({container, allSpaces, allRelations, onChange}) {
+    constructor({container, allSpaces, allRelations, onChange, initialYaml}) {
       var f, j, l, len, len1, ref, ref1, sp;
       this.container = container;
       this.allSpaces = allSpaces;
@@ -45,16 +45,21 @@
       // Lookup maps
       this._spaceById = {};
       this._fieldById = {}; // [spaceId][fieldId] -> field obj
+      this._nameToSpId = {}; // spaceName -> spaceId
       ref = this.allSpaces || [];
       for (j = 0, len = ref.length; j < len; j++) {
         sp = ref[j];
         this._spaceById[sp.id] = sp;
+        this._nameToSpId[sp.name] = sp.id;
         this._fieldById[sp.id] = {};
         ref1 = sp.fields || [];
         for (l = 0, len1 = ref1.length; l < len1; l++) {
           f = ref1[l];
           this._fieldById[sp.id][f.id] = f;
         }
+      }
+      if (initialYaml) {
+        this._loadFromYaml(initialYaml);
       }
     }
 
@@ -90,6 +95,106 @@
       var s;
       s = (spaceName || 'widget').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
       return s || `w${this._idCounter}`;
+    }
+
+    // ── YAML hydration ───────────────────────────────────────────────────────────
+    // Parse an existing YAML string and populate @_widgets so ERD reflects
+    // what is already defined. Called once in the constructor with initialYaml.
+    _loadFromYaml(yaml) {
+      var KNOWN_AGG, KNOWN_REG, collectWidgets, columns, dependsOn, extra, id, j, k, len, parsed, results, spaceId, v, w, widgetDefs;
+      if (!(yaml && yaml.trim().length > 0)) {
+        return;
+      }
+      try {
+        parsed = jsyaml.load(yaml);
+      } catch (error) {
+        return;
+      }
+      if (!parsed) {
+        return;
+      }
+      // Collect all widget nodes recursively from the layout tree
+      collectWidgets = function(node) {
+        var ref;
+        if (!node) {
+          return [];
+        }
+        if (node.widget) {
+          return [node.widget];
+        } else if ((ref = node.layout) != null ? ref.children : void 0) {
+          return node.layout.children.reduce((function(acc, c) {
+            return acc.concat(collectWidgets(c));
+          }), []);
+        } else {
+          return [];
+        }
+      };
+      widgetDefs = collectWidgets(parsed);
+      KNOWN_REG = ['type', 'space', 'id', 'columns', 'depends_on'];
+      KNOWN_AGG = ['type', 'space', 'groupBy'];
+      results = [];
+      for (j = 0, len = widgetDefs.length; j < len; j++) {
+        w = widgetDefs[j];
+        if (!w.space) {
+          continue;
+        }
+        spaceId = this._nameToSpId[w.space];
+        if (!spaceId) { // unknown space → skip
+          continue;
+        }
+        if (w.type === 'aggregate') {
+          if (!this._aggWidgetForSpace(spaceId)) {
+            extra = {};
+            for (k in w) {
+              v = w[k];
+              if (indexOf.call(KNOWN_AGG, k) < 0) {
+                extra[k] = v;
+              }
+            }
+            results.push(this._widgets.push({
+              type: 'aggregate',
+              spaceId,
+              spaceName: w.space,
+              groupBy: (w.groupBy || []).slice(),
+              _extra: extra
+            }));
+          } else {
+            results.push(void 0);
+          }
+        } else {
+          if (!this._widgetForSpace(spaceId)) {
+            id = w.id || this._makeId(w.space);
+            this._idCounter++;
+            dependsOn = null;
+            if (w.depends_on) {
+              dependsOn = {
+                widgetId: w.depends_on.widget,
+                field: w.depends_on.field,
+                from_field: w.depends_on.from_field || 'id'
+              };
+            }
+            columns = (w.columns || []).slice();
+            extra = {};
+            for (k in w) {
+              v = w[k];
+              if (indexOf.call(KNOWN_REG, k) < 0) {
+                extra[k] = v;
+              }
+            }
+            results.push(this._widgets.push({
+              id,
+              spaceId,
+              spaceName: w.space,
+              columns,
+              dependsOn,
+              _extra: extra
+            }));
+          } else {
+            results.push(void 0);
+          }
+        }
+      }
+      return results;
     }
 
     // ── State mutation ───────────────────────────────────────────────────────────
@@ -196,6 +301,16 @@
       return typeof this.onChange === "function" ? this.onChange(this.toYaml()) : void 0;
     }
 
+    // Re-synchronise ERD state from an updated YAML string (called when the
+    // CodeMirror editor changes externally, i.e. the user typed manually).
+    // Only updates the ERD state; does NOT trigger onChange (to avoid loop).
+    reloadFromYaml(yaml) {
+      this._widgets = [];
+      this._idCounter = 1;
+      this._loadFromYaml(yaml);
+      return this._render();
+    }
+
     // ── YAML generation ──────────────────────────────────────────────────────────
     toYaml() {
       var children, dep, w, wObj;
@@ -209,26 +324,32 @@
         for (j = 0, len = ref.length; j < len; j++) {
           w = ref[j];
           if (w.type === 'aggregate') {
+            // Put structural keys first, then pass-through (_extra: title, computed, etc.)
             wObj = {
               type: 'aggregate',
               space: w.spaceName
             };
+            Object.assign(wObj, w._extra || {});
             if (((ref1 = w.groupBy) != null ? ref1.length : void 0) > 0) {
               wObj.groupBy = w.groupBy.slice();
             }
-            wObj.aggregate = [
-              {
-                fn: 'count',
-                as: 'nb'
-              }
-            ];
+            if (wObj.aggregate == null) {
+              wObj.aggregate = [
+                {
+                  fn: 'count',
+                  as: 'nb'
+                }
+              ];
+            }
             results.push({
               widget: wObj
             });
           } else {
+            // Put structural keys first, then pass-through (_extra: title, etc.)
             wObj = {
               space: w.spaceName
             };
+            Object.assign(wObj, w._extra || {});
             if (this._needsId(w)) {
               wObj.id = w.id;
             }

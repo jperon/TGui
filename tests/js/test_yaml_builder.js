@@ -1,7 +1,7 @@
 (function() {
   // tests/js/test_yaml_builder.coffee — tests pour YamlBuilder (yaml_builder.js)
   // Teste : génération YAML, clic champ, clic en-tête (aggregate), badges, dépendances.
-  var YB, assert, deepEq, describe, eq, it, makeContainer, makeRelations, makeSpaces, makeYB, summary,
+  var YB, assert, deepEq, describe, eq, it, makeContainer, makeRelations, makeSpaces, makeYB, summary, yamlFromObj,
     indexOf = [].indexOf;
 
   require('./dom_stub');
@@ -12,10 +12,19 @@
   global.jsyaml = {
     dump: function(obj) {
       return JSON.stringify(obj); // simplifie les comparaisons
+    },
+    load: function(src) {
+      var e;
+      try {
+        // Minimal YAML-as-JSON stub: supports JSON and simple key: value
+        return JSON.parse(src);
+      } catch (error) {
+        e = error;
+        return {};
+      }
     }
   };
 
-  
   // Chargement du module sous test (expose window.YamlBuilder)
   require('../../frontend/src/yaml_builder');
 
@@ -86,6 +95,7 @@
       container: makeContainer(),
       allSpaces: opts.spaces || makeSpaces(),
       allRelations: opts.relations || [],
+      initialYaml: opts.initialYaml || null,
       onChange: opts.onChange || function() {}
     });
     yb._render = function() {}; // no-op: tests d'état uniquement, pas de DOM SVG
@@ -250,6 +260,158 @@
       child = yb._widgets[1];
       assert(child.dependsOn != null, 'depends_on détecté');
       return eq(child.dependsOn.field, 'client_id');
+    });
+  });
+
+  // Helper: build a JSON-YAML string (our stub parses JSON)
+  yamlFromObj = function(obj) {
+    return JSON.stringify(obj);
+  };
+
+  // --- YamlBuilder : hydratation depuis YAML existant -------------------------
+  describe('YamlBuilder — _loadFromYaml (initialYaml)', function() {
+    it('charge un widget régulier', function() {
+      var yaml, yb;
+      yaml = yamlFromObj({
+        layout: {
+          children: [
+            {
+              widget: {
+                id: 'w1',
+                space: 'personnes',
+                columns: ['nom']
+              }
+            }
+          ]
+        }
+      });
+      yb = makeYB({
+        initialYaml: yaml
+      });
+      eq(yb._widgets.length, 1);
+      eq(yb._widgets[0].spaceName, 'personnes');
+      deepEq(yb._widgets[0].columns, ['nom']);
+      return eq(yb._widgets[0].id, 'w1');
+    });
+    it('charge un widget agrégat', function() {
+      var yaml, yb;
+      yaml = yamlFromObj({
+        layout: {
+          children: [
+            {
+              widget: {
+                type: 'aggregate',
+                space: 'commandes',
+                groupBy: ['total']
+              }
+            }
+          ]
+        }
+      });
+      yb = makeYB({
+        initialYaml: yaml
+      });
+      eq(yb._widgets.length, 1);
+      eq(yb._widgets[0].type, 'aggregate');
+      eq(yb._widgets[0].spaceName, 'commandes');
+      return deepEq(yb._widgets[0].groupBy, ['total']);
+    });
+    it('charge depends_on', function() {
+      var dep, yaml, yb;
+      yaml = yamlFromObj({
+        layout: {
+          children: [
+            {
+              widget: {
+                id: 'p',
+                space: 'personnes',
+                columns: ['nom']
+              }
+            },
+            {
+              widget: {
+                space: 'commandes',
+                depends_on: {
+                  widget: 'p',
+                  field: 'client_id',
+                  from_field: 'id'
+                }
+              }
+            }
+          ]
+        }
+      });
+      yb = makeYB({
+        initialYaml: yaml
+      });
+      eq(yb._widgets.length, 2);
+      dep = yb._widgets[1].dependsOn;
+      assert(dep != null, 'depends_on présent');
+      eq(dep.widgetId, 'p');
+      return eq(dep.field, 'client_id');
+    });
+    it('ignore les espaces inconnus', function() {
+      var yaml, yb;
+      yaml = yamlFromObj({
+        layout: {
+          children: [
+            {
+              widget: {
+                space: 'inexistant'
+              }
+            }
+          ]
+        }
+      });
+      yb = makeYB({
+        initialYaml: yaml
+      });
+      return eq(yb._widgets.length, 0);
+    });
+    it('ne duplique pas lors d\'un clic sur espace déjà chargé', function() {
+      var yaml, yb;
+      yaml = yamlFromObj({
+        layout: {
+          children: [
+            {
+              widget: {
+                space: 'personnes',
+                columns: ['nom']
+              }
+            }
+          ]
+        }
+      });
+      yb = makeYB({
+        initialYaml: yaml
+      });
+      // Clicking another field should ADD to existing widget, not create a new one
+      yb._onFieldClick('sp1', 'age');
+      eq(yb._widgets.length, 1);
+      return assert(indexOf.call(yb._widgets[0].columns, 'age') >= 0, 'age ajouté');
+    });
+    return it('reloadFromYaml reset et re-hydrate le state', function() {
+      var newYaml, yb;
+      yb = makeYB();
+      yb._onFieldClick('sp1', 'nom');
+      eq(yb._widgets.length, 1);
+      // Now reload with a different YAML
+      newYaml = yamlFromObj({
+        layout: {
+          children: [
+            {
+              widget: {
+                type: 'aggregate',
+                space: 'commandes',
+                groupBy: ['total']
+              }
+            }
+          ]
+        }
+      });
+      yb.reloadFromYaml(newYaml);
+      eq(yb._widgets.length, 1);
+      return eq(yb._widgets[0].type, 'aggregate');
     });
   });
 

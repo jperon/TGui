@@ -216,26 +216,66 @@
         return results;
       })();
       return Spaces.aggregateSpace(spaceName, groupBy, aggInput).then((rows) => {
-        var i, j, k, keys, l, len, len1, len2, len3, m, ref, row, tbl, tbody, td, th, thead, tr, v;
+        var c, col, computed, computedFns, i, j, k, keys, l, len, len1, len2, len3, len4, len5, len6, len7, m, n, o, p, q, ref, ref1, row, tbl, tbody, td, th, thead, tr, v;
         container.innerHTML = '';
         if (!(rows && rows.length > 0)) {
           container.innerHTML = "<p style='color:#aaa;padding:.5rem'>Aucun résultat.</p>";
           return;
         }
+        // Evaluate computed columns (client-side JS expressions on each row)
+        computed = wNode.computed || [];
+        computedFns = [];
+        for (i = 0, len = computed.length; i < len; i++) {
+          col = computed[i];
+          (function(col) {
+            var e, fn;
+            try {
+              fn = new Function('row', `try { return (${col.expr}); } catch(e) { return null; }`);
+              return computedFns.push({
+                as: col.as,
+                fn
+              });
+            } catch (error) {
+              e = error;
+              return computedFns.push({
+                as: col.as,
+                fn: function() {
+                  return null;
+                }
+              });
+            }
+          })(col);
+        }
+        // Augment rows with computed values
+        if (computedFns.length > 0) {
+          for (j = 0, len1 = rows.length; j < len1; j++) {
+            row = rows[j];
+            for (l = 0, len2 = computedFns.length; l < len2; l++) {
+              c = computedFns[l];
+              row[c.as] = c.fn(row);
+            }
+          }
+        }
         // Build column list from first row keys (preserve groupBy order first)
         keys = groupBy.slice();
-        for (i = 0, len = aggInput.length; i < len; i++) {
-          agg = aggInput[i];
+        for (m = 0, len3 = aggInput.length; m < len3; m++) {
+          agg = aggInput[m];
           if (ref = agg.as, indexOf.call(keys, ref) < 0) {
             keys.push(agg.as);
+          }
+        }
+        for (n = 0, len4 = computed.length; n < len4; n++) {
+          col = computed[n];
+          if (ref1 = col.as, indexOf.call(keys, ref1) < 0) {
+            keys.push(col.as);
           }
         }
         tbl = document.createElement('table');
         tbl.className = 'agg-table';
         thead = document.createElement('thead');
         tr = document.createElement('tr');
-        for (j = 0, len1 = keys.length; j < len1; j++) {
-          k = keys[j];
+        for (o = 0, len5 = keys.length; o < len5; o++) {
+          k = keys[o];
           th = document.createElement('th');
           th.textContent = k;
           tr.appendChild(th);
@@ -243,11 +283,11 @@
         thead.appendChild(tr);
         tbl.appendChild(thead);
         tbody = document.createElement('tbody');
-        for (l = 0, len2 = rows.length; l < len2; l++) {
-          row = rows[l];
+        for (p = 0, len6 = rows.length; p < len6; p++) {
+          row = rows[p];
           tr = document.createElement('tr');
-          for (m = 0, len3 = keys.length; m < len3; m++) {
-            k = keys[m];
+          for (q = 0, len7 = keys.length; q < len7; q++) {
+            k = keys[q];
             td = document.createElement('td');
             v = row[k];
             td.textContent = v != null ? String(v) : '';

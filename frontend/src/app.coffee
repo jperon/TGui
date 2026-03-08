@@ -568,16 +568,22 @@ window.App =
         lineWrapping: true
         tabSize: 2
         indentWithTabs: false
+      # When the user manually edits the YAML, re-sync the ERD builder state.
+      # 'setValue' origin = programmatic; anything else = user input.
+      @_cmYaml.on 'change', (cm, change) =>
+        return if change.origin == 'setValue'
+        @_yamlBuilder?.reloadFromYaml cm.getValue()
     @_cmYaml.setValue cv.yaml or ''
     setTimeout (=> @_cmYaml.refresh()), 10
     # Schema browser
     @_loadAllRelations().then (relations) =>
-      builder = new YamlBuilder
+      @_yamlBuilder = new YamlBuilder
         container:    document.getElementById 'schema-browser'
         allSpaces:    @_allSpaces
         allRelations: relations
+        initialYaml:  cv.yaml or ''
         onChange:     (yaml) => @_cmYaml?.setValue yaml
-      builder.mount()
+      @_yamlBuilder.mount()
 
   _loadAllRelations: ->
     return Promise.resolve @_allRelations if @_allRelations

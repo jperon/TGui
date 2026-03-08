@@ -217,6 +217,12 @@ Chaque boîte représente un espace. Pour chaque champ (rangée) :
 - Les **flèches** indiquent les clés étrangères ; les **auto-relations** (ex. `parent_id → id`)
   sont dessinées comme une boucle sur le côté droit de la boîte.
 
+**Synchronisation bidirectionnelle :** le diagramme ERD s'initialise depuis le YAML existant
+au moment de l'ouverture du modal — les espaces et champs déjà définis sont mis en évidence.
+Modifier le YAML manuellement dans CodeMirror met à jour le diagramme en temps réel.
+Les champs non gérés par le constructeur (comme `title`, `aggregate`, `computed`) sont
+**préservés** lors des modifications via le diagramme.
+
 **Boutons du modal :**
 
 | Bouton | Action |
@@ -246,6 +252,20 @@ d'un `GROUP BY` SQL, calculé en Lua côté serveur.
 
 Les fonctions disponibles sont `sum`, `count`, `avg`, `min`, `max`. L'alias `as` est
 optionnel (nom par défaut : `fn_champ`, ex. `avg_annee`).
+
+#### Colonnes calculées
+
+La clé `computed` permet d'ajouter des colonnes calculées côté client (JavaScript).
+Chaque entrée a un alias (`as`) et une expression (`expr`) évaluée sur chaque ligne ;
+`row` contient les champs `groupBy` et les alias `aggregate` :
+
+```yaml
+  computed:
+    - as: label
+      expr: "row.pupitre + ' (' + row.nb + ')'"
+    - as: statut
+      expr: "row.nb > 1 ? 'Complet' : 'Insuffisant'"
+```
 
 ![Exemple de widget agrégat](img/aggregate-widget.png)
 

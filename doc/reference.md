@@ -461,6 +461,34 @@ widget:
 L'alias `as` est optionnel : s'il est absent, le nom de colonne généré est `fn_field`
 (ex. `avg_annee`) ou `count` pour `COUNT(*)`.
 
+#### Colonnes calculées
+
+Il est possible d'ajouter des colonnes calculées côté client via la clé `computed`.
+Chaque entrée fournit un alias (`as`) et une expression JavaScript (`expr`) évaluée
+sur chaque ligne agrégée. L'objet `row` contient tous les champs `groupBy` et les
+alias `aggregate`.
+
+```yaml
+widget:
+  type: aggregate
+  space: chorale
+  groupBy: [pupitre]
+  aggregate:
+    - fn: count
+      as: nb
+    - field: annee
+      fn: avg
+      as: annee_moy
+  computed:
+    - as: label
+      expr: "row.pupitre + ' (' + row.nb + ')'"
+    - as: statut
+      expr: "row.nb > 1 ? 'Complet' : 'Insuffisant'"
+```
+
+> **Note :** les expressions `computed` sont du JavaScript pur (pas du MoonScript) ;
+> elles s'exécutent dans le navigateur, après réception des données agrégées.
+
 ![Widget agrégat](img/aggregate-widget.png)
 
 ### API GraphQL

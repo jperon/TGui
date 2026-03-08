@@ -7,6 +7,9 @@ require './dom_stub'
 # --- stubs ------------------------------------------------------------------
 global.jsyaml =
   dump: (obj) -> JSON.stringify obj   # simplifie les comparaisons
+  load: (src) ->
+    # Minimal YAML-as-JSON stub: supports JSON and simple key: value
+    try JSON.parse src catch e then {}
 
 # Chargement du module sous test (expose window.YamlBuilder)
 require '../../frontend/src/yaml_builder'
@@ -36,6 +39,7 @@ makeYB = (opts = {}) ->
     container:    makeContainer()
     allSpaces:    opts.spaces    or makeSpaces()
     allRelations: opts.relations or []
+    initialYaml:  opts.initialYaml or null
     onChange:     opts.onChange  or ->
   yb._render = ->   # no-op: tests d'état uniquement, pas de DOM SVG
   yb
@@ -158,5 +162,73 @@ describe 'YamlBuilder — depends_on', ->
     child = yb._widgets[1]
     assert child.dependsOn?, 'depends_on détecté'
     eq child.dependsOn.field, 'client_id'
+
+# Helper: build a JSON-YAML string (our stub parses JSON)
+yamlFromObj = (obj) -> JSON.stringify obj
+
+# --- YamlBuilder : hydratation depuis YAML existant -------------------------
+describe 'YamlBuilder — _loadFromYaml (initialYaml)', ->
+  it 'charge un widget régulier', ->
+    yaml = yamlFromObj
+      layout:
+        children: [{ widget: { id: 'w1', space: 'personnes', columns: ['nom'] } }]
+    yb = makeYB initialYaml: yaml
+    eq yb._widgets.length, 1
+    eq yb._widgets[0].spaceName, 'personnes'
+    deepEq yb._widgets[0].columns, ['nom']
+    eq yb._widgets[0].id, 'w1'
+
+  it 'charge un widget agrégat', ->
+    yaml = yamlFromObj
+      layout:
+        children: [{ widget: { type: 'aggregate', space: 'commandes', groupBy: ['total'] } }]
+    yb = makeYB initialYaml: yaml
+    eq yb._widgets.length, 1
+    eq yb._widgets[0].type, 'aggregate'
+    eq yb._widgets[0].spaceName, 'commandes'
+    deepEq yb._widgets[0].groupBy, ['total']
+
+  it 'charge depends_on', ->
+    yaml = yamlFromObj
+      layout:
+        children: [
+          { widget: { id: 'p', space: 'personnes', columns: ['nom'] } }
+          { widget: { space: 'commandes', depends_on: { widget: 'p', field: 'client_id', from_field: 'id' } } }
+        ]
+    yb = makeYB initialYaml: yaml
+    eq yb._widgets.length, 2
+    dep = yb._widgets[1].dependsOn
+    assert dep?, 'depends_on présent'
+    eq dep.widgetId, 'p'
+    eq dep.field, 'client_id'
+
+  it 'ignore les espaces inconnus', ->
+    yaml = yamlFromObj
+      layout:
+        children: [{ widget: { space: 'inexistant' } }]
+    yb = makeYB initialYaml: yaml
+    eq yb._widgets.length, 0
+
+  it 'ne duplique pas lors d\'un clic sur espace déjà chargé', ->
+    yaml = yamlFromObj
+      layout:
+        children: [{ widget: { space: 'personnes', columns: ['nom'] } }]
+    yb = makeYB initialYaml: yaml
+    # Clicking another field should ADD to existing widget, not create a new one
+    yb._onFieldClick 'sp1', 'age'
+    eq yb._widgets.length, 1
+    assert 'age' in yb._widgets[0].columns, 'age ajouté'
+
+  it 'reloadFromYaml reset et re-hydrate le state', ->
+    yb = makeYB()
+    yb._onFieldClick 'sp1', 'nom'
+    eq yb._widgets.length, 1
+    # Now reload with a different YAML
+    newYaml = yamlFromObj
+      layout:
+        children: [{ widget: { type: 'aggregate', space: 'commandes', groupBy: ['total'] } }]
+    yb.reloadFromYaml newYaml
+    eq yb._widgets.length, 1
+    eq yb._widgets[0].type, 'aggregate'
 
 summary()

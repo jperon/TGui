@@ -895,6 +895,15 @@
           tabSize: 2,
           indentWithTabs: false
         });
+        // When the user manually edits the YAML, re-sync the ERD builder state.
+        // 'setValue' origin = programmatic; anything else = user input.
+        this._cmYaml.on('change', (cm, change) => {
+          var ref;
+          if (change.origin === 'setValue') {
+            return;
+          }
+          return (ref = this._yamlBuilder) != null ? ref.reloadFromYaml(cm.getValue()) : void 0;
+        });
       }
       this._cmYaml.setValue(cv.yaml || '');
       setTimeout((() => {
@@ -902,17 +911,17 @@
       }), 10);
       // Schema browser
       return this._loadAllRelations().then((relations) => {
-        var builder;
-        builder = new YamlBuilder({
+        this._yamlBuilder = new YamlBuilder({
           container: document.getElementById('schema-browser'),
           allSpaces: this._allSpaces,
           allRelations: relations,
+          initialYaml: cv.yaml || '',
           onChange: (yaml) => {
             var ref;
             return (ref = this._cmYaml) != null ? ref.setValue(yaml) : void 0;
           }
         });
-        return builder.mount();
+        return this._yamlBuilder.mount();
       });
     },
     _loadAllRelations: function() {
