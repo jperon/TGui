@@ -80,11 +80,13 @@ Cliquez sur **[#] Champs** dans la barre d'outils pour ouvrir le panel latéral.
 
 ### Colonne calculée (λ)
 
-Sélectionnez **Colonne calculée** et saisissez une expression MoonScript ou Lua :
+Sélectionnez **Colonne calculée** et saisissez une expression MoonScript ou Lua.
+La formule est le corps d'une fonction `(self, space) -> <formule>` ; en MoonScript,
+`@champ` accède à `self.champ` :
 
 ```moonscript
 -- Exemple : concaténer prénom et nom
-(r) -> "#{r.prenom} #{r.nom}"
+"#{@prenom} #{@nom}"
 ```
 
 La valeur est recalculée à chaque lecture ; elle n'est pas stockée.
@@ -97,7 +99,7 @@ des champs listés.
 
 ```moonscript
 -- Exemple : générer un slug à partir du titre
-(r) -> r.titre\lower!\gsub ' ', '-'
+@titre\lower!\gsub ' ', '-'
 ```
 
 ### Modifier un champ existant

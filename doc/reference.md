@@ -94,10 +94,11 @@ une formule.
 Un champ calculé évalue une **expression MoonScript** à chaque lecture. La valeur n'est
 **pas stockée**.
 
-La fonction reçoit l'enregistrement courant `r` et doit retourner la valeur calculée :
+La formule est le corps d'une fonction `(self, space) -> <formule>`. En MoonScript,
+`@champ` est un raccourci pour `self.champ` :
 
 ```moonscript
-(r) -> "#{r.prenom} #{r.nom}"
+"#{@prenom} #{@nom}"
 ```
 
 ### Trigger formula
@@ -108,11 +109,11 @@ modification de l'enregistrement (ou uniquement lors du changement de champs lis
 
 ```moonscript
 -- Déclenché sur tout changement :
-(r) -> r.quantite * r.prix_unitaire
+@quantite * @prix_unitaire
 
 -- Déclenché uniquement si `titre` change :
 -- (configurer triggerFields: ["titre"])
-(r) -> r.titre\lower!\gsub("[^%w]+", "-")
+@titre\lower!\gsub "[^%w]+", "-"
 ```
 
 ### Langages de formule
@@ -140,7 +141,7 @@ mutation {
 mutation {
   addField(spaceId: "...", input: {
     name: "nom_complet", fieldType: String,
-    formula: "(r) -> \"#{r.prenom} #{r.nom}\"",
+    formula: "\"#{@prenom} #{@nom}\"",
     language: "moonscript"
   }) { id }
 }
@@ -150,7 +151,7 @@ mutation {
 mutation {
   addField(spaceId: "...", input: {
     name: "total", fieldType: Float,
-    formula: "(r) -> r.prix * r.qte",
+    formula: "@prix * @qte",
     triggerFields: ["prix", "qte"],
     language: "moonscript"
   }) { id }
@@ -159,7 +160,7 @@ mutation {
 # Modifier un champ existant
 mutation {
   updateField(fieldId: "...", input: {
-    formula: "(r) -> r.prenom .. \" \" .. r.nom",
+    formula: "self.prenom .. \" \" .. self.nom",
     language: "lua"
   }) { id name formula }
 }
