@@ -56,7 +56,7 @@ query {
 
 # Créer
 mutation {
-  createSpace(input: { name: "clients", description: "..." }) { id }
+  createSpace(input: { name: "livres", description: "Catalogue des titres" }) { id }
 }
 
 # Renommer
@@ -98,8 +98,15 @@ Un champ calculé évalue une **expression MoonScript** à chaque lecture. La va
 La formule est le corps d'une fonction `(self, space) -> <formule>`. En MoonScript,
 `@champ` est un raccourci pour `self.champ` :
 
+**Exemple : `nom_complet` dans `auteurs`** — combine prénom, particule et nom en tenant
+compte des valeurs nulles :
+
 ```moonscript
-"#{@prenom} #{@nom}"
+parts = {}
+table.insert(parts, @prenom) if @prenom and @prenom != ""
+table.insert(parts, @particule) if @particule and @particule != ""
+table.insert(parts, @nom) if @nom and @nom != ""
+table.concat(parts, " ")
 ```
 
 ### Trigger formula
@@ -108,13 +115,15 @@ Une trigger formula est évaluée et son résultat **stocké** lors de chaque cr
 modification de l'enregistrement (ou uniquement lors du changement de champs listés dans
 `triggerFields`).
 
-```moonscript
--- Déclenché sur tout changement :
-@quantite * @prix_unitaire
+**Exemple : `cote_auto` dans `livres`** — génère une cote bibliographique automatique
+à partir des trois premières lettres du titre et de l'année (déclenché sur `titre` et
+`annee`) :
 
--- Déclenché uniquement si `titre` change :
--- (configurer triggerFields: ["titre"])
-@titre\lower!\gsub "[^%w]+", "-"
+```moonscript
+-- triggerFields: ["titre", "annee"]
+prefix = (@titre or "")\upper!\sub(1, 3)\gsub("[^%A]", "")
+annee  = if @annee then tostring(@annee) else "????"
+"#{prefix}-#{annee}"
 ```
 
 ### Langages de formule
@@ -130,17 +139,14 @@ Les formules et triggers reçoivent un deuxième paramètre `space` qui permet d
 tous les enregistrements d'un autre espace (full scan) :
 
 ```moonscript
--- Compter les commandes d'un client
-#space("commandes")
+-- Compter les exemplaires disponibles pour ce livre
+n = 0
+for e in *space("exemplaires")
+  n += 1 if e.livre_id == @id and e.disponible
+n
 
--- Sommer une colonne filtrée
-sum = 0
-for r in *space("lignes")
-  sum += r.montant if r.commande_id == @id
-sum
-
--- Récupérer un libellé depuis une table de référence
-next(t for t in *space("categories") when t._id == @categorie_id)?.libelle
+-- Récupérer le libellé du genre d'un livre
+next(g for g in *space("genres") when g._id == @genre_id)?.libelle
 ```
 
 `space("nom")` retourne une liste Lua de tous les enregistrements de l'espace `nom`,
@@ -169,18 +175,18 @@ mutation {
 mutation {
   addField(spaceId: "...", input: {
     name: "nom_complet", fieldType: String,
-    formula: "\"#{@prenom} #{@nom}\"",
+    formula: "parts = {}\ntable.insert(parts, @prenom) if @prenom and @prenom != \"\"\ntable.insert(parts, @particule) if @particule and @particule != \"\"\ntable.insert(parts, @nom) if @nom and @nom != \"\"\ntable.concat(parts, \" \")",
     language: "moonscript"
   }) { id }
 }
 
 # Ajouter une trigger formula
-# (se déclenche sur changement de "prix" ou "qte")
+# (se déclenche sur changement de "titre" ou "annee")
 mutation {
   addField(spaceId: "...", input: {
-    name: "total", fieldType: Float,
-    formula: "@prix * @qte",
-    triggerFields: ["prix", "qte"],
+    name: "cote_auto", fieldType: String,
+    formula: "prefix = (@titre or \"\")\\upper!\\sub(1, 3)\\gsub(\"[^%A]\", \"\")\nannee  = if @annee then tostring(@annee) else \"????\"\n\"#{prefix}-#{annee}\"",
+    triggerFields: ["titre", "annee"],
     language: "moonscript"
   }) { id }
 }
@@ -225,13 +231,35 @@ query {
   }
 }
 
-# Créer une relation
+# Créer une relation livres → auteurs
 mutation {
   createRelation(input: {
-    name: "appartient_à_client",
-    fromSpaceId: "commandes-id",
-    fromFieldId: "client_id-field-id",
-    toSpaceId:   "clients-id",
+    name: "livre_auteur",
+    fromSpaceId: "livres-id",
+    fromFieldId: "auteur_id-field-id",
+    toSpaceId:   "auteurs-id",
+    toFieldId:   "id-field-id"
+  }) { id }
+}
+
+# Créer une relation livres → genres
+mutation {
+  createRelation(input: {
+    name: "livre_genre",
+    fromSpaceId: "livres-id",
+    fromFieldId: "genre_id-field-id",
+    toSpaceId:   "genres-id",
+    toFieldId:   "id-field-id"
+  }) { id }
+}
+
+# Créer une relation exemplaires → livres
+mutation {
+  createRelation(input: {
+    name: "exemplaire_livre",
+    fromSpaceId: "exemplaires-id",
+    fromFieldId: "livre_id-field-id",
+    toSpaceId:   "livres-id",
     toFieldId:   "id-field-id"
   }) { id }
 }
@@ -261,8 +289,8 @@ query {
     spaceId: "..."
     filter: {
       or: [
-        { field: "nom", op: STARTS_WITH, value: "Du" }
-        { field: "age", op: GTE, value: "18" }
+        { field: "titre", op: STARTS_WITH, value: "Le" }
+        { field: "annee", op: GTE, value: "2000" }
       ]
     }
     limit: 50
@@ -298,11 +326,27 @@ query {
 # Lire un seul enregistrement
 query { record(spaceId: "...", id: "42") { id data } }
 
-# Insérer
+# Insérer un auteur
 mutation {
   insertRecord(
     spaceId: "...",
-    data: { nom: "Dupont", prenom: "Jean" }
+    data: { nom: "Hugo", prenom: "Victor", particule: "" }
+  ) { id data }
+}
+
+# Insérer un livre
+mutation {
+  insertRecord(
+    spaceId: "...",
+    data: { titre: "Les Misérables", auteur_id: 1, genre_id: 2, annee: 1862, isbn: "978-2-07-040850-4" }
+  ) { id data }
+}
+
+# Insérer un exemplaire
+mutation {
+  insertRecord(
+    spaceId: "...",
+    data: { livre_id: 1, etat: "bon", disponible: true }
   ) { id data }
 }
 
@@ -327,11 +371,11 @@ grille, formulaire ou galerie). Actuellement le type `grid` est pleinement pris 
 ### API GraphQL
 
 ```graphql
-# Créer une vue grille
+# Créer une vue grille sur le catalogue des livres
 mutation {
   createView(
     spaceId: "...",
-    input: { name: "Liste", viewType: grid }
+    input: { name: "Catalogue", viewType: grid }
   ) { id }
 }
 
@@ -409,35 +453,41 @@ Si omis, tous les champs de l'espace sont affichés.
 
 ### Exemple complet
 
+Vue **Gestion de la bibliothèque** : catalogue des livres → exemplaires → emprunts en cours,
+avec un widget agrégat des emprunts par genre.
+
 ```yaml
 layout:
   direction: vertical
   children:
     - widget:
-        id: personnes
-        title: Personnes
-        space: personnes
-        columns: [prenom, nom, email]
+        id: livres
+        title: Catalogue des livres
+        space: livres
+        columns: [titre, cote_auto, auteur_id, genre_id, isbn, annee]
     - layout:
         direction: horizontal
         children:
           - widget:
-              id: commandes
-              title: Commandes
-              space: commandes
+              id: exemplaires
+              title: Exemplaires
+              space: exemplaires
               depends_on:
-                widget: personnes
-                field: client_id
+                widget: livres
+                field: livre_id
                 from_field: id
+              columns: [etat, disponible]
               factor: 2
           - widget:
-              id: notes
-              title: Notes
-              space: notes
+              id: emprunts
+              title: Emprunts en cours
+              space: emprunts
               depends_on:
-                widget: personnes
-                field: personne_id
-              factor: 1
+                widget: exemplaires
+                field: exemplaire_id
+                from_field: id
+              columns: [personne_id, date_emprunt, date_retour]
+              factor: 3
 ```
 
 ### Widget agrégat
@@ -448,15 +498,12 @@ côté serveur par itération sur l'espace. Il est équivalent à un `GROUP BY` 
 ```yaml
 widget:
   type: aggregate
-  title: "Par pupitre"      # optionnel
-  space: chorale            # espace source
-  groupBy: [pupitre]        # un ou plusieurs champs de groupement
+  title: "Emprunts par genre"
+  space: emprunts
+  groupBy: [genre_id]
   aggregate:
-    - fn: count             # COUNT(*) — pas besoin de field
-      as: nb
-    - field: annee          # champ à agréger
-      fn: avg               # sum | count | avg | min | max
-      as: annee_moy         # alias colonne (défaut : fn_field)
+    - fn: count
+      as: nb_emprunts
 ```
 
 L'alias `as` est optionnel : s'il est absent, le nom de colonne généré est `fn_field`
@@ -472,19 +519,17 @@ alias `aggregate`.
 ```yaml
 widget:
   type: aggregate
-  space: chorale
-  groupBy: [pupitre]
+  title: "Emprunts par genre"
+  space: emprunts
+  groupBy: [genre_id]
   aggregate:
     - fn: count
-      as: nb
-    - field: annee
-      fn: avg
-      as: annee_moy
+      as: nb_emprunts
   computed:
     - as: label
-      expr: "row.pupitre + ' (' + row.nb + ')'"
+      expr: "row.genre_id + ' (' + row.nb_emprunts + ')'"
     - as: statut
-      expr: "row.nb > 1 ? 'Complet' : 'Insuffisant'"
+      expr: "row.nb_emprunts > 10 ? 'Actif' : 'Peu emprunté'"
 ```
 
 > **Note :** les expressions `computed` sont du JavaScript pur (pas du MoonScript) ;
@@ -514,14 +559,13 @@ mutation {
 # Supprimer
 mutation { deleteCustomView(id: "...") }
 
-# Requête d'agrégation directe
+# Requête d'agrégation directe : emprunts par genre
 query {
   aggregateSpace(
-    spaceName: "chorale",
-    groupBy: ["pupitre"],
+    spaceName: "emprunts",
+    groupBy: ["genre_id"],
     aggregate: [
-      { fn: "count", as: "nb" },
-      { field: "annee", fn: "avg", as: "annee_moy" }
+      { fn: "count", as: "nb_emprunts" }
     ]
   )
 }
@@ -676,25 +720,69 @@ version: "1"
 exported_at: "2026-03-08T12:00:00"
 schema:
   spaces:
-    - name: personnes
+    - name: auteurs
       fields:
+        - name: particule
+          fieldType: String
+          notNull: false
         - name: nom
+          fieldType: String
+          notNull: true
+        - name: prenom
           fieldType: String
           notNull: false
         - name: nom_complet
           fieldType: String
-          formula: "=> \"#{@prenom} #{@nom}\""
+          formula: "=> parts = {}\ntable.insert(parts, @prenom) if @prenom and @prenom != \"\"\ntable.insert(parts, @particule) if @particule and @particule != \"\"\ntable.insert(parts, @nom) if @nom and @nom != \"\"\ntable.concat(parts, \" \")"
+          language: moonscript
+    - name: genres
+      fields:
+        - name: libelle
+          fieldType: String
+          notNull: true
+    - name: livres
+      fields:
+        - name: titre
+          fieldType: String
+          notNull: true
+        - name: auteur_id
+          fieldType: Relation
+          notNull: false
+        - name: genre_id
+          fieldType: Relation
+          notNull: false
+        - name: cote
+          fieldType: String
+          notNull: false
+        - name: isbn
+          fieldType: String
+          notNull: false
+        - name: annee
+          fieldType: Int
+          notNull: false
+        - name: cote_auto
+          fieldType: String
+          formula: "=> prefix = (@titre or \"\")\\upper!\\sub(1, 3)\\gsub(\"[^%A]\", \"\")\nannee  = if @annee then tostring(@annee) else \"????\"\n\"#{prefix}-#{annee}\""
+          triggerFields: [titre, annee]
           language: moonscript
       views:
-        - name: Grille
+        - name: Catalogue
           viewType: Grid
   relations:
-    - fromSpace: chorale
-      fromField: choriste
-      toSpace: personnes
+    - fromSpace: livres
+      fromField: auteur_id
+      toSpace: auteurs
+      toField: id
+    - fromSpace: livres
+      fromField: genre_id
+      toSpace: genres
+      toField: id
+    - fromSpace: exemplaires
+      fromField: livre_id
+      toSpace: livres
       toField: id
   custom_views:
-    - name: Chorale
+    - name: Gestion de la bibliothèque
       yaml: |
         layout: …
   groups:
@@ -704,8 +792,12 @@ schema:
         - resourceType: space
           level: admin
 data:                    # absent si export structure seulement
-  personnes:
-    - {nom: Dupont, prenom: Jean}
+  auteurs:
+    - {nom: Hugo, prenom: Victor}
+  genres:
+    - {libelle: Roman}
+  livres:
+    - {titre: "Les Misérables", auteur_id: 1, genre_id: 1, annee: 1862}
 ```
 
 Les identifiants internes sont exclus ; la correspondance lors de l'import se fait par **nom**.

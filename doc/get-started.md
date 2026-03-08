@@ -7,6 +7,9 @@ production, l'utilisateur est invité à se tourner vers ce dernier en priorité
 de créer et gérer des espaces de données (tables), de les relier entre eux, d'y définir des
 colonnes calculées ou des triggers, et de composer des vues personnalisées déclaratives (YAML).
 
+Ce guide vous emmène pas à pas de zéro à une application de **gestion de bibliothèque
+scolaire** fonctionnelle : catalogue de livres, exemplaires physiques, emprunteurs et prêts.
+
 ---
 
 ## Prérequis
@@ -54,13 +57,51 @@ L'interface est divisée en deux zones :
 
 ---
 
-## Créer un espace (table)
+## Créer les espaces (tables)
+
+La bibliothèque repose sur 12 tables. Créez-les dans l'ordre suivant pour faciliter la
+définition des relations : d'abord les tables de référence, puis les tables principales,
+puis les tables de jointure, et enfin la table de transaction.
+
+### 1 — Tables de référence
+
+Ces tables n'ont pas de dépendance vers d'autres tables.
 
 1. Dans la section **Données** de la barre latérale, cliquez sur **+**.
-2. Saisissez le nom de l'espace (ex. `produits`) et validez.
-3. L'espace apparaît dans la liste ; cliquez dessus pour l'ouvrir.
+2. Saisissez le nom de l'espace et validez.
+3. Répétez pour chaque table.
+
+| Espace | Rôle |
+|--------|------|
+| `genres` | Genres littéraires (roman, BD, documentaire…) |
+| `auteurs` | Auteurs des ouvrages |
+| `classes` | Classes scolaires de l'établissement |
+| `motscles` | Mots-clés thématiques |
+| `etiquettes` | Étiquettes de classement (prix, coups de cœur…) |
 
 ![Espace de données avec grille](img/space-data.png)
+
+### 2 — Tables principales
+
+| Espace | Rôle |
+|--------|------|
+| `livres` | Catalogue des titres (références bibliographiques) |
+| `personnes` | Élèves et personnels pouvant emprunter |
+| `exemplaires` | Copies physiques de chaque titre |
+| `coordonnees` | Coordonnées de contact des personnes |
+
+### 3 — Tables de jointure many-to-many
+
+| Espace | Rôle |
+|--------|------|
+| `livres_motscles` | Association livre ↔ mot-clé |
+| `livres_etiquettes` | Association livre ↔ étiquette |
+
+### 4 — Table de transaction
+
+| Espace | Rôle |
+|--------|------|
+| `emprunts` | Enregistrement des prêts (exemplaire + emprunteur + dates) |
 
 ---
 
@@ -78,30 +119,53 @@ Cliquez sur **[#] Champs** dans la barre d'outils pour ouvrir le panel latéral.
 3. Cochez **Requis** si la valeur ne peut pas être nulle.
 4. Cliquez sur **Ajouter**.
 
+### Exemple : champs de l'espace `auteurs`
+
+| Champ | Type | Requis |
+|-------|------|--------|
+| `id` | Séquence | — |
+| `particule` | String | non |
+| `nom` | String | **oui** |
+| `prenom` | String | non |
+
+### Exemple : champs de l'espace `livres`
+
+| Champ | Type | Requis | Remarque |
+|-------|------|--------|----------|
+| `id` | Séquence | — | |
+| `titre` | String | **oui** | |
+| `auteur_id` | Relation | non | → `auteurs` |
+| `genre_id` | Relation | non | → `genres` |
+| `cote` | String | non | Cote de rangement |
+| `isbn` | String | non | Nullable |
+| `annee` | Int | non | Année de parution, nullable |
+
 ### Colonne calculée (λ)
 
 Sélectionnez **Colonne calculée** et saisissez une expression MoonScript ou Lua.
 La formule est le corps d'une fonction `(self, space) -> <formule>` ; en MoonScript,
-`@champ` accède à `self.champ` :
+`@champ` accède à `self.champ`. La valeur est recalculée à chaque lecture ; elle n'est
+pas stockée.
+
+**Exemple : `nom_complet` dans `auteurs`** — combine prénom, particule et nom en tenant
+compte des valeurs nulles :
 
 ```moonscript
--- Exemple : concaténer prénom et nom
-"#{@prenom} #{@nom}"
+parts = {}
+table.insert(parts, @prenom) if @prenom and @prenom != ""
+table.insert(parts, @particule) if @particule and @particule != ""
+table.insert(parts, @nom) if @nom and @nom != ""
+table.concat(parts, " ")
 ```
-
-La valeur est recalculée à chaque lecture ; elle n'est pas stockée.
 
 Le paramètre `space` donne accès aux enregistrements d'un autre espace (full scan) :
 
 ```moonscript
--- Compter les lignes de commande liées à cet enregistrement
-#space("lignes")
-
--- Sommer une colonne filtrée
-sum = 0
-for r in *space("lignes")
-  sum += r.montant if r.commande_id == @id
-sum
+-- Compter les exemplaires disponibles pour ce livre
+n = 0
+for e in *space("exemplaires")
+  n += 1 if e.livre_id == @id and e.disponible
+n
 ```
 
 ### Trigger formula ((trigger))
@@ -110,9 +174,14 @@ Sélectionnez **Trigger formula** et, optionnellement, listez les champs déclen
 La formule est exécutée et le résultat **stocké** lors de chaque création ou modification
 des champs listés.
 
+**Exemple : `cote_auto` dans `livres`** — génère une cote bibliographique automatique à
+partir des trois premières lettres du titre et de l'année (déclenché sur `titre` et `annee`) :
+
 ```moonscript
--- Exemple : générer un slug à partir du titre
-@titre\lower!\gsub ' ', '-'
+-- triggerFields: ["titre", "annee"]
+prefix = (@titre or "")\upper!\sub(1, 3)\gsub("[^%A]", "")
+annee  = if @annee then tostring(@annee) else "????"
+"#{prefix}-#{annee}"
 ```
 
 ### Modifier un champ existant
@@ -131,15 +200,33 @@ Cliquez sur **(crayon)** à côté du champ pour éditer son nom, type, formule 
 - Pour **supprimer des lignes**, sélectionnez-les (cases à cocher) puis cliquez sur le
   bouton [suppr] « Supprimer les lignes sélectionnées ».
 
+Commencez par saisir les données dans les tables de référence (`genres`, `auteurs`,
+`classes`) avant de renseigner `livres`, `personnes` et `exemplaires`.
+
 ---
 
 ## Relations entre espaces
 
-Dans le panel **Champs**, choisissez le type **Relation** :
+Dans le panel **Champs**, choisissez le type **Relation** pour les champs `_id` :
 
-1. Choisissez l'espace **cible** dans la liste déroulante (y compris l'espace lui-même,
-   pour des relations récursives, ex. généalogiques).
+1. Choisissez l'espace **cible** dans la liste déroulante.
 2. Le champ stockera l'identifiant de l'enregistrement lié.
+
+Voici les relations à créer pour la bibliothèque :
+
+| Champ (espace source) | Espace cible |
+|-----------------------|-------------|
+| `livres.auteur_id` | `auteurs` |
+| `livres.genre_id` | `genres` |
+| `exemplaires.livre_id` | `livres` |
+| `emprunts.exemplaire_id` | `exemplaires` |
+| `emprunts.personne_id` | `personnes` |
+| `personnes.classe_id` | `classes` |
+| `coordonnees.personne_id` | `personnes` |
+| `livres_motscles.livre_id` | `livres` |
+| `livres_motscles.motcle_id` | `motscles` |
+| `livres_etiquettes.livre_id` | `livres` |
+| `livres_etiquettes.etiquette_id` | `etiquettes` |
 
 Les relations permettent ensuite de construire des vues personnalisées avec filtrage
 automatique (dépendances inter-widgets).
@@ -155,38 +242,8 @@ Les vues permettent de composer des tableaux de bord multi-espaces.
 ### Créer une vue
 
 1. Dans la section **Vues**, cliquez sur **+**.
-2. Donnez un nom à la vue.
+2. Donnez un nom à la vue (ex. `Gestion des prêts`).
 3. L'éditeur YAML s'ouvre automatiquement.
-
-### Syntaxe YAML
-
-```yaml
-layout:
-  direction: vertical          # vertical | horizontal
-  children:
-    - widget:
-        id: mon_widget
-        title: Mes produits
-        space: produits         # nom de l'espace
-        columns: [nom, prix]    # colonnes affichées (optionnel, toutes par défaut)
-    - layout:
-        direction: horizontal
-        children:
-          - widget:
-              id: detail
-              title: Détail commande
-              space: commandes
-              depends_on:
-                widget: mon_widget  # filtrage sur la sélection du widget parent
-                field: id_produit   # champ de jointure dans cet espace
-                from_field: id      # champ source dans le widget parent (défaut : id)
-              factor: 2             # poids relatif (défaut : 1)
-          - widget:
-              id: stats
-              title: Statistiques
-              space: stats
-              factor: 1
-```
 
 ### Éditeur YAML avec schéma ERD
 
@@ -231,7 +288,46 @@ Les champs non gérés par le constructeur (comme `title`, `aggregate`, `compute
 | **▶ Aperçu** | Affiche la vue rendue |
 | **✕** | Ferme le modal sans sauvegarder |
 
-### Widgets agrégats
+### Vue « Gestion des prêts »
+
+La vue principale de la bibliothèque affiche les livres, leurs exemplaires et les emprunts
+en cours, avec un récapitulatif par genre.
+
+```yaml
+layout:
+  direction: vertical
+  children:
+    - widget:
+        id: livres
+        title: Catalogue des livres
+        space: livres
+        columns: [titre, cote_auto, auteur_id, genre_id, isbn, annee]
+    - layout:
+        direction: horizontal
+        children:
+          - widget:
+              id: exemplaires
+              title: Exemplaires
+              space: exemplaires
+              depends_on:
+                widget: livres
+                field: livre_id
+                from_field: id
+              columns: [etat, disponible]
+              factor: 2
+          - widget:
+              id: emprunts_en_cours
+              title: Emprunts en cours
+              space: emprunts
+              depends_on:
+                widget: exemplaires
+                field: exemplaire_id
+                from_field: id
+              columns: [personne_id, date_emprunt, date_retour]
+              factor: 3
+```
+
+### Widget agrégat — Emprunts par genre
 
 Un widget de type `aggregate` affiche un tableau de synthèse en lecture seule — l'équivalent
 d'un `GROUP BY` SQL, calculé en Lua côté serveur.
@@ -239,33 +335,21 @@ d'un `GROUP BY` SQL, calculé en Lua côté serveur.
 ```yaml
 - widget:
     type: aggregate
-    title: Par pupitre
-    space: chorale
-    groupBy: [pupitre]
+    title: Emprunts par genre
+    space: emprunts
+    groupBy: [genre_id]
     aggregate:
       - fn: count
-        as: nb
-      - field: annee
-        fn: avg
-        as: annee_moy
+        as: nb_emprunts
+    computed:
+      - as: label
+        expr: "row.genre_id + ' (' + row.nb_emprunts + ')'"
+      - as: statut
+        expr: "row.nb_emprunts > 10 ? 'Actif' : 'Peu emprunté'"
 ```
 
 Les fonctions disponibles sont `sum`, `count`, `avg`, `min`, `max`. L'alias `as` est
-optionnel (nom par défaut : `fn_champ`, ex. `avg_annee`).
-
-#### Colonnes calculées
-
-La clé `computed` permet d'ajouter des colonnes calculées côté client (JavaScript).
-Chaque entrée a un alias (`as`) et une expression (`expr`) évaluée sur chaque ligne ;
-`row` contient les champs `groupBy` et les alias `aggregate` :
-
-```yaml
-  computed:
-    - as: label
-      expr: "row.pupitre + ' (' + row.nb + ')'"
-    - as: statut
-      expr: "row.nb > 1 ? 'Complet' : 'Insuffisant'"
-```
+optionnel (nom par défaut : `fn_champ`, ex. `count`).
 
 ![Exemple de widget agrégat](img/aggregate-widget.png)
 
