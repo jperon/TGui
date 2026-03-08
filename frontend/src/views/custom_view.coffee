@@ -6,19 +6,25 @@
 #   layout:
 #     direction: vertical
 #     children:
-#       - direction: horizontal
+#       - factor: 2                         # prend 2/3 de la place (optionnel, défaut: 1)
+#         direction: horizontal
 #         children:
 #           - widget:
 #               id: liste-chorales          # identifiant unique du widget (obligatoire si référencé)
 #               title: Chorales
 #               space: chorale
+#               columns: [annee, pupitre]   # colonnes à afficher (optionnel, défaut: toutes)
 #           - widget:
 #               title: Choristes
 #               space: choristes
 #               depends_on:
 #                 widget: liste-chorales    # id du widget source
 #                 field: chorale_id         # FK field in this space
-#                 from_field: id            # referenced field in the source widget's space
+#                 from_field: id            # referenced field in the source widget's space (défaut: id)
+#       - factor: 1
+#         widget:
+#           title: Personnes
+#           space: personnes
 
 window.CustomView = class CustomView
   constructor: (@container, @yamlText, @allSpaces) ->
@@ -41,7 +47,6 @@ window.CustomView = class CustomView
       return
 
     el = @_renderZoneOrWidget root
-    el.style.flex = '1'
     @container.style.cssText = 'display:flex;flex-direction:column;height:100%;'
     @container.appendChild el
 
@@ -54,15 +59,18 @@ window.CustomView = class CustomView
         entry.dataView?._grid?.refreshLayout()
     , 0
 
+  # Renders either a zone (direction+children) or a widget node.
+  # Applies `factor` (flex proportion) when specified (default: 1).
   _renderZoneOrWidget: (node) ->
     if node.widget
-      return @_renderWidget node.widget
-    # Zone node (direction + children)
-    zone = document.createElement 'div'
-    zone.className = "cv-zone #{node.direction or 'vertical'}"
-    for child in (node.children or [])
-      zone.appendChild @_renderZoneOrWidget child
-    zone
+      el = @_renderWidget node.widget
+    else
+      el = document.createElement 'div'
+      el.className = "cv-zone #{node.direction or 'vertical'}"
+      for child in (node.children or [])
+        el.appendChild @_renderZoneOrWidget child
+    el.style.flex = if node.factor? then String(node.factor) else '1'
+    el
 
   _renderWidget: (wNode) ->
     sp = @_findSpace wNode.space
@@ -93,6 +101,13 @@ window.CustomView = class CustomView
       @_widgetsById[wNode.id] = entry if wNode.id
       return wrapper
 
+    # Apply column filter/order if specified
+    if wNode.columns and wNode.columns.length > 0
+      fieldMap = {}
+      fieldMap[f.name] = f for f in (sp.fields or [])
+      sp = Object.assign {}, sp
+      sp.fields = (fieldMap[col] for col in wNode.columns when fieldMap[col])
+
     dv = new DataView body, sp
     dv.mount()
     delBtn.addEventListener 'click', => dv.deleteSelected()
@@ -110,7 +125,8 @@ window.CustomView = class CustomView
         console.warn "depends_on: widget id '#{dep.widget}' introuvable ou sans dataView"
         continue
 
-      # When a row is clicked in the source grid, filter this widget and set FK default
+      # When a row is clicked in the source grid, filter this widget and set FK default.
+      # from_field defaults to 'id' when omitted.
       do (entry, dep, src) =>
         src.dataView._grid?.on 'click', (ev) =>
           rowKey = ev.rowKey
