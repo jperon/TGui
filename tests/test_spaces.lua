@@ -185,7 +185,7 @@ R.describe("Spaces — réordonnancement", function()
     return R.eq(result[1].position, 1)
   end)
 end)
-return R.describe("Spaces — FIELD_TYPES", function()
+R.describe("Spaces — FIELD_TYPES", function()
   R.it("contient les types de base", function()
     for _, t in ipairs({
       'String',
@@ -228,3 +228,4 @@ return R.describe("Spaces — FIELD_TYPES", function()
     return R.ok(found)
   end)
 end)
+return spaces_mod.delete_user_space(SP_NAME)

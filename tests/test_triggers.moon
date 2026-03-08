@@ -10,6 +10,7 @@ triggers    = require 'core.triggers'
 -- Espace isolé pour ces tests
 SUFFIX  = tostring(math.random 100000, 999999)
 SP_NAME = "test_triggers_#{SUFFIX}"
+MS_SP   = "trig_moon_#{SUFFIX}"
 
 local space_id, data_space
 
@@ -139,7 +140,6 @@ R.describe "Triggers — compile_formula", ->
 
 R.describe "Triggers — trigger formula MoonScript", ->
   local ms_space_id, ms_data_space
-  MS_SP = "trig_moon_#{SUFFIX}"
 
   R.it "créer un espace avec trigger formula MoonScript", ->
     sp = spaces_mod.create_user_space MS_SP
@@ -184,3 +184,7 @@ R.describe "Triggers — init_all_triggers", ->
   R.it "init_all_triggers s'exécute sans erreur", ->
     ok, err = pcall triggers.init_all_triggers
     R.ok ok, "init_all_triggers: #{tostring err}"
+
+-- Nettoyage : suppression des espaces créés pour ces tests
+spaces_mod.delete_user_space SP_NAME
+spaces_mod.delete_user_space MS_SP

@@ -789,10 +789,40 @@ migrate = function()
     end
   end
 end
+local delete_user_space
+delete_user_space = function(name)
+  if not (name) then
+    return 
+  end
+  local meta = box.space._tdb_spaces.index.by_name:get(name)
+  if not (meta) then
+    return 
+  end
+  local sid = meta[1]
+  local _list_0 = box.space._tdb_fields.index.by_space:select({
+    sid
+  })
+  for _index_0 = 1, #_list_0 do
+    local t = _list_0[_index_0]
+    if t[4] == 'Sequence' then
+      local seq = box.sequence["_tdb_seq_" .. tostring(t[1])]
+      if seq then
+        seq:drop()
+      end
+    end
+    box.space._tdb_fields:delete(t[1])
+  end
+  local sp = box.space["data_" .. tostring(name)]
+  if sp then
+    sp:drop()
+  end
+  return box.space._tdb_spaces:delete(sid)
+end
 return {
   bootstrap = bootstrap,
   migrate = migrate,
   create_user_space = create_user_space,
+  delete_user_space = delete_user_space,
   add_field = add_field,
   remove_field = remove_field,
   reorder_fields = reorder_fields,

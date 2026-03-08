@@ -166,3 +166,6 @@ R.describe "Spaces — FIELD_TYPES", ->
     for _, ft in ipairs spaces_mod.FIELD_TYPES do
       if ft == 'Sequence' then found = true
     R.ok found
+
+-- Nettoyage : suppression de l'espace créé pour ces tests
+spaces_mod.delete_user_space SP_NAME

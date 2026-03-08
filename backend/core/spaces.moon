@@ -346,4 +346,23 @@ migrate = ->
         box.schema.sequence.create seq_name, { start: 1, min: 1, step: 1 }
         log.info "Created missing sequence: #{seq_name}"
 
-{ :bootstrap, :migrate, :create_user_space, :add_field, :remove_field, :reorder_fields, :list_spaces, :list_fields, :get_space, :FIELD_TYPES }
+-- Delete a user space and all its associated data (fields, sequences, box.space).
+-- Used by the test suite to clean up after itself.
+delete_user_space = (name) ->
+  return unless name
+  meta = box.space._tdb_spaces.index.by_name\get name
+  return unless meta
+  sid = meta[1]
+  -- Remove all fields (and their sequences)
+  for t in *box.space._tdb_fields.index.by_space\select { sid }
+    if t[4] == 'Sequence'
+      seq = box.sequence["_tdb_seq_#{t[1]}"]
+      seq\drop! if seq
+    box.space._tdb_fields\delete t[1]
+  -- Drop the underlying box.space
+  sp = box.space["data_#{name}"]
+  sp\drop! if sp
+  -- Remove metadata
+  box.space._tdb_spaces\delete sid
+
+{ :bootstrap, :migrate, :create_user_space, :delete_user_space, :add_field, :remove_field, :reorder_fields, :list_spaces, :list_fields, :get_space, :FIELD_TYPES }
