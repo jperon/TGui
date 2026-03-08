@@ -722,6 +722,64 @@ list_fields = function(space_id)
   end
   return result
 end
+local update_field
+update_field = function(field_id, opts)
+  local json = require('json')
+  local t = box.space._tdb_fields:get(field_id)
+  if not (t) then
+    error("Field not found: " .. tostring(field_id))
+  end
+  local name = opts.name or t[3]
+  local not_null
+  if opts.notNull ~= nil then
+    not_null = opts.notNull
+  else
+    not_null = t[5]
+  end
+  local desc = opts.description or t[7]
+  local formula = opts.formula
+  local trigger_fields = opts.triggerFields
+  local language = opts.language or t[10] or 'lua'
+  local tuple = {
+    t[1],
+    t[2],
+    name,
+    t[4],
+    not_null,
+    t[6],
+    desc
+  }
+  if formula and formula ~= '' then
+    table.insert(tuple, formula)
+    table.insert(tuple, json.encode(trigger_fields))
+    table.insert(tuple, language)
+  end
+  box.space._tdb_fields:replace(tuple)
+  local trigger_raw
+  if #tuple >= 9 then
+    trigger_raw = tuple[9]
+  else
+    trigger_raw = nil
+  end
+  local tf
+  if trigger_raw and trigger_raw ~= 'null' then
+    tf = json.decode(trigger_raw)
+  else
+    tf = nil
+  end
+  return {
+    id = t[1],
+    spaceId = t[2],
+    name = name,
+    fieldType = t[4],
+    notNull = not_null,
+    position = t[6],
+    description = desc,
+    formula = formula or '',
+    triggerFields = tf,
+    language = language
+  }
+end
 local reorder_fields
 reorder_fields = function(space_id, field_ids)
   for pos, fid in ipairs(field_ids) do
@@ -825,6 +883,7 @@ return {
   delete_user_space = delete_user_space,
   add_field = add_field,
   remove_field = remove_field,
+  update_field = update_field,
   reorder_fields = reorder_fields,
   list_spaces = list_spaces,
   list_fields = list_fields,

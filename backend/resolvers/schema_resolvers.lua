@@ -92,7 +92,11 @@ local Mutation = {
     return result
   end,
   deleteSpace = function(_, args, ctx)
-    box.space._tdb_spaces:delete(args.id)
+    local t = box.space._tdb_spaces:get(args.id)
+    if not (t) then
+      error("Space not found")
+    end
+    spaces_mod.delete_user_space(t[2])
     executor.reinit_schema()
     return true
   end,
@@ -119,6 +123,23 @@ local Mutation = {
   reorderFields = function(_, args, ctx)
     local result = spaces_mod.reorder_fields(args.spaceId, args.fieldIds)
     executor.reinit_schema()
+    return result
+  end,
+  updateField = function(_, args, ctx)
+    local i = args.input
+    local result = spaces_mod.update_field(args.fieldId, {
+      name = i.name,
+      notNull = i.notNull,
+      description = i.description,
+      formula = i.formula,
+      triggerFields = i.triggerFields,
+      language = i.language
+    })
+    executor.reinit_schema()
+    local sp_meta = box.space._tdb_spaces:get(result.spaceId)
+    if sp_meta then
+      triggers.register_space_trigger(sp_meta[2])
+    end
     return result
   end,
   createView = function(_, args, ctx)

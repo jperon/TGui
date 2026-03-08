@@ -52,6 +52,7 @@ type Mutation {
   addField(spaceId: ID!, input: FieldInput!): Field!
   removeField(fieldId: ID!):               Boolean!
   reorderFields(spaceId: ID!, fieldIds: [ID!]!): [Field!]!
+  updateField(fieldId: ID!, input: UpdateFieldInput!): Field!
 
   # Views
   createView(spaceId: ID!, input: CreateViewInput!):   View!
@@ -240,6 +241,15 @@ enum PermissionLevel {
 # ────────────────────────────────────────────────────────────────────────────
 # Input types
 # ────────────────────────────────────────────────────────────────────────────
+
+input UpdateFieldInput {
+  name:          String
+  notNull:       Boolean
+  description:   String
+  formula:       String
+  triggerFields: [String!]
+  language:      String
+}
 
 input CreateSpaceInput {
   name:        String!

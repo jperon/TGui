@@ -26,6 +26,8 @@
     _activeDataView: null,
     _activeCustomView: null,
     _allSpaces: [],
+    _editingFieldId: null, // fieldId being edited in the Champs form, or null
+    
     // ── DOM refs ────────────────────────────────────────────────────────────────
     el: {
       loginOverlay: function() {
@@ -70,11 +72,14 @@
       dataTitle: function() {
         return document.getElementById('data-title');
       },
+      renameSpaceBtn: function() {
+        return document.getElementById('rename-space-btn');
+      },
+      deleteSpaceBtn: function() {
+        return document.getElementById('delete-space-btn');
+      },
       fieldsBtn: function() {
         return document.getElementById('fields-btn');
-      },
-      addRowBtn: function() {
-        return null;
       },
       deleteRowsBtn: function() {
         return document.getElementById('delete-rows-btn');
@@ -121,23 +126,14 @@
       fieldAddBtn: function() {
         return document.getElementById('field-add-btn');
       },
-      relationsList: function() {
-        return document.getElementById('relations-list');
+      fieldCancelBtn: function() {
+        return document.getElementById('field-cancel-btn');
       },
-      relName: function() {
-        return document.getElementById('rel-name');
-      },
-      relFromField: function() {
-        return document.getElementById('rel-from-field');
+      relTargetRow: function() {
+        return document.getElementById('rel-target-row');
       },
       relToSpace: function() {
         return document.getElementById('rel-to-space');
-      },
-      relToField: function() {
-        return document.getElementById('rel-to-field');
-      },
-      relAddBtn: function() {
-        return document.getElementById('rel-add-btn');
       },
       yamlEditorPanel: function() {
         return document.getElementById('yaml-editor-panel');
@@ -176,7 +172,6 @@
       this._bindSidebar();
       this._bindDataToolbar();
       this._bindFieldsPanel();
-      this._bindRelationsForm();
       return this._bindYamlEditor();
     },
     // ── Login ───────────────────────────────────────────────────────────────────
@@ -534,9 +529,58 @@
     },
     // ── Data toolbar ─────────────────────────────────────────────────────────────
     _bindDataToolbar: function() {
-      return this.el.deleteRowsBtn().addEventListener('click', () => {
+      this.el.deleteRowsBtn().addEventListener('click', () => {
         var ref;
         return (ref = this._activeDataView) != null ? ref.deleteSelected() : void 0;
+      });
+      this.el.deleteSpaceBtn().addEventListener('click', () => {
+        var name;
+        if (!this._currentSpace) {
+          return;
+        }
+        name = this._currentSpace.name;
+        if (!confirm(`Supprimer l'espace « ${name} » et toutes ses données ?`)) {
+          return;
+        }
+        return Spaces.delete(this._currentSpace.id).then(() => {
+          var ref;
+          this._currentSpace = null;
+          if ((ref = this._activeDataView) != null) {
+            if (typeof ref.unmount === "function") {
+              ref.unmount();
+            }
+          }
+          this._activeDataView = null;
+          this.el.dataToolbar().classList.add('hidden');
+          this.el.fieldsPanel().classList.add('hidden');
+          this.el.fieldsBtn().classList.remove('active');
+          this.el.welcome().classList.remove('hidden');
+          return this._loadAll();
+        }).catch(function(err) {
+          return alert(`Erreur : ${err.message}`);
+        });
+      });
+      return this.el.renameSpaceBtn().addEventListener('click', () => {
+        var newName;
+        if (!this._currentSpace) {
+          return;
+        }
+        newName = prompt("Nouveau nom de l'espace :", this._currentSpace.name);
+        if (!((newName != null ? newName.trim() : void 0) && newName.trim() !== this._currentSpace.name)) {
+          return;
+        }
+        return Spaces.update(this._currentSpace.id, newName.trim()).then((updated) => {
+          var li;
+          this._currentSpace.name = updated.name;
+          this.el.dataTitle().textContent = updated.name;
+          // Update sidebar
+          li = this.el.spaceList().querySelector(`li[data-id='${updated.id}']`);
+          if (li) {
+            return li.textContent = updated.name;
+          }
+        }).catch(function(err) {
+          return alert(`Erreur : ${err.message}`);
+        });
       });
     },
     // ── Fields panel ─────────────────────────────────────────────────────────────
@@ -548,8 +592,7 @@
         if (panel.classList.contains('hidden')) {
           panel.classList.remove('hidden');
           btn.classList.add('active');
-          this.renderFieldsList();
-          return this.renderRelationsList();
+          return this.renderFieldsList();
         } else {
           panel.classList.add('hidden');
           return btn.classList.remove('active');
@@ -558,6 +601,10 @@
       this.el.fieldsPanelClose().addEventListener('click', () => {
         this.el.fieldsPanel().classList.add('hidden');
         return this.el.fieldsBtn().classList.remove('active');
+      });
+      // Show/hide formula section and relation target based on type selection
+      this.el.fieldType().addEventListener('change', () => {
+        return this._onFieldTypeChange();
       });
       // Show/hide formula textarea and trigger-fields row based on radio selection
       document.querySelectorAll('input[name="formula-type"]').forEach((radio) => {
@@ -568,8 +615,11 @@
           return this.el.triggerFieldsRow().classList.toggle('hidden', val !== 'trigger');
         });
       });
+      this.el.fieldCancelBtn().addEventListener('click', () => {
+        return this._resetFieldForm();
+      });
       return this.el.fieldAddBtn().addEventListener('click', () => {
-        var formula, formulaType, language, name, notNull, raw, ref, s, triggerFields, type;
+        var formula, formulaType, language, name, notNull, opts, raw, ref, ref1, s, toSpaceId, triggerFields, type;
         if (!this._currentSpace) {
           return;
         }
@@ -579,318 +629,392 @@
         if (!name) {
           return;
         }
-        formulaType = document.querySelector('input[name="formula-type"]:checked').value;
-        formula = null;
-        triggerFields = null;
-        language = ((ref = this.el.formulaLanguage()) != null ? ref.value : void 0) || 'lua';
-        if (formulaType !== 'none') {
-          formula = this.el.fieldFormula().value.trim() || null;
-          if (formulaType === 'trigger' && formula) {
-            raw = this.el.fieldTriggerFields().value.trim();
-            if (raw === '*') {
-              triggerFields = ['*'];
-            } else if (raw === '') {
-              triggerFields = [];
-            } else {
-              triggerFields = (function() {
-                var i, len, ref1, results;
-                ref1 = raw.split(',');
-                results = [];
-                for (i = 0, len = ref1.length; i < len; i++) {
-                  s = ref1[i];
-                  if (s.trim()) {
-                    results.push(s.trim());
+        if (this._editingFieldId) {
+          // ── Update existing field ──────────────────────────────────────────
+          formulaType = document.querySelector('input[name="formula-type"]:checked').value;
+          opts = {name, notNull};
+          if (formulaType !== 'none') {
+            opts.formula = this.el.fieldFormula().value.trim() || null;
+            opts.language = ((ref = this.el.formulaLanguage()) != null ? ref.value : void 0) || 'lua';
+            if (formulaType === 'trigger' && opts.formula) {
+              raw = this.el.fieldTriggerFields().value.trim();
+              if (raw === '*') {
+                opts.triggerFields = ['*'];
+              } else if (raw === '') {
+                opts.triggerFields = [];
+              } else {
+                opts.triggerFields = (function() {
+                  var i, len, ref1, results;
+                  ref1 = raw.split(',');
+                  results = [];
+                  for (i = 0, len = ref1.length; i < len; i++) {
+                    s = ref1[i];
+                    if (s.trim()) {
+                      results.push(s.trim());
+                    }
                   }
-                }
-                return results;
-              })();
+                  return results;
+                })();
+              }
+            }
+          } else {
+            opts.formula = '';
+            opts.triggerFields = null;
+            opts.language = 'lua';
+          }
+          Spaces.updateField(this._editingFieldId, opts).then(() => {
+            return Spaces.getWithFields(this._currentSpace.id).then((full) => {
+              this._currentSpace = full;
+              this._syncSpaceFields(full);
+              this.renderFieldsList();
+              return this._mountDataView(full);
+            });
+          }).catch(function(err) {
+            return alert(`Erreur : ${err.message}`);
+          });
+          return this._resetFieldForm();
+        } else if (type === 'Relation') {
+          // ── Create relation field ──────────────────────────────────────────
+          toSpaceId = this.el.relToSpace().value;
+          if (!toSpaceId) {
+            return;
+          }
+          Spaces.getWithFields(toSpaceId).then((targetSpace) => {
+            var idField;
+            idField = (targetSpace.fields || []).find(function(f) {
+              return f.fieldType === 'Sequence';
+            });
+            if (!idField) {
+              return alert("L'espace cible n'a pas de champ Séquence.");
+            }
+            return Spaces.addField(this._currentSpace.id, name, 'Int', notNull, '').then((newField) => {
+              return Spaces.createRelation(name, this._currentSpace.id, newField.id, toSpaceId, idField.id).then(() => {
+                return Spaces.getWithFields(this._currentSpace.id).then((full) => {
+                  this._currentSpace = full;
+                  this._syncSpaceFields(full);
+                  this.renderFieldsList();
+                  return this._mountDataView(full);
+                });
+              }).catch(function(err) {
+                return alert(`Erreur : ${err.message}`);
+              });
+            }).catch(function(err) {
+              return alert(`Erreur : ${err.message}`);
+            });
+          });
+          return this._resetFieldForm();
+        } else {
+          // ── Add new regular field ──────────────────────────────────────────
+          formulaType = document.querySelector('input[name="formula-type"]:checked').value;
+          formula = null;
+          triggerFields = null;
+          language = ((ref1 = this.el.formulaLanguage()) != null ? ref1.value : void 0) || 'lua';
+          if (formulaType !== 'none') {
+            formula = this.el.fieldFormula().value.trim() || null;
+            if (formulaType === 'trigger' && formula) {
+              raw = this.el.fieldTriggerFields().value.trim();
+              if (raw === '*') {
+                triggerFields = ['*'];
+              } else if (raw === '') {
+                triggerFields = [];
+              } else {
+                triggerFields = (function() {
+                  var i, len, ref2, results;
+                  ref2 = raw.split(',');
+                  results = [];
+                  for (i = 0, len = ref2.length; i < len; i++) {
+                    s = ref2[i];
+                    if (s.trim()) {
+                      results.push(s.trim());
+                    }
+                  }
+                  return results;
+                })();
+              }
             }
           }
-        }
-        return Spaces.addField(this._currentSpace.id, name, type, notNull, '', formula, triggerFields, language).then(() => {
-          this.el.fieldName().value = '';
-          this.el.fieldFormula().value = '';
-          this.el.fieldTriggerFields().value = '';
-          this.el.fieldNotNull().checked = false;
-          if (this.el.formulaLanguage()) {
-            this.el.formulaLanguage().value = 'lua';
-          }
-          document.querySelector('input[name="formula-type"][value="none"]').checked = true;
-          this.el.formulaBody().classList.add('hidden');
-          this.el.triggerFieldsRow().classList.add('hidden');
-          return Spaces.getWithFields(this._currentSpace.id).then((full) => {
-            this._currentSpace = full;
-            this._syncSpaceFields(full);
-            this.renderFieldsList();
-            this.renderRelationsList();
-            return this._mountDataView(full);
+          Spaces.addField(this._currentSpace.id, name, type, notNull, '', formula, triggerFields, language).then(() => {
+            return Spaces.getWithFields(this._currentSpace.id).then((full) => {
+              this._currentSpace = full;
+              this._syncSpaceFields(full);
+              this.renderFieldsList();
+              return this._mountDataView(full);
+            });
+          }).catch(function(err) {
+            return alert(`Erreur : ${err.message}`);
           });
-        }).catch(function(err) {
-          return alert(`Erreur : ${err.message}`);
-        });
+          return this._resetFieldForm();
+        }
       });
     },
+    _onFieldTypeChange: function() {
+      var formulaSection, i, isRelation, len, opt, ref, ref1, ref2, results, sel, sp, type;
+      type = this.el.fieldType().value;
+      isRelation = type === 'Relation';
+      this.el.relTargetRow().classList.toggle('hidden', !isRelation);
+      if ((ref = this.el.fieldNotNull().closest('label')) != null) {
+        ref.classList.toggle('hidden', isRelation);
+      }
+      formulaSection = this.el.formulaBody().closest('.formula-section');
+      if (formulaSection != null) {
+        formulaSection.classList.toggle('hidden', isRelation);
+      }
+      if (isRelation) {
+        // Populate target space selector
+        sel = this.el.relToSpace();
+        sel.innerHTML = '<option value="">Cible…</option>';
+        ref1 = this._allSpaces || [];
+        results = [];
+        for (i = 0, len = ref1.length; i < len; i++) {
+          sp = ref1[i];
+          if (sp.id === ((ref2 = this._currentSpace) != null ? ref2.id : void 0)) {
+            continue;
+          }
+          opt = document.createElement('option');
+          opt.value = sp.id;
+          opt.textContent = sp.name;
+          results.push(sel.appendChild(opt));
+        }
+        return results;
+      }
+    },
+    _resetFieldForm: function() {
+      var formulaSection, ref;
+      this._editingFieldId = null;
+      this.el.fieldName().value = '';
+      this.el.fieldType().value = 'String';
+      this.el.fieldNotNull().checked = false;
+      this.el.fieldFormula().value = '';
+      this.el.fieldTriggerFields().value = '';
+      if (this.el.formulaLanguage()) {
+        this.el.formulaLanguage().value = 'lua';
+      }
+      document.querySelector('input[name="formula-type"][value="none"]').checked = true;
+      this.el.formulaBody().classList.add('hidden');
+      this.el.triggerFieldsRow().classList.add('hidden');
+      this.el.relTargetRow().classList.add('hidden');
+      if ((ref = this.el.fieldNotNull().closest('label')) != null) {
+        ref.classList.remove('hidden');
+      }
+      formulaSection = this.el.formulaBody().closest('.formula-section');
+      if (formulaSection != null) {
+        formulaSection.classList.remove('hidden');
+      }
+      this.el.fieldAddBtn().textContent = 'Ajouter';
+      return this.el.fieldCancelBtn().classList.add('hidden');
+    },
     renderFieldsList: function() {
-      var badge, del, dragSrc, f, fb, fields, handle, i, j, langLabel, len, len1, li, name, opt, req, results, sel, triggerDesc, ul;
+      var fields, ul;
       if (!this._currentSpace) {
         return;
       }
       ul = this.el.fieldsList();
       ul.innerHTML = '';
       fields = this._currentSpace.fields || [];
-      // Populate "from field" dropdown for relation form
-      sel = this.el.relFromField();
-      sel.innerHTML = '<option value="">Champ source…</option>';
-      for (i = 0, len = fields.length; i < len; i++) {
-        f = fields[i];
-        opt = document.createElement('option');
-        opt.value = f.id;
-        opt.textContent = `${f.name} (${f.fieldType})`;
-        sel.appendChild(opt);
-      }
-      if (fields.length === 0) {
-        li = document.createElement('li');
-        li.textContent = 'Aucun champ défini.';
-        li.style.color = '#aaa';
-        ul.appendChild(li);
-        return;
-      }
-      // Drag-and-drop state
-      dragSrc = null;
-      results = [];
-      for (j = 0, len1 = fields.length; j < len1; j++) {
-        f = fields[j];
-        li = document.createElement('li');
-        li.draggable = true;
-        li.dataset.fieldId = f.id;
-        li.style.cursor = 'grab';
-        handle = document.createElement('span');
-        handle.textContent = '⠿';
-        handle.title = 'Glisser pour réordonner';
-        handle.style.cssText = 'margin-right:.4rem;color:#888;cursor:grab;user-select:none;';
-        badge = document.createElement('span');
-        badge.className = 'field-type-badge';
-        badge.textContent = f.fieldType;
-        name = document.createElement('span');
-        name.textContent = ` ${f.name} `;
-        name.style.flex = '1';
-        if (f.notNull) {
-          req = document.createElement('span');
-          req.className = 'field-required';
-          req.title = 'Requis';
-          req.textContent = '*';
-          name.appendChild(req);
-        }
-        // Formula / trigger badges
-        if (f.formula && f.formula !== '') {
-          fb = document.createElement('span');
-          langLabel = f.language === 'moonscript' ? ' [moon]' : '';
-          if (f.triggerFields) {
-            fb.className = 'field-trigger-badge';
-            triggerDesc = f.triggerFields.length === 0 ? 'création' : f.triggerFields[0] === '*' ? 'tout changement' : f.triggerFields.join(', ');
-            fb.textContent = '⚡';
-            fb.title = `Trigger formula${langLabel} (${triggerDesc}) : ${f.formula}`;
-          } else {
-            fb.className = 'field-formula-badge';
-            fb.textContent = 'λ';
-            fb.title = `Colonne calculée${langLabel} : ${f.formula}`;
-          }
-          name.appendChild(fb);
-        }
-        del = document.createElement('button');
-        del.textContent = '✕';
-        del.title = 'Supprimer ce champ';
-        del.style.cssText = 'margin-left:auto;background:none;border:none;cursor:pointer;color:#aaa;font-size:.9rem;';
-        ((fieldId, fieldName) => {
-          return del.addEventListener('click', () => {
-            if (!confirm(`Supprimer le champ « ${fieldName} » ?`)) {
-              return;
-            }
-            return GQL.mutate(REMOVE_FIELD, {fieldId}).then(() => {
-              return Spaces.getWithFields(this._currentSpace.id).then((full) => {
-                this._currentSpace = full;
-                this._syncSpaceFields(full);
-                this.renderFieldsList();
-                return this._mountDataView(full);
-              });
-            }).catch(function(err) {
-              return alert(`Erreur : ${err.message}`);
-            });
-          });
-        })(f.id, f.name);
-        li.appendChild(handle);
-        li.appendChild(badge);
-        li.appendChild(name);
-        li.appendChild(del);
-        // Drag events
-        li.addEventListener('dragstart', function(e) {
-          dragSrc = this;
-          e.dataTransfer.effectAllowed = 'move';
-          e.dataTransfer.setData('text/plain', this.dataset.fieldId);
-          return setTimeout((() => {
-            return this.classList.add('dragging');
-          }), 0);
-        });
-        li.addEventListener('dragend', function() {
-          this.classList.remove('dragging');
-          return ul.querySelectorAll('li').forEach(function(el) {
-            return el.classList.remove('drag-over');
-          });
-        });
-        li.addEventListener('dragover', function(e) {
-          e.preventDefault();
-          e.dataTransfer.dropEffect = 'move';
-          ul.querySelectorAll('li').forEach(function(el) {
-            return el.classList.remove('drag-over');
-          });
-          if (this !== dragSrc) {
-            return this.classList.add('drag-over');
-          }
-        });
-        li.addEventListener('drop', (e) => {
-          var insertBefore, newOrder, rect, target;
-          e.preventDefault();
-          target = e.currentTarget;
-          if (dragSrc === target) {
-            return;
-          }
-          // Insert dragSrc before or after target based on mouse position
-          rect = target.getBoundingClientRect();
-          insertBefore = e.clientY < rect.top + rect.height / 2;
-          if (insertBefore) {
-            ul.insertBefore(dragSrc, target);
-          } else {
-            target.after(dragSrc);
-          }
-          // Collect new order and persist
-          newOrder = Array.from(ul.querySelectorAll('li')).map(function(el) {
-            return el.dataset.fieldId;
-          });
-          return GQL.mutate(REORDER_FIELDS, {
-            spaceId: this._currentSpace.id,
-            fieldIds: newOrder
-          }).then((res) => {
-            this._currentSpace.fields = res.reorderFields;
-            this._syncSpaceFields(this._currentSpace);
-            this.renderFieldsList();
-            return this._mountDataView(this._currentSpace);
-          }).catch(function(err) {
-            return console.error('reorderFields', err);
-          });
-        });
-        results.push(ul.appendChild(li));
-      }
-      return results;
-    },
-    // ── Relations ────────────────────────────────────────────────────────────────
-    _bindRelationsForm: function() {
-      this.el.relToSpace().addEventListener('change', () => {
-        var toSpaceId;
-        toSpaceId = this.el.relToSpace().value;
-        if (!toSpaceId) {
-          return;
-        }
-        return Spaces.getWithFields(toSpaceId).then((sp) => {
-          var f, i, len, opt, ref, results, sel;
-          sel = this.el.relToField();
-          sel.innerHTML = '<option value="">Champ cible…</option>';
-          ref = sp.fields || [];
-          results = [];
-          for (i = 0, len = ref.length; i < len; i++) {
-            f = ref[i];
-            opt = document.createElement('option');
-            opt.value = f.id;
-            opt.textContent = `${f.name} (${f.fieldType})`;
-            results.push(sel.appendChild(opt));
-          }
-          return results;
-        });
-      });
-      return this.el.relAddBtn().addEventListener('click', () => {
-        var fromFieldId, name, toFieldId, toSpaceId;
-        if (!this._currentSpace) {
-          return;
-        }
-        name = this.el.relName().value.trim();
-        fromFieldId = this.el.relFromField().value;
-        toSpaceId = this.el.relToSpace().value;
-        toFieldId = this.el.relToField().value;
-        if (!(name && fromFieldId && toSpaceId && toFieldId)) {
-          return;
-        }
-        return Spaces.createRelation(name, this._currentSpace.id, fromFieldId, toSpaceId, toFieldId).then(() => {
-          this.el.relName().value = '';
-          this.el.relFromField().value = '';
-          this.el.relToSpace().value = '';
-          this.el.relToField().innerHTML = '<option value="">Champ cible…</option>';
-          return this.renderRelationsList();
-        }).catch(function(err) {
-          return alert(`Erreur : ${err.message}`);
-        });
-      });
-    },
-    renderRelationsList: function() {
-      var ul;
-      if (!this._currentSpace) {
-        return;
-      }
-      ul = this.el.relationsList();
-      ul.innerHTML = '';
-      Spaces.list().then((allSpaces) => {
-        var i, len, opt, results, sp, toSel;
-        toSel = this.el.relToSpace();
-        toSel.innerHTML = '<option value="">Espace cible…</option>';
-        results = [];
-        for (i = 0, len = allSpaces.length; i < len; i++) {
-          sp = allSpaces[i];
-          opt = document.createElement('option');
-          opt.value = sp.id;
-          opt.textContent = sp.name;
-          results.push(toSel.appendChild(opt));
-        }
-        return results;
-      });
+      // Fetch relations and render everything in one shot
       return Spaces.listRelations(this._currentSpace.id).then((relations) => {
-        var del, f, fieldMap, fromName, i, j, len, len1, li, r, ref, results;
-        if (!relations || relations.length === 0) {
+        var badge, del, dragSrc, editBtn, f, fb, handle, i, j, k, langLabel, len, len1, len2, li, name, r, ref, ref1, rel, relMap, req, results, sp, spaceMap, targetName, triggerDesc;
+        // Build a map: fromFieldId → relation (with target space name resolved)
+        relMap = {};
+        ref = relations || [];
+        for (i = 0, len = ref.length; i < len; i++) {
+          r = ref[i];
+          relMap[r.fromFieldId] = r;
+        }
+        // Resolve target space names from _allSpaces
+        spaceMap = {};
+        ref1 = this._allSpaces || [];
+        for (j = 0, len1 = ref1.length; j < len1; j++) {
+          sp = ref1[j];
+          spaceMap[sp.id] = sp.name;
+        }
+        if (fields.length === 0) {
           li = document.createElement('li');
-          li.textContent = 'Aucune relation.';
+          li.textContent = 'Aucun champ défini.';
           li.style.color = '#aaa';
-          li.style.padding = '.3rem .6rem';
-          li.style.fontSize = '.85rem';
           ul.appendChild(li);
           return;
         }
-        fieldMap = {};
-        ref = this._currentSpace.fields || [];
-        for (i = 0, len = ref.length; i < len; i++) {
-          f = ref[i];
-          fieldMap[f.id] = f.name;
-        }
+        dragSrc = null;
         results = [];
-        for (j = 0, len1 = relations.length; j < len1; j++) {
-          r = relations[j];
+        for (k = 0, len2 = fields.length; k < len2; k++) {
+          f = fields[k];
           li = document.createElement('li');
-          fromName = fieldMap[r.fromFieldId] || r.fromFieldId;
-          li.innerHTML = `<span class="rel-name">${r.name}</span>
-<span class="rel-arrow">${fromName} → …</span>`;
+          li.draggable = true;
+          li.dataset.fieldId = f.id;
+          li.style.cursor = 'grab';
+          handle = document.createElement('span');
+          handle.textContent = '⠿';
+          handle.title = 'Glisser pour réordonner';
+          handle.style.cssText = 'margin-right:.4rem;color:#888;cursor:grab;user-select:none;';
+          rel = relMap[f.id];
+          badge = document.createElement('span');
+          badge.className = 'field-type-badge';
+          if (rel) {
+            targetName = spaceMap[rel.toSpaceId] || rel.toSpaceId;
+            badge.textContent = `→ ${targetName}`;
+            badge.title = `Relation vers ${targetName}`;
+          } else {
+            badge.textContent = f.fieldType;
+          }
+          name = document.createElement('span');
+          name.textContent = ` ${f.name} `;
+          name.style.flex = '1';
+          if (f.notNull) {
+            req = document.createElement('span');
+            req.className = 'field-required';
+            req.title = 'Requis';
+            req.textContent = '*';
+            name.appendChild(req);
+          }
+          if (f.formula && f.formula !== '' && !rel) {
+            fb = document.createElement('span');
+            langLabel = f.language === 'moonscript' ? ' [moon]' : '';
+            if (f.triggerFields) {
+              fb.className = 'field-trigger-badge';
+              triggerDesc = f.triggerFields.length === 0 ? 'création' : f.triggerFields[0] === '*' ? 'tout changement' : f.triggerFields.join(', ');
+              fb.textContent = '⚡';
+              fb.title = `Trigger formula${langLabel} (${triggerDesc}) : ${f.formula}`;
+            } else {
+              fb.className = 'field-formula-badge';
+              fb.textContent = 'λ';
+              fb.title = `Colonne calculée${langLabel} : ${f.formula}`;
+            }
+            name.appendChild(fb);
+          }
+          // Edit button (not for Sequence fields)
+          editBtn = document.createElement('button');
+          editBtn.textContent = '✎';
+          editBtn.title = 'Modifier ce champ';
+          editBtn.style.cssText = 'background:none;border:none;cursor:pointer;color:#888;font-size:.9rem;margin-left:.2rem;';
+          ((field, relation) => {
+            return editBtn.addEventListener('click', () => {
+              var tf;
+              this._editingFieldId = field.id;
+              this.el.fieldAddBtn().textContent = 'Mettre à jour';
+              this.el.fieldCancelBtn().classList.remove('hidden');
+              this.el.fieldName().value = field.name;
+              if (relation) {
+                // Editing a relation field: show only Cible
+                this.el.fieldType().value = 'Relation';
+                this._onFieldTypeChange();
+                this.el.relToSpace().value = relation.toSpaceId;
+              } else {
+                this.el.fieldType().value = field.fieldType;
+                this._onFieldTypeChange();
+                this.el.fieldNotNull().checked = field.notNull;
+                if (field.formula && field.formula !== '') {
+                  if (field.triggerFields) {
+                    document.querySelector('input[name="formula-type"][value="trigger"]').checked = true;
+                    this.el.triggerFieldsRow().classList.remove('hidden');
+                    tf = field.triggerFields;
+                    this.el.fieldTriggerFields().value = tf.length === 0 ? '' : tf[0] === '*' ? '*' : tf.join(', ');
+                  } else {
+                    document.querySelector('input[name="formula-type"][value="formula"]').checked = true;
+                  }
+                  this.el.formulaBody().classList.remove('hidden');
+                  this.el.fieldFormula().value = field.formula;
+                  if (this.el.formulaLanguage()) {
+                    this.el.formulaLanguage().value = field.language || 'lua';
+                  }
+                } else {
+                  document.querySelector('input[name="formula-type"][value="none"]').checked = true;
+                  this.el.formulaBody().classList.add('hidden');
+                }
+              }
+              return this.el.fieldName().focus();
+            });
+          })(f, rel);
           del = document.createElement('button');
           del.textContent = '✕';
-          del.title = 'Supprimer';
-          del.style.cssText = 'background:none;border:none;cursor:pointer;color:#aaa;font-size:.9rem;';
-          ((relId, relName) => {
+          del.title = 'Supprimer ce champ';
+          del.style.cssText = 'margin-left:.2rem;background:none;border:none;cursor:pointer;color:#aaa;font-size:.9rem;';
+          ((fieldId, fieldName, relation) => {
             return del.addEventListener('click', () => {
-              if (!confirm(`Supprimer la relation « ${relName} » ?`)) {
+              var doDelete;
+              if (!confirm(`Supprimer le champ « ${fieldName} » ?`)) {
                 return;
               }
-              return Spaces.deleteRelation(relId).then(() => {
-                return this.renderRelationsList();
-              }).catch(function(err) {
-                return alert(`Erreur : ${err.message}`);
-              });
+              doDelete = () => {
+                return GQL.mutate(REMOVE_FIELD, {fieldId}).then(() => {
+                  return Spaces.getWithFields(this._currentSpace.id).then((full) => {
+                    this._currentSpace = full;
+                    this._syncSpaceFields(full);
+                    this.renderFieldsList();
+                    return this._mountDataView(full);
+                  });
+                }).catch(function(err) {
+                  return alert(`Erreur : ${err.message}`);
+                });
+              };
+              if (relation) {
+                return Spaces.deleteRelation(relation.id).then(doDelete).catch(function(err) {
+                  return alert(`Erreur : ${err.message}`);
+                });
+              } else {
+                return doDelete();
+              }
             });
-          })(r.id, r.name);
+          })(f.id, f.name, rel);
+          li.appendChild(handle);
+          li.appendChild(badge);
+          li.appendChild(name);
+          li.appendChild(editBtn);
           li.appendChild(del);
+          // Drag events
+          li.addEventListener('dragstart', function(e) {
+            dragSrc = this;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', this.dataset.fieldId);
+            return setTimeout((() => {
+              return this.classList.add('dragging');
+            }), 0);
+          });
+          li.addEventListener('dragend', function() {
+            this.classList.remove('dragging');
+            return ul.querySelectorAll('li').forEach(function(el) {
+              return el.classList.remove('drag-over');
+            });
+          });
+          li.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            ul.querySelectorAll('li').forEach(function(el) {
+              return el.classList.remove('drag-over');
+            });
+            if (this !== dragSrc) {
+              return this.classList.add('drag-over');
+            }
+          });
+          li.addEventListener('drop', (e) => {
+            var insertBefore, newOrder, rect, target;
+            e.preventDefault();
+            target = e.currentTarget;
+            if (dragSrc === target) {
+              return;
+            }
+            rect = target.getBoundingClientRect();
+            insertBefore = e.clientY < rect.top + rect.height / 2;
+            if (insertBefore) {
+              ul.insertBefore(dragSrc, target);
+            } else {
+              target.after(dragSrc);
+            }
+            newOrder = Array.from(ul.querySelectorAll('li')).map(function(el) {
+              return el.dataset.fieldId;
+            });
+            return GQL.mutate(REORDER_FIELDS, {
+              spaceId: this._currentSpace.id,
+              fieldIds: newOrder
+            }).then((res) => {
+              this._currentSpace.fields = res.reorderFields;
+              this._syncSpaceFields(this._currentSpace);
+              this.renderFieldsList();
+              return this._mountDataView(this._currentSpace);
+            }).catch(function(err) {
+              return console.error('reorderFields', err);
+            });
+          });
           results.push(ul.appendChild(li));
         }
         return results;

@@ -65,7 +65,9 @@ Mutation =
     result
 
   deleteSpace: (_, args, ctx) ->
-    box.space._tdb_spaces\delete args.id
+    t = box.space._tdb_spaces\get args.id
+    error "Space not found" unless t
+    spaces_mod.delete_user_space t[2]
     executor.reinit_schema!
     true
 
@@ -89,6 +91,21 @@ Mutation =
   reorderFields: (_, args, ctx) ->
     result = spaces_mod.reorder_fields args.spaceId, args.fieldIds
     executor.reinit_schema!
+    result
+
+  updateField: (_, args, ctx) ->
+    i = args.input
+    result = spaces_mod.update_field args.fieldId, {
+      name:          i.name
+      notNull:       i.notNull
+      description:   i.description
+      formula:       i.formula
+      triggerFields: i.triggerFields
+      language:      i.language
+    }
+    executor.reinit_schema!
+    sp_meta = box.space._tdb_spaces\get result.spaceId
+    triggers.register_space_trigger sp_meta[2] if sp_meta
     result
 
   createView: (_, args, ctx) ->

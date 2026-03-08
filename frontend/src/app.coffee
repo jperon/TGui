@@ -36,6 +36,7 @@ window.App =
   _activeDataView:   null
   _activeCustomView: null
   _allSpaces:        []
+  _editingFieldId:   null   # fieldId being edited in the Champs form, or null
 
   # ── DOM refs ────────────────────────────────────────────────────────────────
   el:
@@ -53,8 +54,9 @@ window.App =
     newViewBtn:        -> document.getElementById 'new-view-btn'
     dataToolbar:       -> document.getElementById 'data-toolbar'
     dataTitle:         -> document.getElementById 'data-title'
+    renameSpaceBtn:    -> document.getElementById 'rename-space-btn'
+    deleteSpaceBtn:    -> document.getElementById 'delete-space-btn'
     fieldsBtn:         -> document.getElementById 'fields-btn'
-    addRowBtn:         -> null
     deleteRowsBtn:     -> document.getElementById 'delete-rows-btn'
     gridContainer:     -> document.getElementById 'grid-container'
     customViewContainer: -> document.getElementById 'custom-view-container'
@@ -70,12 +72,9 @@ window.App =
     formulaBody:       -> document.getElementById 'formula-body'
     triggerFieldsRow:  -> document.getElementById 'trigger-fields-row'
     fieldAddBtn:       -> document.getElementById 'field-add-btn'
-    relationsList:     -> document.getElementById 'relations-list'
-    relName:           -> document.getElementById 'rel-name'
-    relFromField:      -> document.getElementById 'rel-from-field'
+    fieldCancelBtn:    -> document.getElementById 'field-cancel-btn'
+    relTargetRow:      -> document.getElementById 'rel-target-row'
     relToSpace:        -> document.getElementById 'rel-to-space'
-    relToField:        -> document.getElementById 'rel-to-field'
-    relAddBtn:         -> document.getElementById 'rel-add-btn'
     yamlEditorPanel:   -> document.getElementById 'yaml-editor-panel'
     yamlViewName:      -> document.getElementById 'yaml-view-name'
     yamlEditBtn:       -> document.getElementById 'yaml-edit-btn'
@@ -93,7 +92,6 @@ window.App =
     @_bindSidebar()
     @_bindDataToolbar()
     @_bindFieldsPanel()
-    @_bindRelationsForm()
     @_bindYamlEditor()
 
   # ── Login ───────────────────────────────────────────────────────────────────
@@ -336,6 +334,35 @@ window.App =
     @el.deleteRowsBtn().addEventListener 'click', =>
       @_activeDataView?.deleteSelected()
 
+    @el.deleteSpaceBtn().addEventListener 'click', =>
+      return unless @_currentSpace
+      name = @_currentSpace.name
+      return unless confirm "Supprimer l'espace « #{name} » et toutes ses données ?"
+      Spaces.delete(@_currentSpace.id)
+        .then =>
+          @_currentSpace = null
+          @_activeDataView?.unmount?()
+          @_activeDataView = null
+          @el.dataToolbar().classList.add 'hidden'
+          @el.fieldsPanel().classList.add 'hidden'
+          @el.fieldsBtn().classList.remove 'active'
+          @el.welcome().classList.remove 'hidden'
+          @_loadAll()
+        .catch (err) -> alert "Erreur : #{err.message}"
+
+    @el.renameSpaceBtn().addEventListener 'click', =>
+      return unless @_currentSpace
+      newName = prompt "Nouveau nom de l'espace :", @_currentSpace.name
+      return unless newName?.trim() and newName.trim() != @_currentSpace.name
+      Spaces.update(@_currentSpace.id, newName.trim())
+        .then (updated) =>
+          @_currentSpace.name = updated.name
+          @el.dataTitle().textContent = updated.name
+          # Update sidebar
+          li = @el.spaceList().querySelector("li[data-id='#{updated.id}']")
+          li.textContent = updated.name if li
+        .catch (err) -> alert "Erreur : #{err.message}"
+
   # ── Fields panel ─────────────────────────────────────────────────────────────
   _bindFieldsPanel: ->
     @el.fieldsBtn().addEventListener 'click', =>
@@ -345,7 +372,6 @@ window.App =
         panel.classList.remove 'hidden'
         btn.classList.add 'active'
         @renderFieldsList()
-        @renderRelationsList()
       else
         panel.classList.add 'hidden'
         btn.classList.remove 'active'
@@ -354,6 +380,10 @@ window.App =
       @el.fieldsPanel().classList.add 'hidden'
       @el.fieldsBtn().classList.remove 'active'
 
+    # Show/hide formula section and relation target based on type selection
+    @el.fieldType().addEventListener 'change', =>
+      @_onFieldTypeChange()
+
     # Show/hide formula textarea and trigger-fields row based on radio selection
     document.querySelectorAll('input[name="formula-type"]').forEach (radio) =>
       radio.addEventListener 'change', =>
@@ -361,230 +391,296 @@ window.App =
         @el.formulaBody().classList.toggle 'hidden', val == 'none'
         @el.triggerFieldsRow().classList.toggle 'hidden', val != 'trigger'
 
+    @el.fieldCancelBtn().addEventListener 'click', =>
+      @_resetFieldForm()
+
     @el.fieldAddBtn().addEventListener 'click', =>
       return unless @_currentSpace
       name    = @el.fieldName().value.trim()
       type    = @el.fieldType().value
       notNull = @el.fieldNotNull().checked
       return unless name
-      formulaType = document.querySelector('input[name="formula-type"]:checked').value
-      formula       = null
-      triggerFields = null
-      language      = @el.formulaLanguage()?.value or 'lua'
-      if formulaType != 'none'
-        formula = @el.fieldFormula().value.trim() or null
-        if formulaType == 'trigger' and formula
-          raw = @el.fieldTriggerFields().value.trim()
-          if raw == '*'
-            triggerFields = ['*']
-          else if raw == ''
-            triggerFields = []
-          else
-            triggerFields = (s.trim() for s in raw.split(',') when s.trim())
-      Spaces.addField(@_currentSpace.id, name, type, notNull, '', formula, triggerFields, language)
-        .then =>
-          @el.fieldName().value = ''
-          @el.fieldFormula().value = ''
-          @el.fieldTriggerFields().value = ''
-          @el.fieldNotNull().checked = false
-          if @el.formulaLanguage() then @el.formulaLanguage().value = 'lua'
-          document.querySelector('input[name="formula-type"][value="none"]').checked = true
-          @el.formulaBody().classList.add 'hidden'
-          @el.triggerFieldsRow().classList.add 'hidden'
-          Spaces.getWithFields(@_currentSpace.id).then (full) =>
-            @_currentSpace = full
-            @_syncSpaceFields full
-            @renderFieldsList()
-            @renderRelationsList()
-            @_mountDataView full
-        .catch (err) -> alert "Erreur : #{err.message}"
+
+      if @_editingFieldId
+        # ── Update existing field ──────────────────────────────────────────
+        formulaType = document.querySelector('input[name="formula-type"]:checked').value
+        opts = { name, notNull }
+        if formulaType != 'none'
+          opts.formula  = @el.fieldFormula().value.trim() or null
+          opts.language = @el.formulaLanguage()?.value or 'lua'
+          if formulaType == 'trigger' and opts.formula
+            raw = @el.fieldTriggerFields().value.trim()
+            if raw == '*'
+              opts.triggerFields = ['*']
+            else if raw == ''
+              opts.triggerFields = []
+            else
+              opts.triggerFields = (s.trim() for s in raw.split(',') when s.trim())
+        else
+          opts.formula       = ''
+          opts.triggerFields = null
+          opts.language      = 'lua'
+        Spaces.updateField(@_editingFieldId, opts)
+          .then =>
+            Spaces.getWithFields(@_currentSpace.id).then (full) =>
+              @_currentSpace = full
+              @_syncSpaceFields full
+              @renderFieldsList()
+              @_mountDataView full
+          .catch (err) -> alert "Erreur : #{err.message}"
+        @_resetFieldForm()
+
+      else if type == 'Relation'
+        # ── Create relation field ──────────────────────────────────────────
+        toSpaceId = @el.relToSpace().value
+        return unless toSpaceId
+        Spaces.getWithFields(toSpaceId).then (targetSpace) =>
+          idField = (targetSpace.fields or []).find (f) -> f.fieldType == 'Sequence'
+          return alert "L'espace cible n'a pas de champ Séquence." unless idField
+          Spaces.addField(@_currentSpace.id, name, 'Int', notNull, '')
+            .then (newField) =>
+              Spaces.createRelation(name, @_currentSpace.id, newField.id, toSpaceId, idField.id)
+                .then =>
+                  Spaces.getWithFields(@_currentSpace.id).then (full) =>
+                    @_currentSpace = full
+                    @_syncSpaceFields full
+                    @renderFieldsList()
+                    @_mountDataView full
+                .catch (err) -> alert "Erreur : #{err.message}"
+            .catch (err) -> alert "Erreur : #{err.message}"
+        @_resetFieldForm()
+
+      else
+        # ── Add new regular field ──────────────────────────────────────────
+        formulaType   = document.querySelector('input[name="formula-type"]:checked').value
+        formula       = null
+        triggerFields = null
+        language      = @el.formulaLanguage()?.value or 'lua'
+        if formulaType != 'none'
+          formula = @el.fieldFormula().value.trim() or null
+          if formulaType == 'trigger' and formula
+            raw = @el.fieldTriggerFields().value.trim()
+            if raw == '*'
+              triggerFields = ['*']
+            else if raw == ''
+              triggerFields = []
+            else
+              triggerFields = (s.trim() for s in raw.split(',') when s.trim())
+        Spaces.addField(@_currentSpace.id, name, type, notNull, '', formula, triggerFields, language)
+          .then =>
+            Spaces.getWithFields(@_currentSpace.id).then (full) =>
+              @_currentSpace = full
+              @_syncSpaceFields full
+              @renderFieldsList()
+              @_mountDataView full
+          .catch (err) -> alert "Erreur : #{err.message}"
+        @_resetFieldForm()
+
+  _onFieldTypeChange: ->
+    type = @el.fieldType().value
+    isRelation = type == 'Relation'
+    @el.relTargetRow().classList.toggle 'hidden', !isRelation
+    @el.fieldNotNull().closest('label')?.classList.toggle 'hidden', isRelation
+    formulaSection = @el.formulaBody().closest('.formula-section')
+    formulaSection?.classList.toggle 'hidden', isRelation
+    if isRelation
+      # Populate target space selector
+      sel = @el.relToSpace()
+      sel.innerHTML = '<option value="">Cible…</option>'
+      for sp in (@_allSpaces or [])
+        continue if sp.id == @_currentSpace?.id
+        opt = document.createElement 'option'
+        opt.value = sp.id
+        opt.textContent = sp.name
+        sel.appendChild opt
+
+  _resetFieldForm: ->
+    @_editingFieldId = null
+    @el.fieldName().value = ''
+    @el.fieldType().value = 'String'
+    @el.fieldNotNull().checked = false
+    @el.fieldFormula().value = ''
+    @el.fieldTriggerFields().value = ''
+    if @el.formulaLanguage() then @el.formulaLanguage().value = 'lua'
+    document.querySelector('input[name="formula-type"][value="none"]').checked = true
+    @el.formulaBody().classList.add 'hidden'
+    @el.triggerFieldsRow().classList.add 'hidden'
+    @el.relTargetRow().classList.add 'hidden'
+    @el.fieldNotNull().closest('label')?.classList.remove 'hidden'
+    formulaSection = @el.formulaBody().closest('.formula-section')
+    formulaSection?.classList.remove 'hidden'
+    @el.fieldAddBtn().textContent = 'Ajouter'
+    @el.fieldCancelBtn().classList.add 'hidden'
 
   renderFieldsList: ->
     return unless @_currentSpace
     ul = @el.fieldsList()
     ul.innerHTML = ''
     fields = @_currentSpace.fields or []
-    # Populate "from field" dropdown for relation form
-    sel = @el.relFromField()
-    sel.innerHTML = '<option value="">Champ source…</option>'
-    for f in fields
-      opt = document.createElement 'option'
-      opt.value = f.id
-      opt.textContent = "#{f.name} (#{f.fieldType})"
-      sel.appendChild opt
-    if fields.length == 0
-      li = document.createElement 'li'
-      li.textContent = 'Aucun champ défini.'
-      li.style.color = '#aaa'
-      ul.appendChild li
-      return
-    # Drag-and-drop state
-    dragSrc = null
-    for f in fields
-      li = document.createElement 'li'
-      li.draggable = true
-      li.dataset.fieldId = f.id
-      li.style.cursor = 'grab'
-      handle = document.createElement 'span'
-      handle.textContent = '⠿'
-      handle.title = 'Glisser pour réordonner'
-      handle.style.cssText = 'margin-right:.4rem;color:#888;cursor:grab;user-select:none;'
-      badge = document.createElement 'span'
-      badge.className = 'field-type-badge'
-      badge.textContent = f.fieldType
-      name = document.createElement 'span'
-      name.textContent = " #{f.name} "
-      name.style.flex = '1'
-      if f.notNull
-        req = document.createElement 'span'
-        req.className = 'field-required'
-        req.title = 'Requis'
-        req.textContent = '*'
-        name.appendChild req
-      # Formula / trigger badges
-      if f.formula and f.formula != ''
-        fb = document.createElement 'span'
-        langLabel = if f.language == 'moonscript' then ' [moon]' else ''
-        if f.triggerFields
-          fb.className = 'field-trigger-badge'
-          triggerDesc =
-            if f.triggerFields.length == 0 then 'création'
-            else if f.triggerFields[0] == '*' then 'tout changement'
-            else f.triggerFields.join(', ')
-          fb.textContent = '⚡'
-          fb.title = "Trigger formula#{langLabel} (#{triggerDesc}) : #{f.formula}"
-        else
-          fb.className = 'field-formula-badge'
-          fb.textContent = 'λ'
-          fb.title = "Colonne calculée#{langLabel} : #{f.formula}"
-        name.appendChild fb
-      del = document.createElement 'button'
-      del.textContent = '✕'
-      del.title = 'Supprimer ce champ'
-      del.style.cssText = 'margin-left:auto;background:none;border:none;cursor:pointer;color:#aaa;font-size:.9rem;'
-      do (fieldId = f.id, fieldName = f.name) =>
-        del.addEventListener 'click', =>
-          return unless confirm "Supprimer le champ « #{fieldName} » ?"
-          GQL.mutate(REMOVE_FIELD, { fieldId })
-            .then =>
-              Spaces.getWithFields(@_currentSpace.id).then (full) =>
-                @_currentSpace = full
-                @_syncSpaceFields full
-                @renderFieldsList()
-                @_mountDataView full
-            .catch (err) -> alert "Erreur : #{err.message}"
-      li.appendChild handle
-      li.appendChild badge
-      li.appendChild name
-      li.appendChild del
-      # Drag events
-      li.addEventListener 'dragstart', (e) ->
-        dragSrc = @
-        e.dataTransfer.effectAllowed = 'move'
-        e.dataTransfer.setData 'text/plain', @dataset.fieldId
-        setTimeout (=> @classList.add 'dragging'), 0
-      li.addEventListener 'dragend', ->
-        @classList.remove 'dragging'
-        ul.querySelectorAll('li').forEach (el) -> el.classList.remove 'drag-over'
-      li.addEventListener 'dragover', (e) ->
-        e.preventDefault()
-        e.dataTransfer.dropEffect = 'move'
-        ul.querySelectorAll('li').forEach (el) -> el.classList.remove 'drag-over'
-        @classList.add 'drag-over' unless @ == dragSrc
-      li.addEventListener 'drop', (e) =>
-        e.preventDefault()
-        target = e.currentTarget
-        return if dragSrc == target
-        # Insert dragSrc before or after target based on mouse position
-        rect = target.getBoundingClientRect()
-        insertBefore = e.clientY < rect.top + rect.height / 2
-        if insertBefore
-          ul.insertBefore dragSrc, target
-        else
-          target.after dragSrc
-        # Collect new order and persist
-        newOrder = Array.from(ul.querySelectorAll('li')).map (el) -> el.dataset.fieldId
-        GQL.mutate(REORDER_FIELDS, { spaceId: @_currentSpace.id, fieldIds: newOrder })
-          .then (res) =>
-            @_currentSpace.fields = res.reorderFields
-            @_syncSpaceFields @_currentSpace
-            @renderFieldsList()
-            @_mountDataView @_currentSpace
-          .catch (err) -> console.error 'reorderFields', err
-      ul.appendChild li
-
-  # ── Relations ────────────────────────────────────────────────────────────────
-  _bindRelationsForm: ->
-    @el.relToSpace().addEventListener 'change', =>
-      toSpaceId = @el.relToSpace().value
-      return unless toSpaceId
-      Spaces.getWithFields(toSpaceId).then (sp) =>
-        sel = @el.relToField()
-        sel.innerHTML = '<option value="">Champ cible…</option>'
-        for f in (sp.fields or [])
-          opt = document.createElement 'option'
-          opt.value = f.id
-          opt.textContent = "#{f.name} (#{f.fieldType})"
-          sel.appendChild opt
-
-    @el.relAddBtn().addEventListener 'click', =>
-      return unless @_currentSpace
-      name        = @el.relName().value.trim()
-      fromFieldId = @el.relFromField().value
-      toSpaceId   = @el.relToSpace().value
-      toFieldId   = @el.relToField().value
-      return unless name and fromFieldId and toSpaceId and toFieldId
-      Spaces.createRelation(name, @_currentSpace.id, fromFieldId, toSpaceId, toFieldId)
-        .then =>
-          @el.relName().value = ''
-          @el.relFromField().value = ''
-          @el.relToSpace().value = ''
-          @el.relToField().innerHTML = '<option value="">Champ cible…</option>'
-          @renderRelationsList()
-        .catch (err) -> alert "Erreur : #{err.message}"
-
-  renderRelationsList: ->
-    return unless @_currentSpace
-    ul = @el.relationsList()
-    ul.innerHTML = ''
-    Spaces.list().then (allSpaces) =>
-      toSel = @el.relToSpace()
-      toSel.innerHTML = '<option value="">Espace cible…</option>'
-      for sp in allSpaces
-        opt = document.createElement 'option'
-        opt.value = sp.id
-        opt.textContent = sp.name
-        toSel.appendChild opt
+    # Fetch relations and render everything in one shot
     Spaces.listRelations(@_currentSpace.id).then (relations) =>
-      if not relations or relations.length == 0
+      # Build a map: fromFieldId → relation (with target space name resolved)
+      relMap = {}
+      for r in (relations or [])
+        relMap[r.fromFieldId] = r
+      # Resolve target space names from _allSpaces
+      spaceMap = {}
+      for sp in (@_allSpaces or [])
+        spaceMap[sp.id] = sp.name
+
+      if fields.length == 0
         li = document.createElement 'li'
-        li.textContent = 'Aucune relation.'
+        li.textContent = 'Aucun champ défini.'
         li.style.color = '#aaa'
-        li.style.padding = '.3rem .6rem'
-        li.style.fontSize = '.85rem'
         ul.appendChild li
         return
-      fieldMap = {}
-      for f in (@_currentSpace.fields or [])
-        fieldMap[f.id] = f.name
-      for r in relations
+
+      dragSrc = null
+      for f in fields
         li = document.createElement 'li'
-        fromName = fieldMap[r.fromFieldId] or r.fromFieldId
-        li.innerHTML = """
-          <span class="rel-name">#{r.name}</span>
-          <span class="rel-arrow">#{fromName} → …</span>
-        """
+        li.draggable = true
+        li.dataset.fieldId = f.id
+        li.style.cursor = 'grab'
+
+        handle = document.createElement 'span'
+        handle.textContent = '⠿'
+        handle.title = 'Glisser pour réordonner'
+        handle.style.cssText = 'margin-right:.4rem;color:#888;cursor:grab;user-select:none;'
+
+        rel = relMap[f.id]
+        badge = document.createElement 'span'
+        badge.className = 'field-type-badge'
+        if rel
+          targetName = spaceMap[rel.toSpaceId] or rel.toSpaceId
+          badge.textContent = "→ #{targetName}"
+          badge.title = "Relation vers #{targetName}"
+        else
+          badge.textContent = f.fieldType
+
+        name = document.createElement 'span'
+        name.textContent = " #{f.name} "
+        name.style.flex = '1'
+        if f.notNull
+          req = document.createElement 'span'
+          req.className = 'field-required'
+          req.title = 'Requis'
+          req.textContent = '*'
+          name.appendChild req
+        if f.formula and f.formula != '' and not rel
+          fb = document.createElement 'span'
+          langLabel = if f.language == 'moonscript' then ' [moon]' else ''
+          if f.triggerFields
+            fb.className = 'field-trigger-badge'
+            triggerDesc =
+              if f.triggerFields.length == 0 then 'création'
+              else if f.triggerFields[0] == '*' then 'tout changement'
+              else f.triggerFields.join(', ')
+            fb.textContent = '⚡'
+            fb.title = "Trigger formula#{langLabel} (#{triggerDesc}) : #{f.formula}"
+          else
+            fb.className = 'field-formula-badge'
+            fb.textContent = 'λ'
+            fb.title = "Colonne calculée#{langLabel} : #{f.formula}"
+          name.appendChild fb
+
+        # Edit button (not for Sequence fields)
+        editBtn = document.createElement 'button'
+        editBtn.textContent = '✎'
+        editBtn.title = 'Modifier ce champ'
+        editBtn.style.cssText = 'background:none;border:none;cursor:pointer;color:#888;font-size:.9rem;margin-left:.2rem;'
+        do (field = f, relation = rel) =>
+          editBtn.addEventListener 'click', =>
+            @_editingFieldId = field.id
+            @el.fieldAddBtn().textContent = 'Mettre à jour'
+            @el.fieldCancelBtn().classList.remove 'hidden'
+            @el.fieldName().value = field.name
+            if relation
+              # Editing a relation field: show only Cible
+              @el.fieldType().value = 'Relation'
+              @_onFieldTypeChange()
+              @el.relToSpace().value = relation.toSpaceId
+            else
+              @el.fieldType().value = field.fieldType
+              @_onFieldTypeChange()
+              @el.fieldNotNull().checked = field.notNull
+              if field.formula and field.formula != ''
+                if field.triggerFields
+                  document.querySelector('input[name="formula-type"][value="trigger"]').checked = true
+                  @el.triggerFieldsRow().classList.remove 'hidden'
+                  tf = field.triggerFields
+                  @el.fieldTriggerFields().value =
+                    if tf.length == 0 then ''
+                    else if tf[0] == '*' then '*'
+                    else tf.join(', ')
+                else
+                  document.querySelector('input[name="formula-type"][value="formula"]').checked = true
+                @el.formulaBody().classList.remove 'hidden'
+                @el.fieldFormula().value = field.formula
+                if @el.formulaLanguage() then @el.formulaLanguage().value = field.language or 'lua'
+              else
+                document.querySelector('input[name="formula-type"][value="none"]').checked = true
+                @el.formulaBody().classList.add 'hidden'
+            @el.fieldName().focus()
+
         del = document.createElement 'button'
         del.textContent = '✕'
-        del.title = 'Supprimer'
-        del.style.cssText = 'background:none;border:none;cursor:pointer;color:#aaa;font-size:.9rem;'
-        do (relId = r.id, relName = r.name) =>
+        del.title = 'Supprimer ce champ'
+        del.style.cssText = 'margin-left:.2rem;background:none;border:none;cursor:pointer;color:#aaa;font-size:.9rem;'
+        do (fieldId = f.id, fieldName = f.name, relation = rel) =>
           del.addEventListener 'click', =>
-            return unless confirm "Supprimer la relation « #{relName} » ?"
-            Spaces.deleteRelation(relId)
-              .then => @renderRelationsList()
-              .catch (err) -> alert "Erreur : #{err.message}"
+            return unless confirm "Supprimer le champ « #{fieldName} » ?"
+            doDelete = =>
+              GQL.mutate(REMOVE_FIELD, { fieldId })
+                .then =>
+                  Spaces.getWithFields(@_currentSpace.id).then (full) =>
+                    @_currentSpace = full
+                    @_syncSpaceFields full
+                    @renderFieldsList()
+                    @_mountDataView full
+                .catch (err) -> alert "Erreur : #{err.message}"
+            if relation
+              Spaces.deleteRelation(relation.id).then(doDelete).catch (err) -> alert "Erreur : #{err.message}"
+            else
+              doDelete()
+
+        li.appendChild handle
+        li.appendChild badge
+        li.appendChild name
+        li.appendChild editBtn
         li.appendChild del
+
+        # Drag events
+        li.addEventListener 'dragstart', (e) ->
+          dragSrc = @
+          e.dataTransfer.effectAllowed = 'move'
+          e.dataTransfer.setData 'text/plain', @dataset.fieldId
+          setTimeout (=> @classList.add 'dragging'), 0
+        li.addEventListener 'dragend', ->
+          @classList.remove 'dragging'
+          ul.querySelectorAll('li').forEach (el) -> el.classList.remove 'drag-over'
+        li.addEventListener 'dragover', (e) ->
+          e.preventDefault()
+          e.dataTransfer.dropEffect = 'move'
+          ul.querySelectorAll('li').forEach (el) -> el.classList.remove 'drag-over'
+          @classList.add 'drag-over' unless @ == dragSrc
+        li.addEventListener 'drop', (e) =>
+          e.preventDefault()
+          target = e.currentTarget
+          return if dragSrc == target
+          rect = target.getBoundingClientRect()
+          insertBefore = e.clientY < rect.top + rect.height / 2
+          if insertBefore
+            ul.insertBefore dragSrc, target
+          else
+            target.after dragSrc
+          newOrder = Array.from(ul.querySelectorAll('li')).map (el) -> el.dataset.fieldId
+          GQL.mutate(REORDER_FIELDS, { spaceId: @_currentSpace.id, fieldIds: newOrder })
+            .then (res) =>
+              @_currentSpace.fields = res.reorderFields
+              @_syncSpaceFields @_currentSpace
+              @renderFieldsList()
+              @_mountDataView @_currentSpace
+            .catch (err) -> console.error 'reorderFields', err
         ul.appendChild li
 
 # ── Entry point ────────────────────────────────────────────────────────────────

@@ -16,6 +16,7 @@ FIELD_TYPE_OPTIONS = {
   {'Map',      'Map (objet JSON)'}
   {'Array',    'Array (tableau JSON)'}
   {'Sequence', 'Séquence (auto-incrément)'}
+  {'Relation', 'Relation'}
 }
 
 -- Construit le <select> des types de champs.
@@ -74,7 +75,7 @@ make_sidebar = ->
     }
   }
 
--- Panneau latéral de gestion des champs et relations
+-- Panneau latéral de gestion des champs
 make_fields_panel = ->
   H.aside {id: 'fields-panel', class: 'hidden',
     H.div {class: 'fields-panel-header',
@@ -85,6 +86,12 @@ make_fields_panel = ->
     H.div {class: 'fields-add-form',
       H.input {id: 'field-name', type: 'text', placeholder: 'Nom du champ'}
       field_type_select!
+      H.div {id: 'rel-target-row', class: 'hidden',
+        H.label {class: 'formula-hint', 'Cible :'}
+        H.select {id: 'rel-to-space',
+          H.option {value: '', 'Cible…'}
+        }
+      }
       H.label {
         H.input {id: 'field-notnull', type: 'checkbox'}
         ' Requis'
@@ -127,24 +134,10 @@ make_fields_panel = ->
           }
         }
       }
-      H.button {id: 'field-add-btn', 'Ajouter'}
-    }
-    H.div {class: 'relations-section-header',
-      H.span {'Relations'}
-    }
-    H.ul {id: 'relations-list', ''}
-    H.div {class: 'relations-add-form',
-      H.input {id: 'rel-name', type: 'text', placeholder: 'Nom de la relation'}
-      H.select {id: 'rel-from-field',
-        H.option {value: '', 'Champ source…'}
+      H.div {class: 'fields-form-actions',
+        H.button {id: 'field-add-btn', 'Ajouter'}
+        H.button {id: 'field-cancel-btn', class: 'hidden', 'Annuler'}
       }
-      H.select {id: 'rel-to-space',
-        H.option {value: '', 'Espace cible…'}
-      }
-      H.select {id: 'rel-to-field',
-        H.option {value: '', 'Champ cible…'}
-      }
-      H.button {id: 'rel-add-btn', 'Lier'}
     }
   }
 
@@ -153,6 +146,8 @@ make_content = ->
   H.main {id: 'content',
     H.div {id: 'data-toolbar', class: 'hidden',
       H.span {id: 'data-title', class: 'content-title', ''}
+      H.button {id: 'rename-space-btn', class: 'toolbar-btn', title: 'Renommer', '✎'}
+      H.button {id: 'delete-space-btn', class: 'toolbar-btn toolbar-btn--danger', title: "Supprimer l'espace", '🗑 Espace'}
       H.button {id: 'delete-rows-btn', class: 'toolbar-btn toolbar-btn--danger', '🗑 Supprimer'}
       H.button {id: 'fields-btn', class: 'fields-btn', '⊞ Champs'}
     }

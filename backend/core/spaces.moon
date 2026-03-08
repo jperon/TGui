@@ -315,6 +315,34 @@ list_fields = (space_id) ->
     }
   result
 
+-- Update a field definition (name, notNull, description, formula, triggerFields, language).
+-- fieldType cannot be changed (would require data migration).
+update_field = (field_id, opts) ->
+  json = require 'json'
+  t = box.space._tdb_fields\get field_id
+  error "Field not found: #{field_id}" unless t
+  name     = opts.name     or t[3]
+  not_null = if opts.notNull != nil then opts.notNull else t[5]
+  desc     = opts.description or t[7]
+  formula  = opts.formula
+  trigger_fields = opts.triggerFields
+  language = opts.language or t[10] or 'lua'
+  -- Preserve immutable columns: id, spaceId, fieldType, position
+  tuple = { t[1], t[2], name, t[4], not_null, t[6], desc }
+  if formula and formula != ''
+    table.insert tuple, formula
+    table.insert tuple, json.encode(trigger_fields)
+    table.insert tuple, language
+  box.space._tdb_fields\replace tuple
+  -- Return updated field
+  trigger_raw = if #tuple >= 9 then tuple[9] else nil
+  tf = if trigger_raw and trigger_raw != 'null' then json.decode(trigger_raw) else nil
+  {
+    id: t[1], spaceId: t[2], name: name, fieldType: t[4],
+    notNull: not_null, position: t[6], description: desc,
+    formula: formula or '', triggerFields: tf, language: language
+  }
+
 -- Reorder fields by assigning new positions based on given id order.
 reorder_fields = (space_id, field_ids) ->
   -- First pass: assign temporary large positions to avoid unique index conflicts
@@ -365,4 +393,4 @@ delete_user_space = (name) ->
   -- Remove metadata
   box.space._tdb_spaces\delete sid
 
-{ :bootstrap, :migrate, :create_user_space, :delete_user_space, :add_field, :remove_field, :reorder_fields, :list_spaces, :list_fields, :get_space, :FIELD_TYPES }
+{ :bootstrap, :migrate, :create_user_space, :delete_user_space, :add_field, :remove_field, :update_field, :reorder_fields, :list_spaces, :list_fields, :get_space, :FIELD_TYPES }

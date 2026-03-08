@@ -34,6 +34,20 @@ ADD_FIELD = """
   }
 """
 
+UPDATE_SPACE = """
+  mutation UpdateSpace($id: ID!, $input: UpdateSpaceInput!) {
+    updateSpace(id: $id, input: $input) { id name description }
+  }
+"""
+
+UPDATE_FIELD = """
+  mutation UpdateField($fieldId: ID!, $input: UpdateFieldInput!) {
+    updateField(fieldId: $fieldId, input: $input) {
+      id name fieldType notNull position description formula triggerFields language
+    }
+  }
+"""
+
 LIST_RELATIONS = """
   query Relations($spaceId: ID!) {
     relations(spaceId: $spaceId) { id name fromSpaceId fromFieldId toSpaceId toFieldId }
@@ -60,6 +74,12 @@ window.Spaces =
     GQL.mutate(CREATE_SPACE, { input: { name, description } })
       .then (d) -> d.createSpace
 
+  update: (id, name, description) ->
+    input = {}
+    input.name        = name        if name?
+    input.description = description if description?
+    GQL.mutate(UPDATE_SPACE, { id, input }).then (d) -> d.updateSpace
+
   delete: (id) ->
     GQL.mutate(DELETE_SPACE, { id }).then (d) -> d.deleteSpace
 
@@ -73,6 +93,16 @@ window.Spaces =
     input.language      = language      if language and language != 'lua'
     GQL.mutate(ADD_FIELD, { spaceId, input })
       .then (d) -> d.addField
+
+  updateField: (fieldId, opts = {}) ->
+    input = {}
+    input.name          = opts.name          if opts.name?
+    input.notNull       = opts.notNull       if opts.notNull?
+    input.description   = opts.description   if opts.description?
+    input.formula       = opts.formula       if opts.formula?
+    input.triggerFields = opts.triggerFields if opts.triggerFields?
+    input.language      = opts.language      if opts.language?
+    GQL.mutate(UPDATE_FIELD, { fieldId, input }).then (d) -> d.updateField
 
   listRelations: (spaceId) ->
     GQL.query(LIST_RELATIONS, { spaceId }).then (d) -> d.relations

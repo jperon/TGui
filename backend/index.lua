@@ -36,6 +36,10 @@ local FIELD_TYPE_OPTIONS = {
   {
     'Sequence',
     'Séquence (auto-incrément)'
+  },
+  {
+    'Relation',
+    'Relation'
   }
 }
 local field_type_select
@@ -199,6 +203,21 @@ make_fields_panel = function()
         placeholder = 'Nom du champ'
       }),
       field_type_select(),
+      H.div({
+        id = 'rel-target-row',
+        class = 'hidden',
+        H.label({
+          class = 'formula-hint',
+          'Cible :'
+        }),
+        H.select({
+          id = 'rel-to-space',
+          H.option({
+            value = '',
+            'Cible…'
+          })
+        })
+      }),
       H.label({
         H.input({
           id = 'field-notnull',
@@ -291,52 +310,17 @@ make_fields_panel = function()
           })
         })
       }),
-      H.button({
-        id = 'field-add-btn',
-        'Ajouter'
-      })
-    }),
-    H.div({
-      class = 'relations-section-header',
-      H.span({
-        'Relations'
-      })
-    }),
-    H.ul({
-      id = 'relations-list',
-      ''
-    }),
-    H.div({
-      class = 'relations-add-form',
-      H.input({
-        id = 'rel-name',
-        type = 'text',
-        placeholder = 'Nom de la relation'
-      }),
-      H.select({
-        id = 'rel-from-field',
-        H.option({
-          value = '',
-          'Champ source…'
+      H.div({
+        class = 'fields-form-actions',
+        H.button({
+          id = 'field-add-btn',
+          'Ajouter'
+        }),
+        H.button({
+          id = 'field-cancel-btn',
+          class = 'hidden',
+          'Annuler'
         })
-      }),
-      H.select({
-        id = 'rel-to-space',
-        H.option({
-          value = '',
-          'Espace cible…'
-        })
-      }),
-      H.select({
-        id = 'rel-to-field',
-        H.option({
-          value = '',
-          'Champ cible…'
-        })
-      }),
-      H.button({
-        id = 'rel-add-btn',
-        'Lier'
       })
     })
   })
@@ -352,6 +336,18 @@ make_content = function()
         id = 'data-title',
         class = 'content-title',
         ''
+      }),
+      H.button({
+        id = 'rename-space-btn',
+        class = 'toolbar-btn',
+        title = 'Renommer',
+        '✎'
+      }),
+      H.button({
+        id = 'delete-space-btn',
+        class = 'toolbar-btn toolbar-btn--danger',
+        title = "Supprimer l'espace",
+        '🗑 Espace'
       }),
       H.button({
         id = 'delete-rows-btn',

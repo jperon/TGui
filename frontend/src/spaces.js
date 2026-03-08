@@ -1,7 +1,7 @@
 (function() {
   // spaces.coffee
   // Space and field management.
-  var ADD_FIELD, CREATE_RELATION, CREATE_SPACE, DELETE_RELATION, DELETE_SPACE, LIST_RELATIONS, LIST_SPACES, SPACE_FIELDS;
+  var ADD_FIELD, CREATE_RELATION, CREATE_SPACE, DELETE_RELATION, DELETE_SPACE, LIST_RELATIONS, LIST_SPACES, SPACE_FIELDS, UPDATE_FIELD, UPDATE_SPACE;
 
   LIST_SPACES = `query { spaces { id name description fields { id name fieldType notNull position description formula triggerFields language } } }`;
 
@@ -23,6 +23,16 @@
   ADD_FIELD = `mutation AddField($spaceId: ID!, $input: FieldInput!) {
   addField(spaceId: $spaceId, input: $input) {
     id name fieldType notNull position
+  }
+}`;
+
+  UPDATE_SPACE = `mutation UpdateSpace($id: ID!, $input: UpdateSpaceInput!) {
+  updateSpace(id: $id, input: $input) { id name description }
+}`;
+
+  UPDATE_FIELD = `mutation UpdateField($fieldId: ID!, $input: UpdateFieldInput!) {
+  updateField(fieldId: $fieldId, input: $input) {
+    id name fieldType notNull position description formula triggerFields language
   }
 }`;
 
@@ -51,6 +61,19 @@
         return d.createSpace;
       });
     },
+    update: function(id, name, description) {
+      var input;
+      input = {};
+      if (name != null) {
+        input.name = name;
+      }
+      if (description != null) {
+        input.description = description;
+      }
+      return GQL.mutate(UPDATE_SPACE, {id, input}).then(function(d) {
+        return d.updateSpace;
+      });
+    },
     delete: function(id) {
       return GQL.mutate(DELETE_SPACE, {id}).then(function(d) {
         return d.deleteSpace;
@@ -75,6 +98,31 @@
       }
       return GQL.mutate(ADD_FIELD, {spaceId, input}).then(function(d) {
         return d.addField;
+      });
+    },
+    updateField: function(fieldId, opts = {}) {
+      var input;
+      input = {};
+      if (opts.name != null) {
+        input.name = opts.name;
+      }
+      if (opts.notNull != null) {
+        input.notNull = opts.notNull;
+      }
+      if (opts.description != null) {
+        input.description = opts.description;
+      }
+      if (opts.formula != null) {
+        input.formula = opts.formula;
+      }
+      if (opts.triggerFields != null) {
+        input.triggerFields = opts.triggerFields;
+      }
+      if (opts.language != null) {
+        input.language = opts.language;
+      }
+      return GQL.mutate(UPDATE_FIELD, {fieldId, input}).then(function(d) {
+        return d.updateField;
       });
     },
     listRelations: function(spaceId) {
