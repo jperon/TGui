@@ -378,6 +378,7 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
 
 .erd-header        { fill: #2a2a3e; }
 .erd-header-active { fill: #31325a; }
+.erd-header-agg    { fill: #2a3e30; cursor: pointer; }
 
 .erd-space-name {
   font-size: 10.5px; font-weight: 600; fill: #cdd6f4;

@@ -38,7 +38,9 @@ class YamlBuilder
   _sortedFields: (sp) ->
     (sp.fields or []).slice().sort (a, b) -> a.name.localeCompare b.name
 
-  _widgetForSpace: (spaceId) -> @_widgets.find (w) -> w.spaceId == spaceId
+  _widgetForSpace: (spaceId) -> @_widgets.find (w) -> w.spaceId == spaceId and w.type != 'aggregate'
+
+  _aggWidgetForSpace: (spaceId) -> @_widgets.find (w) -> w.spaceId == spaceId and w.type == 'aggregate'
 
   _needsId: (widget) -> @_widgets.some (w) -> w.dependsOn?.widgetId == widget.id
 
@@ -47,6 +49,21 @@ class YamlBuilder
     s or "w#{@_idCounter}"
 
   # ── State mutation ───────────────────────────────────────────────────────────
+
+  _onHeaderClick: (spaceId) ->
+    existing = @_aggWidgetForSpace spaceId
+    if existing
+      @_widgets = @_widgets.filter (w) -> !(w.spaceId == spaceId and w.type == 'aggregate')
+    else
+      sp = @_spaceById[spaceId]
+      # Exclude FK fields from groupBy (fields used as FK origin in relations)
+      fkFieldIds = {}
+      for rel in (@allRelations or [])
+        fkFieldIds[rel.fromFieldId] = true if rel.fromSpaceId == spaceId
+      groupBy = @_sortedFields(sp).filter((f) -> !fkFieldIds[f.id]).map (f) -> f.name
+      @_widgets.push { type: 'aggregate', spaceId, spaceName: (sp?.name or spaceId), groupBy }
+    @_notify()
+    @_render()
 
   _onFieldClick: (spaceId, fieldName) ->
     existing = @_widgetForSpace spaceId
@@ -89,14 +106,20 @@ class YamlBuilder
   toYaml: ->
     return "layout:\n  direction: vertical\n  children: []\n" if @_widgets.length == 0
     children = for w in @_widgets
-      wObj = { space: w.spaceName }
-      wObj.id      = w.id              if @_needsId w
-      wObj.columns = w.columns.slice() if w.columns.length > 0
-      if w.dependsOn
-        dep = { widget: w.dependsOn.widgetId, field: w.dependsOn.field }
-        dep.from_field = w.dependsOn.from_field if w.dependsOn.from_field and w.dependsOn.from_field != 'id'
-        wObj.depends_on = dep
-      { widget: wObj }
+      if w.type == 'aggregate'
+        wObj = { type: 'aggregate', space: w.spaceName }
+        wObj.groupBy   = w.groupBy.slice() if w.groupBy?.length > 0
+        wObj.aggregate = [{ fn: 'count', as: 'nb' }]
+        { widget: wObj }
+      else
+        wObj = { space: w.spaceName }
+        wObj.id      = w.id              if @_needsId w
+        wObj.columns = w.columns.slice() if w.columns.length > 0
+        if w.dependsOn
+          dep = { widget: w.dependsOn.widgetId, field: w.dependsOn.field }
+          dep.from_field = w.dependsOn.from_field if w.dependsOn.from_field and w.dependsOn.from_field != 'id'
+          wObj.depends_on = dep
+        { widget: wObj }
     jsyaml.dump({ layout: { direction: 'vertical', children } }, { indent: 2, lineWidth: -1 })
 
   # ── Layout ───────────────────────────────────────────────────────────────────
@@ -277,6 +300,8 @@ class YamlBuilder
   _drawBox: (sp, pos) ->
     widget   = @_widgetForSpace sp.id
     isActive = !!widget
+    aggWidget = @_aggWidgetForSpace sp.id
+    isAgg    = !!aggWidget
     fields   = @_sortedFields sp
     allCols  = isActive and widget.columns.length == 0  # * mode: all columns
     nRows    = fields.length + 1   # +1 for * pseudo-field
@@ -287,32 +312,52 @@ class YamlBuilder
     # Outer border
     g.appendChild svgEl 'rect',
       x: '0'; y: '0'; width: BOX_W; height: boxH; rx: '4'
-      class: 'erd-box' + (if isActive then ' erd-box-active' else '')
+      class: 'erd-box' + (if isActive or isAgg then ' erd-box-active' else '')
 
     # Header background
+    headerClass = 'erd-header' +
+      (if isAgg then ' erd-header-agg' else if isActive then ' erd-header-active' else '')
     g.appendChild svgEl 'rect',
       x: '0'; y: '0'; width: BOX_W; height: HEADER_H; rx: '4'
-      class: 'erd-header' + (if isActive then ' erd-header-active' else '')
+      class: headerClass
 
     # Clip the bottom corners of header (so rx only applies at top)
     g.appendChild svgEl 'rect',
       x: '0'; y: HEADER_H / 2; width: BOX_W; height: HEADER_H / 2
-      class: 'erd-header' + (if isActive then ' erd-header-active' else '')
+      class: headerClass
+
+    # Clickable overlay on header to toggle aggregate widget
+    do (spaceId = sp.id) =>
+      hdrClick = svgEl 'rect',
+        x: '0'; y: '0'; width: BOX_W; height: HEADER_H
+        fill: 'transparent'; style: 'cursor: pointer'
+      hdrClick.addEventListener 'click', => @_onHeaderClick spaceId
+      g.appendChild hdrClick
 
     # Space name
     nameEl = svgEl 'text',
       x: BOX_W / 2; y: HEADER_H / 2 + 1
       'text-anchor': 'middle'; 'dominant-baseline': 'middle'
       class: 'erd-space-name'
+      style: 'pointer-events: none'
     nameEl.textContent = sp.name
     g.appendChild nameEl
 
-    # Badge: * if all-columns mode, else specific column count
-    if isActive
+    # Badge: ∑ for aggregate, * or count for regular widget
+    if isAgg
       badgeEl = svgEl 'text',
         x: BOX_W - 4; y: HEADER_H / 2 + 1
         'text-anchor': 'end'; 'dominant-baseline': 'middle'
         class: 'erd-badge'
+        style: 'pointer-events: none'
+      badgeEl.textContent = '\u2211 \u2713'   # ∑ ✓
+      g.appendChild badgeEl
+    else if isActive
+      badgeEl = svgEl 'text',
+        x: BOX_W - 4; y: HEADER_H / 2 + 1
+        'text-anchor': 'end'; 'dominant-baseline': 'middle'
+        class: 'erd-badge'
+        style: 'pointer-events: none'
       badgeEl.textContent = if allCols then '* \u2713' else "#{widget.columns.length} \u2713"
       g.appendChild badgeEl
 

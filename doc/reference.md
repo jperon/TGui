@@ -123,6 +123,33 @@ modification de l'enregistrement (ou uniquement lors du changement de champs lis
 | `moonscript` | MoonScript (compilé → Lua à la volée) |
 | `lua` | Lua natif |
 
+### Helper `space` — accès aux autres espaces
+
+Les formules et triggers reçoivent un deuxième paramètre `space` qui permet d'accéder à
+tous les enregistrements d'un autre espace (full scan) :
+
+```moonscript
+-- Compter les commandes d'un client
+#space("commandes")
+
+-- Sommer une colonne filtrée
+sum = 0
+for r in *space("lignes")
+  sum += r.montant if r.commande_id == @id
+sum
+
+-- Récupérer un libellé depuis une table de référence
+next(t for t in *space("categories") when t._id == @categorie_id)?.libelle
+```
+
+`space("nom")` retourne une liste Lua de tous les enregistrements de l'espace `nom`,
+chaque enregistrement étant un objet avec `_id` (identifiant), plus tous les champs de
+données. Retourne `{}` si l'espace n'existe pas.
+
+> **Attention :** le full scan est adapté aux espaces de petite taille (quelques milliers
+> d'enregistrements). Pour des volumes importants, préférer les relations et les
+> widgets agrégats.
+
 ### Réordonnancement
 
 Les champs peuvent être réordonnés par glisser-déposer (::) dans le panel Champs.

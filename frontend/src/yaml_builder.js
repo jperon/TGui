@@ -69,7 +69,13 @@
 
     _widgetForSpace(spaceId) {
       return this._widgets.find(function(w) {
-        return w.spaceId === spaceId;
+        return w.spaceId === spaceId && w.type !== 'aggregate';
+      });
+    }
+
+    _aggWidgetForSpace(spaceId) {
+      return this._widgets.find(function(w) {
+        return w.spaceId === spaceId && w.type === 'aggregate';
       });
     }
 
@@ -87,6 +93,40 @@
     }
 
     // ── State mutation ───────────────────────────────────────────────────────────
+    _onHeaderClick(spaceId) {
+      var existing, fkFieldIds, groupBy, j, len, ref, rel, sp;
+      existing = this._aggWidgetForSpace(spaceId);
+      if (existing) {
+        this._widgets = this._widgets.filter(function(w) {
+          return !(w.spaceId === spaceId && w.type === 'aggregate');
+        });
+      } else {
+        sp = this._spaceById[spaceId];
+        // Exclude FK fields from groupBy (fields used as FK origin in relations)
+        fkFieldIds = {};
+        ref = this.allRelations || [];
+        for (j = 0, len = ref.length; j < len; j++) {
+          rel = ref[j];
+          if (rel.fromSpaceId === spaceId) {
+            fkFieldIds[rel.fromFieldId] = true;
+          }
+        }
+        groupBy = this._sortedFields(sp).filter(function(f) {
+          return !fkFieldIds[f.id];
+        }).map(function(f) {
+          return f.name;
+        });
+        this._widgets.push({
+          type: 'aggregate',
+          spaceId,
+          spaceName: (sp != null ? sp.name : void 0) || spaceId,
+          groupBy
+        });
+      }
+      this._notify();
+      return this._render();
+    }
+
     _onFieldClick(spaceId, fieldName) {
       var dependsOn, existing, existingSpaceIds, ff, id, initialColumns, j, len, ref, ref1, ref2, rel, sp, tf, tw;
       existing = this._widgetForSpace(spaceId);
@@ -163,33 +203,52 @@
         return "layout:\n  direction: vertical\n  children: []\n";
       }
       children = (function() {
-        var j, len, ref, results;
+        var j, len, ref, ref1, results;
         ref = this._widgets;
         results = [];
         for (j = 0, len = ref.length; j < len; j++) {
           w = ref[j];
-          wObj = {
-            space: w.spaceName
-          };
-          if (this._needsId(w)) {
-            wObj.id = w.id;
-          }
-          if (w.columns.length > 0) {
-            wObj.columns = w.columns.slice();
-          }
-          if (w.dependsOn) {
-            dep = {
-              widget: w.dependsOn.widgetId,
-              field: w.dependsOn.field
+          if (w.type === 'aggregate') {
+            wObj = {
+              type: 'aggregate',
+              space: w.spaceName
             };
-            if (w.dependsOn.from_field && w.dependsOn.from_field !== 'id') {
-              dep.from_field = w.dependsOn.from_field;
+            if (((ref1 = w.groupBy) != null ? ref1.length : void 0) > 0) {
+              wObj.groupBy = w.groupBy.slice();
             }
-            wObj.depends_on = dep;
+            wObj.aggregate = [
+              {
+                fn: 'count',
+                as: 'nb'
+              }
+            ];
+            results.push({
+              widget: wObj
+            });
+          } else {
+            wObj = {
+              space: w.spaceName
+            };
+            if (this._needsId(w)) {
+              wObj.id = w.id;
+            }
+            if (w.columns.length > 0) {
+              wObj.columns = w.columns.slice();
+            }
+            if (w.dependsOn) {
+              dep = {
+                widget: w.dependsOn.widgetId,
+                field: w.dependsOn.field
+              };
+              if (w.dependsOn.from_field && w.dependsOn.from_field !== 'id') {
+                dep.from_field = w.dependsOn.from_field;
+              }
+              wObj.depends_on = dep;
+            }
+            results.push({
+              widget: wObj
+            });
           }
-          results.push({
-            widget: wObj
-          });
         }
         return results;
       }).call(this);
@@ -437,9 +496,11 @@
     }
 
     _drawBox(sp, pos) {
-      var allCols, badgeEl, boxH, field, fields, g, i, isActive, j, len, nRows, nameEl, widget;
+      var aggWidget, allCols, badgeEl, boxH, field, fields, g, headerClass, i, isActive, isAgg, j, len, nRows, nameEl, widget;
       widget = this._widgetForSpace(sp.id);
       isActive = !!widget;
+      aggWidget = this._aggWidgetForSpace(sp.id);
+      isAgg = !!aggWidget;
       fields = this._sortedFields(sp);
       allCols = isActive && widget.columns.length === 0; // * mode: all columns
       nRows = fields.length + 1; // +1 for * pseudo-field
@@ -455,16 +516,17 @@
         width: BOX_W,
         height: boxH,
         rx: '4',
-        class: 'erd-box' + (isActive ? ' erd-box-active' : '')
+        class: 'erd-box' + (isActive || isAgg ? ' erd-box-active' : '')
       }));
       // Header background
+      headerClass = 'erd-header' + (isAgg ? ' erd-header-agg' : isActive ? ' erd-header-active' : '');
       g.appendChild(svgEl('rect', {
         x: '0',
         y: '0',
         width: BOX_W,
         height: HEADER_H,
         rx: '4',
-        class: 'erd-header' + (isActive ? ' erd-header-active' : '')
+        class: headerClass
       }));
       // Clip the bottom corners of header (so rx only applies at top)
       g.appendChild(svgEl('rect', {
@@ -472,26 +534,55 @@
         y: HEADER_H / 2,
         width: BOX_W,
         height: HEADER_H / 2,
-        class: 'erd-header' + (isActive ? ' erd-header-active' : '')
+        class: headerClass
       }));
+      // Clickable overlay on header to toggle aggregate widget
+      ((spaceId) => {
+        var hdrClick;
+        hdrClick = svgEl('rect', {
+          x: '0',
+          y: '0',
+          width: BOX_W,
+          height: HEADER_H,
+          fill: 'transparent',
+          style: 'cursor: pointer'
+        });
+        hdrClick.addEventListener('click', () => {
+          return this._onHeaderClick(spaceId);
+        });
+        return g.appendChild(hdrClick);
+      })(sp.id);
       // Space name
       nameEl = svgEl('text', {
         x: BOX_W / 2,
         y: HEADER_H / 2 + 1,
         'text-anchor': 'middle',
         'dominant-baseline': 'middle',
-        class: 'erd-space-name'
+        class: 'erd-space-name',
+        style: 'pointer-events: none'
       });
       nameEl.textContent = sp.name;
       g.appendChild(nameEl);
-      // Badge: * if all-columns mode, else specific column count
-      if (isActive) {
+      // Badge: ∑ for aggregate, * or count for regular widget
+      if (isAgg) {
         badgeEl = svgEl('text', {
           x: BOX_W - 4,
           y: HEADER_H / 2 + 1,
           'text-anchor': 'end',
           'dominant-baseline': 'middle',
-          class: 'erd-badge'
+          class: 'erd-badge',
+          style: 'pointer-events: none'
+        });
+        badgeEl.textContent = '\u2211 \u2713'; // ∑ ✓
+        g.appendChild(badgeEl);
+      } else if (isActive) {
+        badgeEl = svgEl('text', {
+          x: BOX_W - 4,
+          y: HEADER_H / 2 + 1,
+          'text-anchor': 'end',
+          'dominant-baseline': 'middle',
+          class: 'erd-badge',
+          style: 'pointer-events: none'
         });
         badgeEl.textContent = allCols ? '* \u2713' : `${widget.columns.length} \u2713`;
         g.appendChild(badgeEl);

@@ -91,6 +91,19 @@ La formule est le corps d'une fonction `(self, space) -> <formule>` ; en MoonScr
 
 La valeur est recalculée à chaque lecture ; elle n'est pas stockée.
 
+Le paramètre `space` donne accès aux enregistrements d'un autre espace (full scan) :
+
+```moonscript
+-- Compter les lignes de commande liées à cet enregistrement
+#space("lignes")
+
+-- Sommer une colonne filtrée
+sum = 0
+for r in *space("lignes")
+  sum += r.montant if r.commande_id == @id
+sum
+```
+
 ### Trigger formula ((trigger))
 
 Sélectionnez **Trigger formula** et, optionnellement, listez les champs déclencheurs.
