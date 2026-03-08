@@ -328,7 +328,9 @@ do_import = function(snap, mode)
     local _list_2 = box.space._tdb_groups:select({ })
     for _index_0 = 1, #_list_2 do
       local g = _list_2[_index_0]
-      perms_mod.delete_group(g[1])
+      if not (g[2] == 'admin') then
+        perms_mod.delete_group(g[1])
+      end
     end
   end
   local _list_0 = (snap.schema and snap.schema.spaces or { })
@@ -598,9 +600,10 @@ do_import = function(snap, mode)
             end
             return user_sp:insert(tuple)
           end)
-          if not (ok4) then
-            table.insert(errors, "data " .. tostring(sp_name) .. ": " .. tostring(err4))
+          if ok4 then
             created = created + 1
+          else
+            table.insert(errors, "data " .. tostring(sp_name) .. ": " .. tostring(err4))
           end
         end
         _continue_0 = true

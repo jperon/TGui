@@ -208,9 +208,9 @@ do_import = (snap, mode) ->
         table.insert errors, "delete space #{sp.name}: #{err}"
     for cv in *box.space._tdb_custom_views\select {}
       box.space._tdb_custom_views\delete cv[1]
-    -- Delete groups (keep users)
+    -- Delete groups except 'admin' (keep users, keep admin group for safety)
     for g in *box.space._tdb_groups\select {}
-      perms_mod.delete_group g[1]
+      perms_mod.delete_group g[1] unless g[2] == 'admin'
 
   -- Create spaces + fields
   for isp in *(snap.schema and snap.schema.spaces or {})
@@ -348,9 +348,10 @@ do_import = (snap, mode) ->
           for f in *fields
             table.insert tuple, row[f.name]
           user_sp\insert tuple
-        unless ok4
-          table.insert errors, "data #{sp_name}: #{err4}"
+        if ok4
           created += 1
+        else
+          table.insert errors, "data #{sp_name}: #{err4}"
 
   -- Reinit schema after import
   executor.reinit_schema!

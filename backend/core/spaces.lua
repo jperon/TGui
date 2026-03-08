@@ -857,6 +857,10 @@ delete_user_space = function(name)
     return 
   end
   local sid = meta[1]
+  local trg_mod = package.loaded['core.triggers']
+  if trg_mod and trg_mod.deregister_space_trigger then
+    pcall(trg_mod.deregister_space_trigger, name)
+  end
   local _list_0 = box.space._tdb_fields.index.by_space:select({
     sid
   })

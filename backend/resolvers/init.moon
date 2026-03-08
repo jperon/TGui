@@ -79,5 +79,13 @@ init = ->
   build!
   executor.set_reinit_fn reinit
   triggers.init_all_triggers!
+  -- Purge expired sessions periodically
+  auth_mod = require 'core.auth'
+  fiber    = require 'fiber'
+  fiber.create ->
+    while true
+      fiber.sleep 3600
+      ok, err = pcall auth_mod.purge_expired_sessions
+      require('log').warn "Session purge failed: #{err}" unless ok
 
 { :init, :reinit }

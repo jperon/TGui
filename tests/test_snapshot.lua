@@ -214,6 +214,113 @@ R.describe("importSnapshot — mode merge", function()
     return R.eq(found, false)
   end)
 end)
+R.describe("importSnapshot — mode replace", function()
+  local SP_A = "replace_a_" .. tostring(SUFFIX)
+  local SP_B = "replace_b_" .. tostring(SUFFIX)
+  R.it("crée deux espaces initiaux", function()
+    local _list_0 = {
+      SP_A,
+      SP_B
+    }
+    for _index_0 = 1, #_list_0 do
+      local name = _list_0[_index_0]
+      local ok, err = pcall(function()
+        return spaces.create_user_space(name, '')
+      end)
+      R.ok(ok)
+    end
+  end)
+  R.it("mode replace supprime les espaces existants et recrée depuis snapshot", function()
+    local snap = {
+      version = "1",
+      schema = {
+        spaces = {
+          {
+            name = SP_B,
+            fields = {
+              {
+                name = "val",
+                fieldType = "String",
+                notNull = false
+              }
+            },
+            views = { }
+          }
+        },
+        relations = { },
+        custom_views = { },
+        groups = { }
+      }
+    }
+    local snap_yaml = yaml.encode(snap)
+    local result = export_r.Mutation.importSnapshot(nil, {
+      yaml = snap_yaml,
+      mode = 'replace'
+    }, ADMIN_CTX)
+    R.ok(result)
+    return R.eq(#result.errors, 0)
+  end)
+  R.it("SP_B existe toujours (recréé par replace)", function()
+    local found = false
+    local _list_0 = spaces.list_spaces()
+    for _index_0 = 1, #_list_0 do
+      local s = _list_0[_index_0]
+      if s.name == SP_B then
+        found = true
+      end
+    end
+    return R.ok(found)
+  end)
+  R.it("SP_B a le champ val importé", function()
+    local sp = nil
+    local _list_0 = spaces.list_spaces()
+    for _index_0 = 1, #_list_0 do
+      local s = _list_0[_index_0]
+      if s.name == SP_B then
+        sp = s
+      end
+    end
+    R.ok(sp)
+    local fields = spaces.list_fields(sp.id)
+    local has_val = false
+    for _index_0 = 1, #fields do
+      local f = fields[_index_0]
+      if f.name == 'val' then
+        has_val = true
+      end
+    end
+    return R.ok(has_val)
+  end)
+  return R.it("nettoyage des espaces replace_*", function()
+    local _list_0 = {
+      SP_A,
+      SP_B
+    }
+    for _index_0 = 1, #_list_0 do
+      local name = _list_0[_index_0]
+      local sp = nil
+      local _list_1 = spaces.list_spaces()
+      for _index_1 = 1, #_list_1 do
+        local s = _list_1[_index_1]
+        if s.name == name then
+          sp = s
+        end
+      end
+      if sp then
+        spaces.delete_user_space(name)
+      end
+    end
+    local found = false
+    local _list_1 = spaces.list_spaces()
+    for _index_0 = 1, #_list_1 do
+      local s = _list_1[_index_0]
+      if s.name == SP_A or s.name == SP_B then
+        found = true
+      end
+    end
+    return R.eq(found, false)
+  end)
+end)
 return R.describe("importSnapshot — YAML invalide", function()
   R.it("erreur sur YAML vide", function()
     local ok, err = pcall(function()

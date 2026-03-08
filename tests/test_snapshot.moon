@@ -156,6 +156,64 @@ R.describe "importSnapshot — mode merge", ->
     R.eq found, false
 
 -- ────────────────────────────────────────────────────────────────────────────
+R.describe "importSnapshot — mode replace", ->
+  SP_A = "replace_a_#{SUFFIX}"
+  SP_B = "replace_b_#{SUFFIX}"
+
+  R.it "crée deux espaces initiaux", ->
+    for name in *{ SP_A, SP_B }
+      ok, err = pcall -> spaces.create_user_space name, ''
+      R.ok ok
+
+  R.it "mode replace supprime les espaces existants et recrée depuis snapshot", ->
+    -- Snapshot ne contenant que SP_B (SP_A sera supprimé)
+    snap = {
+      version: "1"
+      schema: {
+        spaces: {
+          { name: SP_B, fields: { { name: "val", fieldType: "String", notNull: false } }, views: {} }
+        }
+        relations: {}
+        custom_views: {}
+        groups: {}
+      }
+    }
+    snap_yaml = yaml.encode snap
+    result = export_r.Mutation.importSnapshot nil, { yaml: snap_yaml, mode: 'replace' }, ADMIN_CTX
+    R.ok result
+    R.eq #result.errors, 0
+
+  R.it "SP_B existe toujours (recréé par replace)", ->
+    found = false
+    for s in *spaces.list_spaces!
+      found = true if s.name == SP_B
+    R.ok found
+
+  R.it "SP_B a le champ val importé", ->
+    sp = nil
+    for s in *spaces.list_spaces!
+      sp = s if s.name == SP_B
+    R.ok sp
+    fields = spaces.list_fields sp.id
+    has_val = false
+    for f in *fields
+      has_val = true if f.name == 'val'
+    R.ok has_val
+
+  -- Nettoyage
+  R.it "nettoyage des espaces replace_*", ->
+    for name in *{ SP_A, SP_B }
+      sp = nil
+      for s in *spaces.list_spaces!
+        sp = s if s.name == name
+      spaces.delete_user_space name if sp
+    -- Vérifier absence
+    found = false
+    for s in *spaces.list_spaces!
+      found = true if s.name == SP_A or s.name == SP_B
+    R.eq found, false
+
+-- ────────────────────────────────────────────────────────────────────────────
 R.describe "importSnapshot — YAML invalide", ->
 
   R.it "erreur sur YAML vide", ->

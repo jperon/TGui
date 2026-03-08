@@ -381,6 +381,10 @@ delete_user_space = (name) ->
   meta = box.space._tdb_spaces.index.by_name\get name
   return unless meta
   sid = meta[1]
+  -- Deregister trigger before dropping (via package.loaded to avoid circular dep)
+  trg_mod = package.loaded['core.triggers']
+  if trg_mod and trg_mod.deregister_space_trigger
+    pcall trg_mod.deregister_space_trigger, name
   -- Remove all fields (and their sequences)
   for t in *box.space._tdb_fields.index.by_space\select { sid }
     if t[4] == 'Sequence'

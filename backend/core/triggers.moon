@@ -13,6 +13,32 @@ spaces_mod = require 'core.spaces'
 -- Maps space_name -> currently registered before_replace function (for later removal).
 active_triggers = {}
 
+-- Safe sandbox environment for formula execution.
+-- Only exposes pure/math/string functions. Explicitly excludes os, io, debug,
+-- box, load, require — anything that could access the filesystem or Tarantool internals.
+FORMULA_ENV = {
+  math:      math
+  string:    string
+  table:     table
+  type:      type
+  tostring:  tostring
+  tonumber:  tonumber
+  pairs:     pairs
+  ipairs:    ipairs
+  next:      next
+  select:    select
+  unpack:    rawget(_G, 'unpack') or table.unpack
+  pcall:     pcall
+  error:     error
+  assert:    assert
+  rawget:    rawget
+  rawset:    rawset
+  rawequal:  rawequal
+  -- Limited os: only safe time functions
+  os: { time: os.time, clock: os.clock, date: os.date }
+}
+FORMULA_ENV._ENV = FORMULA_ENV  -- self-reference for inner closures
+
 -- ── Formula compilation ───────────────────────────────────────────────────────
 
 -- Compile a formula string into a Lua function(self, space).
@@ -36,11 +62,16 @@ compile_formula = (formula, field_name, language) ->
     lua_or_err
   else
     "return function(self, space) return " .. formula .. " end"
-  ok, compiled = pcall load, lua_chunk
-  if not ok or type(compiled) != 'function'
-    log.error "tdb triggers: parse error for field '#{field_name}': #{compiled}"
+  -- Load the chunk and apply sandbox environment
+  chunk_fn, load_err = load lua_chunk
+  if not chunk_fn
+    log.error "tdb triggers: parse error for field '#{field_name}': #{load_err}"
     return nil
-  ok2, fn = pcall compiled
+  -- Apply sandbox via setfenv (Lua 5.1 / LuaJIT)
+  ok_env, _ = pcall setfenv, chunk_fn, FORMULA_ENV
+  log.warn "tdb triggers: setfenv not available, formula '#{field_name}' runs unsandboxed" unless ok_env
+  -- Execute chunk to get the formula function
+  ok2, fn = pcall chunk_fn
   if not ok2 or type(fn) != 'function'
     log.error "tdb triggers: init error for field '#{field_name}': #{fn}"
     return nil
@@ -168,11 +199,13 @@ register_space_trigger = (space_name) ->
   return unless sp_meta
   space_id = sp_meta[1]
 
-  -- Drop existing trigger if any
+  -- Drop existing trigger if any (check data space exists to avoid spurious errors)
   old_fn = active_triggers[space_name]
   if old_fn
-    ok, err = pcall -> box.space["data_#{space_name}"]\before_replace nil, old_fn
-    log.error "tdb triggers: failed to drop trigger for #{space_name}: #{err}" unless ok
+    data_sp_old = box.space["data_#{space_name}"]
+    if data_sp_old
+      ok, err = pcall -> data_sp_old\before_replace nil, old_fn
+      log.warn "tdb triggers: could not drop trigger for #{space_name}: #{err}" unless ok
     active_triggers[space_name] = nil
 
   -- Collect trigger formula fields
@@ -214,4 +247,14 @@ init_all_triggers = ->
   for t in *box.space._tdb_spaces\select {}
     register_space_trigger t[2]
 
-{ :compile_formula, :register_space_trigger, :init_all_triggers }
+-- Deregister trigger for a deleted space (called via package.loaded to avoid circular dep).
+-- Clears the active_triggers cache entry so the memory is freed.
+deregister_space_trigger = (space_name) ->
+  old_fn = active_triggers[space_name]
+  return unless old_fn
+  data_sp = box.space["data_#{space_name}"]
+  if data_sp
+    pcall -> data_sp\before_replace nil, old_fn
+  active_triggers[space_name] = nil
+
+{ :compile_formula, :register_space_trigger, :deregister_space_trigger, :init_all_triggers }

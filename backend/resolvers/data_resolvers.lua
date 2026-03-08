@@ -62,15 +62,17 @@ matches_filter = function(parsed, flt)
       ok = matches_filter(parsed, sub)
     end
   end
-  if not ok and flt["or"] then
+  if flt["or"] then
+    local any = false
     local _list_0 = flt["or"]
     for _index_0 = 1, #_list_0 do
       local sub = _list_0[_index_0]
       if matches_filter(parsed, sub) then
-        ok = true
+        any = true
         break
       end
     end
+    ok = ok and any
   end
   return ok
 end
@@ -128,7 +130,10 @@ local Mutation = {
     if not (existing) then
       error("Record not found: " .. tostring(args.id))
     end
-    local old_data = json.decode(existing[2])
+    local ok_d, old_data = pcall(json.decode, existing[2])
+    if not (ok_d) then
+      error("Corrupted record data: " .. tostring(old_data))
+    end
     local new_data
     if type(args.data) == 'string' then
       new_data = json.decode(args.data)

@@ -80,7 +80,18 @@ local init
 init = function()
   build()
   executor.set_reinit_fn(reinit)
-  return triggers.init_all_triggers()
+  triggers.init_all_triggers()
+  local auth_mod = require('core.auth')
+  local fiber = require('fiber')
+  return fiber.create(function()
+    while true do
+      fiber.sleep(3600)
+      local ok, err = pcall(auth_mod.purge_expired_sessions)
+      if not (ok) then
+        require('log').warn("Session purge failed: " .. tostring(err))
+      end
+    end
+  end)
 end
 return {
   init = init,

@@ -2,6 +2,31 @@ local json = require('json')
 local log = require('log')
 local spaces_mod = require('core.spaces')
 local active_triggers = { }
+local FORMULA_ENV = {
+  math = math,
+  string = string,
+  table = table,
+  type = type,
+  tostring = tostring,
+  tonumber = tonumber,
+  pairs = pairs,
+  ipairs = ipairs,
+  next = next,
+  select = select,
+  unpack = rawget(_G, 'unpack') or table.unpack,
+  pcall = pcall,
+  error = error,
+  assert = assert,
+  rawget = rawget,
+  rawset = rawset,
+  rawequal = rawequal,
+  os = {
+    time = os.time,
+    clock = os.clock,
+    date = os.date
+  }
+}
+FORMULA_ENV._ENV = FORMULA_ENV
 local compile_formula
 compile_formula = function(formula, field_name, language)
   local lua_chunk
@@ -21,12 +46,16 @@ compile_formula = function(formula, field_name, language)
   else
     lua_chunk = "return function(self, space) return " .. formula .. " end"
   end
-  local ok, compiled = pcall(load, lua_chunk)
-  if not ok or type(compiled) ~= 'function' then
-    log.error("tdb triggers: parse error for field '" .. tostring(field_name) .. "': " .. tostring(compiled))
+  local chunk_fn, load_err = load(lua_chunk)
+  if not chunk_fn then
+    log.error("tdb triggers: parse error for field '" .. tostring(field_name) .. "': " .. tostring(load_err))
     return nil
   end
-  local ok2, fn = pcall(compiled)
+  local ok_env, _ = pcall(setfenv, chunk_fn, FORMULA_ENV)
+  if not (ok_env) then
+    log.warn("tdb triggers: setfenv not available, formula '" .. tostring(field_name) .. "' runs unsandboxed")
+  end
+  local ok2, fn = pcall(chunk_fn)
   if not ok2 or type(fn) ~= 'function' then
     log.error("tdb triggers: init error for field '" .. tostring(field_name) .. "': " .. tostring(fn))
     return nil
@@ -236,11 +265,14 @@ register_space_trigger = function(space_name)
   local space_id = sp_meta[1]
   local old_fn = active_triggers[space_name]
   if old_fn then
-    local ok, err = pcall(function()
-      return box.space["data_" .. tostring(space_name)]:before_replace(nil, old_fn)
-    end)
-    if not (ok) then
-      log.error("tdb triggers: failed to drop trigger for " .. tostring(space_name) .. ": " .. tostring(err))
+    local data_sp_old = box.space["data_" .. tostring(space_name)]
+    if data_sp_old then
+      local ok, err = pcall(function()
+        return data_sp_old:before_replace(nil, old_fn)
+      end)
+      if not (ok) then
+        log.warn("tdb triggers: could not drop trigger for " .. tostring(space_name) .. ": " .. tostring(err))
+      end
     end
     active_triggers[space_name] = nil
   end
@@ -302,8 +334,23 @@ init_all_triggers = function()
     register_space_trigger(t[2])
   end
 end
+local deregister_space_trigger
+deregister_space_trigger = function(space_name)
+  local old_fn = active_triggers[space_name]
+  if not (old_fn) then
+    return 
+  end
+  local data_sp = box.space["data_" .. tostring(space_name)]
+  if data_sp then
+    pcall(function()
+      return data_sp:before_replace(nil, old_fn)
+    end)
+  end
+  active_triggers[space_name] = nil
+end
 return {
   compile_formula = compile_formula,
   register_space_trigger = register_space_trigger,
+  deregister_space_trigger = deregister_space_trigger,
   init_all_triggers = init_all_triggers
 }

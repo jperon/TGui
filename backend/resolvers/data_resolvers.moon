@@ -39,11 +39,13 @@ matches_filter = (parsed, flt) ->
     for sub in *flt.and
       break unless ok
       ok = matches_filter parsed, sub
-  if not ok and flt.or
+  if flt.or
+    any = false
     for sub in *flt.or
       if matches_filter parsed, sub
-        ok = true
+        any = true
         break
+    ok = ok and any
   ok
 
 apply_filter = (tuples, filter) ->
@@ -73,7 +75,8 @@ Mutation =
     sp = data_space args.spaceId
     existing = sp\get args.id
     error "Record not found: #{args.id}" unless existing
-    old_data = json.decode existing[2]
+    ok_d, old_data = pcall json.decode, existing[2]
+    error "Corrupted record data: #{old_data}" unless ok_d
     new_data = if type(args.data) == 'string' then json.decode(args.data) else args.data
     -- Skip Sequence fields (immutable)
     seq_fields = sequence_fields args.spaceId
