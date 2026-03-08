@@ -75,14 +75,16 @@
 
     // Renders either a zone (direction+children) or a widget node.
     // Applies `factor` (flex proportion) when specified (default: 1).
+    // Supports both inline zone keys (direction/children) and wrapped "- layout:" syntax.
     _renderZoneOrWidget(node) {
-      var child, el, i, len, ref;
-      if (node.widget) {
-        el = this._renderWidget(node.widget);
+      var child, el, i, len, ref, zone;
+      zone = node.layout ? node.layout : node;
+      if (zone.widget) {
+        el = this._renderWidget(zone.widget);
       } else {
         el = document.createElement('div');
-        el.className = `cv-zone ${node.direction || 'vertical'}`;
-        ref = node.children || [];
+        el.className = `cv-zone ${zone.direction || 'vertical'}`;
+        ref = zone.children || [];
         for (i = 0, len = ref.length; i < len; i++) {
           child = ref[i];
           el.appendChild(this._renderZoneOrWidget(child));

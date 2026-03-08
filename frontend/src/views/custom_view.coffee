@@ -61,13 +61,15 @@ window.CustomView = class CustomView
 
   # Renders either a zone (direction+children) or a widget node.
   # Applies `factor` (flex proportion) when specified (default: 1).
+  # Supports both inline zone keys (direction/children) and wrapped "- layout:" syntax.
   _renderZoneOrWidget: (node) ->
-    if node.widget
-      el = @_renderWidget node.widget
+    zone = if node.layout then node.layout else node
+    if zone.widget
+      el = @_renderWidget zone.widget
     else
       el = document.createElement 'div'
-      el.className = "cv-zone #{node.direction or 'vertical'}"
-      for child in (node.children or [])
+      el.className = "cv-zone #{zone.direction or 'vertical'}"
+      for child in (zone.children or [])
         el.appendChild @_renderZoneOrWidget child
     el.style.flex = if node.factor? then String(node.factor) else '1'
     el
