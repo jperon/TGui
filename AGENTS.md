@@ -210,6 +210,9 @@ curl -s -X POST http://localhost:8080/graphql \
 
 - Messages en anglais, préfixe conventionnel : `feat:`, `fix:`, `test:`, `refactor:`, `docs:`
 - Toujours committer les sources **et** les artefacts compilés ensemble
+- **Committer après chaque tâche ou groupe de tâches cohérent**, avant de passer
+  à la suivante. Ne pas laisser des changements non commités s'accumuler entre
+  les sessions.
 
 ## Points de vigilance
 
