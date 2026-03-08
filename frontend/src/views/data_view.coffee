@@ -60,8 +60,14 @@ window.DataView = class DataView
         reprFn  = null
         formula = rel.reprFormula?.trim()
         if formula
+          # Transpile MoonScript repr formula → JavaScript
+          jsFormula = formula
+            .replace(/\.\./g, '+')      # string concat
+            .replace(/ and /g, ' && ')  # boolean and
+            .replace(/ or /g, ' || ')   # boolean or
+            .replace(/\bnil\b/g, 'null') # nil → null
           try
-            reprFn = new Function('row', "try { return String(#{formula}); } catch(e) { return String(row.id || ''); }")
+            reprFn = new Function('self', "try { return String(#{jsFormula}); } catch(e) { return String(self.id || ''); }")
           catch
             reprFn = null
 
