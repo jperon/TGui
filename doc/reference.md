@@ -270,7 +270,7 @@ mutation { deleteRelation(id: "...") }
 # Définir la formule de représentation d'une relation livres → auteurs
 mutation {
   updateRelation(id: "...", input: {
-    reprFormula: "(row.particule ? row.particule + ' ' : '') + row.nom + (row.prenom ? ' ' + row.prenom : '')"
+    reprFormula: "(@particule and @particule .. ' ' or '') .. @nom .. (@prenom and ' ' .. @prenom or '')"
   }) {
     id reprFormula
   }
@@ -279,11 +279,15 @@ mutation {
 
 ### Formule de représentation
 
-Une relation peut avoir un champ **`reprFormula`** : une expression JavaScript évaluée sur
+Une relation peut avoir un champ **`reprFormula`** : une expression MoonScript évaluée sur
 chaque enregistrement cible pour produire un libellé lisible.
 
-- La variable `row` est liée à l'enregistrement cible.
-- Exemples : `row.libelle`, `row.nom + ' ' + row.prenom`
+- La variable `self` (accessible via `@champ`) est liée à l'enregistrement cible.
+- Exemples : `@libelle`, `@nom .. ' ' .. @prenom`
+- Les champs FK sont résolus automatiquement : `@genre_id.libelle` suit la relation
+  `genre_id` et retourne le champ `libelle` de l'enregistrement genres correspondant.
+- Le chaînage est possible sur plusieurs niveaux : `@livre_id.genre_id.libelle`
+  (exemplaire → livre → genre).
 - Quand elle est définie, les colonnes FK de la grille affichent le résultat de la formule
   au lieu de l'identifiant brut.
 - En mode édition, une liste déroulante présente tous les enregistrements cibles avec leur
@@ -335,6 +339,52 @@ query {
 | `LTE` / `GTE` | Inférieur / supérieur ou égal |
 | `CONTAINS` | Contient la sous-chaîne |
 | `STARTS_WITH` | Commence par |
+
+### Filtres formule et traversée FK
+
+En plus des filtres par champ et opérateur, il est possible d'exprimer des conditions
+arbitraires en **MoonScript** via `formula`. Ces formules ont accès au **proxy FK** :
+les champs de type relation sont résolus automatiquement vers l'enregistrement lié,
+et le chaînage sur plusieurs niveaux est supporté.
+
+```graphql
+# Filtrer les livres dont le genre est 'Roman' (via traversée FK)
+query {
+  records(
+    spaceId: "livres-id"
+    filter: { formula: "@genre_id.libelle == 'Roman'", language: "moonscript" }
+  ) {
+    items { id data }
+    total
+  }
+}
+
+# Filtrer les exemplaires dont le livre appartient au genre 'Polar' (2 niveaux)
+query {
+  records(
+    spaceId: "exemplaires-id"
+    filter: { formula: "@livre_id.genre_id.libelle == 'Polar'", language: "moonscript" }
+  ) {
+    items { id data }
+    total
+  }
+}
+```
+
+Les formules FK fonctionnent également dans les **requêtes dynamiques** générées pour
+chaque espace :
+
+```graphql
+query {
+  livres(filter: { formula: "@genre_id.libelle == 'Roman'", language: "moonscript" }) {
+    items { titre }
+  }
+}
+```
+
+> **Note :** La résolution FK utilise d'abord un accès direct par clé primaire (efficace),
+> avec repli sur un full scan pour les références non-PK. Sur des espaces de grande taille,
+> préférer les filtres par champ classiques lorsque c'est possible.
 
 ### API GraphQL
 

@@ -31,7 +31,7 @@ R.describe("Relations — createRelation", function()
         fromFieldId = src_fk_field_id,
         toSpaceId = tgt_id,
         toFieldId = tgt_seq_field_id,
-        reprFormula = 'row.nom'
+        reprFormula = '@nom'
       }
     }, CTX)
     R.ok(res)
@@ -39,7 +39,7 @@ R.describe("Relations — createRelation", function()
     R.eq(res.name, 'src_vers_tgt')
     R.eq(res.fromSpaceId, src_id)
     R.eq(res.toSpaceId, tgt_id)
-    R.eq(res.reprFormula, 'row.nom')
+    R.eq(res.reprFormula, '@nom')
     rel_id = res.id
   end)
   return R.it("sans reprFormula → reprFormula vide", function()
@@ -71,7 +71,7 @@ R.describe("Relations — Query.relations", function()
       if r.id == rel_id then
         found = true
         R.eq(r.name, 'src_vers_tgt')
-        R.eq(r.reprFormula, 'row.nom')
+        R.eq(r.reprFormula, '@nom')
       end
     end
     return R.ok(found, "relation créée doit être listée")
@@ -91,12 +91,12 @@ R.describe("Relations — updateRelation (reprFormula)", function()
     local res = Mutation.updateRelation({ }, {
       id = rel_id,
       input = {
-        reprFormula = 'row.prenom + " " + row.nom'
+        reprFormula = '@prenom .. " " .. @nom'
       }
     }, CTX)
     R.ok(res)
     R.eq(res.id, rel_id)
-    return R.eq(res.reprFormula, 'row.prenom + " " + row.nom')
+    return R.eq(res.reprFormula, '@prenom .. " " .. @nom')
   end)
   R.it("la nouvelle valeur est persistée (relecture)", function()
     local rels = Query.relations({ }, {
@@ -105,7 +105,7 @@ R.describe("Relations — updateRelation (reprFormula)", function()
     for _index_0 = 1, #rels do
       local r = rels[_index_0]
       if r.id == rel_id then
-        R.eq(r.reprFormula, 'row.prenom + " " + row.nom')
+        R.eq(r.reprFormula, '@prenom .. " " .. @nom')
         return 
       end
     end
@@ -124,7 +124,7 @@ R.describe("Relations — updateRelation (reprFormula)", function()
     local res = Mutation.updateRelation({ }, {
       id = 'inconnu-00000000-0000-0000-0000-000000000000',
       input = {
-        reprFormula = 'row.x'
+        reprFormula = '@x'
       }
     }, CTX)
     return R.is_nil(res)

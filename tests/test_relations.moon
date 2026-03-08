@@ -43,7 +43,7 @@ R.describe "Relations — createRelation", ->
         fromFieldId: src_fk_field_id
         toSpaceId:   tgt_id
         toFieldId:   tgt_seq_field_id
-        reprFormula: 'row.nom'
+        reprFormula: '@nom'
       }
     }, CTX
     R.ok res
@@ -51,7 +51,7 @@ R.describe "Relations — createRelation", ->
     R.eq res.name,        'src_vers_tgt'
     R.eq res.fromSpaceId, src_id
     R.eq res.toSpaceId,   tgt_id
-    R.eq res.reprFormula, 'row.nom'
+    R.eq res.reprFormula, '@nom'
     rel_id = res.id
 
   R.it "sans reprFormula → reprFormula vide", ->
@@ -80,7 +80,7 @@ R.describe "Relations — Query.relations", ->
       if r.id == rel_id
         found = true
         R.eq r.name,        'src_vers_tgt'
-        R.eq r.reprFormula, 'row.nom'
+        R.eq r.reprFormula, '@nom'
     R.ok found, "relation créée doit être listée"
 
   R.it "ne retourne pas les relations d'un autre espace", ->
@@ -94,17 +94,17 @@ R.describe "Relations — updateRelation (reprFormula)", ->
   R.it "met à jour reprFormula", ->
     res = Mutation.updateRelation {}, {
       id:    rel_id
-      input: { reprFormula: 'row.prenom + " " + row.nom' }
+      input: { reprFormula: '@prenom .. " " .. @nom' }
     }, CTX
     R.ok res
     R.eq res.id,          rel_id
-    R.eq res.reprFormula, 'row.prenom + " " + row.nom'
+    R.eq res.reprFormula, '@prenom .. " " .. @nom'
 
   R.it "la nouvelle valeur est persistée (relecture)", ->
     rels = Query.relations {}, { spaceId: src_id }, CTX
     for r in *rels
       if r.id == rel_id
-        R.eq r.reprFormula, 'row.prenom + " " + row.nom'
+        R.eq r.reprFormula, '@prenom .. " " .. @nom'
         return
     R.ok false, "relation introuvable après update"
 
@@ -118,7 +118,7 @@ R.describe "Relations — updateRelation (reprFormula)", ->
   R.it "id inconnu → retourne nil sans planter", ->
     res = Mutation.updateRelation {}, {
       id:    'inconnu-00000000-0000-0000-0000-000000000000'
-      input: { reprFormula: 'row.x' }
+      input: { reprFormula: '@x' }
     }, CTX
     R.is_nil res
 

@@ -17,7 +17,12 @@ R = require 'tests.runner'
 -- Approche choisie : copier la logique de matches_filter ici et la tester
 -- indépendamment (test de logique pure sans dépendance Tarantool).
 
-triggers = require 'core.triggers'
+triggers   = require 'core.triggers'
+spaces_mod = require 'core.spaces'
+{ Query: schema_Query, Mutation: schema_Mutation } = require 'resolvers.schema_resolvers'
+{ Query: data_Query,   Mutation: data_Mutation }   = require 'resolvers.data_resolvers'
+
+CTX_FK = { user_id: 'test-user' }
 
 -- Réimplémentation fidèle de matches_filter pour test unitaire
 matches_filter = (parsed, flt) ->
@@ -53,13 +58,22 @@ matches_filter = (parsed, flt) ->
     ok = ok and any
   ok
 
-apply_filter = (tuples, filter) ->
+-- fk_def_map is optional; when present, formula filters receive an FK-aware proxy
+-- (matches new signature in data_resolvers: apply_filter(tuples, filter, fk_def_map))
+apply_filter = (tuples, filter, fk_def_map) ->
   return tuples unless filter and (filter.field or filter.formula or filter["and"] or filter["or"])
   if filter.formula and filter.formula != '' and filter._formula_fn == nil
     lang = filter.language or 'lua'
     ok_c, fn = pcall triggers.compile_formula, filter.formula, 'filter', lang
     filter._formula_fn = if ok_c and type(fn) == 'function' then fn else false
-  [r for r in *tuples when matches_filter r, filter]
+  result = {}
+  for r in *tuples
+    self_val = if fk_def_map
+      triggers.make_self_proxy r, fk_def_map
+    else
+      r
+    table.insert result, r if matches_filter self_val, filter
+  result
 
 -- ────────────────────────────────────────────────────────────────────────────
 R.describe "matches_filter — opérateur EQ", ->
@@ -318,3 +332,125 @@ R.describe "matches_filter — opérateur inconnu", ->
 
   R.it "opérateur inconnu → toujours true (non filtrant)", ->
     R.ok matches_filter { x: 'y' }, { field: 'x', op: 'UNKNOWN_OP', value: 'z' }
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- FK proxy — traversée de relations dans les formules
+-- ────────────────────────────────────────────────────────────────────────────
+
+FKSFX = tostring math.random(100000, 999999)
+
+local fk_genres_sp_id, fk_livres_sp_id, fk_rel_id
+local fk_libelle_field_id, fk_genre_id_field_id
+local genre_roman_uuid, genre_polar_uuid
+
+do
+  genres_sp = spaces_mod.create_user_space "fktest_genres_#{FKSFX}", "genres FK test"
+  livres_sp = spaces_mod.create_user_space "fktest_livres_#{FKSFX}", "livres FK test"
+  fk_genres_sp_id = genres_sp.id
+  fk_livres_sp_id = livres_sp.id
+
+  libelle_f   = spaces_mod.add_field fk_genres_sp_id, 'libelle',  'String'
+  fk_libelle_field_id = libelle_f.id
+
+  spaces_mod.add_field fk_livres_sp_id, 'titre', 'String'
+  genre_id_f  = spaces_mod.add_field fk_livres_sp_id, 'genre_id', 'String'
+  fk_genre_id_field_id = genre_id_f.id
+
+  -- Relation FK : livres.genre_id → genres (target: libelle field as reference point)
+  rel = schema_Mutation.createRelation {}, {
+    input: {
+      name:        "fktest_rel_#{FKSFX}"
+      fromSpaceId: fk_livres_sp_id
+      fromFieldId: fk_genre_id_field_id
+      toSpaceId:   fk_genres_sp_id
+      toFieldId:   fk_libelle_field_id
+    }
+  }, CTX_FK
+  fk_rel_id = rel.id
+
+  -- Insérer deux genres
+  roman_rec = data_Mutation.insertRecord {}, { spaceId: fk_genres_sp_id, data: { libelle: 'Roman' } }, CTX_FK
+  polar_rec = data_Mutation.insertRecord {}, { spaceId: fk_genres_sp_id, data: { libelle: 'Polar' } }, CTX_FK
+  genre_roman_uuid = roman_rec.id
+  genre_polar_uuid = polar_rec.id
+
+  -- Insérer des livres ; genre_id stocke l'UUID (_id) du genre → PK lookup direct
+  data_Mutation.insertRecord {}, { spaceId: fk_livres_sp_id, data: { titre: 'Les Misérables',  genre_id: genre_roman_uuid } }, CTX_FK
+  data_Mutation.insertRecord {}, { spaceId: fk_livres_sp_id, data: { titre: 'Sherlock Holmes', genre_id: genre_polar_uuid } }, CTX_FK
+
+R.describe "FK proxy — make_self_proxy résout les champs FK", ->
+
+  R.it "proxy.genre_id retourne un sous-proxy (table)", ->
+    fk_map = triggers.build_fk_def_map fk_livres_sp_id
+    proxy  = triggers.make_self_proxy { titre: 'Test', genre_id: genre_roman_uuid }, fk_map
+    genre_proxy = proxy.genre_id
+    R.ok genre_proxy != nil, "genre_id doit retourner un proxy non nil"
+    R.eq type(genre_proxy), 'table'
+
+  R.it "proxy.genre_id.libelle retourne la valeur du champ de l'enregistrement lié", ->
+    fk_map = triggers.build_fk_def_map fk_livres_sp_id
+    proxy  = triggers.make_self_proxy { titre: 'Test', genre_id: genre_roman_uuid }, fk_map
+    R.eq proxy.genre_id.libelle, 'Roman'
+
+  R.it "proxy.titre retourne le champ non-FK directement", ->
+    fk_map = triggers.build_fk_def_map fk_livres_sp_id
+    proxy  = triggers.make_self_proxy { titre: 'Dune', genre_id: genre_polar_uuid }, fk_map
+    R.eq proxy.titre, 'Dune'
+
+  R.it "proxy FK nil → nil sans plantage", ->
+    fk_map = triggers.build_fk_def_map fk_livres_sp_id
+    proxy  = triggers.make_self_proxy { titre: 'Sans genre' }, fk_map
+    R.is_nil proxy.genre_id
+
+R.describe "FK proxy — apply_filter avec formule @fk_field.sub_field", ->
+
+  R.it "filtre @genre_id.libelle == 'Roman' retourne seulement les romans", ->
+    fk_map = triggers.build_fk_def_map fk_livres_sp_id
+    tuples = {
+      { titre: 'Les Misérables',  genre_id: genre_roman_uuid }
+      { titre: 'Sherlock Holmes', genre_id: genre_polar_uuid }
+    }
+    flt    = { formula: '@genre_id.libelle == "Roman"', language: 'moonscript' }
+    result = apply_filter tuples, flt, fk_map
+    R.eq #result, 1
+    R.eq result[1].titre, 'Les Misérables'
+
+  R.it "filtre sans fk_def_map (nil) ne plante pas sur les tests non-FK", ->
+    tuples = { { nom: 'Alice', age: 25 }, { nom: 'Bob', age: 15 } }
+    flt    = { formula: '@age >= 18', language: 'moonscript' }
+    result = apply_filter tuples, flt, nil
+    R.eq #result, 1
+    R.eq result[1].nom, 'Alice'
+
+R.describe "FK proxy — intégration via Query.records avec filtre formule", ->
+
+  R.it "records() filtre @genre_id.libelle == 'Roman' → 1 résultat", ->
+    res = data_Query.records {}, {
+      spaceId: fk_livres_sp_id
+      filter:  { formula: '@genre_id.libelle == "Roman"', language: 'moonscript' }
+    }, CTX_FK
+    R.ok res
+    R.eq res.total, 1
+    R.ok res.items[1] != nil
+    import json from require 'json' if require 'json'
+    d = type(res.items[1].data) == 'string' and require('json').decode(res.items[1].data) or res.items[1].data
+    R.eq d.titre, 'Les Misérables'
+
+  R.it "records() filtre @genre_id.libelle == 'Polar' → 1 résultat", ->
+    res = data_Query.records {}, {
+      spaceId: fk_livres_sp_id
+      filter:  { formula: '@genre_id.libelle == "Polar"', language: 'moonscript' }
+    }, CTX_FK
+    R.eq res.total, 1
+    d = type(res.items[1].data) == 'string' and require('json').decode(res.items[1].data) or res.items[1].data
+    R.eq d.titre, 'Sherlock Holmes'
+
+  R.it "records() sans filtre FK → tous les livres", ->
+    res = data_Query.records {}, { spaceId: fk_livres_sp_id }, CTX_FK
+    R.eq res.total, 2
+
+-- ── Nettoyage ─────────────────────────────────────────────────────────────────
+
+schema_Mutation.deleteRelation {}, { id: fk_rel_id }, CTX_FK
+spaces_mod.delete_user_space "fktest_genres_#{FKSFX}"
+spaces_mod.delete_user_space "fktest_livres_#{FKSFX}"

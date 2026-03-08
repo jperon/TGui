@@ -231,6 +231,42 @@ Voici les relations à créer pour la bibliothèque :
 Les relations permettent ensuite de construire des vues personnalisées avec filtrage
 automatique (dépendances inter-widgets).
 
+### Formule de représentation (reprFormula)
+
+Par défaut, une colonne de type Relation affiche l'identifiant brut de l'enregistrement
+lié. Vous pouvez définir une **formule de représentation** en MoonScript pour afficher
+un libellé lisible à la place.
+
+- La syntaxe `@champ` donne accès aux champs de l'enregistrement lié.
+- Les champs FK sont résolus automatiquement : `@genre_id.libelle` suit la relation
+  `genre_id` dans l'espace lié et retourne son `libelle`.
+- Le chaînage multi-niveaux est supporté : `@livre_id.genre_id.libelle`
+  (exemplaire → livre → genre).
+- Si aucune formule n'est définie, la colonne utilise le champ `_repr` de l'espace cible
+  (s'il existe), sinon l'identifiant brut.
+
+**Exemples :**
+
+| Formule | Effet |
+|---------|-------|
+| `@nom` | Affiche le champ `nom` de l'enregistrement lié |
+| `@nom .. ' ' .. @prenom` | Concatène nom et prénom |
+| `@genre_id.libelle` | Suit la FK `genre_id` et affiche le libelle du genre |
+| `@livre_id.genre_id.libelle` | Chaîne deux FK (exemplaire → livre → genre) |
+
+**Exemple concret — emprunts :**
+
+Dans l'espace `emprunts`, la colonne `exemplaire_id` peut afficher le titre du livre
+correspondant grâce à une chaîne de FK :
+
+```
+reprFormula : @livre_id.titre
+```
+(exemplaire → livre : affiche le titre du livre de cet exemplaire)
+
+Pour définir la formule, cliquez sur **(crayon)** à côté du champ Relation dans le panel
+Champs, puis saisissez la formule dans le champ **Formule de représentation**.
+
 ---
 
 ## Vues personnalisées (YAML)

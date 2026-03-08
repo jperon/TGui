@@ -1,5 +1,19 @@
 local R = require('tests.runner')
 local triggers = require('core.triggers')
+local spaces_mod = require('core.spaces')
+local schema_Query, schema_Mutation
+do
+  local _obj_0 = require('resolvers.schema_resolvers')
+  schema_Query, schema_Mutation = _obj_0.Query, _obj_0.Mutation
+end
+local data_Query, data_Mutation
+do
+  local _obj_0 = require('resolvers.data_resolvers')
+  data_Query, data_Mutation = _obj_0.Query, _obj_0.Mutation
+end
+local CTX_FK = {
+  user_id = 'test-user'
+}
 local matches_filter
 matches_filter = function(parsed, flt)
   if not (flt) then
@@ -65,7 +79,7 @@ matches_filter = function(parsed, flt)
   return ok
 end
 local apply_filter
-apply_filter = function(tuples, filter)
+apply_filter = function(tuples, filter, fk_def_map)
   if not (filter and (filter.field or filter.formula or filter["and"] or filter["or"])) then
     return tuples
   end
@@ -78,16 +92,20 @@ apply_filter = function(tuples, filter)
       filter._formula_fn = false
     end
   end
-  local _accum_0 = { }
-  local _len_0 = 1
+  local result = { }
   for _index_0 = 1, #tuples do
     local r = tuples[_index_0]
-    if matches_filter(r, filter) then
-      _accum_0[_len_0] = r
-      _len_0 = _len_0 + 1
+    local self_val
+    if fk_def_map then
+      self_val = triggers.make_self_proxy(r, fk_def_map)
+    else
+      self_val = r
+    end
+    if matches_filter(self_val, filter) then
+      table.insert(result, r)
     end
   end
-  return _accum_0
+  return result
 end
 R.describe("matches_filter — opérateur EQ", function()
   R.it("EQ : égalité exacte → true", function()
@@ -735,7 +753,7 @@ R.describe("matches_filter — combinaisons AND / OR", function()
     }, { }))
   end)
 end)
-return R.describe("matches_filter — opérateur inconnu", function()
+R.describe("matches_filter — opérateur inconnu", function()
   return R.it("opérateur inconnu → toujours true (non filtrant)", function()
     return R.ok(matches_filter({
       x = 'y'
@@ -746,3 +764,175 @@ return R.describe("matches_filter — opérateur inconnu", function()
     }))
   end)
 end)
+local FKSFX = tostring(math.random(100000, 999999))
+local fk_genres_sp_id, fk_livres_sp_id, fk_rel_id
+local fk_libelle_field_id, fk_genre_id_field_id
+local genre_roman_uuid, genre_polar_uuid
+do
+  local genres_sp = spaces_mod.create_user_space("fktest_genres_" .. tostring(FKSFX), "genres FK test")
+  local livres_sp = spaces_mod.create_user_space("fktest_livres_" .. tostring(FKSFX), "livres FK test")
+  fk_genres_sp_id = genres_sp.id
+  fk_livres_sp_id = livres_sp.id
+  local libelle_f = spaces_mod.add_field(fk_genres_sp_id, 'libelle', 'String')
+  fk_libelle_field_id = libelle_f.id
+  spaces_mod.add_field(fk_livres_sp_id, 'titre', 'String')
+  local genre_id_f = spaces_mod.add_field(fk_livres_sp_id, 'genre_id', 'String')
+  fk_genre_id_field_id = genre_id_f.id
+  local rel = schema_Mutation.createRelation({ }, {
+    input = {
+      name = "fktest_rel_" .. tostring(FKSFX),
+      fromSpaceId = fk_livres_sp_id,
+      fromFieldId = fk_genre_id_field_id,
+      toSpaceId = fk_genres_sp_id,
+      toFieldId = fk_libelle_field_id
+    }
+  }, CTX_FK)
+  fk_rel_id = rel.id
+  local roman_rec = data_Mutation.insertRecord({ }, {
+    spaceId = fk_genres_sp_id,
+    data = {
+      libelle = 'Roman'
+    }
+  }, CTX_FK)
+  local polar_rec = data_Mutation.insertRecord({ }, {
+    spaceId = fk_genres_sp_id,
+    data = {
+      libelle = 'Polar'
+    }
+  }, CTX_FK)
+  genre_roman_uuid = roman_rec.id
+  genre_polar_uuid = polar_rec.id
+  data_Mutation.insertRecord({ }, {
+    spaceId = fk_livres_sp_id,
+    data = {
+      titre = 'Les Misérables',
+      genre_id = genre_roman_uuid
+    }
+  }, CTX_FK)
+  data_Mutation.insertRecord({ }, {
+    spaceId = fk_livres_sp_id,
+    data = {
+      titre = 'Sherlock Holmes',
+      genre_id = genre_polar_uuid
+    }
+  }, CTX_FK)
+end
+R.describe("FK proxy — make_self_proxy résout les champs FK", function()
+  R.it("proxy.genre_id retourne un sous-proxy (table)", function()
+    local fk_map = triggers.build_fk_def_map(fk_livres_sp_id)
+    local proxy = triggers.make_self_proxy({
+      titre = 'Test',
+      genre_id = genre_roman_uuid
+    }, fk_map)
+    local genre_proxy = proxy.genre_id
+    R.ok(genre_proxy ~= nil, "genre_id doit retourner un proxy non nil")
+    return R.eq(type(genre_proxy), 'table')
+  end)
+  R.it("proxy.genre_id.libelle retourne la valeur du champ de l'enregistrement lié", function()
+    local fk_map = triggers.build_fk_def_map(fk_livres_sp_id)
+    local proxy = triggers.make_self_proxy({
+      titre = 'Test',
+      genre_id = genre_roman_uuid
+    }, fk_map)
+    return R.eq(proxy.genre_id.libelle, 'Roman')
+  end)
+  R.it("proxy.titre retourne le champ non-FK directement", function()
+    local fk_map = triggers.build_fk_def_map(fk_livres_sp_id)
+    local proxy = triggers.make_self_proxy({
+      titre = 'Dune',
+      genre_id = genre_polar_uuid
+    }, fk_map)
+    return R.eq(proxy.titre, 'Dune')
+  end)
+  return R.it("proxy FK nil → nil sans plantage", function()
+    local fk_map = triggers.build_fk_def_map(fk_livres_sp_id)
+    local proxy = triggers.make_self_proxy({
+      titre = 'Sans genre'
+    }, fk_map)
+    return R.is_nil(proxy.genre_id)
+  end)
+end)
+R.describe("FK proxy — apply_filter avec formule @fk_field.sub_field", function()
+  R.it("filtre @genre_id.libelle == 'Roman' retourne seulement les romans", function()
+    local fk_map = triggers.build_fk_def_map(fk_livres_sp_id)
+    local tuples = {
+      {
+        titre = 'Les Misérables',
+        genre_id = genre_roman_uuid
+      },
+      {
+        titre = 'Sherlock Holmes',
+        genre_id = genre_polar_uuid
+      }
+    }
+    local flt = {
+      formula = '@genre_id.libelle == "Roman"',
+      language = 'moonscript'
+    }
+    local result = apply_filter(tuples, flt, fk_map)
+    R.eq(#result, 1)
+    return R.eq(result[1].titre, 'Les Misérables')
+  end)
+  return R.it("filtre sans fk_def_map (nil) ne plante pas sur les tests non-FK", function()
+    local tuples = {
+      {
+        nom = 'Alice',
+        age = 25
+      },
+      {
+        nom = 'Bob',
+        age = 15
+      }
+    }
+    local flt = {
+      formula = '@age >= 18',
+      language = 'moonscript'
+    }
+    local result = apply_filter(tuples, flt, nil)
+    R.eq(#result, 1)
+    return R.eq(result[1].nom, 'Alice')
+  end)
+end)
+R.describe("FK proxy — intégration via Query.records avec filtre formule", function()
+  R.it("records() filtre @genre_id.libelle == 'Roman' → 1 résultat", function()
+    local res = data_Query.records({ }, {
+      spaceId = fk_livres_sp_id,
+      filter = {
+        formula = '@genre_id.libelle == "Roman"',
+        language = 'moonscript'
+      }
+    }, CTX_FK)
+    R.ok(res)
+    R.eq(res.total, 1)
+    R.ok(res.items[1] ~= nil)
+    if require('json') then
+      local json
+      json = require('json').json
+    end
+    local d = type(res.items[1].data) == 'string' and require('json').decode(res.items[1].data) or res.items[1].data
+    return R.eq(d.titre, 'Les Misérables')
+  end)
+  R.it("records() filtre @genre_id.libelle == 'Polar' → 1 résultat", function()
+    local res = data_Query.records({ }, {
+      spaceId = fk_livres_sp_id,
+      filter = {
+        formula = '@genre_id.libelle == "Polar"',
+        language = 'moonscript'
+      }
+    }, CTX_FK)
+    R.eq(res.total, 1)
+    local d = type(res.items[1].data) == 'string' and require('json').decode(res.items[1].data) or res.items[1].data
+    return R.eq(d.titre, 'Sherlock Holmes')
+  end)
+  return R.it("records() sans filtre FK → tous les livres", function()
+    local res = data_Query.records({ }, {
+      spaceId = fk_livres_sp_id
+    }, CTX_FK)
+    return R.eq(res.total, 2)
+  end)
+end)
+schema_Mutation.deleteRelation({ }, {
+  id = fk_rel_id
+}, CTX_FK)
+spaces_mod.delete_user_space("fktest_genres_" .. tostring(FKSFX))
+return spaces_mod.delete_user_space("fktest_livres_" .. tostring(FKSFX))
