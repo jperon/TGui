@@ -51,6 +51,7 @@ math.randomseed os.time!
 require 'tests.test_spaces'
 require 'tests.test_triggers'
 require 'tests.test_custom_views'
+require 'tests.test_relations'
 require 'tests.test_snapshot'
 require 'tests.test_permissions'
 require 'tests.test_data_filters'

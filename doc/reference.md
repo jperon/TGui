@@ -88,7 +88,7 @@ une formule.
 | `Any` | Type libre (JSON) |
 | `Map` | Objet JSON |
 | `Array` | Tableau JSON |
-| `Relation` | Référence vers un enregistrement d'un autre espace |
+| `Relation` | Référence vers un enregistrement d'un autre espace (affichage personnalisable via `reprFormula`) |
 
 ### Champ calculé (colonne calculée)
 
@@ -227,7 +227,7 @@ structures arborescentes (ex. catégories, généalogies).
 # Lister les relations d'un espace
 query {
   relations(spaceId: "...") {
-    id name fromFieldId toSpaceId toFieldId
+    id name fromFieldId toSpaceId toFieldId reprFormula
   }
 }
 
@@ -266,7 +266,30 @@ mutation {
 
 # Supprimer
 mutation { deleteRelation(id: "...") }
+
+# Définir la formule de représentation d'une relation livres → auteurs
+mutation {
+  updateRelation(id: "...", input: {
+    reprFormula: "(row.particule ? row.particule + ' ' : '') + row.nom + (row.prenom ? ' ' + row.prenom : '')"
+  }) {
+    id reprFormula
+  }
+}
 ```
+
+### Formule de représentation
+
+Une relation peut avoir un champ **`reprFormula`** : une expression JavaScript évaluée sur
+chaque enregistrement cible pour produire un libellé lisible.
+
+- La variable `row` est liée à l'enregistrement cible.
+- Exemples : `row.libelle`, `row.nom + ' ' + row.prenom`
+- Quand elle est définie, les colonnes FK de la grille affichent le résultat de la formule
+  au lieu de l'identifiant brut.
+- En mode édition, une liste déroulante présente tous les enregistrements cibles avec leur
+  libellé calculé.
+- Si aucune formule n'est définie, la colonne utilise le champ `_repr` de l'espace cible
+  (s'il existe), sinon l'identifiant brut.
 
 ---
 
