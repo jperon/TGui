@@ -39,8 +39,10 @@ window.DataView = class DataView
     @_rows          = []     # rows from server
     @_currentData   = []     # rows currently displayed (filtered + sentinel)
     @_defaultValues = {}     # FK defaults for new records (set by depends_on)
+    @_mounted       = false  # true after mount() completes, false after unmount()
 
   mount: ->
+    @_mounted = true
     @container.innerHTML = ''
     wrapper = document.createElement 'div'
     wrapper.style.cssText = 'width:100%;height:100%;'
@@ -196,6 +198,7 @@ window.DataView = class DataView
     row
 
   load: ->
+    return unless @_mounted
     fields       = @space.fields or []
     formulaNames = new Set (f.name for f in fields when f.formula and f.formula != '' and not f.triggerFields)
 
@@ -203,14 +206,16 @@ window.DataView = class DataView
       # Use the space-specific dynamic resolver so formula fields are evaluated.
       tname      = gqlName @space.name
       fieldList  = (gqlName f.name for f in fields).join(' ')
-      spaceQuery = "query { #{tname}(limit: 2000) { items { #{fieldList} } } }"
+      spaceQuery = "query { #{tname}(limit: 2000) { items { _id #{fieldList} } } }"
       data       = await GQL.query spaceQuery, {}
+      return unless @_mounted
       @_rows = data[tname].items.map (item) ->
         row           = Object.assign {}, item
-        row.__rowId   = String item.id ? ''
+        row.__rowId   = item._id
         row
     else
       data    = await GQL.query RECORDS_QUERY, { spaceId: @space.id, limit: 2000 }
+      return unless @_mounted
       @_rows  = data.records.items.map (r) ->
         parsed      = if typeof r.data == 'string' then JSON.parse(r.data) else r.data
         row         = Object.assign {}, parsed
@@ -220,6 +225,7 @@ window.DataView = class DataView
     @_rows
 
   _applyData: ->
+    return unless @_grid
     rows = @_rows
     if @filter
       rows = rows.filter (r) => String(r[@filter.field]) == String(@filter.value)
@@ -269,6 +275,7 @@ window.DataView = class DataView
 
   # ── Cleanup ───────────────────────────────────────────────────────────────────
   unmount: ->
+    @_mounted = false
     document.removeEventListener 'keydown', @_pasteListener if @_pasteListener
     @_grid?.destroy()
     @_grid = null
