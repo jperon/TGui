@@ -201,6 +201,8 @@ input RecordFilter {
   field:    String
   op:       FilterOp
   value:    String
+  formula:  String
+  language: String
   and:      [RecordFilter!]
   or:       [RecordFilter!]
 }

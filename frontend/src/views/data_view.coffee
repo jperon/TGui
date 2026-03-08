@@ -2,8 +2,8 @@
 # Raw data grid view using Toast UI Grid (tui.Grid).
 
 RECORDS_QUERY = """
-  query Records($spaceId: ID!, $limit: Int, $offset: Int) {
-    records(spaceId: $spaceId, limit: $limit, offset: $offset) {
+  query Records($spaceId: ID!, $limit: Int, $offset: Int, $filter: RecordFilter) {
+    records(spaceId: $spaceId, limit: $limit, offset: $offset, filter: $filter) {
       items { id data }
       total
     }
@@ -43,6 +43,8 @@ window.DataView = class DataView
     @_relations     = relations
     @_fkMaps        = {}     # field name → { id → display label }
     @_fkOptions     = {}     # field name → [{ text, value }]
+    @_formulaFilter = ''     # Lua/MoonScript formula for server-side row filtering
+    @_formulaTimer  = null   # debounce handle
 
   # Build FK display maps for all relation fields.
   _buildFkMaps: ->
@@ -87,9 +89,34 @@ window.DataView = class DataView
   mount: ->
     @_mounted = true
     @container.innerHTML = ''
+
+    # Formula filter bar
+    bar = document.createElement 'div'
+    bar.className = 'dv-filter-bar'
+    label = document.createElement 'span'
+    label.className = 'dv-filter-label'
+    label.textContent = '⚗ Filtre :'
+    input = document.createElement 'input'
+    input.type = 'text'
+    input.className = 'dv-filter-input'
+    input.placeholder = 'ex: self.disponible == true  (MoonScript/Lua, self = enregistrement)'
+    input.value = @_formulaFilter
+    input.addEventListener 'input', =>
+      clearTimeout @_formulaTimer
+      val = input.value.trim()
+      input.classList.toggle 'active', val != ''
+      @_formulaTimer = setTimeout =>
+        @_formulaFilter = val
+        @load()
+      , 400
+    bar.appendChild label
+    bar.appendChild input
+    @container.appendChild bar
+
     wrapper = document.createElement 'div'
-    wrapper.style.cssText = 'width:100%;height:100%;'
+    wrapper.style.cssText = 'width:100%;flex:1;min-height:0;'
     @container.appendChild wrapper
+    @container.style.cssText = 'display:flex;flex-direction:column;height:100%;'
 
     fields   = @space.fields or []
     seqNames     = new Set (f.name for f in fields when f.fieldType == 'Sequence')
@@ -263,7 +290,7 @@ window.DataView = class DataView
     fields       = @space.fields or []
     formulaNames = new Set (f.name for f in fields when f.formula and f.formula != '' and not f.triggerFields)
 
-    if formulaNames.size > 0
+    if formulaNames.size > 0 and not @_formulaFilter
       # Use the space-specific dynamic resolver so formula fields are evaluated.
       tname      = gqlName @space.name
       fieldList  = (gqlName f.name for f in fields).join(' ')
@@ -275,7 +302,8 @@ window.DataView = class DataView
         row.__rowId   = item._id
         row
     else
-      data    = await GQL.query RECORDS_QUERY, { spaceId: @space.id, limit: 2000 }
+      gqlFilter = if @_formulaFilter then { formula: @_formulaFilter, language: 'moonscript' } else undefined
+      data    = await GQL.query RECORDS_QUERY, { spaceId: @space.id, limit: 2000, filter: gqlFilter }
       return unless @_mounted
       @_rows  = data.records.items.map (r) ->
         parsed      = if typeof r.data == 'string' then JSON.parse(r.data) else r.data
@@ -328,6 +356,10 @@ window.DataView = class DataView
     @filter = filter
     @_applyData()
 
+  setFormulaFilter: (formula) ->
+    @_formulaFilter = formula or ''
+    @load()
+
   # ── Error display ─────────────────────────────────────────────────────────────
   _showError: (msg) ->
     unless @_errorBanner
@@ -357,6 +389,7 @@ window.DataView = class DataView
   # ── Cleanup ───────────────────────────────────────────────────────────────────
   unmount: ->
     @_mounted = false
+    clearTimeout @_formulaTimer
     document.removeEventListener 'keydown', @_pasteListener if @_pasteListener
     @_grid?.destroy()
     @_grid = null

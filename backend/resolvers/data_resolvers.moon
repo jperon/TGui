@@ -23,14 +23,23 @@ sequence_fields = (space_id) ->
   result
 
 -- Test one record against a filter (recursively handles and/or).
--- rec is a {id, data} record; data fields are accessed via parsed.
+-- parsed is the decoded JSON data of the record.
 matches_filter = (parsed, flt) ->
   return true unless flt
-  ok = if flt.field
+  ok = if flt.formula and flt.formula != ''
+    if type(flt._formula_fn) == 'function'
+      r_ok, r_val = pcall flt._formula_fn, parsed
+      r_ok and r_val and r_val != false
+    else false  -- formula failed to compile or not yet cached
+  else if flt.field
     v = tostring (parsed[flt.field] or '')
     switch flt.op
       when 'EQ'          then v == flt.value
       when 'NEQ'         then v != flt.value
+      when 'LT'          then tonumber(v) < tonumber(flt.value)
+      when 'GT'          then tonumber(v) > tonumber(flt.value)
+      when 'LTE'         then tonumber(v) <= tonumber(flt.value)
+      when 'GTE'         then tonumber(v) >= tonumber(flt.value)
       when 'CONTAINS'    then v\find(flt.value, 1, true) != nil
       when 'STARTS_WITH' then v\sub(1, #flt.value) == flt.value
       else true
@@ -49,7 +58,13 @@ matches_filter = (parsed, flt) ->
   ok
 
 apply_filter = (tuples, filter) ->
-  return tuples unless filter and (filter.field or filter.and or filter.or)
+  return tuples unless filter and (filter.field or filter.formula or filter.and or filter.or)
+  -- Pre-compile formula once to avoid re-compiling per record
+  if filter.formula and filter.formula != '' and filter._formula_fn == nil
+    triggers = require 'core.triggers'
+    lang = filter.language or 'lua'
+    ok_c, fn = pcall triggers.compile_formula, filter.formula, 'filter', lang
+    filter._formula_fn = if ok_c and type(fn) == 'function' then fn else false
   filtered = {}
   for rec in *tuples
     parsed = if type(rec.data) == 'string' then json.decode(rec.data) else rec.data

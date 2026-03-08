@@ -4,8 +4,8 @@
   var DELETE_RECORD, DataView, INSERT_RECORD, RECORDS_QUERY, UPDATE_RECORD, gqlName,
     hasProp = {}.hasOwnProperty;
 
-  RECORDS_QUERY = `query Records($spaceId: ID!, $limit: Int, $offset: Int) {
-  records(spaceId: $spaceId, limit: $limit, offset: $offset) {
+  RECORDS_QUERY = `query Records($spaceId: ID!, $limit: Int, $offset: Int, $filter: RecordFilter) {
+  records(spaceId: $spaceId, limit: $limit, offset: $offset, filter: $filter) {
     items { id data }
     total
   }
@@ -47,6 +47,8 @@
       this._relations = relations;
       this._fkMaps = {}; // field name → { id → display label }
       this._fkOptions = {}; // field name → [{ text, value }]
+      this._formulaFilter = ''; // Lua/MoonScript formula for server-side row filtering
+      this._formulaTimer = null; // debounce handle
     }
 
     
@@ -113,12 +115,37 @@
     }
 
     async mount() {
-      var col, columns, editableCols, f, fields, fkMap, fkOptions, formulaNames, ref, saved, seqNames, wrapper;
+      var bar, col, columns, editableCols, f, fields, fkMap, fkOptions, formulaNames, input, label, ref, saved, seqNames, wrapper;
       this._mounted = true;
       this.container.innerHTML = '';
+      // Formula filter bar
+      bar = document.createElement('div');
+      bar.className = 'dv-filter-bar';
+      label = document.createElement('span');
+      label.className = 'dv-filter-label';
+      label.textContent = '⚗ Filtre :';
+      input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'dv-filter-input';
+      input.placeholder = 'ex: self.disponible == true  (MoonScript/Lua, self = enregistrement)';
+      input.value = this._formulaFilter;
+      input.addEventListener('input', () => {
+        var val;
+        clearTimeout(this._formulaTimer);
+        val = input.value.trim();
+        input.classList.toggle('active', val !== '');
+        return this._formulaTimer = setTimeout(() => {
+          this._formulaFilter = val;
+          return this.load();
+        }, 400);
+      });
+      bar.appendChild(label);
+      bar.appendChild(input);
+      this.container.appendChild(bar);
       wrapper = document.createElement('div');
-      wrapper.style.cssText = 'width:100%;height:100%;';
+      wrapper.style.cssText = 'width:100%;flex:1;min-height:0;';
       this.container.appendChild(wrapper);
+      this.container.style.cssText = 'display:flex;flex-direction:column;height:100%;';
       fields = this.space.fields || [];
       seqNames = new Set((function() {
         var j, len, results;
@@ -411,7 +438,7 @@
     }
 
     async load() {
-      var data, f, fieldList, fields, formulaNames, spaceQuery, tname;
+      var data, f, fieldList, fields, formulaNames, gqlFilter, spaceQuery, tname;
       if (!this._mounted) {
         return;
       }
@@ -427,7 +454,7 @@
         }
         return results;
       })());
-      if (formulaNames.size > 0) {
+      if (formulaNames.size > 0 && !this._formulaFilter) {
         // Use the space-specific dynamic resolver so formula fields are evaluated.
         tname = gqlName(this.space.name);
         fieldList = ((function() {
@@ -451,9 +478,14 @@
           return row;
         });
       } else {
+        gqlFilter = this._formulaFilter ? {
+          formula: this._formulaFilter,
+          language: 'moonscript'
+        } : void 0;
         data = (await GQL.query(RECORDS_QUERY, {
           spaceId: this.space.id,
-          limit: 2000
+          limit: 2000,
+          filter: gqlFilter
         }));
         if (!this._mounted) {
           return;
@@ -571,6 +603,11 @@
       return this._applyData();
     }
 
+    setFormulaFilter(formula) {
+      this._formulaFilter = formula || '';
+      return this.load();
+    }
+
     // ── Error display ─────────────────────────────────────────────────────────────
     _showError(msg) {
       var close;
@@ -617,6 +654,7 @@
     unmount() {
       var ref;
       this._mounted = false;
+      clearTimeout(this._formulaTimer);
       if (this._pasteListener) {
         document.removeEventListener('keydown', this._pasteListener);
       }

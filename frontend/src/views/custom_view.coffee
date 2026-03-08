@@ -121,6 +121,11 @@ window.CustomView = class CustomView
       sp.fields = (fieldMap[col] for col in wNode.columns when fieldMap[col])
 
     dv = new DataView body, sp
+    # Apply formula filter from YAML widget config
+    if wNode.filter
+      formula = if typeof wNode.filter == 'string' then wNode.filter else (wNode.filter.formula or '')
+      lang    = if typeof wNode.filter == 'object' then (wNode.filter.language or 'moonscript') else 'moonscript'
+      dv._formulaFilter = formula if formula
     dv.mount()
     delBtn.addEventListener 'click', => dv.deleteSelected()
     entry = { dataView: dv, node: wNode, el: wrapper }

@@ -35,22 +35,39 @@ matches_filter = function(parsed, flt)
     return true
   end
   local ok
-  if flt.field then
-    local v = tostring((parsed[flt.field] or ''))
-    local _exp_0 = flt.op
-    if 'EQ' == _exp_0 then
-      ok = v == flt.value
-    elseif 'NEQ' == _exp_0 then
-      ok = v ~= flt.value
-    elseif 'CONTAINS' == _exp_0 then
-      ok = v:find(flt.value, 1, true) ~= nil
-    elseif 'STARTS_WITH' == _exp_0 then
-      ok = v:sub(1, #flt.value) == flt.value
+  if flt.formula and flt.formula ~= '' then
+    if type(flt._formula_fn) == 'function' then
+      local r_ok, r_val = pcall(flt._formula_fn, parsed)
+      ok = r_ok and r_val and r_val ~= false
+    else
+      ok = false
+    end
+  else
+    if flt.field then
+      local v = tostring((parsed[flt.field] or ''))
+      local _exp_0 = flt.op
+      if 'EQ' == _exp_0 then
+        ok = v == flt.value
+      elseif 'NEQ' == _exp_0 then
+        ok = v ~= flt.value
+      elseif 'LT' == _exp_0 then
+        ok = tonumber(v) < tonumber(flt.value)
+      elseif 'GT' == _exp_0 then
+        ok = tonumber(v) > tonumber(flt.value)
+      elseif 'LTE' == _exp_0 then
+        ok = tonumber(v) <= tonumber(flt.value)
+      elseif 'GTE' == _exp_0 then
+        ok = tonumber(v) >= tonumber(flt.value)
+      elseif 'CONTAINS' == _exp_0 then
+        ok = v:find(flt.value, 1, true) ~= nil
+      elseif 'STARTS_WITH' == _exp_0 then
+        ok = v:sub(1, #flt.value) == flt.value
+      else
+        ok = true
+      end
     else
       ok = true
     end
-  else
-    ok = true
   end
   if ok and flt["and"] then
     local _list_0 = flt["and"]
@@ -78,8 +95,18 @@ matches_filter = function(parsed, flt)
 end
 local apply_filter
 apply_filter = function(tuples, filter)
-  if not (filter and (filter.field or filter["and"] or filter["or"])) then
+  if not (filter and (filter.field or filter.formula or filter["and"] or filter["or"])) then
     return tuples
+  end
+  if filter.formula and filter.formula ~= '' and filter._formula_fn == nil then
+    local triggers = require('core.triggers')
+    local lang = filter.language or 'lua'
+    local ok_c, fn = pcall(triggers.compile_formula, filter.formula, 'filter', lang)
+    if ok_c and type(fn) == 'function' then
+      filter._formula_fn = fn
+    else
+      filter._formula_fn = false
+    end
   end
   local filtered = { }
   for _index_0 = 1, #tuples do

@@ -50,12 +50,21 @@ make_self_proxy = (record, fk_def_map) ->
 -- Test one record object against a filter (recursively handles and/or)
 matches_filter = (r, flt) ->
   return true unless flt
-  -- Evaluate the primary condition (optional: flt may be pure and/or combinator)
-  ok = if flt.field
+  -- Evaluate the primary condition
+  ok = if flt.formula and flt.formula != ''
+    if type(flt._formula_fn) == 'function'
+      r_ok, r_val = pcall flt._formula_fn, r
+      r_ok and r_val and r_val != false
+    else false  -- formula failed to compile or not yet cached
+  else if flt.field
     v = tostring (r[flt.field] or '')
     switch flt.op
       when 'EQ'          then v == flt.value
       when 'NEQ'         then v != flt.value
+      when 'LT'          then tonumber(v) < tonumber(flt.value)
+      when 'GT'          then tonumber(v) > tonumber(flt.value)
+      when 'LTE'         then tonumber(v) <= tonumber(flt.value)
+      when 'GTE'         then tonumber(v) >= tonumber(flt.value)
       when 'CONTAINS'    then (v\find flt.value, 1, true) != nil
       when 'STARTS_WITH' then (v\sub 1, #flt.value) == flt.value
       else true
@@ -74,7 +83,12 @@ matches_filter = (r, flt) ->
   ok
 
 apply_filter = (all, flt) ->
-  return all unless flt and (flt.field or flt.and or flt.or)
+  return all unless flt and (flt.field or flt.formula or flt.and or flt.or)
+  -- Pre-compile formula once
+  if flt.formula and flt.formula != '' and flt._formula_fn == nil
+    lang = flt.language or 'lua'
+    ok_c, fn = pcall triggers.compile_formula, flt.formula, 'filter', lang
+    flt._formula_fn = if ok_c and type(fn) == 'function' then fn else false
   [r for r in *all when matches_filter r, flt]
 
 -- Build a record object from a raw Tarantool tuple

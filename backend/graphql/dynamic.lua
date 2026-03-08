@@ -64,22 +64,39 @@ matches_filter = function(r, flt)
     return true
   end
   local ok
-  if flt.field then
-    local v = tostring((r[flt.field] or ''))
-    local _exp_0 = flt.op
-    if 'EQ' == _exp_0 then
-      ok = v == flt.value
-    elseif 'NEQ' == _exp_0 then
-      ok = v ~= flt.value
-    elseif 'CONTAINS' == _exp_0 then
-      ok = (v:find(flt.value, 1, true)) ~= nil
-    elseif 'STARTS_WITH' == _exp_0 then
-      ok = (v:sub(1, #flt.value)) == flt.value
+  if flt.formula and flt.formula ~= '' then
+    if type(flt._formula_fn) == 'function' then
+      local r_ok, r_val = pcall(flt._formula_fn, r)
+      ok = r_ok and r_val and r_val ~= false
+    else
+      ok = false
+    end
+  else
+    if flt.field then
+      local v = tostring((r[flt.field] or ''))
+      local _exp_0 = flt.op
+      if 'EQ' == _exp_0 then
+        ok = v == flt.value
+      elseif 'NEQ' == _exp_0 then
+        ok = v ~= flt.value
+      elseif 'LT' == _exp_0 then
+        ok = tonumber(v) < tonumber(flt.value)
+      elseif 'GT' == _exp_0 then
+        ok = tonumber(v) > tonumber(flt.value)
+      elseif 'LTE' == _exp_0 then
+        ok = tonumber(v) <= tonumber(flt.value)
+      elseif 'GTE' == _exp_0 then
+        ok = tonumber(v) >= tonumber(flt.value)
+      elseif 'CONTAINS' == _exp_0 then
+        ok = (v:find(flt.value, 1, true)) ~= nil
+      elseif 'STARTS_WITH' == _exp_0 then
+        ok = (v:sub(1, #flt.value)) == flt.value
+      else
+        ok = true
+      end
     else
       ok = true
     end
-  else
-    ok = true
   end
   if ok and flt["and"] then
     local _list_0 = flt["and"]
@@ -105,8 +122,17 @@ matches_filter = function(r, flt)
 end
 local apply_filter
 apply_filter = function(all, flt)
-  if not (flt and (flt.field or flt["and"] or flt["or"])) then
+  if not (flt and (flt.field or flt.formula or flt["and"] or flt["or"])) then
     return all
+  end
+  if flt.formula and flt.formula ~= '' and flt._formula_fn == nil then
+    local lang = flt.language or 'lua'
+    local ok_c, fn = pcall(triggers.compile_formula, flt.formula, 'filter', lang)
+    if ok_c and type(fn) == 'function' then
+      flt._formula_fn = fn
+    else
+      flt._formula_fn = false
+    end
   end
   local _accum_0 = { }
   local _len_0 = 1

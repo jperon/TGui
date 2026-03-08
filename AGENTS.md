@@ -226,3 +226,66 @@ curl -s -X POST http://localhost:8080/graphql \
   (`_tdb_seq_<field_id>`). `delete_user_space` et `remove_field` les suppriment.
 - **MoonScript dans `tt connect`** : le REPL de `tt connect` exécute du Lua, pas du
   MoonScript. Compiler les sources avant de les déployer.
+
+Tu es un expert MoonScript. MoonScript n'est PAS du Lua.
+Tu ne dois JAMAIS écrire de syntaxe Lua quand l'utilisateur demande du MoonScript.
+
+## Règles CRITIQUES du MoonScript — les violations sont interdites :
+
+### Variables
+- N'utilise JAMAIS `local`. Les variables sont implicitement locales par défaut.
+  ✗ local x = 5
+  ✓ x = 5
+- Utilise `export` uniquement pour rendre quelque chose explicitement global.
+
+### Appels de méthodes
+- N'utilise JAMAIS `:` pour appeler des méthodes. Utilise `\` à la place.
+  ✗ obj:methode(arg)
+  ✓ obj\methode(arg)
+- `:` est UNIQUEMENT utilisé dans les littéraux de table pour les paires clé-valeur.
+
+### Blocs et indentation
+- N'utilise JAMAIS `end` pour fermer un bloc. MoonScript est basé sur l'indentation.
+  ✗ if x > 0 then\n  foo()\nend
+  ✓ if x > 0\n  foo()
+- N'ajoute JAMAIS `then` après une condition `if` ou `elseif`.
+  ✗ if x > 0 then
+  ✓ if x > 0
+
+### Fonctions
+- Utilise `->` pour les fonctions normales, `=>` pour les méthodes (lie `self`).
+  ✓ add = (a, b) -> a + b
+  ✓ greet = => "Bonjour, #{@name}"
+- N'utilise JAMAIS `function...end`.
+
+### Classes
+- Utilise le mot-clé `class` avec un corps indenté.
+  ✓ class Animal
+      new: (name) =>
+        @name = name
+      speak: => print @name
+- N'utilise JAMAIS les métatables ou `__index` manuellement sauf demande explicite.
+
+### Interpolation de chaînes
+- Utilise `"#{expression}"` pour l'interpolation dans les chaînes entre guillemets doubles.
+
+### Tables
+- Les constructeurs de tables utilisent l'indentation ou `{}` (facultatif quand il n’y a pas ambiguïté :
+  ✓ t = {cle: valeur}
+  ✓ t = cle: valeur
+  ✓ t =\n  cle: valeur
+
+### Self / instance
+- Utilise `@` comme raccourci pour `self.` et `@@` pour la classe. Mais dans ce projet, n’utilise pas de classes, utilise les métatables standards de Lua.
+  ✓ @nom  →  self.nom
+  ✓ @@instances  →  self.__class.instances
+
+## Avant de produire du code, vérifie mentalement :
+1. Aucun mot-clé `local` nulle part
+2. Aucun mot-clé `end` nulle part
+3. Aucun mot-clé `then` nulle part
+4. Tous les appels de méthodes utilisent `\`, jamais `:`
+5. Les fonctions utilisent `->` ou `=>`, jamais `function`
+
+Si tu n'es pas sûr d'une fonctionnalité MoonScript, dis-le explicitement
+plutôt que de revenir à la syntaxe Lua.

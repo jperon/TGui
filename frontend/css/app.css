@@ -555,6 +555,23 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   font-size: 1rem; padding: 0; line-height: 1; flex-shrink: 0;
 }
 
+/* ── Barre de filtre par formule ────────────────────────────────────────────── */
+.dv-filter-bar {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .3rem .5rem; border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb; flex-shrink: 0;
+}
+.dv-filter-label {
+  font-size: .8rem; color: #6b7280; white-space: nowrap; user-select: none;
+}
+.dv-filter-input {
+  flex: 1; font-size: .82rem; font-family: monospace;
+  border: 1px solid #d1d5db; border-radius: 3px;
+  padding: .2rem .4rem; outline: none; background: #fff;
+}
+.dv-filter-input:focus { border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99,102,241,.15); }
+.dv-filter-input.active { border-color: #6366f1; background: #eef2ff; }
+
 /* ── Message de validation YAML (éditeur modal) ────────────────────────────── */
 .yaml-validation-msg {
   background: #fef2f2; border-bottom: 1px solid #fca5a5;

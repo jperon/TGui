@@ -95,7 +95,7 @@
     }
 
     _renderWidget(wNode) {
-      var body, col, delBtn, dv, entry, f, fieldMap, i, len, ref, sp, titleBar, titleText, wrapper;
+      var body, col, delBtn, dv, entry, f, fieldMap, formula, i, lang, len, ref, sp, titleBar, titleText, wrapper;
       wrapper = document.createElement('div');
       wrapper.className = 'cv-widget';
       // Title bar
@@ -165,6 +165,14 @@
         })();
       }
       dv = new DataView(body, sp);
+      // Apply formula filter from YAML widget config
+      if (wNode.filter) {
+        formula = typeof wNode.filter === 'string' ? wNode.filter : wNode.filter.formula || '';
+        lang = typeof wNode.filter === 'object' ? wNode.filter.language || 'moonscript' : 'moonscript';
+        if (formula) {
+          dv._formulaFilter = formula;
+        }
+      }
       dv.mount();
       delBtn.addEventListener('click', () => {
         return dv.deleteSelected();
