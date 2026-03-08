@@ -256,7 +256,10 @@ make_content = ->
             H.button {id: 'yaml-modal-close-btn', class: 'toolbar-btn', '✕'}
           }
         }
-        H.div {id: 'yaml-cm-editor', ''}
+        H.div {class: 'yaml-modal-body',
+          H.div {id: 'yaml-cm-editor', ''}
+          H.div {id: 'schema-browser', class: 'schema-browser', ''}
+        }
       }
     }
     -- Modal : éditeur de formule (CodeMirror)
@@ -292,6 +295,7 @@ make_body = ->
     H.script {src: '/src/spaces.js', ''}
     H.script {src: '/src/views/data_view.js', ''}
     H.script {src: '/src/views/custom_view.js', ''}
+    H.script {src: '/src/yaml_builder.js', ''}
     H.script {src: '/src/app.js', ''}
   }
 

@@ -648,8 +648,16 @@ make_content = function()
           })
         }),
         H.div({
-          id = 'yaml-cm-editor',
-          ''
+          class = 'yaml-modal-body',
+          H.div({
+            id = 'yaml-cm-editor',
+            ''
+          }),
+          H.div({
+            id = 'schema-browser',
+            class = 'schema-browser',
+            ''
+          })
         })
       })
     }),
@@ -729,6 +737,10 @@ make_body = function()
     }),
     H.script({
       src = '/src/views/custom_view.js',
+      ''
+    }),
+    H.script({
+      src = '/src/yaml_builder.js',
       ''
     }),
     H.script({

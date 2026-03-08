@@ -614,7 +614,7 @@
     },
     // ── Hash-based navigation ────────────────────────────────────────────────────
     _restoreFromHash: function() {
-      var cvItems, hash, i, len, li, m, results, sp, spaceId, ul, viewId;
+      var cvItems, hash, i, len, li, m, results1, sp, spaceId, ul, viewId;
       hash = window.location.hash;
       if (m = hash.match(/^#space\/(.+)$/)) {
         spaceId = m[1];
@@ -628,17 +628,17 @@
         viewId = m[1];
         ul = this.el.customViewList();
         cvItems = ul.querySelectorAll('li');
-        results = [];
+        results1 = [];
         for (i = 0, len = cvItems.length; i < len; i++) {
           li = cvItems[i];
           if (li.dataset.id === viewId) {
             li.click();
             break;
           } else {
-            results.push(void 0);
+            results1.push(void 0);
           }
         }
-        return results;
+        return results1;
       }
     },
     // ── Spaces (Données section) ─────────────────────────────────────────────────
@@ -651,10 +651,10 @@
       });
     },
     renderSpaceList: function(spaces) {
-      var i, len, li, results, sp, ul;
+      var i, len, li, results1, sp, ul;
       ul = this.el.spaceList();
       ul.innerHTML = '';
-      results = [];
+      results1 = [];
       for (i = 0, len = spaces.length; i < len; i++) {
         sp = spaces[i];
         li = document.createElement('li');
@@ -665,9 +665,9 @@
             return this.selectSpace(sp);
           });
         })(sp);
-        results.push(ul.appendChild(li));
+        results1.push(ul.appendChild(li));
       }
-      return results;
+      return results1;
     },
     selectSpace: function(sp) {
       var i, j, len, len1, li, ref, ref1, ref2;
@@ -745,11 +745,11 @@
       });
     },
     renderCustomViewList: function(views) {
-      var cv, i, len, li, ref, results, ul;
+      var cv, i, len, li, ref, results1, ul;
       ul = this.el.customViewList();
       ul.innerHTML = '';
       ref = views || [];
-      results = [];
+      results1 = [];
       for (i = 0, len = ref.length; i < len; i++) {
         cv = ref[i];
         li = document.createElement('li');
@@ -760,9 +760,9 @@
             return this.selectCustomView(cv);
           });
         })(cv);
-        results.push(ul.appendChild(li));
+        results1.push(ul.appendChild(li));
       }
-      return results;
+      return results1;
     },
     selectCustomView: function(cv) {
       var i, j, len, len1, li, panel, ref, ref1, ref2, ref3;
@@ -897,9 +897,36 @@
         });
       }
       this._cmYaml.setValue(cv.yaml || '');
-      return setTimeout((() => {
+      setTimeout((() => {
         return this._cmYaml.refresh();
       }), 10);
+      // Schema browser
+      return this._loadAllRelations().then((relations) => {
+        var builder;
+        builder = new YamlBuilder({
+          container: document.getElementById('schema-browser'),
+          allSpaces: this._allSpaces,
+          allRelations: relations,
+          onChange: (yaml) => {
+            var ref;
+            return (ref = this._cmYaml) != null ? ref.setValue(yaml) : void 0;
+          }
+        });
+        return builder.mount();
+      });
+    },
+    _loadAllRelations: function() {
+      if (this._allRelations) {
+        return Promise.resolve(this._allRelations);
+      }
+      return Promise.all(this._allSpaces.map(function(sp) {
+        return Spaces.listRelations(sp.id);
+      })).then((results) => {
+        this._allRelations = results.reduce((function(a, b) {
+          return a.concat(b);
+        }), []);
+        return this._allRelations;
+      });
     },
     // ── Data toolbar ─────────────────────────────────────────────────────────────
     _bindDataToolbar: function() {
@@ -1057,16 +1084,16 @@
                 opts.triggerFields = [];
               } else {
                 opts.triggerFields = (function() {
-                  var i, len, ref2, results;
+                  var i, len, ref2, results1;
                   ref2 = raw.split(',');
-                  results = [];
+                  results1 = [];
                   for (i = 0, len = ref2.length; i < len; i++) {
                     s = ref2[i];
                     if (s.trim()) {
-                      results.push(s.trim());
+                      results1.push(s.trim());
                     }
                   }
-                  return results;
+                  return results1;
                 })();
               }
             }
@@ -1132,16 +1159,16 @@
                 triggerFields = [];
               } else {
                 triggerFields = (function() {
-                  var i, len, ref3, results;
+                  var i, len, ref3, results1;
                   ref3 = raw.split(',');
-                  results = [];
+                  results1 = [];
                   for (i = 0, len = ref3.length; i < len; i++) {
                     s = ref3[i];
                     if (s.trim()) {
-                      results.push(s.trim());
+                      results1.push(s.trim());
                     }
                   }
-                  return results;
+                  return results1;
                 })();
               }
             }
@@ -1161,7 +1188,7 @@
       });
     },
     _onFieldTypeChange: function() {
-      var formulaSection, i, isRelation, len, opt, ref, ref1, results, sel, sp, type;
+      var formulaSection, i, isRelation, len, opt, ref, ref1, results1, sel, sp, type;
       type = this.el.fieldType().value;
       isRelation = type === 'Relation';
       this.el.relTargetRow().classList.toggle('hidden', !isRelation);
@@ -1177,15 +1204,15 @@
         sel = this.el.relToSpace();
         sel.innerHTML = '<option value="">Cible…</option>';
         ref1 = this._allSpaces || [];
-        results = [];
+        results1 = [];
         for (i = 0, len = ref1.length; i < len; i++) {
           sp = ref1[i];
           opt = document.createElement('option');
           opt.value = sp.id;
           opt.textContent = sp.name;
-          results.push(sel.appendChild(opt));
+          results1.push(sel.appendChild(opt));
         }
-        return results;
+        return results1;
       }
     },
     _resetFieldForm: function() {
@@ -1224,7 +1251,7 @@
       fields = this._currentSpace.fields || [];
       // Fetch relations and render everything in one shot
       return Spaces.listRelations(this._currentSpace.id).then((relations) => {
-        var badge, del, dragSrc, editBtn, f, fb, handle, i, j, k, langLabel, len, len1, len2, li, name, r, ref, ref1, rel, relMap, req, results, sp, spaceMap, targetName, triggerDesc;
+        var badge, del, dragSrc, editBtn, f, fb, handle, i, j, k, langLabel, len, len1, len2, li, name, r, ref, ref1, rel, relMap, req, results1, sp, spaceMap, targetName, triggerDesc;
         // Build a map: fromFieldId → relation (with target space name resolved)
         relMap = {};
         ref = relations || [];
@@ -1247,7 +1274,7 @@
           return;
         }
         dragSrc = null;
-        results = [];
+        results1 = [];
         for (k = 0, len2 = fields.length; k < len2; k++) {
           f = fields[k];
           li = document.createElement('li');
@@ -1426,9 +1453,9 @@
               return console.error('reorderFields', err);
             });
           });
-          results.push(ul.appendChild(li));
+          results1.push(ul.appendChild(li));
         }
-        return results;
+        return results1;
       });
     }
   };

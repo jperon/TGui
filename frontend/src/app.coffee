@@ -570,6 +570,21 @@ window.App =
         indentWithTabs: false
     @_cmYaml.setValue cv.yaml or ''
     setTimeout (=> @_cmYaml.refresh()), 10
+    # Schema browser
+    @_loadAllRelations().then (relations) =>
+      builder = new YamlBuilder
+        container:    document.getElementById 'schema-browser'
+        allSpaces:    @_allSpaces
+        allRelations: relations
+        onChange:     (yaml) => @_cmYaml?.setValue yaml
+      builder.mount()
+
+  _loadAllRelations: ->
+    return Promise.resolve @_allRelations if @_allRelations
+    Promise.all(@_allSpaces.map (sp) -> Spaces.listRelations sp.id)
+      .then (results) =>
+        @_allRelations = results.reduce ((a, b) -> a.concat b), []
+        @_allRelations
 
   # ── Data toolbar ─────────────────────────────────────────────────────────────
   _bindDataToolbar: ->

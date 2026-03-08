@@ -328,11 +328,56 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
 .modal-box--editor .CodeMirror {
   flex: 1; height: 100%; font-size: .875rem; font-family: 'DejaVu Sans Mono', monospace;
 }
+/* Two-column layout inside YAML modal */
+.yaml-modal-body {
+  flex: 1; display: flex; flex-direction: row; overflow: hidden; min-height: 0;
+}
 #yaml-cm-editor, #formula-cm-editor {
-  flex: 1; display: flex; flex-direction: column; overflow: hidden;
-  min-height: 0;
+  flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0;
 }
 #yaml-cm-editor .CodeMirror, #formula-cm-editor .CodeMirror { height: 100%; }
+
+/* ── Schema browser (right panel of YAML modal) ───────────────────────────── */
+.schema-browser {
+  width: 260px; flex-shrink: 0; display: flex; flex-direction: column;
+  border-left: 1px solid var(--color-border);
+  background: var(--color-surface); overflow-y: auto;
+}
+.sb-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .4rem .6rem; border-bottom: 1px solid var(--color-border);
+  position: sticky; top: 0; background: var(--color-surface); z-index: 1; flex-shrink: 0;
+}
+.sb-header-label { font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+.sb-clear-btn {
+  background: none; border: 1px solid var(--color-error); border-radius: 3px;
+  padding: .1rem .4rem; font-size: .75rem; cursor: pointer; color: var(--color-error);
+}
+.sb-hint {
+  font-size: .72rem; color: #888; padding: .3rem .6rem .2rem; margin: 0; line-height: 1.3;
+}
+.sb-space { border-bottom: 1px solid var(--color-border); }
+.sb-space-title {
+  display: flex; align-items: center; gap: .3rem;
+  padding: .35rem .6rem; font-size: .82rem; font-weight: 500; cursor: pointer;
+  user-select: none;
+}
+.sb-space-title:hover { background: var(--color-hover); }
+.sb-space-active { color: var(--color-accent); }
+.sb-arrow { font-size: .7rem; opacity: .6; width: .8rem; text-align: center; }
+.sb-widget-badge {
+  margin-left: auto; font-size: .7rem; padding: .05rem .35rem;
+  background: var(--color-accent); color: #fff; border-radius: 10px;
+}
+.sb-field {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .22rem .6rem .22rem 1.5rem; font-size: .8rem; cursor: pointer;
+}
+.sb-field:hover { background: var(--color-hover); }
+.sb-field-active { background: color-mix(in srgb, var(--color-accent) 15%, transparent); }
+.sb-field-active .sb-field-name { color: var(--color-accent); font-weight: 500; }
+.sb-field-type { font-size: .7rem; color: #888; font-family: monospace; }
+.sb-no-fields { padding: .2rem .6rem .2rem 1.5rem; font-size: .75rem; color: #999; font-style: italic; }
 
 /* ── Formula expand button ────────────────────────────────────────────────── */
 .formula-expand-btn {
