@@ -1,39 +1,58 @@
 (function() {
   // frontend/src/yaml_builder.coffee
-  // Visual YAML builder — schema browser panel for the custom view editor.
+  // Visual YAML builder: ERD diagram + widget state for custom view editor.
   // Exposed as window.YamlBuilder (no module system, loaded via <script>).
-  var YamlBuilder,
+  var BOX_W, COL_GAP, FIELD_H, HEADER_H, PAD, ROW_GAP, SVG_NS, YamlBuilder, svgEl,
     indexOf = [].indexOf;
+
+  SVG_NS = 'http://www.w3.org/2000/svg';
+
+  BOX_W = 160; // box width in px
+
+  HEADER_H = 26; // space-name header height
+
+  FIELD_H = 19; // height per field row
+
+  COL_GAP = 64; // horizontal gap between columns (space for arrows)
+
+  ROW_GAP = 20; // vertical gap between boxes in the same column
+
+  PAD = 14; // SVG margin
+
+  svgEl = function(tag, attrs = {}) {
+    var el, k, v;
+    el = document.createElementNS(SVG_NS, tag);
+    for (k in attrs) {
+      v = attrs[k];
+      el.setAttribute(k, v);
+    }
+    return el;
+  };
 
   YamlBuilder = class YamlBuilder {
     constructor({container, allSpaces, allRelations, onChange}) {
-      var f, i, j, k, len, len1, len2, ref, ref1, ref2, sp;
+      var f, j, l, len, len1, ref, ref1, sp;
       this.container = container;
       this.allSpaces = allSpaces;
       this.allRelations = allRelations;
       this.onChange = onChange;
-      this._widgets = []; // { id, spaceId, spaceName, columns: [], dependsOn: null|{widgetId,field,from_field} }
+      this._widgets = [];
       this._idCounter = 1;
-      this._expanded = {};
-      // Build lookup maps
+      this._positions = {}; // spaceId -> { x, y, width, height }
+      
+      // Lookup maps
       this._spaceById = {};
-      this._fieldById = {}; // [spaceId][fieldId] → field obj
+      this._fieldById = {}; // [spaceId][fieldId] -> field obj
       ref = this.allSpaces || [];
-      for (i = 0, len = ref.length; i < len; i++) {
-        sp = ref[i];
+      for (j = 0, len = ref.length; j < len; j++) {
+        sp = ref[j];
         this._spaceById[sp.id] = sp;
         this._fieldById[sp.id] = {};
         ref1 = sp.fields || [];
-        for (j = 0, len1 = ref1.length; j < len1; j++) {
-          f = ref1[j];
+        for (l = 0, len1 = ref1.length; l < len1; l++) {
+          f = ref1[l];
           this._fieldById[sp.id][f.id] = f;
         }
-      }
-      ref2 = this.allSpaces || [];
-      for (k = 0, len2 = ref2.length; k < len2; k++) {
-        sp = ref2[k];
-        // Start with all spaces expanded
-        this._expanded[sp.id] = true;
       }
     }
 
@@ -52,15 +71,16 @@
     }
 
     _makeId(spaceName) {
-      return ((spaceName || 'widget').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')) || `w${this._idCounter}`;
+      var s;
+      s = (spaceName || 'widget').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+      return s || `w${this._idCounter}`;
     }
 
     // ── State mutation ───────────────────────────────────────────────────────────
     _onFieldClick(spaceId, fieldName) {
-      var dependsOn, existing, existingSpaceIds, fromField, i, id, len, ref, ref1, ref2, rel, sp, targetWidget, toField;
+      var dependsOn, existing, existingSpaceIds, ff, id, j, len, ref, ref1, ref2, rel, sp, tf, tw;
       existing = this._widgetForSpace(spaceId);
       if (existing) {
-        // Toggle field membership
         if (indexOf.call(existing.columns, fieldName) >= 0) {
           existing.columns = existing.columns.filter(function(c) {
             return c !== fieldName;
@@ -74,25 +94,24 @@
           existing.columns.push(fieldName);
         }
       } else {
-        // Detect relation from this space to an already-added space (S → T)
         existingSpaceIds = this._widgets.map(function(w) {
           return w.spaceId;
         });
         dependsOn = null;
         ref = this.allRelations || [];
-        for (i = 0, len = ref.length; i < len; i++) {
-          rel = ref[i];
+        for (j = 0, len = ref.length; j < len; j++) {
+          rel = ref[j];
           if (rel.fromSpaceId === spaceId && existingSpaceIds.indexOf(rel.toSpaceId) !== -1) {
-            targetWidget = this._widgets.find(function(w) {
+            tw = this._widgets.find(function(w) {
               return w.spaceId === rel.toSpaceId;
             });
-            fromField = (ref1 = this._fieldById[spaceId]) != null ? ref1[rel.fromFieldId] : void 0;
-            toField = (ref2 = this._fieldById[rel.toSpaceId]) != null ? ref2[rel.toFieldId] : void 0;
-            if (fromField && toField && targetWidget) {
+            ff = (ref1 = this._fieldById[spaceId]) != null ? ref1[rel.fromFieldId] : void 0;
+            tf = (ref2 = this._fieldById[rel.toSpaceId]) != null ? ref2[rel.toFieldId] : void 0;
+            if (ff && tf && tw) {
               dependsOn = {
-                widgetId: targetWidget.id,
-                field: fromField.name,
-                from_field: toField.name
+                widgetId: tw.id,
+                field: ff.name,
+                from_field: tf.name
               };
               break;
             }
@@ -124,11 +143,11 @@
         return "layout:\n  direction: vertical\n  children: []\n";
       }
       children = (function() {
-        var i, len, ref, results;
+        var j, len, ref, results;
         ref = this._widgets;
         results = [];
-        for (i = 0, len = ref.length; i < len; i++) {
-          w = ref[i];
+        for (j = 0, len = ref.length; j < len; j++) {
+          w = ref[j];
           wObj = {
             space: w.spaceName
           };
@@ -165,21 +184,100 @@
       });
     }
 
+    // ── Layout ───────────────────────────────────────────────────────────────────
+    // Topological column assignment: spaces with FKs to level-N spaces get level N+1.
+    // Parents (no outgoing FKs, or unknown targets) sit at level 0 on the left.
+    // Children (have FKs) sit to the right of their parents.
+    _computeLayout() {
+      var boxH, byCol, changed, col, colStr, cumY, j, l, len, len1, len2, len3, len4, len5, len6, level, m, n, o, outgoing, p, passes, positions, q, ref, ref1, ref2, rel, rels, sp, spList, spaces, toId;
+      spaces = this.allSpaces || [];
+      rels = this.allRelations || [];
+      if (spaces.length === 0) {
+        return {};
+      }
+      // Build outgoing FK map: spaceId -> [toSpaceId, ...]
+      outgoing = {};
+      for (j = 0, len = spaces.length; j < len; j++) {
+        sp = spaces[j];
+        outgoing[sp.id] = [];
+      }
+      for (l = 0, len1 = rels.length; l < len1; l++) {
+        rel = rels[l];
+        if (rel.fromSpaceId !== rel.toSpaceId) {
+          if ((ref = outgoing[rel.fromSpaceId]) != null) {
+            ref.push(rel.toSpaceId);
+          }
+        }
+      }
+      // Assign levels: BFS-like relaxation (handles acyclic graphs correctly)
+      level = {};
+      for (m = 0, len2 = spaces.length; m < len2; m++) {
+        sp = spaces[m];
+        level[sp.id] = 0;
+      }
+      changed = true;
+      passes = 0;
+      while (changed && passes < spaces.length) {
+        changed = false;
+        passes++;
+        for (n = 0, len3 = spaces.length; n < len3; n++) {
+          sp = spaces[n];
+          ref1 = outgoing[sp.id] || [];
+          for (o = 0, len4 = ref1.length; o < len4; o++) {
+            toId = ref1[o];
+            if ((level[toId] != null) && level[sp.id] <= level[toId]) {
+              level[sp.id] = level[toId] + 1;
+              changed = true;
+            }
+          }
+        }
+      }
+      // Group spaces by column (level)
+      byCol = {};
+      for (p = 0, len5 = spaces.length; p < len5; p++) {
+        sp = spaces[p];
+        col = level[sp.id] || 0;
+        if (byCol[col] == null) {
+          byCol[col] = [];
+        }
+        byCol[col].push(sp);
+      }
+      // Compute pixel positions
+      positions = {};
+      for (colStr in byCol) {
+        spList = byCol[colStr];
+        col = parseInt(colStr);
+        cumY = PAD;
+        for (q = 0, len6 = spList.length; q < len6; q++) {
+          sp = spList[q];
+          boxH = HEADER_H + (((ref2 = sp.fields) != null ? ref2.length : void 0) || 0) * FIELD_H;
+          positions[sp.id] = {
+            x: PAD + col * (BOX_W + COL_GAP),
+            y: cumY,
+            width: BOX_W,
+            height: boxH
+          };
+          cumY += boxH + ROW_GAP;
+        }
+      }
+      return positions;
+    }
+
     // ── Rendering ────────────────────────────────────────────────────────────────
     mount() {
       return this._render();
     }
 
     _render() {
-      var btn, c, hdr, hint, i, lbl, len, ref, results, sp;
+      var arrowsG, boxesG, btn, c, cx, defs, fi, fp, fromSp, hdr, hint, j, l, lbl, len, len1, len2, m, marker, msg, pos, positions, rel, rels, sp, spaces, svg, ti, toSp, totalH, totalW, tp, x1, x2, y1, y2;
       c = this.container;
       c.innerHTML = '';
-      // Header
+      // Sticky header
       hdr = document.createElement('div');
       hdr.className = 'sb-header';
       lbl = document.createElement('span');
       lbl.className = 'sb-header-label';
-      lbl.textContent = 'Espaces';
+      lbl.textContent = 'Schéma ERD';
       hdr.appendChild(lbl);
       if (this._widgets.length > 0) {
         btn = document.createElement('button');
@@ -196,79 +294,229 @@
       c.appendChild(hdr);
       hint = document.createElement('p');
       hint.className = 'sb-hint';
-      hint.textContent = 'Cliquer sur un champ pour l\'ajouter au YAML.';
+      hint.textContent = 'Cliquer un champ pour l\'ajouter au YAML.';
       c.appendChild(hint);
-      ref = this.allSpaces || [];
-      results = [];
-      for (i = 0, len = ref.length; i < len; i++) {
-        sp = ref[i];
-        results.push(c.appendChild(this._renderSpace(sp)));
+      spaces = this.allSpaces || [];
+      rels = this.allRelations || [];
+      if (spaces.length === 0) {
+        msg = document.createElement('p');
+        msg.className = 'sb-hint';
+        msg.textContent = 'Aucun espace.';
+        c.appendChild(msg);
+        return;
       }
-      return results;
-    }
-
-    _renderSpace(sp) {
-      var arrow, badge, expanded, f, fields, i, isActive, len, name, note, titleRow, widget, wrap;
-      widget = this._widgetForSpace(sp.id);
-      isActive = !!widget;
-      expanded = this._expanded[sp.id];
-      wrap = document.createElement('div');
-      wrap.className = 'sb-space';
-      titleRow = document.createElement('div');
-      titleRow.className = 'sb-space-title' + (isActive ? ' sb-space-active' : '');
-      arrow = document.createElement('span');
-      arrow.className = 'sb-arrow';
-      arrow.textContent = expanded ? '▾' : '▸';
-      titleRow.appendChild(arrow);
-      name = document.createElement('span');
-      name.textContent = sp.name;
-      titleRow.appendChild(name);
-      if (isActive) {
-        badge = document.createElement('span');
-        badge.className = 'sb-widget-badge';
-        badge.textContent = `${widget.columns.length} col.`;
-        titleRow.appendChild(badge);
+      positions = this._computeLayout();
+      this._positions = positions;
+      // SVG canvas dimensions
+      totalW = PAD;
+      totalH = PAD;
+      for (j = 0, len = spaces.length; j < len; j++) {
+        sp = spaces[j];
+        pos = positions[sp.id];
+        if (!pos) {
+          continue;
+        }
+        totalW = Math.max(totalW, pos.x + pos.width + PAD);
+        totalH = Math.max(totalH, pos.y + pos.height + PAD);
       }
-      titleRow.addEventListener('click', () => {
-        this._expanded[sp.id] = !this._expanded[sp.id];
-        return this._render();
+      svg = svgEl('svg', {
+        width: totalW,
+        height: totalH,
+        viewBox: `0 0 ${totalW} ${totalH}`,
+        class: 'erd-svg'
       });
-      wrap.appendChild(titleRow);
-      if (expanded) {
-        fields = sp.fields || [];
-        if (fields.length === 0) {
-          note = document.createElement('div');
-          note.className = 'sb-no-fields';
-          note.textContent = '(aucun champ)';
-          wrap.appendChild(note);
+      // Arrowhead marker
+      defs = svgEl('defs');
+      marker = svgEl('marker', {
+        id: 'erd-arrow',
+        markerWidth: '7',
+        markerHeight: '6',
+        refX: '7',
+        refY: '3',
+        orient: 'auto'
+      });
+      marker.appendChild(svgEl('polygon', {
+        points: '0 0, 7 3, 0 6',
+        fill: '#7878a8'
+      }));
+      defs.appendChild(marker);
+      svg.appendChild(defs);
+      // Arrows (drawn behind boxes)
+      arrowsG = svgEl('g', {
+        class: 'erd-arrows'
+      });
+      for (l = 0, len1 = rels.length; l < len1; l++) {
+        rel = rels[l];
+        if (rel.fromSpaceId === rel.toSpaceId) { // skip self-relations
+          continue;
+        }
+        fp = positions[rel.fromSpaceId];
+        tp = positions[rel.toSpaceId];
+        if (!(fp && tp)) {
+          continue;
+        }
+        fromSp = this._spaceById[rel.fromSpaceId];
+        toSp = this._spaceById[rel.toSpaceId];
+        if (!(fromSp && toSp)) {
+          continue;
+        }
+        fi = (fromSp.fields || []).findIndex(function(f) {
+          return f.id === rel.fromFieldId;
+        });
+        ti = (toSp.fields || []).findIndex(function(f) {
+          return f.id === rel.toFieldId;
+        });
+        y1 = fp.y + HEADER_H + Math.max(0, fi) * FIELD_H + FIELD_H / 2;
+        y2 = tp.y + HEADER_H + Math.max(0, ti) * FIELD_H + FIELD_H / 2;
+        // Connect: from left edge of child to right edge of parent (child is to the right)
+        if (fp.x >= tp.x) {
+          x1 = fp.x;
+          x2 = tp.x + tp.width;
         } else {
-          for (i = 0, len = fields.length; i < len; i++) {
-            f = fields[i];
-            wrap.appendChild(this._renderField(sp, f, widget));
-          }
+          x1 = fp.x + fp.width;
+          x2 = tp.x;
+        }
+        cx = (x1 + x2) / 2;
+        arrowsG.appendChild(svgEl('path', {
+          d: `M ${x1} ${y1} C ${cx} ${y1} ${cx} ${y2} ${x2} ${y2}`,
+          fill: 'none',
+          stroke: '#7878a8',
+          'stroke-width': '1.5',
+          'marker-end': 'url(#erd-arrow)',
+          class: 'erd-arrow-path'
+        }));
+      }
+      svg.appendChild(arrowsG);
+      // Boxes (drawn on top of arrows)
+      boxesG = svgEl('g', {
+        class: 'erd-boxes'
+      });
+      for (m = 0, len2 = spaces.length; m < len2; m++) {
+        sp = spaces[m];
+        if (positions[sp.id]) {
+          boxesG.appendChild(this._drawBox(sp, positions[sp.id]));
         }
       }
-      return wrap;
+      svg.appendChild(boxesG);
+      return c.appendChild(svg);
     }
 
-    _renderField(sp, field, widget) {
-      var div, inWidget, nameSpan, ref, typeSpan;
-      inWidget = widget && (ref = field.name, indexOf.call(widget.columns, ref) >= 0);
-      div = document.createElement('div');
-      div.className = 'sb-field' + (inWidget ? ' sb-field-active' : '');
-      nameSpan = document.createElement('span');
-      nameSpan.className = 'sb-field-name';
-      nameSpan.textContent = field.name;
-      div.appendChild(nameSpan);
-      typeSpan = document.createElement('span');
-      typeSpan.className = 'sb-field-type';
-      typeSpan.textContent = field.fieldType;
-      div.appendChild(typeSpan);
-      div.addEventListener('click', (e) => {
-        e.stopPropagation();
-        return this._onFieldClick(sp.id, field.name);
+    _drawBox(sp, pos) {
+      var badgeEl, boxH, field, fields, g, i, isActive, j, len, nameEl, widget;
+      widget = this._widgetForSpace(sp.id);
+      isActive = !!widget;
+      fields = sp.fields || [];
+      boxH = HEADER_H + fields.length * FIELD_H;
+      g = svgEl('g', {
+        class: 'erd-space',
+        transform: `translate(${pos.x},${pos.y})`
       });
-      return div;
+      // Outer border
+      g.appendChild(svgEl('rect', {
+        x: '0',
+        y: '0',
+        width: BOX_W,
+        height: boxH,
+        rx: '4',
+        class: 'erd-box' + (isActive ? ' erd-box-active' : '')
+      }));
+      // Header background
+      g.appendChild(svgEl('rect', {
+        x: '0',
+        y: '0',
+        width: BOX_W,
+        height: HEADER_H,
+        rx: '4',
+        class: 'erd-header' + (isActive ? ' erd-header-active' : '')
+      }));
+      // Clip the bottom corners of header (so rx only applies at top)
+      g.appendChild(svgEl('rect', {
+        x: '0',
+        y: HEADER_H / 2,
+        width: BOX_W,
+        height: HEADER_H / 2,
+        class: 'erd-header' + (isActive ? ' erd-header-active' : '')
+      }));
+      // Space name
+      nameEl = svgEl('text', {
+        x: BOX_W / 2,
+        y: HEADER_H / 2 + 1,
+        'text-anchor': 'middle',
+        'dominant-baseline': 'middle',
+        class: 'erd-space-name'
+      });
+      nameEl.textContent = sp.name;
+      g.appendChild(nameEl);
+      // Badge showing column count
+      if (isActive) {
+        badgeEl = svgEl('text', {
+          x: BOX_W - 4,
+          y: HEADER_H / 2 + 1,
+          'text-anchor': 'end',
+          'dominant-baseline': 'middle',
+          class: 'erd-badge'
+        });
+        badgeEl.textContent = `${widget.columns.length} \u2713`;
+        g.appendChild(badgeEl);
+      }
+      // Separator between header and fields
+      g.appendChild(svgEl('line', {
+        x1: '0',
+        y1: HEADER_H,
+        x2: BOX_W,
+        y2: HEADER_H,
+        class: 'erd-separator'
+      }));
+// Field rows
+      for (i = j = 0, len = fields.length; j < len; i = ++j) {
+        field = fields[i];
+        ((spaceId, fname) => {
+          var bg, fy, inWidget, nm, tp;
+          inWidget = isActive && indexOf.call(widget.columns, fname) >= 0;
+          fy = HEADER_H + i * FIELD_H;
+          bg = svgEl('rect', {
+            x: '0',
+            y: fy,
+            width: BOX_W,
+            height: FIELD_H,
+            class: 'erd-field-bg' + (inWidget ? ' erd-field-active' : '')
+          });
+          bg.addEventListener('click', () => {
+            return this._onFieldClick(spaceId, fname);
+          });
+          g.appendChild(bg);
+          // Separator between field rows (subtle)
+          if (i > 0) {
+            g.appendChild(svgEl('line', {
+              x1: '0',
+              y1: fy,
+              x2: BOX_W,
+              y2: fy,
+              class: 'erd-field-sep'
+            }));
+          }
+          nm = svgEl('text', {
+            x: '5',
+            y: fy + FIELD_H / 2 + 1,
+            'dominant-baseline': 'middle',
+            class: 'erd-field-name' + (inWidget ? ' erd-field-name-active' : '')
+          });
+          nm.textContent = fname;
+          nm.style.pointerEvents = 'none';
+          g.appendChild(nm);
+          tp = svgEl('text', {
+            x: BOX_W - 4,
+            y: fy + FIELD_H / 2 + 1,
+            'text-anchor': 'end',
+            'dominant-baseline': 'middle',
+            class: 'erd-field-type'
+          });
+          tp.textContent = field.fieldType;
+          tp.style.pointerEvents = 'none';
+          return g.appendChild(tp);
+        })(sp.id, field.name);
+      }
+      return g;
     }
 
   };

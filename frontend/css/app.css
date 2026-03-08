@@ -337,47 +337,56 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
 }
 #yaml-cm-editor .CodeMirror, #formula-cm-editor .CodeMirror { height: 100%; }
 
-/* ── Schema browser (right panel of YAML modal) ───────────────────────────── */
+/* ── Schema browser / ERD panel (right panel of YAML modal) ──────────────── */
 .schema-browser {
-  width: 260px; flex-shrink: 0; display: flex; flex-direction: column;
+  flex: 0 0 42%; min-width: 260px; max-width: 480px;
+  display: flex; flex-direction: column;
   border-left: 1px solid var(--color-border);
-  background: var(--color-surface); overflow-y: auto;
+  background: #16161e; overflow: auto;
 }
 .sb-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: .4rem .6rem; border-bottom: 1px solid var(--color-border);
-  position: sticky; top: 0; background: var(--color-surface); z-index: 1; flex-shrink: 0;
+  position: sticky; top: 0; background: #16161e; z-index: 1; flex-shrink: 0;
 }
-.sb-header-label { font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+.sb-header-label { font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: #cdd6f4; }
 .sb-clear-btn {
   background: none; border: 1px solid var(--color-error); border-radius: 3px;
   padding: .1rem .4rem; font-size: .75rem; cursor: pointer; color: var(--color-error);
 }
 .sb-hint {
-  font-size: .72rem; color: #888; padding: .3rem .6rem .2rem; margin: 0; line-height: 1.3;
+  font-size: .72rem; color: #6c7086; padding: .3rem .6rem .2rem; margin: 0; line-height: 1.3;
+  flex-shrink: 0;
 }
-.sb-space { border-bottom: 1px solid var(--color-border); }
-.sb-space-title {
-  display: flex; align-items: center; gap: .3rem;
-  padding: .35rem .6rem; font-size: .82rem; font-weight: 500; cursor: pointer;
-  user-select: none;
+
+/* ── ERD SVG ─────────────────────────────────────────────────────────────── */
+.erd-svg { display: block; }
+
+.erd-box        { fill: #1e1e2e; stroke: #45475a; stroke-width: 1.5; }
+.erd-box-active { stroke: #89b4fa; stroke-width: 2; }
+
+.erd-header        { fill: #2a2a3e; }
+.erd-header-active { fill: #31325a; }
+
+.erd-space-name {
+  font-size: 10.5px; font-weight: 600; fill: #cdd6f4;
+  font-family: system-ui, sans-serif;
 }
-.sb-space-title:hover { background: var(--color-hover); }
-.sb-space-active { color: var(--color-accent); }
-.sb-arrow { font-size: .7rem; opacity: .6; width: .8rem; text-align: center; }
-.sb-widget-badge {
-  margin-left: auto; font-size: .7rem; padding: .05rem .35rem;
-  background: var(--color-accent); color: #fff; border-radius: 10px;
+.erd-badge {
+  font-size: 9px; fill: #89b4fa; font-family: system-ui, sans-serif;
 }
-.sb-field {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: .22rem .6rem .22rem 1.5rem; font-size: .8rem; cursor: pointer;
-}
-.sb-field:hover { background: var(--color-hover); }
-.sb-field-active { background: color-mix(in srgb, var(--color-accent) 15%, transparent); }
-.sb-field-active .sb-field-name { color: var(--color-accent); font-weight: 500; }
-.sb-field-type { font-size: .7rem; color: #888; font-family: monospace; }
-.sb-no-fields { padding: .2rem .6rem .2rem 1.5rem; font-size: .75rem; color: #999; font-style: italic; }
+.erd-separator  { stroke: #45475a; stroke-width: 1; }
+.erd-field-sep  { stroke: #2e2e3e; stroke-width: 0.5; }
+
+.erd-field-bg        { fill: transparent; cursor: pointer; }
+.erd-field-bg:hover  { fill: rgba(255,255,255,.05); }
+.erd-field-active    { fill: rgba(137,180,250,.15); }
+
+.erd-field-name        { font-size: 10px; fill: #cdd6f4; font-family: monospace; }
+.erd-field-name-active { fill: #89b4fa; font-weight: bold; }
+.erd-field-type        { font-size: 9px;  fill: #585870; font-family: monospace; }
+
+.erd-arrow-path { opacity: .8; }
 
 /* ── Formula expand button ────────────────────────────────────────────────── */
 .formula-expand-btn {
