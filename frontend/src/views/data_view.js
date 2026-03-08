@@ -118,7 +118,7 @@
     }
 
     async mount() {
-      var col, columns, editableCols, f, fields, fkMap, fkOptions, formulaNames, ref, saved, seqNames, wrapper;
+      var allCols, col, columns, editableCols, editableSet, f, fields, fkMap, fkOptions, formulaNames, ref, saved, seqNames, wrapper;
       this._mounted = true;
       this.container.innerHTML = '';
       wrapper = document.createElement('div');
@@ -224,16 +224,20 @@
         saved2[columnName] = width;
         return localStorage.setItem(this._lsKey(), JSON.stringify(saved2));
       });
-      // Tab / Shift+Tab: move to next/prev editable cell on the same row,
-      // wrapping to the next/prev row at row boundaries.
-      // Use capture phase to intercept before tui.Grid's own Tab handler.
+      // Tab / Shift+Tab: move to next/prev cell (all columns), wrapping at row
+      // boundaries. Start editing only if the target cell is editable.
+      // Capture phase to intercept before tui.Grid's own Tab handler.
       editableCols = columns.filter(function(c) {
         return c.editor;
       }).map(function(c) {
         return c.name;
       });
+      allCols = columns.map(function(c) {
+        return c.name;
+      });
+      editableSet = new Set(editableCols);
       wrapper.addEventListener('keydown', (e) => {
-        var cell, idx, nextRow, prevRow, rowCount, rowIdx;
+        var cell, colIdx, moveTo, nextRow, prevRow, rowIdx;
         if (e.key !== 'Tab') {
           return;
         }
@@ -241,46 +245,37 @@
         if (!(cell != null ? cell.columnName : void 0)) {
           return;
         }
-        idx = editableCols.indexOf(cell.columnName);
-        if (idx < 0) {
+        colIdx = allCols.indexOf(cell.columnName);
+        if (colIdx < 0) {
           return;
         }
         e.preventDefault();
         e.stopImmediatePropagation();
         rowIdx = this._grid.getIndexOfRow(cell.rowKey);
-        rowCount = this._grid.getRowCount();
+        moveTo = (rowKey, colName) => {
+          return setTimeout(() => {
+            this._grid.focus(rowKey, colName);
+            if (editableSet.has(colName)) {
+              return this._grid.startEditing(rowKey, colName);
+            }
+          }, 0);
+        };
         if (e.shiftKey) {
-          if (idx > 0) {
-            // Previous column, same row
-            return setTimeout(() => {
-              this._grid.focus(cell.rowKey, editableCols[idx - 1]);
-              return this._grid.startEditing(cell.rowKey, editableCols[idx - 1]);
-            }, 0);
+          if (colIdx > 0) {
+            return moveTo(cell.rowKey, allCols[colIdx - 1]);
           } else if (rowIdx > 0) {
-            // Last column of previous row (skip sentinel at end)
             prevRow = this._grid.getRowAt(rowIdx - 1);
             if (!(prevRow != null ? prevRow.__isNew : void 0)) {
-              return setTimeout(() => {
-                this._grid.focus(prevRow.rowKey, editableCols[editableCols.length - 1]);
-                return this._grid.startEditing(prevRow.rowKey, editableCols[editableCols.length - 1]);
-              }, 0);
+              return moveTo(prevRow.rowKey, allCols[allCols.length - 1]);
             }
           }
         } else {
-          if (idx < editableCols.length - 1) {
-            // Next column, same row
-            return setTimeout(() => {
-              this._grid.focus(cell.rowKey, editableCols[idx + 1]);
-              return this._grid.startEditing(cell.rowKey, editableCols[idx + 1]);
-            }, 0);
+          if (colIdx < allCols.length - 1) {
+            return moveTo(cell.rowKey, allCols[colIdx + 1]);
           } else {
-            // First column of next row (skip sentinel)
             nextRow = this._grid.getRowAt(rowIdx + 1);
             if ((nextRow != null) && !nextRow.__isNew) {
-              return setTimeout(() => {
-                this._grid.focus(nextRow.rowKey, editableCols[0]);
-                return this._grid.startEditing(nextRow.rowKey, editableCols[0]);
-              }, 0);
+              return moveTo(nextRow.rowKey, allCols[0]);
             }
           }
         }

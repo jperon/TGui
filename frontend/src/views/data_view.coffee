@@ -156,50 +156,41 @@ window.DataView = class DataView
       saved2[columnName] = width
       localStorage.setItem @_lsKey(), JSON.stringify(saved2)
 
-    # Tab / Shift+Tab: move to next/prev editable cell on the same row,
-    # wrapping to the next/prev row at row boundaries.
-    # Use capture phase to intercept before tui.Grid's own Tab handler.
+    # Tab / Shift+Tab: move to next/prev cell (all columns), wrapping at row
+    # boundaries. Start editing only if the target cell is editable.
+    # Capture phase to intercept before tui.Grid's own Tab handler.
     editableCols = columns.filter((c) -> c.editor).map((c) -> c.name)
+    allCols      = columns.map (c) -> c.name
+    editableSet  = new Set editableCols
     wrapper.addEventListener 'keydown', (e) =>
       return unless e.key == 'Tab'
       cell = @_grid.getFocusedCell()
       return unless cell?.columnName
-      idx = editableCols.indexOf cell.columnName
-      return if idx < 0
+      colIdx = allCols.indexOf cell.columnName
+      return if colIdx < 0
       e.preventDefault()
       e.stopImmediatePropagation()
-      rowIdx  = @_grid.getIndexOfRow cell.rowKey
-      rowCount = @_grid.getRowCount()
+      rowIdx = @_grid.getIndexOfRow cell.rowKey
+
+      moveTo = (rowKey, colName) =>
+        setTimeout =>
+          @_grid.focus rowKey, colName
+          @_grid.startEditing rowKey, colName if editableSet.has colName
+        , 0
+
       if e.shiftKey
-        if idx > 0
-          # Previous column, same row
-          setTimeout =>
-            @_grid.focus cell.rowKey, editableCols[idx - 1]
-            @_grid.startEditing cell.rowKey, editableCols[idx - 1]
-          , 0
+        if colIdx > 0
+          moveTo cell.rowKey, allCols[colIdx - 1]
         else if rowIdx > 0
-          # Last column of previous row (skip sentinel at end)
           prevRow = @_grid.getRowAt rowIdx - 1
-          unless prevRow?.__isNew
-            setTimeout =>
-              @_grid.focus prevRow.rowKey, editableCols[editableCols.length - 1]
-              @_grid.startEditing prevRow.rowKey, editableCols[editableCols.length - 1]
-            , 0
+          moveTo prevRow.rowKey, allCols[allCols.length - 1] unless prevRow?.__isNew
       else
-        if idx < editableCols.length - 1
-          # Next column, same row
-          setTimeout =>
-            @_grid.focus cell.rowKey, editableCols[idx + 1]
-            @_grid.startEditing cell.rowKey, editableCols[idx + 1]
-          , 0
+        if colIdx < allCols.length - 1
+          moveTo cell.rowKey, allCols[colIdx + 1]
         else
-          # First column of next row (skip sentinel)
           nextRow = @_grid.getRowAt rowIdx + 1
           if nextRow? and not nextRow.__isNew
-            setTimeout =>
-              @_grid.focus nextRow.rowKey, editableCols[0]
-              @_grid.startEditing nextRow.rowKey, editableCols[0]
-            , 0
+            moveTo nextRow.rowKey, allCols[0]
     , true  # capture: true
 
     # Handle cell edits (single edit and paste)
