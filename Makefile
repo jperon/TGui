@@ -3,14 +3,16 @@ MOON_SRCS     := $(shell find backend tests -name '*.moon')
 LUA_OUTS      := $(MOON_SRCS:.moon=.lua)
 
 # CoffeeScript sources and their compiled JS output
-COFFEE_SRCS := $(shell find frontend/src -name '*.coffee')
-JS_OUTS     := $(COFFEE_SRCS:.coffee=.js)
+COFFEE_SRCS     := $(shell find frontend/src -name '*.coffee')
+JS_OUTS         := $(COFFEE_SRCS:.coffee=.js)
+TEST_COFFEE_SRCS := $(shell find tests/js -name '*.coffee')
+TEST_JS_OUTS     := $(TEST_COFFEE_SRCS:.coffee=.js)
 
-.PHONY: all build test up down logs clean vendor
+.PHONY: all build test test-js up down logs clean vendor
 
 all: build
 
-build: $(LUA_OUTS) $(JS_OUTS)
+build: $(LUA_OUTS) $(JS_OUTS) $(TEST_JS_OUTS)
 
 SOCKET   := /run/tarantool/sys_env/default/instance-001/tarantool.control
 TESTFILE := /tmp/.tdb_test_runner.lua
@@ -23,6 +25,9 @@ test: build
 	new_output=$$(docker logs tdb-tarantool-1 2>&1 | tail -n +$$((nlines + 1))); \
 	echo "$$new_output" | grep -E 'assertions|RÉSULTAT'; \
 	echo "$$new_output" | grep -q "RÉSULTAT: SUCCÈS" || exit 1
+
+test-js: $(TEST_JS_OUTS)
+	coffee tests/js/run.coffee
 
 %.lua: %.moon
 	moonc $<
@@ -46,4 +51,4 @@ logs:
 	docker compose logs -f
 
 clean:
-	rm -f $(LUA_OUTS) $(JS_OUTS)
+	rm -f $(LUA_OUTS) $(JS_OUTS) $(TEST_JS_OUTS)
