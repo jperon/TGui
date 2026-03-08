@@ -5,7 +5,7 @@ Ce fichier décrit les conventions, l'architecture et les procédures de ce proj
 
 ## Vue d'ensemble
 
-`tdb` est un GUI web pour Tarantool 3, inspiré de Grist.
+`tdb` est un GUI web pour Tarantool 3.
 Le backend est en **MoonScript compilé en Lua** et tourne dans Tarantool.
 Le frontend est en **CoffeeScript compilé en JS**, servi statiquement par Tarantool.
 Le dialogue frontend/backend passe par un moteur **GraphQL maison** (pas de dépendance externe).

@@ -1,6 +1,6 @@
-# tdb — GUI Tarantool type Grist
+# tdb — GUI pour Tarantool
 
-GUI web pour [Tarantool 3](https://hub.docker.com/r/tarantool/tarantool/) inspiré de [Grist](https://www.getgrist.com/) :
+GUI web pour [Tarantool 3](https://hub.docker.com/r/tarantool/tarantool/) :
 création et modification d'espaces (tables), vues multiples sur les données (grille/formulaire/galerie),
 relations inter-espaces via clés étrangères, champs calculés par formule Lua,
 et gestion des permissions par groupes (style Unix).

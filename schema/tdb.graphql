@@ -1,6 +1,6 @@
 """
 tdb GraphQL Schema
-Grist-like GUI for Tarantool: spaces (tables), views, relations, users, groups, permissions.
+GUI for Tarantool: spaces (tables), views, relations, users, groups, permissions.
 """
 
 # ────────────────────────────────────────────────────────────────────────────

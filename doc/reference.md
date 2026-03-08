@@ -1,5 +1,8 @@
 # Référence des fonctionnalités — tdb
 
+**tdb** est inspiré de [Grist](https://www.getgrist.com) — pour tout usage sérieux ou en
+production, l'utilisateur est invité à se tourner vers ce dernier en priorité.
+
 tdb expose toutes ses fonctionnalités via une **API GraphQL** accessible sur
 `http://localhost:8080/graphql`. L'interface web est un client de cette même API ;
 tout ce qui est faisable dans l'UI l'est aussi directement via des requêtes GraphQL.

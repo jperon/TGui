@@ -686,8 +686,6 @@ Une **trigger formula** est une formule associée à un champ stocké, exécuté
 aux formula columns (virtuelles, calculées à chaque lecture), la valeur calculée est
 **stockée en base** et reste visible même si la formule est modifiée ultérieurement.
 
-L'inspiration directe est les "trigger columns" de Grist.
-
 ### Distinction formula column / trigger formula
 
 | | Formula column | Trigger formula |
