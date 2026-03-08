@@ -132,24 +132,6 @@ make_sidebar = function()
       H.div({
         class = 'sidebar-section-title',
         H.span({
-          'Données'
-        }),
-        H.button({
-          id = 'new-space-btn',
-          title = 'Nouvel espace',
-          '＋'
-        })
-      }),
-      H.ul({
-        id = 'space-list',
-        ''
-      })
-    }),
-    H.div({
-      class = 'sidebar-section',
-      H.div({
-        class = 'sidebar-section-title',
-        H.span({
           'Vues'
         }),
         H.button({
@@ -160,6 +142,24 @@ make_sidebar = function()
       }),
       H.ul({
         id = 'custom-view-list',
+        ''
+      })
+    }),
+    H.div({
+      class = 'sidebar-section',
+      H.div({
+        class = 'sidebar-section-title',
+        H.span({
+          'Données'
+        }),
+        H.button({
+          id = 'new-space-btn',
+          title = 'Nouvel espace',
+          '＋'
+        })
+      }),
+      H.ul({
+        id = 'space-list',
         ''
       })
     }),
@@ -339,20 +339,24 @@ make_content = function()
       }),
       H.button({
         id = 'rename-space-btn',
-        class = 'toolbar-btn',
+        class = 'toolbar-btn toolbar-btn--icon',
         title = 'Renommer',
         '✎'
       }),
       H.button({
         id = 'delete-space-btn',
-        class = 'toolbar-btn toolbar-btn--danger',
+        class = 'toolbar-btn toolbar-btn--icon toolbar-btn--danger',
         title = "Supprimer l'espace",
-        '🗑 Espace'
+        '🗑'
+      }),
+      H.div({
+        class = 'toolbar-spacer'
       }),
       H.button({
         id = 'delete-rows-btn',
-        class = 'toolbar-btn toolbar-btn--danger',
-        '🗑 Supprimer'
+        class = 'toolbar-btn toolbar-btn--icon toolbar-btn--danger',
+        title = 'Supprimer les lignes sélectionnées',
+        '🗑'
       }),
       H.button({
         id = 'fields-btn',

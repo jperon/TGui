@@ -100,7 +100,8 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   background: var(--color-surface); flex-shrink: 0;
 }
 #data-toolbar.hidden { display: none; }
-.content-title { font-weight: 600; font-size: .95rem; flex: 1; }
+.content-title { font-weight: 600; font-size: .95rem; }
+.toolbar-spacer { flex: 1; }
 .fields-btn {
   background: none; border: 1px solid var(--color-border);
   border-radius: 4px; padding: .2rem .6rem; cursor: pointer; font-size: .85rem; color: #555;
@@ -110,7 +111,9 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   background: none; border: 1px solid var(--color-border);
   border-radius: 4px; padding: .2rem .6rem; cursor: pointer; font-size: .85rem; color: #555;
 }
-.toolbar-btn--danger { color: var(--color-error, #e74c3c); border-color: var(--color-error, #e74c3c); }
+.toolbar-btn--icon { padding: .2rem .4rem; font-size: 1rem; line-height: 1; border: none; color: #888; }
+.toolbar-btn--icon:hover { color: #333; background: var(--color-border); border-radius: 4px; }
+.toolbar-btn--danger { color: var(--color-error, #e74c3c); }
 .toolbar-btn--danger:hover { background: var(--color-error, #e74c3c); color: #fff; }
 #add-row-btn {
   background: var(--color-accent); color: #fff; border: none;
