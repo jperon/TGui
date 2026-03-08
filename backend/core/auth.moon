@@ -90,6 +90,26 @@ login = (username, password) ->
     return nil, 'Invalid username or password'
   create_session user.id
 
+change_password = (user_id, current_password, new_password) ->
+  t = box.space._tdb_users\get user_id
+  error "User not found" unless t
+  unless verify_password current_password, t[5], t[4]
+    error 'Current password is incorrect'
+  new_salt = gen_salt!
+  new_hash = hash_password new_password, new_salt
+  now = os.time!
+  box.space._tdb_users\replace { t[1], t[2], t[3], new_hash, new_salt, t[6], now }
+  true
+
+admin_set_password = (user_id, new_password) ->
+  t = box.space._tdb_users\get user_id
+  error "User not found" unless t
+  new_salt = gen_salt!
+  new_hash = hash_password new_password, new_salt
+  now = os.time!
+  box.space._tdb_users\replace { t[1], t[2], t[3], new_hash, new_salt, t[6], now }
+  true
+
 { :create_user, :get_user_by_username, :get_user_by_id,
   :create_session, :validate_session, :delete_session, :purge_expired_sessions,
-  :login, :hash_password, :gen_salt }
+  :login, :hash_password, :gen_salt, :change_password, :admin_set_password }

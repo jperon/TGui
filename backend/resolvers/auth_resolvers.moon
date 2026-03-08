@@ -3,11 +3,7 @@
 
 auth_mod  = require 'core.auth'
 perms_mod = require 'core.permissions'
-
--- Extract session from context (set by HTTP middleware)
-require_auth = (ctx) ->
-  error "Unauthorized" unless ctx and ctx.user_id
-  ctx.user_id
+{ :require_auth, :require_admin } = require 'resolvers.utils'
 
 Query =
   me: (_, args, ctx) ->
@@ -46,37 +42,49 @@ Mutation =
       auth_mod.delete_session ctx.token
     true
 
+  -- Seuls les admins peuvent créer des comptes utilisateurs.
   createUser: (_, args, ctx) ->
+    require_admin ctx
     i = args.input
     auth_mod.create_user i.username, i.email, i.password
 
+  -- Tout utilisateur authentifié peut changer son propre mot de passe.
+  changePassword: (_, args, ctx) ->
+    uid = require_auth ctx
+    auth_mod.change_password uid, args.currentPassword, args.newPassword
+
+-- Admin peut forcer le changement de mot de passe de n'importe quel utilisateur.
+  adminSetPassword: (_, args, ctx) ->
+    require_admin ctx
+    auth_mod.admin_set_password args.userId, args.newPassword
+
   createGroup: (_, args, ctx) ->
-    require_auth ctx
+    require_admin ctx
     i = args.input
     perms_mod.create_group i.name, i.description
 
   deleteGroup: (_, args, ctx) ->
-    require_auth ctx
+    require_admin ctx
     perms_mod.delete_group args.id
     true
 
   addMember: (_, args, ctx) ->
-    require_auth ctx
+    require_admin ctx
     perms_mod.add_member args.userId, args.groupId
     true
 
   removeMember: (_, args, ctx) ->
-    require_auth ctx
+    require_admin ctx
     perms_mod.remove_member args.userId, args.groupId
     true
 
   grant: (_, args, ctx) ->
-    require_auth ctx
+    require_admin ctx
     i = args.input
     perms_mod.grant args.groupId, i.resourceType, i.resourceId, i.level
 
   revoke: (_, args, ctx) ->
-    require_auth ctx
+    require_admin ctx
     perms_mod.revoke args.permissionId
     true
 

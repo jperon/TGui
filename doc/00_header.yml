@@ -1,0 +1,84 @@
+---
+# ──────────────────────────────────────────────────────────────────────────────
+# Préambule Pandoc/XeLaTeX — documentation tdb
+#
+# Usage (exécuter depuis le dossier doc/) :
+#   cd doc/
+#   pandoc --metadata-file=00_header.yml get-started.md \
+#          --pdf-engine=xelatex -o get-started.pdf
+#
+#   pandoc --metadata-file=00_header.yml reference.md \
+#          --pdf-engine=xelatex -o reference.pdf
+#
+#   # Ou les deux en un seul PDF :
+#   pandoc --metadata-file=00_header.yml \
+#          get-started.md reference.md \
+#          --pdf-engine=xelatex -o tdb.pdf
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ── Identité du document ──────────────────────────────────────────────────────
+title: "tdb — Documentation"
+subtitle: "Interface graphique Grist-like pour Tarantool"
+author: ""
+lang: fr
+
+# ── Mise en page ──────────────────────────────────────────────────────────────
+geometry:
+  - a4paper
+  - top=2.5cm
+  - bottom=2.5cm
+  - left=2.8cm
+  - right=2.8cm
+
+fontsize: 11pt
+linestretch: 1.15
+
+# ── Polices (XeLaTeX) ─────────────────────────────────────────────────────────
+# Linux Libertine O  : corps du texte — serif libre, couvre le latin étendu,
+#                      le grec, le cyrillique et les symboles typographiques.
+# Linux Biolinum G   : titres — sans-serif assorti à Libertine.
+# DejaVu Sans Mono   : blocs de code — couverture Unicode étendue incluant
+#                      les caractères de tracé de boîtes (┌─│└▼…).
+# Ces trois polices sont packagées dans TeX Live (texlive-fonts-extra).
+mainfont: "Linux Libertine O"
+sansfont: "Linux Biolinum G"
+monofont: "DejaVu Sans Mono"
+monofontoptions:
+  - Scale=0.86
+
+# ── Table des matières ────────────────────────────────────────────────────────
+toc: true
+toc-depth: 3
+toc-title: "Table des matières"
+numbersections: false
+
+# ── Hyperliens ────────────────────────────────────────────────────────────────
+colorlinks: true
+linkcolor: "NavyBlue"
+urlcolor: "NavyBlue"
+citecolor: "NavyBlue"
+
+# ── Inclusions LaTeX supplémentaires ─────────────────────────────────────────
+header-includes:
+  # En-têtes et pieds de page (paquet fancyhdr, inclus dans texlive-latex-extra)
+  - \usepackage{fancyhdr}
+  - \pagestyle{fancy}
+  - \fancyhf{}
+  - \fancyhead[L]{\small\textit{tdb}}
+  - \fancyhead[R]{\small\textit{\leftmark}}
+  - \fancyfoot[C]{\small\thepage}
+  - \renewcommand{\headrulewidth}{0.4pt}
+
+  # Retour à la ligne automatique dans les blocs de code longs
+  # (paquet fvextra, inclus dans texlive-latex-extra)
+  - \usepackage{fvextra}
+  - \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,breakanywhere,commandchars=\\\{\}}
+
+  # Tableaux (booktabs, inclus dans texlive-latex-recommended)
+  - \usepackage{booktabs}
+  - \renewcommand{\arraystretch}{1.3}
+
+  # Espacement des paragraphes — pas d'indentation, espace inter-paragraphe
+  - \setlength{\parskip}{0.5em}
+  - \setlength{\parindent}{0pt}
+---

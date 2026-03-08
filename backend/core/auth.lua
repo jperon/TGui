@@ -139,6 +139,49 @@ login = function(username, password)
   end
   return create_session(user.id)
 end
+local change_password
+change_password = function(user_id, current_password, new_password)
+  local t = box.space._tdb_users:get(user_id)
+  if not (t) then
+    error("User not found")
+  end
+  if not (verify_password(current_password, t[5], t[4])) then
+    error('Current password is incorrect')
+  end
+  local new_salt = gen_salt()
+  local new_hash = hash_password(new_password, new_salt)
+  local now = os.time()
+  box.space._tdb_users:replace({
+    t[1],
+    t[2],
+    t[3],
+    new_hash,
+    new_salt,
+    t[6],
+    now
+  })
+  return true
+end
+local admin_set_password
+admin_set_password = function(user_id, new_password)
+  local t = box.space._tdb_users:get(user_id)
+  if not (t) then
+    error("User not found")
+  end
+  local new_salt = gen_salt()
+  local new_hash = hash_password(new_password, new_salt)
+  local now = os.time()
+  box.space._tdb_users:replace({
+    t[1],
+    t[2],
+    t[3],
+    new_hash,
+    new_salt,
+    t[6],
+    now
+  })
+  return true
+end
 return {
   create_user = create_user,
   get_user_by_username = get_user_by_username,
@@ -149,5 +192,7 @@ return {
   purge_expired_sessions = purge_expired_sessions,
   login = login,
   hash_password = hash_password,
-  gen_salt = gen_salt
+  gen_salt = gen_salt,
+  change_password = change_password,
+  admin_set_password = admin_set_password
 }

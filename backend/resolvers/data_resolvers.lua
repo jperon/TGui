@@ -1,6 +1,8 @@
 local json = require('json')
 local uuid_mod = require('uuid')
 local spaces_mod = require('core.spaces')
+local require_auth
+require_auth = require('resolvers.utils').require_auth
 local data_space
 data_space = function(space_id)
   local meta = box.space._tdb_spaces:get(space_id)
@@ -94,6 +96,7 @@ apply_filter = function(tuples, filter)
 end
 local Mutation = {
   insertRecord = function(_, args, ctx)
+    require_auth(ctx)
     local sp = data_space(args.spaceId)
     local id = tostring(uuid_mod.new())
     local data
@@ -119,6 +122,7 @@ local Mutation = {
     }
   end,
   updateRecord = function(_, args, ctx)
+    require_auth(ctx)
     local sp = data_space(args.spaceId)
     local existing = sp:get(args.id)
     if not (existing) then
@@ -148,6 +152,7 @@ local Mutation = {
     }
   end,
   deleteRecord = function(_, args, ctx)
+    require_auth(ctx)
     local sp = data_space(args.spaceId)
     sp:delete(args.id)
     return true
@@ -155,6 +160,7 @@ local Mutation = {
 }
 local Query = {
   records = function(_, args, ctx)
+    require_auth(ctx)
     local sp = data_space(args.spaceId)
     local limit = args.limit or 100
     local offset = args.offset or 0

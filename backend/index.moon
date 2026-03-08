@@ -69,9 +69,21 @@ make_sidebar = ->
       }
       H.ul {id: 'space-list', ''}
     }
+    H.div {id: 'admin-sidebar-section', class: 'sidebar-section hidden',
+      H.div {class: 'sidebar-section-title',
+        H.span {'Administration'}
+      }
+      H.ul {class: 'admin-nav-list',
+        H.li {id: 'admin-nav-users', 'Utilisateurs'}
+        H.li {id: 'admin-nav-groups', 'Groupes'}
+      }
+    }
     H.div {class: 'sidebar-footer',
-      H.span {id: 'current-user', ''}
-      H.button {id: 'logout-btn', 'Déconnexion'}
+      H.button {id: 'current-user-btn', class: 'current-user-btn', ''}
+      H.div {id: 'user-menu', class: 'user-menu hidden',
+        H.button {id: 'change-password-btn', 'Changer le mot de passe'}
+        H.button {id: 'logout-btn', 'Déconnexion'}
+      }
     }
   }
 
@@ -144,6 +156,11 @@ make_fields_panel = ->
 -- Zone de contenu principale
 make_content = ->
   H.main {id: 'content',
+    -- Bandeau avertissement mot de passe par défaut
+    H.div {id: 'default-password-warning', class: 'warning-banner hidden',
+      '⚠ Vous utilisez le mot de passe par défaut. '
+      H.button {id: 'warning-change-password-btn', 'Changer maintenant'}
+    }
     H.div {id: 'data-toolbar', class: 'hidden',
       H.span {id: 'data-title', class: 'content-title', ''}
       H.button {id: 'rename-space-btn', class: 'toolbar-btn toolbar-btn--icon', title: 'Renommer', '✎'}
@@ -168,8 +185,66 @@ make_content = ->
       H.div {id: 'custom-view-container', class: 'hidden', ''}
       make_fields_panel!
     }
+    -- Panel d'administration (utilisateurs + groupes)
+    H.div {id: 'admin-panel', class: 'hidden admin-panel',
+      H.div {id: 'admin-users-section',
+        H.div {class: 'admin-section-header',
+          H.h2 {'Utilisateurs'}
+          H.button {id: 'admin-create-user-btn', class: 'toolbar-btn', '＋ Créer'}
+        }
+        H.ul {id: 'admin-users-list', ''}
+      }
+      H.div {id: 'admin-groups-section', class: 'hidden',
+        H.div {class: 'admin-section-header',
+          H.h2 {'Groupes'}
+          H.button {id: 'admin-create-group-btn', class: 'toolbar-btn', '＋ Créer'}
+        }
+        H.ul {id: 'admin-groups-list', ''}
+      }
+    }
     H.div {id: 'welcome', class: 'welcome',
       H.p {'Sélectionnez un espace ou une vue dans la barre latérale.'}
+    }
+    -- Dialog : changement de mot de passe
+    H.div {id: 'change-password-dialog', class: 'modal-overlay hidden',
+      H.div {class: 'modal-box',
+        H.h2 {'Changer le mot de passe'}
+        H.input {id: 'cp-current', type: 'password', placeholder: 'Mot de passe actuel'}
+        H.input {id: 'cp-new', type: 'password', placeholder: 'Nouveau mot de passe'}
+        H.input {id: 'cp-confirm', type: 'password', placeholder: 'Confirmer le nouveau'}
+        H.p {id: 'cp-error', class: 'error', ''}
+        H.div {class: 'modal-actions',
+          H.button {id: 'cp-submit-btn', 'Enregistrer'}
+          H.button {id: 'cp-cancel-btn', 'Annuler'}
+        }
+      }
+    }
+    -- Dialog : créer un utilisateur (admin)
+    H.div {id: 'create-user-dialog', class: 'modal-overlay hidden',
+      H.div {class: 'modal-box',
+        H.h2 {'Créer un utilisateur'}
+        H.input {id: 'cu-username', type: 'text',     placeholder: "Nom d'utilisateur"}
+        H.input {id: 'cu-email',    type: 'email',    placeholder: 'Email (optionnel)'}
+        H.input {id: 'cu-password', type: 'password', placeholder: 'Mot de passe'}
+        H.p {id: 'cu-error', class: 'error', ''}
+        H.div {class: 'modal-actions',
+          H.button {id: 'cu-submit-btn', 'Créer'}
+          H.button {id: 'cu-cancel-btn', 'Annuler'}
+        }
+      }
+    }
+    -- Dialog : créer un groupe (admin)
+    H.div {id: 'create-group-dialog', class: 'modal-overlay hidden',
+      H.div {class: 'modal-box',
+        H.h2 {'Créer un groupe'}
+        H.input {id: 'cg-name',        type: 'text', placeholder: 'Nom du groupe'}
+        H.input {id: 'cg-description', type: 'text', placeholder: 'Description (optionnel)'}
+        H.p {id: 'cg-error', class: 'error', ''}
+        H.div {class: 'modal-actions',
+          H.button {id: 'cg-submit-btn', 'Créer'}
+          H.button {id: 'cg-cancel-btn', 'Annuler'}
+        }
+      }
     }
   }
 

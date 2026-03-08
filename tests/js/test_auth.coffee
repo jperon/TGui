@@ -21,14 +21,14 @@ describe 'Auth.login', ->
     captured = null
     GQL.mutate = (q, v) ->
       captured = v
-      Promise.resolve { login: { token: 'tok99', user: { id: '1', username: 'alice', email: 'a@b.c' } } }
+      Promise.resolve { login: { token: 'tok99', user: { id: '1', username: 'alice', email: 'a@b.c', groups: [] } } }
     A.login('alice', 'secret').then ->
       eq captured?.username, 'alice'
       eq captured?.password, 'secret'
 
   it 'retourne l\'utilisateur résolu', ->
     GQL.mutate = (q, v) ->
-      Promise.resolve { login: { token: 't', user: { id: '2', username: 'bob', email: '' } } }
+      Promise.resolve { login: { token: 't', user: { id: '2', username: 'bob', email: '', groups: [] } } }
     A.login('bob', 'pass').then (user) ->
       eq user.username, 'bob'
       eq user.id, '2'
@@ -37,13 +37,13 @@ describe 'Auth.login', ->
     tokReceived = null
     GQL.setToken = (t) -> tokReceived = t; GQL._token = t
     GQL.mutate = (q, v) ->
-      Promise.resolve { login: { token: 'secret-tok', user: { id: '3', username: 'carol', email: '' } } }
+      Promise.resolve { login: { token: 'secret-tok', user: { id: '3', username: 'carol', email: '', groups: [] } } }
     A.login('carol', 'pw').then ->
       eq tokReceived, 'secret-tok'
 
 describe 'Auth.restoreSession', ->
   it 'retourne l\'utilisateur si me est défini', ->
-    GQL.query = -> Promise.resolve { me: { id: '10', username: 'dan', email: '' } }
+    GQL.query = -> Promise.resolve { me: { id: '10', username: 'dan', email: '', groups: [] } }
     A.restoreSession().then (u) ->
       eq u?.username, 'dan'
 
@@ -56,5 +56,30 @@ describe 'Auth.restoreSession', ->
     GQL.query = -> Promise.reject new Error 'network error'
     A.restoreSession().then (u) ->
       eq u, null
+
+describe 'Auth.isAdmin', ->
+  it 'retourne true si currentUser est dans le groupe admin', ->
+    A.currentUser = { id: '1', username: 'root', groups: [{ id: 'g1', name: 'admin' }] }
+    assert A.isAdmin(), 'isAdmin devrait être true'
+
+  it 'retourne false si currentUser n\'est pas dans admin', ->
+    A.currentUser = { id: '2', username: 'bob', groups: [{ id: 'g2', name: 'users' }] }
+    assert !A.isAdmin(), 'isAdmin devrait être false'
+
+  it 'retourne false si currentUser est null', ->
+    A.currentUser = null
+    assert !A.isAdmin(), 'isAdmin devrait être false quand currentUser est null'
+
+describe 'Auth.changePassword', ->
+  it 'appelle mutate et retourne la valeur changePassword', ->
+    GQL.mutate = (q, v) ->
+      Promise.resolve { changePassword: true }
+    A.changePassword('old', 'new').then (result) ->
+      assert result == true, 'changePassword devrait retourner true'
+
+describe 'Auth.isAdmin (sans groupes)', ->
+  it 'retourne false si groups est undefined', ->
+    A.currentUser = { id: '3', username: 'ghost' }
+    assert !A.isAdmin(), 'isAdmin devrait être false si groups absent'
 
 summary()

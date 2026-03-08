@@ -74,9 +74,11 @@ type Mutation {
   deleteRecord(spaceId: ID!, id: ID!):           Boolean!
 
   # Auth
-  login(username: String!, password: String!):   AuthPayload!
-  logout:                                        Boolean!
-  createUser(input: CreateUserInput!):           User!
+  login(username: String!, password: String!):                AuthPayload!
+  logout:                                                     Boolean!
+  createUser(input: CreateUserInput!):                        User!
+  changePassword(currentPassword: String!, newPassword: String!): Boolean!
+  adminSetPassword(userId: ID!, newPassword: String!):        Boolean!
 
   # Groups & membership
   createGroup(input: CreateGroupInput!):         Group!

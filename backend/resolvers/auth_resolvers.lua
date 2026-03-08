@@ -1,11 +1,9 @@
 local auth_mod = require('core.auth')
 local perms_mod = require('core.permissions')
-local require_auth
-require_auth = function(ctx)
-  if not (ctx and ctx.user_id) then
-    error("Unauthorized")
-  end
-  return ctx.user_id
+local require_auth, require_admin
+do
+  local _obj_0 = require('resolvers.utils')
+  require_auth, require_admin = _obj_0.require_auth, _obj_0.require_admin
 end
 local Query = {
   me = function(_, args, ctx)
@@ -61,36 +59,45 @@ local Mutation = {
     return true
   end,
   createUser = function(_, args, ctx)
+    require_admin(ctx)
     local i = args.input
     return auth_mod.create_user(i.username, i.email, i.password)
   end,
+  changePassword = function(_, args, ctx)
+    local uid = require_auth(ctx)
+    return auth_mod.change_password(uid, args.currentPassword, args.newPassword)
+  end,
+  adminSetPassword = function(_, args, ctx)
+    require_admin(ctx)
+    return auth_mod.admin_set_password(args.userId, args.newPassword)
+  end,
   createGroup = function(_, args, ctx)
-    require_auth(ctx)
+    require_admin(ctx)
     local i = args.input
     return perms_mod.create_group(i.name, i.description)
   end,
   deleteGroup = function(_, args, ctx)
-    require_auth(ctx)
+    require_admin(ctx)
     perms_mod.delete_group(args.id)
     return true
   end,
   addMember = function(_, args, ctx)
-    require_auth(ctx)
+    require_admin(ctx)
     perms_mod.add_member(args.userId, args.groupId)
     return true
   end,
   removeMember = function(_, args, ctx)
-    require_auth(ctx)
+    require_admin(ctx)
     perms_mod.remove_member(args.userId, args.groupId)
     return true
   end,
   grant = function(_, args, ctx)
-    require_auth(ctx)
+    require_admin(ctx)
     local i = args.input
     return perms_mod.grant(args.groupId, i.resourceType, i.resourceId, i.level)
   end,
   revoke = function(_, args, ctx)
-    require_auth(ctx)
+    require_admin(ctx)
     perms_mod.revoke(args.permissionId)
     return true
   end

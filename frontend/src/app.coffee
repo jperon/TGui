@@ -46,12 +46,17 @@ window.App =
     loginPass:         -> document.getElementById 'login-password'
     loginBtn:          -> document.getElementById 'login-btn'
     loginError:        -> document.getElementById 'login-error'
-    currentUser:       -> document.getElementById 'current-user'
+    currentUserBtn:    -> document.getElementById 'current-user-btn'
+    userMenu:          -> document.getElementById 'user-menu'
+    changePasswordBtn: -> document.getElementById 'change-password-btn'
     logoutBtn:         -> document.getElementById 'logout-btn'
     spaceList:         -> document.getElementById 'space-list'
     newSpaceBtn:       -> document.getElementById 'new-space-btn'
     customViewList:    -> document.getElementById 'custom-view-list'
     newViewBtn:        -> document.getElementById 'new-view-btn'
+    adminSidebarSection: -> document.getElementById 'admin-sidebar-section'
+    adminNavUsers:     -> document.getElementById 'admin-nav-users'
+    adminNavGroups:    -> document.getElementById 'admin-nav-groups'
     dataToolbar:       -> document.getElementById 'data-toolbar'
     dataTitle:         -> document.getElementById 'data-title'
     renameSpaceBtn:    -> document.getElementById 'rename-space-btn'
@@ -85,6 +90,38 @@ window.App =
     yamlDeleteBtn:     -> document.getElementById 'yaml-delete-btn'
     welcome:           -> document.getElementById 'welcome'
     contentRow:        -> document.getElementById 'content-row'
+    adminPanel:        -> document.getElementById 'admin-panel'
+    adminUsersSection: -> document.getElementById 'admin-users-section'
+    adminGroupsSection: -> document.getElementById 'admin-groups-section'
+    adminUsersList:    -> document.getElementById 'admin-users-list'
+    adminGroupsList:   -> document.getElementById 'admin-groups-list'
+    adminCreateUserBtn: -> document.getElementById 'admin-create-user-btn'
+    adminCreateGroupBtn: -> document.getElementById 'admin-create-group-btn'
+    defaultPasswordWarning: -> document.getElementById 'default-password-warning'
+    warningChangePasswordBtn: -> document.getElementById 'warning-change-password-btn'
+    # Dialog: changement de mot de passe
+    changePasswordDialog: -> document.getElementById 'change-password-dialog'
+    cpCurrent:         -> document.getElementById 'cp-current'
+    cpNew:             -> document.getElementById 'cp-new'
+    cpConfirm:         -> document.getElementById 'cp-confirm'
+    cpError:           -> document.getElementById 'cp-error'
+    cpSubmitBtn:       -> document.getElementById 'cp-submit-btn'
+    cpCancelBtn:       -> document.getElementById 'cp-cancel-btn'
+    # Dialog: créer utilisateur
+    createUserDialog:  -> document.getElementById 'create-user-dialog'
+    cuUsername:        -> document.getElementById 'cu-username'
+    cuEmail:           -> document.getElementById 'cu-email'
+    cuPassword:        -> document.getElementById 'cu-password'
+    cuError:           -> document.getElementById 'cu-error'
+    cuSubmitBtn:       -> document.getElementById 'cu-submit-btn'
+    cuCancelBtn:       -> document.getElementById 'cu-cancel-btn'
+    # Dialog: créer groupe
+    createGroupDialog: -> document.getElementById 'create-group-dialog'
+    cgName:            -> document.getElementById 'cg-name'
+    cgDescription:     -> document.getElementById 'cg-description'
+    cgError:           -> document.getElementById 'cg-error'
+    cgSubmitBtn:       -> document.getElementById 'cg-submit-btn'
+    cgCancelBtn:       -> document.getElementById 'cg-cancel-btn'
 
   # ── Bootstrap ───────────────────────────────────────────────────────────────
   init: ->
@@ -120,7 +157,16 @@ window.App =
   showMain: (user) ->
     @el.loginOverlay().classList.add 'hidden'
     @el.main().classList.remove 'hidden'
-    @el.currentUser().textContent = user.username
+    @el.currentUserBtn().textContent = user.username
+    if Auth.isAdmin()
+      @el.adminSidebarSection().classList.remove 'hidden'
+    else
+      @el.adminSidebarSection().classList.add 'hidden'
+    # Bandeau avertissement si admin avec mot de passe par défaut
+    if user.username == 'admin' and not localStorage.getItem('tdb_password_changed')
+      @el.defaultPasswordWarning().classList.remove 'hidden'
+    else
+      @el.defaultPasswordWarning().classList.add 'hidden'
 
   # ── Sidebar ─────────────────────────────────────────────────────────────────
   _bindSidebar: ->
@@ -141,12 +187,190 @@ window.App =
             @selectCustomView cv
         .catch (err) -> alert "Erreur : #{err.message}"
 
+    # Menu profil utilisateur
+    @el.currentUserBtn().addEventListener 'click', =>
+      menu = @el.userMenu()
+      menu.classList.toggle 'hidden'
+    document.addEventListener 'click', (e) =>
+      unless @el.currentUserBtn().contains(e.target) or @el.userMenu().contains(e.target)
+        @el.userMenu().classList.add 'hidden'
+
+    @el.changePasswordBtn().addEventListener 'click', =>
+      @el.userMenu().classList.add 'hidden'
+      @_openChangePasswordDialog()
+
     @el.logoutBtn().addEventListener 'click', =>
       Auth.logout()
+
+    # Navigation admin
+    @el.adminNavUsers().addEventListener 'click', =>
+      @_showAdminPanel 'users'
+    @el.adminNavGroups().addEventListener 'click', =>
+      @_showAdminPanel 'groups'
+
+    # Bandeau d'avertissement
+    @el.warningChangePasswordBtn().addEventListener 'click', =>
+      @_openChangePasswordDialog()
+
+    @_bindChangePasswordDialog()
+    @_bindCreateUserDialog()
+    @_bindCreateGroupDialog()
 
   # ── Load everything ─────────────────────────────────────────────────────────
   _loadAll: ->
     Promise.all([@loadSpaces(), @loadCustomViews()]).then => @_restoreFromHash()
+
+  # ── Panel administration ─────────────────────────────────────────────────────
+  _showAdminPanel: (section = 'users') ->
+    @el.dataToolbar().classList.add 'hidden'
+    @el.contentRow().classList.add 'hidden'
+    @el.welcome().classList.add 'hidden'
+    @el.yamlEditorPanel().classList.add 'hidden'
+    @el.adminPanel().classList.remove 'hidden'
+    if section == 'users'
+      @el.adminUsersSection().classList.remove 'hidden'
+      @el.adminGroupsSection().classList.add 'hidden'
+      @_loadAdminUsers()
+    else
+      @el.adminUsersSection().classList.add 'hidden'
+      @el.adminGroupsSection().classList.remove 'hidden'
+      @_loadAdminGroups()
+
+  _hideAdminPanel: ->
+    @el.adminPanel().classList.add 'hidden'
+
+  _loadAdminUsers: ->
+    Auth.listUsers().then (users) =>
+      ul = @el.adminUsersList()
+      ul.innerHTML = ''
+      for u in users
+        li = document.createElement 'li'
+        li.className = 'admin-list-item'
+        groupNames = (u.groups or []).map((g) -> g.name).join(', ') or '—'
+        li.innerHTML = "<span class='admin-item-name'>#{u.username}</span><span class='admin-item-meta'>#{groupNames}</span>"
+        # Bouton changer mot de passe
+        btnPwd = document.createElement 'button'
+        btnPwd.className = 'toolbar-btn'
+        btnPwd.textContent = '🔑'
+        btnPwd.title = 'Changer le mot de passe'
+        btnPwd.addEventListener 'click', =>
+          uid = u.id
+          newPwd = prompt "Nouveau mot de passe pour #{u.username} :"
+          return unless newPwd?.trim()
+          GQL.mutate('mutation SetPwd($uid: ID!, $pwd: String!) { adminSetPassword(userId: $uid, newPassword: $pwd) }', { uid, pwd: newPwd })
+            .then -> alert 'Mot de passe changé.'
+            .catch (err) -> alert "Erreur : #{err.message}"
+        li.appendChild btnPwd
+        ul.appendChild li
+      # Bouton créer
+      @el.adminCreateUserBtn().onclick = => @el.createUserDialog().classList.remove 'hidden'
+    .catch (err) -> alert "Erreur chargement utilisateurs : #{err.message}"
+
+  _loadAdminGroups: ->
+    Auth.listGroups().then (groups) =>
+      ul = @el.adminGroupsList()
+      ul.innerHTML = ''
+      for g in groups
+        li = document.createElement 'li'
+        li.className = 'admin-list-item'
+        memberNames = (g.members or []).map((m) -> m.username).join(', ') or '—'
+        li.innerHTML = "<span class='admin-item-name'>#{g.name}</span><span class='admin-item-meta'>#{memberNames}</span>"
+        # Bouton supprimer groupe
+        unless g.name == 'admin'
+          btnDel = document.createElement 'button'
+          btnDel.className = 'toolbar-btn toolbar-btn--icon toolbar-btn--danger'
+          btnDel.textContent = '🗑'
+          btnDel.title = 'Supprimer le groupe'
+          btnDel.addEventListener 'click', =>
+            gid = g.id
+            gname = g.name
+            return unless confirm "Supprimer le groupe « #{gname} » ?"
+            Auth.deleteGroup(gid)
+              .then => @_loadAdminGroups()
+              .catch (err) -> alert "Erreur : #{err.message}"
+          li.appendChild btnDel
+        ul.appendChild li
+      @el.adminCreateGroupBtn().onclick = => @el.createGroupDialog().classList.remove 'hidden'
+    .catch (err) -> alert "Erreur chargement groupes : #{err.message}"
+
+  # ── Dialog: changement de mot de passe ──────────────────────────────────────
+  _openChangePasswordDialog: ->
+    @el.cpCurrent().value = ''
+    @el.cpNew().value = ''
+    @el.cpConfirm().value = ''
+    @el.cpError().textContent = ''
+    @el.changePasswordDialog().classList.remove 'hidden'
+
+  _bindChangePasswordDialog: ->
+    @el.cpCancelBtn().addEventListener 'click', =>
+      @el.changePasswordDialog().classList.add 'hidden'
+
+    @el.cpSubmitBtn().addEventListener 'click', =>
+      current = @el.cpCurrent().value
+      nw      = @el.cpNew().value
+      confirm = @el.cpConfirm().value
+      @el.cpError().textContent = ''
+      unless current and nw
+        @el.cpError().textContent = 'Veuillez remplir tous les champs.'
+        return
+      unless nw == confirm
+        @el.cpError().textContent = 'Les nouveaux mots de passe ne correspondent pas.'
+        return
+      Auth.changePassword(current, nw)
+        .then (ok) =>
+          if ok
+            localStorage.setItem 'tdb_password_changed', '1'
+            @el.changePasswordDialog().classList.add 'hidden'
+            @el.defaultPasswordWarning().classList.add 'hidden'
+            alert 'Mot de passe changé avec succès.'
+          else
+            @el.cpError().textContent = 'Erreur : mot de passe actuel incorrect.'
+        .catch (err) =>
+          @el.cpError().textContent = "Erreur : #{err.message}"
+
+  # ── Dialog: créer utilisateur ─────────────────────────────────────────────
+  _bindCreateUserDialog: ->
+    @el.cuCancelBtn().addEventListener 'click', =>
+      @el.createUserDialog().classList.add 'hidden'
+
+    @el.cuSubmitBtn().addEventListener 'click', =>
+      username = @el.cuUsername().value.trim()
+      email    = @el.cuEmail().value.trim()
+      password = @el.cuPassword().value
+      @el.cuError().textContent = ''
+      unless username and password
+        @el.cuError().textContent = "Nom d'utilisateur et mot de passe requis."
+        return
+      Auth.createUser(username, email or null, password)
+        .then =>
+          @el.createUserDialog().classList.add 'hidden'
+          @el.cuUsername().value = ''
+          @el.cuEmail().value = ''
+          @el.cuPassword().value = ''
+          @_loadAdminUsers()
+        .catch (err) =>
+          @el.cuError().textContent = "Erreur : #{err.message}"
+
+  # ── Dialog: créer groupe ──────────────────────────────────────────────────
+  _bindCreateGroupDialog: ->
+    @el.cgCancelBtn().addEventListener 'click', =>
+      @el.createGroupDialog().classList.add 'hidden'
+
+    @el.cgSubmitBtn().addEventListener 'click', =>
+      name        = @el.cgName().value.trim()
+      description = @el.cgDescription().value.trim()
+      @el.cgError().textContent = ''
+      unless name
+        @el.cgError().textContent = 'Le nom est requis.'
+        return
+      Auth.createGroup(name, description)
+        .then =>
+          @el.createGroupDialog().classList.add 'hidden'
+          @el.cgName().value = ''
+          @el.cgDescription().value = ''
+          @_loadAdminGroups()
+        .catch (err) =>
+          @el.cgError().textContent = "Erreur : #{err.message}"
 
   # ── Hash-based navigation ────────────────────────────────────────────────────
   _restoreFromHash: ->
@@ -198,6 +422,9 @@ window.App =
     # Close fields panel
     @el.fieldsPanel().classList.add 'hidden'
     @el.fieldsBtn().classList.remove 'active'
+
+    # Hide admin panel
+    @el.adminPanel().classList.add 'hidden'
 
     # Show data toolbar, hide YAML panel + custom view
     @el.dataToolbar().classList.remove 'hidden'
@@ -257,11 +484,12 @@ window.App =
     @_activeDataView?.unmount?()
     @_activeDataView = null
 
-    # Hide data grid area
+    # Hide data grid area and admin panel
     @el.dataToolbar().classList.add 'hidden'
     @el.fieldsPanel().classList.add 'hidden'
     @el.gridContainer().classList.add 'hidden'
     @el.welcome().classList.add 'hidden'
+    @el.adminPanel().classList.add 'hidden'
     @el.contentRow().classList.remove 'hidden'
 
     panel = @el.yamlEditorPanel()

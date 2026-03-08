@@ -44,7 +44,8 @@
             user: {
               id: '1',
               username: 'alice',
-              email: 'a@b.c'
+              email: 'a@b.c',
+              groups: []
             }
           }
         });
@@ -62,7 +63,8 @@
             user: {
               id: '2',
               username: 'bob',
-              email: ''
+              email: '',
+              groups: []
             }
           }
         });
@@ -86,7 +88,8 @@
             user: {
               id: '3',
               username: 'carol',
-              email: ''
+              email: '',
+              groups: []
             }
           }
         });
@@ -104,7 +107,8 @@
           me: {
             id: '10',
             username: 'dan',
-            email: ''
+            email: '',
+            groups: []
           }
         });
       };
@@ -129,6 +133,62 @@
       return A.restoreSession().then(function(u) {
         return eq(u, null);
       });
+    });
+  });
+
+  describe('Auth.isAdmin', function() {
+    it('retourne true si currentUser est dans le groupe admin', function() {
+      A.currentUser = {
+        id: '1',
+        username: 'root',
+        groups: [
+          {
+            id: 'g1',
+            name: 'admin'
+          }
+        ]
+      };
+      return assert(A.isAdmin(), 'isAdmin devrait être true');
+    });
+    it('retourne false si currentUser n\'est pas dans admin', function() {
+      A.currentUser = {
+        id: '2',
+        username: 'bob',
+        groups: [
+          {
+            id: 'g2',
+            name: 'users'
+          }
+        ]
+      };
+      return assert(!A.isAdmin(), 'isAdmin devrait être false');
+    });
+    return it('retourne false si currentUser est null', function() {
+      A.currentUser = null;
+      return assert(!A.isAdmin(), 'isAdmin devrait être false quand currentUser est null');
+    });
+  });
+
+  describe('Auth.changePassword', function() {
+    return it('appelle mutate et retourne la valeur changePassword', function() {
+      GQL.mutate = function(q, v) {
+        return Promise.resolve({
+          changePassword: true
+        });
+      };
+      return A.changePassword('old', 'new').then(function(result) {
+        return assert(result === true, 'changePassword devrait retourner true');
+      });
+    });
+  });
+
+  describe('Auth.isAdmin (sans groupes)', function() {
+    return it('retourne false si groups est undefined', function() {
+      A.currentUser = {
+        id: '3',
+        username: 'ghost'
+      };
+      return assert(!A.isAdmin(), 'isAdmin devrait être false si groups absent');
     });
   });
 

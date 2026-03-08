@@ -52,3 +52,17 @@ logs:
 
 clean:
 	rm -f $(LUA_OUTS) $(JS_OUTS) $(TEST_JS_OUTS)
+
+# ── Documentation PDF ────────────────────────────────────────────────────────
+DOC_DIR    = doc
+DOC_HEADER = $(DOC_DIR)/00_header.yml
+DOC_PDFS   = $(DOC_DIR)/get-started.pdf $(DOC_DIR)/reference.pdf
+
+PANDOC_FLAGS = --metadata-file=00_header.yml --pdf-engine=xelatex
+
+$(DOC_DIR)/%.pdf: $(DOC_DIR)/%.md $(DOC_HEADER)
+	cd $(DOC_DIR) && pandoc $(PANDOC_FLAGS) $(<F) -o $(@F)
+
+doc: $(DOC_PDFS)
+
+.PHONY: doc

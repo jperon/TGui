@@ -2,6 +2,8 @@ local spaces_mod = require('core.spaces')
 local views_mod = require('core.views')
 local triggers = require('core.triggers')
 local executor = require('graphql.executor')
+local require_auth
+require_auth = require('resolvers.utils').require_auth
 local list_relations
 list_relations = function(space_id)
   local result = { }
@@ -49,23 +51,24 @@ delete_relation = function(id)
 end
 local Query = {
   spaces = function(_, args, ctx)
-    return spaces_mod.list_spaces()
+    return require_auth(ctx) and spaces_mod.list_spaces()
   end,
   space = function(_, args, ctx)
-    return spaces_mod.get_space(args.id)
+    return require_auth(ctx) and spaces_mod.get_space(args.id)
   end,
   views = function(_, args, ctx)
-    return views_mod.list_views(args.spaceId)
+    return require_auth(ctx) and views_mod.list_views(args.spaceId)
   end,
   view = function(_, args, ctx)
-    return views_mod.get_view(args.id)
+    return require_auth(ctx) and views_mod.get_view(args.id)
   end,
   relations = function(_, args, ctx)
-    return list_relations(args.spaceId)
+    return require_auth(ctx) and list_relations(args.spaceId)
   end
 }
 local Mutation = {
   createSpace = function(_, args, ctx)
+    require_auth(ctx)
     local i = args.input
     local result = spaces_mod.create_user_space(i.name, i.description)
     spaces_mod.add_field(result.id, 'id', 'Sequence', true, 'Identifiant auto-incrémenté')
@@ -73,6 +76,7 @@ local Mutation = {
     return spaces_mod.get_space(result.id)
   end,
   updateSpace = function(_, args, ctx)
+    require_auth(ctx)
     local t = box.space._tdb_spaces:get(args.id)
     if not (t) then
       error("Space not found")
@@ -92,6 +96,7 @@ local Mutation = {
     return result
   end,
   deleteSpace = function(_, args, ctx)
+    require_auth(ctx)
     local t = box.space._tdb_spaces:get(args.id)
     if not (t) then
       error("Space not found")
@@ -101,6 +106,7 @@ local Mutation = {
     return true
   end,
   addField = function(_, args, ctx)
+    require_auth(ctx)
     local i = args.input
     local result = spaces_mod.add_field(args.spaceId, i.name, i.fieldType, i.notNull, i.description, i.formula, i.triggerFields, i.language)
     executor.reinit_schema()
@@ -111,6 +117,7 @@ local Mutation = {
     return result
   end,
   removeField = function(_, args, ctx)
+    require_auth(ctx)
     local fld = box.space._tdb_fields:get(args.fieldId)
     local sp_meta = fld and box.space._tdb_spaces:get(fld[2])
     spaces_mod.remove_field(args.fieldId)
@@ -121,11 +128,13 @@ local Mutation = {
     return true
   end,
   reorderFields = function(_, args, ctx)
+    require_auth(ctx)
     local result = spaces_mod.reorder_fields(args.spaceId, args.fieldIds)
     executor.reinit_schema()
     return result
   end,
   updateField = function(_, args, ctx)
+    require_auth(ctx)
     local i = args.input
     local result = spaces_mod.update_field(args.fieldId, {
       name = i.name,
@@ -143,24 +152,29 @@ local Mutation = {
     return result
   end,
   createView = function(_, args, ctx)
+    require_auth(ctx)
     local i = args.input
     return views_mod.create_view(args.spaceId, i.name, i.viewType, i.config)
   end,
   updateView = function(_, args, ctx)
+    require_auth(ctx)
     views_mod.update_view(args.id, args.input)
     return views_mod.get_view(args.id)
   end,
   deleteView = function(_, args, ctx)
+    require_auth(ctx)
     views_mod.delete_view(args.id)
     return true
   end,
   createRelation = function(_, args, ctx)
+    require_auth(ctx)
     local i = args.input
     local result = create_relation(i.name, i.fromSpaceId, i.fromFieldId, i.toSpaceId, i.toFieldId)
     executor.reinit_schema()
     return result
   end,
   deleteRelation = function(_, args, ctx)
+    require_auth(ctx)
     local result = delete_relation(args.id)
     executor.reinit_schema()
     return result

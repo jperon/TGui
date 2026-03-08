@@ -4,6 +4,7 @@
 json      = require 'json'
 uuid_mod  = require 'uuid'
 spaces_mod = require 'core.spaces'
+{ :require_auth } = require 'resolvers.utils'
 
 -- Retrieve the Tarantool space for user data
 data_space = (space_id) ->
@@ -56,6 +57,7 @@ apply_filter = (tuples, filter) ->
 
 Mutation =
   insertRecord: (_, args, ctx) ->
+    require_auth ctx
     sp = data_space args.spaceId
     id   = tostring uuid_mod.new!
     data = if type(args.data) == 'string' then json.decode(args.data) else args.data
@@ -67,6 +69,7 @@ Mutation =
     { id: id, spaceId: args.spaceId, data: json.encode(data) }
 
   updateRecord: (_, args, ctx) ->
+    require_auth ctx
     sp = data_space args.spaceId
     existing = sp\get args.id
     error "Record not found: #{args.id}" unless existing
@@ -80,12 +83,14 @@ Mutation =
     { id: args.id, spaceId: args.spaceId, data: json.encode(old_data) }
 
   deleteRecord: (_, args, ctx) ->
+    require_auth ctx
     sp = data_space args.spaceId
     sp\delete args.id
     true
 
 Query =
   records: (_, args, ctx) ->
+    require_auth ctx
     sp = data_space args.spaceId
     limit  = args.limit  or 100
     offset = args.offset or 0
