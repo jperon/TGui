@@ -81,6 +81,8 @@ window.App =
     fieldCancelBtn:    -> document.getElementById 'field-cancel-btn'
     relTargetRow:      -> document.getElementById 'rel-target-row'
     relToSpace:        -> document.getElementById 'rel-to-space'
+    relReprRow:        -> document.getElementById 'rel-repr-row'
+    relReprFormula:    -> document.getElementById 'rel-repr-formula'
     yamlEditorPanel:   -> document.getElementById 'yaml-editor-panel'
     yamlViewName:      -> document.getElementById 'yaml-view-name'
     yamlEditBtn:       -> document.getElementById 'yaml-edit-btn'
@@ -608,7 +610,8 @@ window.App =
   _mountDataView: (space) ->
     @_activeDataView?.unmount?()
     container = @el.gridContainer()
-    @_activeDataView = new DataView container, space
+    relations = await Spaces.listRelations(space.id)
+    @_activeDataView = new DataView container, space, null, relations
     @_activeDataView.mount()
 
   # ── Custom views (Vues section) ──────────────────────────────────────────────
@@ -881,7 +884,13 @@ window.App =
           opts.formula       = ''
           opts.triggerFields = null
           opts.language      = 'lua'
-        Spaces.updateField(@_editingFieldId, opts)
+        editRelation = @_editingRelation
+        reprFormula  = @el.relReprFormula().value.trim()
+        updatePromise = Spaces.updateField(@_editingFieldId, opts)
+        if editRelation
+          updatePromise = updatePromise.then =>
+            Spaces.updateRelation(editRelation.id, reprFormula)
+        updatePromise
           .then =>
             Spaces.getWithFields(@_currentSpace.id).then (full) =>
               @_currentSpace = full
@@ -893,7 +902,8 @@ window.App =
 
       else if type == 'Relation'
         # ── Create relation field ──────────────────────────────────────────
-        toSpaceId = @el.relToSpace().value
+        toSpaceId   = @el.relToSpace().value
+        reprFormula = @el.relReprFormula().value.trim()
         return unless toSpaceId
         Spaces.getWithFields(toSpaceId).then (targetSpace) =>
           idField = (targetSpace.fields or []).find (f) -> f.fieldType == 'Sequence'
@@ -902,7 +912,7 @@ window.App =
             return
           Spaces.addField(@_currentSpace.id, name, 'Int', notNull, '')
             .then (newField) =>
-              Spaces.createRelation(name, @_currentSpace.id, newField.id, toSpaceId, idField.id)
+              Spaces.createRelation(name, @_currentSpace.id, newField.id, toSpaceId, idField.id, reprFormula)
                 .then =>
                   Spaces.getWithFields(@_currentSpace.id).then (full) =>
                     @_currentSpace = full
@@ -943,6 +953,7 @@ window.App =
     type = @el.fieldType().value
     isRelation = type == 'Relation'
     @el.relTargetRow().classList.toggle 'hidden', !isRelation
+    @el.relReprRow().classList.toggle 'hidden', !isRelation
     @el.fieldNotNull().closest('label')?.classList.toggle 'hidden', isRelation
     formulaSection = @el.formulaBody().closest('.formula-section')
     formulaSection?.classList.toggle 'hidden', isRelation
@@ -958,6 +969,7 @@ window.App =
 
   _resetFieldForm: ->
     @_editingFieldId = null
+    @_editingRelation = null
     @el.fieldName().value = ''
     @el.fieldType().value = 'String'
     @el.fieldNotNull().checked = false
@@ -968,6 +980,8 @@ window.App =
     @el.formulaBody().classList.add 'hidden'
     @el.triggerFieldsRow().classList.add 'hidden'
     @el.relTargetRow().classList.add 'hidden'
+    @el.relReprRow().classList.add 'hidden'
+    @el.relReprFormula().value = ''
     @el.fieldNotNull().closest('label')?.classList.remove 'hidden'
     formulaSection = @el.formulaBody().closest('.formula-section')
     formulaSection?.classList.remove 'hidden'
@@ -1054,14 +1068,16 @@ window.App =
         do (field = f, relation = rel) =>
           editBtn.addEventListener 'click', =>
             @_editingFieldId = field.id
+            @_editingRelation = relation or null
             @el.fieldAddBtn().textContent = 'Mettre à jour'
             @el.fieldCancelBtn().classList.remove 'hidden'
             @el.fieldName().value = field.name
             if relation
-              # Editing a relation field: show only Cible
+              # Editing a relation field: show Cible and repr formula
               @el.fieldType().value = 'Relation'
               @_onFieldTypeChange()
               @el.relToSpace().value = relation.toSpaceId
+              @el.relReprFormula().value = relation.reprFormula or ''
             else
               @el.fieldType().value = field.fieldType
               @_onFieldTypeChange()

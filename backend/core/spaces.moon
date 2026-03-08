@@ -81,6 +81,7 @@ SYSTEM_SPACES =
       { name: 'to_space_id',    type: 'string'   }
       { name: 'to_field_id',    type: 'string'   }
       { name: 'name',           type: 'string' }
+      { name: 'repr_formula',   type: 'string', is_nullable: true }
     }
     indexes:
       primary:  { parts: {'id'},            unique: true,  type: 'HASH' }
@@ -207,6 +208,21 @@ bootstrap = ->
     -- Add admin user to admin group
     box.space._tdb_memberships\insert { u.id, tostring(admin_gid) }
     log.info "tdb bootstrap complete. Default admin: #{admin_user}"
+
+  box.once 'tdb_v2', ->
+    sp = box.space._tdb_relations
+    if sp
+      new_fmt = {
+        { name: 'id',           type: 'string' }
+        { name: 'from_space_id',type: 'string' }
+        { name: 'from_field_id',type: 'string' }
+        { name: 'to_space_id',  type: 'string' }
+        { name: 'to_field_id',  type: 'string' }
+        { name: 'name',         type: 'string' }
+        { name: 'repr_formula', type: 'string', is_nullable: true }
+      }
+      sp\format new_fmt
+      log.info 'tdb_v2: added repr_formula to _tdb_relations'
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- Runtime space management

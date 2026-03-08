@@ -256,6 +256,20 @@ make_fields_panel = function()
           })
         })
       }),
+      H.div({
+        id = 'rel-repr-row',
+        class = 'hidden',
+        H.label({
+          class = 'formula-hint',
+          'Représentation (JS) :'
+        }),
+        H.textarea({
+          id = 'rel-repr-formula',
+          rows = '2',
+          placeholder = "row.nom + ' ' + row.prenom",
+          ''
+        })
+      }),
       H.label({
         H.input({
           id = 'field-notnull',

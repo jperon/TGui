@@ -73,6 +73,7 @@ type Mutation {
   # Relations
   createRelation(input: CreateRelationInput!): Relation!
   deleteRelation(id: ID!):                     Boolean!
+  updateRelation(id: ID!, input: UpdateRelationInput!): Relation!
 
   # Custom views (YAML dashboard layouts)
   createCustomView(input: CreateCustomViewInput!): CustomView!
@@ -168,6 +169,7 @@ type Relation {
   fromFieldId:  ID!
   toSpaceId:    ID!
   toFieldId:    ID!
+  reprFormula:  String
 }
 
 type CustomView {
@@ -305,6 +307,11 @@ input CreateRelationInput {
   fromFieldId: ID!
   toSpaceId:   ID!
   toFieldId:   ID!
+  reprFormula: String
+}
+
+input UpdateRelationInput {
+  reprFormula: String
 }
 
 input CreateCustomViewInput {

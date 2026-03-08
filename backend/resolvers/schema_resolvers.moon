@@ -21,19 +21,27 @@ list_relations = (space_id) ->
       toSpaceId:    t[4]
       toFieldId:    t[5]
       name:         t[6]
+      reprFormula:  t[7] or ''
     }
   result
 
-create_relation = (name, from_space_id, from_field_id, to_space_id, to_field_id) ->
+create_relation = (name, from_space_id, from_field_id, to_space_id, to_field_id, repr_formula) ->
   uuid_mod = require 'uuid'
   rid = tostring uuid_mod.new!
-  box.space._tdb_relations\insert { rid, from_space_id, from_field_id, to_space_id, to_field_id, name }
+  box.space._tdb_relations\insert { rid, from_space_id, from_field_id, to_space_id, to_field_id, name, repr_formula or '' }
   { id: rid, name: name, fromSpaceId: from_space_id, fromFieldId: from_field_id,
-    toSpaceId: to_space_id, toFieldId: to_field_id }
+    toSpaceId: to_space_id, toFieldId: to_field_id, reprFormula: repr_formula or '' }
 
 delete_relation = (id) ->
   box.space._tdb_relations\delete id
   true
+
+update_relation = (id, repr_formula) ->
+  t = box.space._tdb_relations\get id
+  return nil unless t
+  box.space._tdb_relations\update id, { {'=', 7, repr_formula or ''} }
+  t2 = box.space._tdb_relations\get id
+  { id: t2[1], fromSpaceId: t2[2], fromFieldId: t2[3], toSpaceId: t2[4], toFieldId: t2[5], name: t2[6], reprFormula: t2[7] or '' }
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- Resolvers map
@@ -134,7 +142,7 @@ Mutation =
   createRelation: (_, args, ctx) ->
     require_auth ctx
     i = args.input
-    result = create_relation i.name, i.fromSpaceId, i.fromFieldId, i.toSpaceId, i.toFieldId
+    result = create_relation i.name, i.fromSpaceId, i.fromFieldId, i.toSpaceId, i.toFieldId, i.reprFormula
     executor.reinit_schema!
     result
 
@@ -142,6 +150,11 @@ Mutation =
     require_auth ctx
     result = delete_relation args.id
     executor.reinit_schema!
+    result
+
+  updateRelation: (_, args, ctx) ->
+    require_auth ctx
+    result = update_relation args.id, args.input.reprFormula
     result
 
 -- Field-level resolvers for nested objects

@@ -241,6 +241,11 @@ local SYSTEM_SPACES = {
       {
         name = 'name',
         type = 'string'
+      },
+      {
+        name = 'repr_formula',
+        type = 'string',
+        is_nullable = true
       }
     },
     indexes = {
@@ -521,7 +526,7 @@ create_space = function(name, desc)
 end
 local bootstrap
 bootstrap = function()
-  return box.once('tdb_v1', function()
+  box.once('tdb_v1', function()
     log.info('Bootstrapping tdb system spaces…')
     for name, desc in pairs(SYSTEM_SPACES) do
       create_space(name, desc)
@@ -542,6 +547,44 @@ bootstrap = function()
       tostring(admin_gid)
     })
     return log.info("tdb bootstrap complete. Default admin: " .. tostring(admin_user))
+  end)
+  return box.once('tdb_v2', function()
+    local sp = box.space._tdb_relations
+    if sp then
+      local new_fmt = {
+        {
+          name = 'id',
+          type = 'string'
+        },
+        {
+          name = 'from_space_id',
+          type = 'string'
+        },
+        {
+          name = 'from_field_id',
+          type = 'string'
+        },
+        {
+          name = 'to_space_id',
+          type = 'string'
+        },
+        {
+          name = 'to_field_id',
+          type = 'string'
+        },
+        {
+          name = 'name',
+          type = 'string'
+        },
+        {
+          name = 'repr_formula',
+          type = 'string',
+          is_nullable = true
+        }
+      }
+      sp:format(new_fmt)
+      return log.info('tdb_v2: added repr_formula to _tdb_relations')
+    end
   end)
 end
 local create_user_space

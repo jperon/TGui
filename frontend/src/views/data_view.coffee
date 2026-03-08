@@ -34,12 +34,55 @@ DELETE_RECORD = """
 """
 
 window.DataView = class DataView
-  constructor: (@container, @space, @filter = null) ->
+  constructor: (@container, @space, @filter = null, relations = []) ->
     @_grid          = null   # tui.Grid instance
     @_rows          = []     # rows from server
     @_currentData   = []     # rows currently displayed (filtered + sentinel)
     @_defaultValues = {}     # FK defaults for new records (set by depends_on)
     @_mounted       = false  # true after mount() completes, false after unmount()
+    @_relations     = relations
+    @_fkMaps        = {}     # field name → { id → display label }
+    @_fkOptions     = {}     # field name → [{ text, value }]
+
+  # Build FK display maps for all relation fields.
+  _buildFkMaps: ->
+    for rel in @_relations
+      field = (@space.fields or []).find (f) -> f.id == rel.fromFieldId
+      continue unless field
+      try
+        data    = await GQL.query RECORDS_QUERY, { spaceId: rel.toSpaceId, limit: 5000 }
+        records = data.records.items.map (r) ->
+          parsed = if typeof r.data == 'string' then JSON.parse(r.data) else r.data
+          Object.assign { __rowId: r.id }, parsed
+
+        reprFn  = null
+        formula = rel.reprFormula?.trim()
+        if formula
+          try
+            reprFn = new Function('row', "try { return String(#{formula}); } catch(e) { return String(row.id || ''); }")
+          catch
+            reprFn = null
+
+        map     = {}
+        options = []
+        for rec in records
+          display = if reprFn
+            reprFn rec
+          else if rec._repr?
+            String rec._repr
+          else
+            String(rec.id ? rec[Object.keys(rec)[0]] ? '')
+          # FK columns store the integer sequence value (rec.id), not the Tarantool UUID
+          fkId = rec.id ? rec[Object.keys(rec).find (k) -> k != '__rowId']
+          map[String fkId] = display
+          options.push { text: display, value: String(fkId) }
+
+        options.sort (a, b) -> a.text.localeCompare b.text
+
+        @_fkMaps[field.name]    = map
+        @_fkOptions[field.name] = options
+      catch e
+        console.warn "FK map build failed for #{field.name}:", e
 
   mount: ->
     @_mounted = true
@@ -53,6 +96,8 @@ window.DataView = class DataView
     formulaNames = new Set (f.name for f in fields when f.formula and f.formula != '' and not f.triggerFields)
     saved    = @_loadColWidths()
 
+    await @_buildFkMaps() if @_relations?.length > 0
+
     columns = for f in fields
       col =
         name:      f.name
@@ -61,7 +106,18 @@ window.DataView = class DataView
         minWidth:  40
         resizable: true
         sortable:  true
-      col.editor = 'text' unless seqNames.has(f.name) or formulaNames.has(f.name)
+      if @_fkMaps[f.name]?
+        fkMap     = @_fkMaps[f.name]
+        fkOptions = @_fkOptions[f.name] or []
+        col.formatter = do (fkMap) -> (props) ->
+          val = props.value
+          fkMap[String val] ? String(val ? '')
+        col.editor =
+          type: 'select'
+          options:
+            listItems: fkOptions
+      else
+        col.editor = 'text' unless seqNames.has(f.name) or formulaNames.has(f.name)
       col
 
     @_grid = new tui.Grid
@@ -152,6 +208,10 @@ window.DataView = class DataView
       sentinelPatch = null
 
       for own rk, patch of byRow
+        # Convert FK string values back to numeric IDs before sending to backend
+        for own name, val of patch
+          if @_fkMaps[name]? and val? and val != ''
+            patch[name] = Number(val)
         # Resolve actual row data from tui.Grid (rowKey ≠ array index after resetData)
         row = @_grid.getRow Number(rk)
         if row?.__isNew

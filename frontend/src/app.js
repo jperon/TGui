@@ -153,6 +153,12 @@
       relToSpace: function() {
         return document.getElementById('rel-to-space');
       },
+      relReprRow: function() {
+        return document.getElementById('rel-repr-row');
+      },
+      relReprFormula: function() {
+        return document.getElementById('rel-repr-formula');
+      },
       yamlEditorPanel: function() {
         return document.getElementById('yaml-editor-panel');
       },
@@ -935,15 +941,16 @@
         return this._renderCustomViewPreview(this._currentCustomView.yaml);
       }
     },
-    _mountDataView: function(space) {
-      var container, ref;
+    _mountDataView: async function(space) {
+      var container, ref, relations;
       if ((ref = this._activeDataView) != null) {
         if (typeof ref.unmount === "function") {
           ref.unmount();
         }
       }
       container = this.el.gridContainer();
-      this._activeDataView = new DataView(container, space);
+      relations = (await Spaces.listRelations(space.id));
+      this._activeDataView = new DataView(container, space, null, relations);
       return this._activeDataView.mount();
     },
     // ── Custom views (Vues section) ──────────────────────────────────────────────
@@ -1298,7 +1305,7 @@
         return this._resetFieldForm();
       });
       return this.el.fieldAddBtn().addEventListener('click', () => {
-        var formula, formulaType, language, name, notNull, opts, raw, ref1, ref2, s, toSpaceId, triggerFields, type;
+        var editRelation, formula, formulaType, language, name, notNull, opts, raw, ref1, ref2, reprFormula, s, toSpaceId, triggerFields, type, updatePromise;
         if (!this._currentSpace) {
           return;
         }
@@ -1346,7 +1353,15 @@
             opts.triggerFields = null;
             opts.language = 'lua';
           }
-          Spaces.updateField(this._editingFieldId, opts).then(() => {
+          editRelation = this._editingRelation;
+          reprFormula = this.el.relReprFormula().value.trim();
+          updatePromise = Spaces.updateField(this._editingFieldId, opts);
+          if (editRelation) {
+            updatePromise = updatePromise.then(() => {
+              return Spaces.updateRelation(editRelation.id, reprFormula);
+            });
+          }
+          updatePromise.then(() => {
             return Spaces.getWithFields(this._currentSpace.id).then((full) => {
               this._currentSpace = full;
               this._syncSpaceFields(full);
@@ -1360,6 +1375,7 @@
         } else if (type === 'Relation') {
           // ── Create relation field ──────────────────────────────────────────
           toSpaceId = this.el.relToSpace().value;
+          reprFormula = this.el.relReprFormula().value.trim();
           if (!toSpaceId) {
             return;
           }
@@ -1373,7 +1389,7 @@
               return;
             }
             return Spaces.addField(this._currentSpace.id, name, 'Int', notNull, '').then((newField) => {
-              return Spaces.createRelation(name, this._currentSpace.id, newField.id, toSpaceId, idField.id).then(() => {
+              return Spaces.createRelation(name, this._currentSpace.id, newField.id, toSpaceId, idField.id, reprFormula).then(() => {
                 return Spaces.getWithFields(this._currentSpace.id).then((full) => {
                   this._currentSpace = full;
                   this._syncSpaceFields(full);
@@ -1437,6 +1453,7 @@
       type = this.el.fieldType().value;
       isRelation = type === 'Relation';
       this.el.relTargetRow().classList.toggle('hidden', !isRelation);
+      this.el.relReprRow().classList.toggle('hidden', !isRelation);
       if ((ref = this.el.fieldNotNull().closest('label')) != null) {
         ref.classList.toggle('hidden', isRelation);
       }
@@ -1463,6 +1480,7 @@
     _resetFieldForm: function() {
       var formulaSection, ref;
       this._editingFieldId = null;
+      this._editingRelation = null;
       this.el.fieldName().value = '';
       this.el.fieldType().value = 'String';
       this.el.fieldNotNull().checked = false;
@@ -1475,6 +1493,8 @@
       this.el.formulaBody().classList.add('hidden');
       this.el.triggerFieldsRow().classList.add('hidden');
       this.el.relTargetRow().classList.add('hidden');
+      this.el.relReprRow().classList.add('hidden');
+      this.el.relReprFormula().value = '';
       if ((ref = this.el.fieldNotNull().closest('label')) != null) {
         ref.classList.remove('hidden');
       }
@@ -1574,14 +1594,16 @@
             return editBtn.addEventListener('click', () => {
               var tf;
               this._editingFieldId = field.id;
+              this._editingRelation = relation || null;
               this.el.fieldAddBtn().textContent = 'Mettre à jour';
               this.el.fieldCancelBtn().classList.remove('hidden');
               this.el.fieldName().value = field.name;
               if (relation) {
-                // Editing a relation field: show only Cible
+                // Editing a relation field: show Cible and repr formula
                 this.el.fieldType().value = 'Relation';
                 this._onFieldTypeChange();
                 this.el.relToSpace().value = relation.toSpaceId;
+                this.el.relReprFormula().value = relation.reprFormula || '';
               } else {
                 this.el.fieldType().value = field.fieldType;
                 this._onFieldTypeChange();

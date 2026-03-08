@@ -50,19 +50,25 @@ UPDATE_FIELD = """
 
 LIST_RELATIONS = """
   query Relations($spaceId: ID!) {
-    relations(spaceId: $spaceId) { id name fromSpaceId fromFieldId toSpaceId toFieldId }
+    relations(spaceId: $spaceId) { id name fromSpaceId fromFieldId toSpaceId toFieldId reprFormula }
   }
 """
 
 CREATE_RELATION = """
   mutation CreateRelation($input: CreateRelationInput!) {
-    createRelation(input: $input) { id name fromSpaceId fromFieldId toSpaceId toFieldId }
+    createRelation(input: $input) { id name fromSpaceId fromFieldId toSpaceId toFieldId reprFormula }
   }
 """
 
 DELETE_RELATION = """
   mutation DeleteRelation($id: ID!) {
     deleteRelation(id: $id)
+  }
+"""
+
+UPDATE_RELATION = """
+  mutation UpdateRelation($id: ID!, $input: UpdateRelationInput!) {
+    updateRelation(id: $id, input: $input) { id name fromSpaceId fromFieldId toSpaceId toFieldId reprFormula }
   }
 """
 
@@ -107,12 +113,16 @@ window.Spaces =
   listRelations: (spaceId) ->
     GQL.query(LIST_RELATIONS, { spaceId }).then (d) -> d.relations
 
-  createRelation: (name, fromSpaceId, fromFieldId, toSpaceId, toFieldId) ->
-    GQL.mutate(CREATE_RELATION, { input: { name, fromSpaceId, fromFieldId, toSpaceId, toFieldId } })
-      .then (d) -> d.createRelation
+  createRelation: (name, fromSpaceId, fromFieldId, toSpaceId, toFieldId, reprFormula = '') ->
+    input = { name, fromSpaceId, fromFieldId, toSpaceId, toFieldId }
+    input.reprFormula = reprFormula if reprFormula
+    GQL.mutate(CREATE_RELATION, { input }).then (d) -> d.createRelation
 
   deleteRelation: (id) ->
     GQL.mutate(DELETE_RELATION, { id }).then (d) -> d.deleteRelation
+
+  updateRelation: (id, reprFormula) ->
+    GQL.mutate(UPDATE_RELATION, { id, input: { reprFormula } }).then (d) -> d.updateRelation
 
   aggregateSpace: (spaceName, groupBy, aggregate) ->
     q = """

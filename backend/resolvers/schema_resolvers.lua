@@ -18,13 +18,14 @@ list_relations = function(space_id)
       fromFieldId = t[3],
       toSpaceId = t[4],
       toFieldId = t[5],
-      name = t[6]
+      name = t[6],
+      reprFormula = t[7] or ''
     })
   end
   return result
 end
 local create_relation
-create_relation = function(name, from_space_id, from_field_id, to_space_id, to_field_id)
+create_relation = function(name, from_space_id, from_field_id, to_space_id, to_field_id, repr_formula)
   local uuid_mod = require('uuid')
   local rid = tostring(uuid_mod.new())
   box.space._tdb_relations:insert({
@@ -33,7 +34,8 @@ create_relation = function(name, from_space_id, from_field_id, to_space_id, to_f
     from_field_id,
     to_space_id,
     to_field_id,
-    name
+    name,
+    repr_formula or ''
   })
   return {
     id = rid,
@@ -41,13 +43,38 @@ create_relation = function(name, from_space_id, from_field_id, to_space_id, to_f
     fromSpaceId = from_space_id,
     fromFieldId = from_field_id,
     toSpaceId = to_space_id,
-    toFieldId = to_field_id
+    toFieldId = to_field_id,
+    reprFormula = repr_formula or ''
   }
 end
 local delete_relation
 delete_relation = function(id)
   box.space._tdb_relations:delete(id)
   return true
+end
+local update_relation
+update_relation = function(id, repr_formula)
+  local t = box.space._tdb_relations:get(id)
+  if not (t) then
+    return nil
+  end
+  box.space._tdb_relations:update(id, {
+    {
+      '=',
+      7,
+      repr_formula or ''
+    }
+  })
+  local t2 = box.space._tdb_relations:get(id)
+  return {
+    id = t2[1],
+    fromSpaceId = t2[2],
+    fromFieldId = t2[3],
+    toSpaceId = t2[4],
+    toFieldId = t2[5],
+    name = t2[6],
+    reprFormula = t2[7] or ''
+  }
 end
 local Query = {
   spaces = function(_, args, ctx)
@@ -169,7 +196,7 @@ local Mutation = {
   createRelation = function(_, args, ctx)
     require_auth(ctx)
     local i = args.input
-    local result = create_relation(i.name, i.fromSpaceId, i.fromFieldId, i.toSpaceId, i.toFieldId)
+    local result = create_relation(i.name, i.fromSpaceId, i.fromFieldId, i.toSpaceId, i.toFieldId, i.reprFormula)
     executor.reinit_schema()
     return result
   end,
@@ -177,6 +204,11 @@ local Mutation = {
     require_auth(ctx)
     local result = delete_relation(args.id)
     executor.reinit_schema()
+    return result
+  end,
+  updateRelation = function(_, args, ctx)
+    require_auth(ctx)
+    local result = update_relation(args.id, args.input.reprFormula)
     return result
   end
 }

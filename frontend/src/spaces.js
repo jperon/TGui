@@ -1,7 +1,7 @@
 (function() {
   // spaces.coffee
   // Space and field management.
-  var ADD_FIELD, CREATE_RELATION, CREATE_SPACE, DELETE_RELATION, DELETE_SPACE, LIST_RELATIONS, LIST_SPACES, SPACE_FIELDS, UPDATE_FIELD, UPDATE_SPACE;
+  var ADD_FIELD, CREATE_RELATION, CREATE_SPACE, DELETE_RELATION, DELETE_SPACE, LIST_RELATIONS, LIST_SPACES, SPACE_FIELDS, UPDATE_FIELD, UPDATE_RELATION, UPDATE_SPACE;
 
   LIST_SPACES = `query { spaces { id name description fields { id name fieldType notNull position description formula triggerFields language } } }`;
 
@@ -37,15 +37,19 @@
 }`;
 
   LIST_RELATIONS = `query Relations($spaceId: ID!) {
-  relations(spaceId: $spaceId) { id name fromSpaceId fromFieldId toSpaceId toFieldId }
+  relations(spaceId: $spaceId) { id name fromSpaceId fromFieldId toSpaceId toFieldId reprFormula }
 }`;
 
   CREATE_RELATION = `mutation CreateRelation($input: CreateRelationInput!) {
-  createRelation(input: $input) { id name fromSpaceId fromFieldId toSpaceId toFieldId }
+  createRelation(input: $input) { id name fromSpaceId fromFieldId toSpaceId toFieldId reprFormula }
 }`;
 
   DELETE_RELATION = `mutation DeleteRelation($id: ID!) {
   deleteRelation(id: $id)
+}`;
+
+  UPDATE_RELATION = `mutation UpdateRelation($id: ID!, $input: UpdateRelationInput!) {
+  updateRelation(id: $id, input: $input) { id name fromSpaceId fromFieldId toSpaceId toFieldId reprFormula }
 }`;
 
   window.Spaces = {
@@ -130,16 +134,27 @@
         return d.relations;
       });
     },
-    createRelation: function(name, fromSpaceId, fromFieldId, toSpaceId, toFieldId) {
-      return GQL.mutate(CREATE_RELATION, {
-        input: {name, fromSpaceId, fromFieldId, toSpaceId, toFieldId}
-      }).then(function(d) {
+    createRelation: function(name, fromSpaceId, fromFieldId, toSpaceId, toFieldId, reprFormula = '') {
+      var input;
+      input = {name, fromSpaceId, fromFieldId, toSpaceId, toFieldId};
+      if (reprFormula) {
+        input.reprFormula = reprFormula;
+      }
+      return GQL.mutate(CREATE_RELATION, {input}).then(function(d) {
         return d.createRelation;
       });
     },
     deleteRelation: function(id) {
       return GQL.mutate(DELETE_RELATION, {id}).then(function(d) {
         return d.deleteRelation;
+      });
+    },
+    updateRelation: function(id, reprFormula) {
+      return GQL.mutate(UPDATE_RELATION, {
+        id,
+        input: {reprFormula}
+      }).then(function(d) {
+        return d.updateRelation;
       });
     },
     aggregateSpace: function(spaceName, groupBy, aggregate) {

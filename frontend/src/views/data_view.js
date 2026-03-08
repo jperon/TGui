@@ -35,7 +35,7 @@
 }`;
 
   window.DataView = DataView = class DataView {
-    constructor(container, space, filter1 = null) {
+    constructor(container, space, filter1 = null, relations = []) {
       this.container = container;
       this.space = space;
       this.filter = filter1;
@@ -44,10 +44,76 @@
       this._currentData = []; // rows currently displayed (filtered + sentinel)
       this._defaultValues = {}; // FK defaults for new records (set by depends_on)
       this._mounted = false; // true after mount() completes, false after unmount()
+      this._relations = relations;
+      this._fkMaps = {}; // field name → { id → display label }
+      this._fkOptions = {}; // field name → [{ text, value }]
+    }
+
+    
+      // Build FK display maps for all relation fields.
+    async _buildFkMaps() {
+      var data, display, e, field, fkId, formula, j, l, len, len1, map, options, rec, records, ref, ref1, ref2, ref3, ref4, rel, reprFn, results;
+      ref = this._relations;
+      results = [];
+      for (j = 0, len = ref.length; j < len; j++) {
+        rel = ref[j];
+        field = (this.space.fields || []).find(function(f) {
+          return f.id === rel.fromFieldId;
+        });
+        if (!field) {
+          continue;
+        }
+        try {
+          data = (await GQL.query(RECORDS_QUERY, {
+            spaceId: rel.toSpaceId,
+            limit: 5000
+          }));
+          records = data.records.items.map(function(r) {
+            var parsed;
+            parsed = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
+            return Object.assign({
+              __rowId: r.id
+            }, parsed);
+          });
+          reprFn = null;
+          formula = (ref1 = rel.reprFormula) != null ? ref1.trim() : void 0;
+          if (formula) {
+            try {
+              reprFn = new Function('row', `try { return String(${formula}); } catch(e) { return String(row.id || ''); }`);
+            } catch (error) {
+              reprFn = null;
+            }
+          }
+          map = {};
+          options = [];
+          for (l = 0, len1 = records.length; l < len1; l++) {
+            rec = records[l];
+            display = reprFn ? reprFn(rec) : rec._repr != null ? String(rec._repr) : String((ref2 = (ref3 = rec.id) != null ? ref3 : rec[Object.keys(rec)[0]]) != null ? ref2 : '');
+            // FK columns store the integer sequence value (rec.id), not the Tarantool UUID
+            fkId = (ref4 = rec.id) != null ? ref4 : rec[Object.keys(rec).find(function(k) {
+              return k !== '__rowId';
+            })];
+            map[String(fkId)] = display;
+            options.push({
+              text: display,
+              value: String(fkId)
+            });
+          }
+          options.sort(function(a, b) {
+            return a.text.localeCompare(b.text);
+          });
+          this._fkMaps[field.name] = map;
+          results.push(this._fkOptions[field.name] = options);
+        } catch (error) {
+          e = error;
+          results.push(console.warn(`FK map build failed for ${field.name}:`, e));
+        }
+      }
+      return results;
     }
 
     async mount() {
-      var col, columns, editableCols, f, fields, formulaNames, saved, seqNames, wrapper;
+      var col, columns, editableCols, f, fields, fkMap, fkOptions, formulaNames, ref, saved, seqNames, wrapper;
       this._mounted = true;
       this.container.innerHTML = '';
       wrapper = document.createElement('div');
@@ -77,6 +143,9 @@
         return results;
       })());
       saved = this._loadColWidths();
+      if (((ref = this._relations) != null ? ref.length : void 0) > 0) {
+        await this._buildFkMaps();
+      }
       columns = (function() {
         var j, len, results;
         results = [];
@@ -90,13 +159,31 @@
             resizable: true,
             sortable: true
           };
-          if (!(seqNames.has(f.name) || formulaNames.has(f.name))) {
-            col.editor = 'text';
+          if (this._fkMaps[f.name] != null) {
+            fkMap = this._fkMaps[f.name];
+            fkOptions = this._fkOptions[f.name] || [];
+            col.formatter = (function(fkMap) {
+              return function(props) {
+                var ref1, val;
+                val = props.value;
+                return (ref1 = fkMap[String(val)]) != null ? ref1 : String(val != null ? val : '');
+              };
+            })(fkMap);
+            col.editor = {
+              type: 'select',
+              options: {
+                listItems: fkOptions
+              }
+            };
+          } else {
+            if (!(seqNames.has(f.name) || formulaNames.has(f.name))) {
+              col.editor = 'text';
+            }
           }
           results.push(col);
         }
         return results;
-      })();
+      }).call(this);
       this._grid = new tui.Grid({
         el: wrapper,
         columns: columns,
@@ -196,7 +283,7 @@
       
       // Handle cell edits (single edit and paste)
       this._grid.on('afterChange', async(ev) => {
-        var byRow, c, changes, clipErr, clipRow, clipRows, clipText, colNames, data, i, j, k, l, len, len1, len2, len3, len4, m, n, name, name1, o, ops, patch, ref, ref1, ref2, ref3, ref4, ref5, rk, row, sentinelPatch;
+        var byRow, c, changes, clipErr, clipRow, clipRows, clipText, colNames, data, i, j, l, len, len1, len2, len3, len4, m, n, name, name1, o, ops, p, patch, ref1, ref2, ref3, ref4, ref5, ref6, rk, row, sentinelPatch, val;
         changes = (ev.changes || []).filter(function(c) {
           return String(c.value) !== String(c.prevValue);
         });
@@ -213,10 +300,10 @@
           byRow[c.rowKey][c.columnName] = c.value;
         }
         colNames = (function() {
-          var k, len1, results;
+          var l, len1, results;
           results = [];
-          for (k = 0, len1 = fields.length; k < len1; k++) {
-            f = fields[k];
+          for (l = 0, len1 = fields.length; l < len1; l++) {
+            f = fields[l];
             if (!seqNames.has(f.name) && !formulaNames.has(f.name)) {
               results.push(f.name);
             }
@@ -228,6 +315,13 @@
         for (rk in byRow) {
           if (!hasProp.call(byRow, rk)) continue;
           patch = byRow[rk];
+          for (name in patch) {
+            if (!hasProp.call(patch, name)) continue;
+            val = patch[name];
+            if ((this._fkMaps[name] != null) && (val != null) && val !== '') {
+              patch[name] = Number(val);
+            }
+          }
           // Resolve actual row data from tui.Grid (rowKey ≠ array index after resetData)
           row = this._grid.getRow(Number(rk));
           if (row != null ? row.__isNew : void 0) {
@@ -253,12 +347,12 @@
                   return c.trim();
                 });
               });
-              for (k = 0, len1 = clipRows.length; k < len1; k++) {
-                clipRow = clipRows[k];
+              for (l = 0, len1 = clipRows.length; l < len1; l++) {
+                clipRow = clipRows[l];
                 data = {};
-                for (i = l = 0, len2 = colNames.length; l < len2; i = ++l) {
+                for (i = m = 0, len2 = colNames.length; m < len2; i = ++m) {
                   name = colNames[i];
-                  data[name] = (ref = (ref1 = clipRow[i]) != null ? ref1 : this._defaultValues[name]) != null ? ref : '';
+                  data[name] = (ref1 = (ref2 = clipRow[i]) != null ? ref2 : this._defaultValues[name]) != null ? ref1 : '';
                 }
                 ops.push(GQL.mutate(INSERT_RECORD, {
                   spaceId: this.space.id,
@@ -269,9 +363,9 @@
               clipErr = error;
               console.warn('clipboard unavailable, single insert fallback', clipErr);
               data = {};
-              for (m = 0, len3 = colNames.length; m < len3; m++) {
-                n = colNames[m];
-                data[n] = (ref2 = (ref3 = sentinelPatch[n]) != null ? ref3 : this._defaultValues[n]) != null ? ref2 : '';
+              for (o = 0, len3 = colNames.length; o < len3; o++) {
+                n = colNames[o];
+                data[n] = (ref3 = (ref4 = sentinelPatch[n]) != null ? ref4 : this._defaultValues[n]) != null ? ref3 : '';
               }
               ops.push(GQL.mutate(INSERT_RECORD, {
                 spaceId: this.space.id,
@@ -281,9 +375,9 @@
           } else {
             // Manual edit: insert from sentinel values + defaults
             data = {};
-            for (o = 0, len4 = colNames.length; o < len4; o++) {
-              n = colNames[o];
-              data[n] = (ref4 = (ref5 = sentinelPatch[n]) != null ? ref5 : this._defaultValues[n]) != null ? ref4 : '';
+            for (p = 0, len4 = colNames.length; p < len4; p++) {
+              n = colNames[p];
+              data[n] = (ref5 = (ref6 = sentinelPatch[n]) != null ? ref6 : this._defaultValues[n]) != null ? ref5 : '';
             }
             ops.push(GQL.mutate(INSERT_RECORD, {
               spaceId: this.space.id,

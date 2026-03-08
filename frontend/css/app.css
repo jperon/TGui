@@ -573,3 +573,14 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   25%      { transform: translateX(-4px); }
   75%      { transform: translateX(4px); }
 }
+
+/* ── Relation repr formula (in fields-add-form) ─────────────────────────────── */
+#rel-repr-row {
+  display: flex; flex-direction: column; gap: .25rem;
+}
+#rel-repr-formula {
+  width: 100%; padding: .3rem .4rem;
+  border: 1px solid var(--color-border); border-radius: 4px;
+  font-size: .8rem; font-family: monospace; resize: vertical;
+  box-sizing: border-box;
+}
