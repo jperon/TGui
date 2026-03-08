@@ -350,7 +350,8 @@ make_content = function()
         '🗑'
       }),
       H.div({
-        class = 'toolbar-spacer'
+        class = 'toolbar-spacer',
+        ''
       }),
       H.button({
         id = 'delete-rows-btn',
