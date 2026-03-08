@@ -748,7 +748,7 @@
       });
     },
     _onFieldTypeChange: function() {
-      var formulaSection, i, isRelation, len, opt, ref, ref1, ref2, results, sel, sp, type;
+      var formulaSection, i, isRelation, len, opt, ref, ref1, results, sel, sp, type;
       type = this.el.fieldType().value;
       isRelation = type === 'Relation';
       this.el.relTargetRow().classList.toggle('hidden', !isRelation);
@@ -767,9 +767,6 @@
         results = [];
         for (i = 0, len = ref1.length; i < len; i++) {
           sp = ref1[i];
-          if (sp.id === ((ref2 = this._currentSpace) != null ? ref2.id : void 0)) {
-            continue;
-          }
           opt = document.createElement('option');
           opt.value = sp.id;
           opt.textContent = sp.name;

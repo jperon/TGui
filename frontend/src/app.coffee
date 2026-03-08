@@ -488,7 +488,6 @@ window.App =
       sel = @el.relToSpace()
       sel.innerHTML = '<option value="">Cible…</option>'
       for sp in (@_allSpaces or [])
-        continue if sp.id == @_currentSpace?.id
         opt = document.createElement 'option'
         opt.value = sp.id
         opt.textContent = sp.name
