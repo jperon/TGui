@@ -261,12 +261,12 @@ make_fields_panel = function()
         class = 'hidden',
         H.label({
           class = 'formula-hint',
-          'Représentation (JS) :'
+          'Représentation :'
         }),
         H.textarea({
           id = 'rel-repr-formula',
           rows = '2',
-          placeholder = "row.nom + ' ' + row.prenom",
+          placeholder = "self.nom .. ' ' .. self.prenom",
           ''
         })
       }),

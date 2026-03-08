@@ -107,9 +107,9 @@ make_fields_panel = ->
         }
       }
       H.div {id: 'rel-repr-row', class: 'hidden',
-        H.label {class: 'formula-hint', 'Représentation (JS) :'}
+        H.label {class: 'formula-hint', 'Représentation :'}
         H.textarea {id: 'rel-repr-formula', rows: '2',
-          placeholder: "row.nom + ' ' + row.prenom", ''}
+          placeholder: "self.nom .. ' ' .. self.prenom", ''}
       }
       H.label {
         H.input {id: 'field-notnull', type: 'checkbox'}
