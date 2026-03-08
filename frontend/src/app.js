@@ -81,6 +81,9 @@
       adminNavGroups: function() {
         return document.getElementById('admin-nav-groups');
       },
+      adminNavSnapshot: function() {
+        return document.getElementById('admin-nav-snapshot');
+      },
       dataToolbar: function() {
         return document.getElementById('data-toolbar');
       },
@@ -203,6 +206,9 @@
       adminGroupsSection: function() {
         return document.getElementById('admin-groups-section');
       },
+      adminSnapshotSection: function() {
+        return document.getElementById('admin-snapshot-section');
+      },
       adminUsersList: function() {
         return document.getElementById('admin-users-list');
       },
@@ -214,6 +220,36 @@
       },
       adminCreateGroupBtn: function() {
         return document.getElementById('admin-create-group-btn');
+      },
+      adminNavSnapshot: function() {
+        return document.getElementById('admin-nav-snapshot');
+      },
+      snapshotExportSchemaBtn: function() {
+        return document.getElementById('snapshot-export-schema-btn');
+      },
+      snapshotExportFullBtn: function() {
+        return document.getElementById('snapshot-export-full-btn');
+      },
+      snapshotFileInput: function() {
+        return document.getElementById('snapshot-file-input');
+      },
+      snapshotFileName: function() {
+        return document.getElementById('snapshot-file-name');
+      },
+      snapshotDiffBox: function() {
+        return document.getElementById('snapshot-diff-box');
+      },
+      snapshotDiffContent: function() {
+        return document.getElementById('snapshot-diff-content');
+      },
+      snapshotImportError: function() {
+        return document.getElementById('snapshot-import-error');
+      },
+      snapshotImportConfirmBtn: function() {
+        return document.getElementById('snapshot-import-confirm-btn');
+      },
+      snapshotImportResult: function() {
+        return document.getElementById('snapshot-import-result');
       },
       defaultPasswordWarning: function() {
         return document.getElementById('default-password-warning');
@@ -400,13 +436,17 @@
       this.el.adminNavGroups().addEventListener('click', () => {
         return this._showAdminPanel('groups');
       });
+      this.el.adminNavSnapshot().addEventListener('click', () => {
+        return this._showAdminPanel('snapshot');
+      });
       // Bandeau d'avertissement
       this.el.warningChangePasswordBtn().addEventListener('click', () => {
         return this._openChangePasswordDialog();
       });
       this._bindChangePasswordDialog();
       this._bindCreateUserDialog();
-      return this._bindCreateGroupDialog();
+      this._bindCreateGroupDialog();
+      return this._bindSnapshotPanel();
     },
     // ── Load everything ─────────────────────────────────────────────────────────
     _loadAll: function() {
@@ -421,14 +461,17 @@
       this.el.welcome().classList.add('hidden');
       this.el.yamlEditorPanel().classList.add('hidden');
       this.el.adminPanel().classList.remove('hidden');
+      this.el.adminUsersSection().classList.add('hidden');
+      this.el.adminGroupsSection().classList.add('hidden');
+      this.el.adminSnapshotSection().classList.add('hidden');
       if (section === 'users') {
         this.el.adminUsersSection().classList.remove('hidden');
-        this.el.adminGroupsSection().classList.add('hidden');
         return this._loadAdminUsers();
-      } else {
-        this.el.adminUsersSection().classList.add('hidden');
+      } else if (section === 'groups') {
         this.el.adminGroupsSection().classList.remove('hidden');
         return this._loadAdminGroups();
+      } else {
+        return this.el.adminSnapshotSection().classList.remove('hidden');
       }
     },
     _hideAdminPanel: function() {
@@ -611,6 +654,165 @@
           return this.el.cgError().textContent = `Erreur : ${err.message}`;
         });
       });
+    },
+    // ── Snapshot export / import ─────────────────────────────────────────────────
+    _bindSnapshotPanel: function() {
+      var _doExport;
+      this._snapshotYaml = null;
+      // ── Export ──────────────────────────────────────────────────────────────────
+      _doExport = (includeData) => {
+        return GQL.query(`query($d: Boolean!) { exportSnapshot(includeData: $d) }`, {
+          d: includeData
+        }).then(function(data) {
+          var a, blob, fname, url, yaml;
+          yaml = data.exportSnapshot;
+          fname = includeData ? 'backup.tdb.yaml' : 'schema.tdb.yaml';
+          blob = new Blob([yaml], {
+            type: 'text/yaml'
+          });
+          url = URL.createObjectURL(blob);
+          a = document.createElement('a');
+          a.href = url;
+          a.download = fname;
+          a.click();
+          return URL.revokeObjectURL(url);
+        }).catch(function(err) {
+          return alert(`Erreur export : ${err.message}`);
+        });
+      };
+      this.el.snapshotExportSchemaBtn().addEventListener('click', () => {
+        return _doExport(false);
+      });
+      this.el.snapshotExportFullBtn().addEventListener('click', () => {
+        return _doExport(true);
+      });
+      // ── Import — file selection → diff ──────────────────────────────────────────
+      this.el.snapshotFileInput().addEventListener('change', (e) => {
+        var file, reader;
+        file = e.target.files[0];
+        if (!file) {
+          return;
+        }
+        this.el.snapshotFileName().textContent = file.name;
+        this.el.snapshotDiffBox().classList.add('hidden');
+        this.el.snapshotImportResult().classList.add('hidden');
+        this.el.snapshotImportError().classList.add('hidden');
+        reader = new FileReader();
+        reader.onload = (ev) => {
+          this._snapshotYaml = ev.target.result;
+          return GQL.query(`query($y: String!) { diffSnapshot(yaml: $y) {
+  spacesToCreate spacesToDelete
+  fieldsToCreate { space field oldType newType }
+  fieldsToDelete { space field oldType newType }
+  fieldsToChange { space field oldType newType }
+  customViewsToCreate customViewsToUpdate
+} }`, {
+            y: this._snapshotYaml
+          }).then((data) => {
+            var diff;
+            diff = data.diffSnapshot;
+            this._renderSnapshotDiff(diff);
+            return this.el.snapshotDiffBox().classList.remove('hidden');
+          }).catch((err) => {
+            this.el.snapshotImportError().textContent = `Erreur analyse : ${err.message}`;
+            return this.el.snapshotImportError().classList.remove('hidden');
+          });
+        };
+        return reader.readAsText(file);
+      });
+      // ── Import — confirm ─────────────────────────────────────────────────────────
+      return this.el.snapshotImportConfirmBtn().addEventListener('click', () => {
+        var mode, ref;
+        if (!this._snapshotYaml) {
+          return;
+        }
+        mode = ((ref = document.querySelector('input[name="snapshot-mode"]:checked')) != null ? ref.value : void 0) || 'merge';
+        if (mode === 'replace') {
+          if (!confirm("⚠ Mode Remplacement : toutes les données existantes seront effacées. Continuer ?")) {
+            return;
+          }
+        }
+        this.el.snapshotImportConfirmBtn().disabled = true;
+        return GQL.mutate(`mutation($y: String!, $m: ImportMode!) {
+  importSnapshot(yaml: $y, mode: $m) { ok created skipped errors }
+}`, {
+          y: this._snapshotYaml,
+          m: mode
+        }).then((data) => {
+          var r, res;
+          r = data.importSnapshot;
+          this.el.snapshotImportConfirmBtn().disabled = false;
+          this.el.snapshotDiffBox().classList.add('hidden');
+          res = this.el.snapshotImportResult();
+          res.classList.remove('hidden');
+          if (r.ok) {
+            res.className = 'snapshot-import-result snapshot-result-ok';
+            res.innerHTML = `✓ Import réussi — ${r.created} créé(s), ${r.skipped} ignoré(s).`;
+          } else {
+            res.className = 'snapshot-import-result snapshot-result-err';
+            res.innerHTML = `⚠ Import terminé avec erreurs — ${r.created} créé(s), ${r.skipped} ignoré(s).<br>` + r.errors.map(function(e) {
+              return `<code>${e}</code>`;
+            }).join('<br>');
+          }
+          if (r.ok || r.created > 0) {
+            // Reload spaces/views to reflect changes
+            return this._loadAll();
+          }
+        }).catch((err) => {
+          this.el.snapshotImportConfirmBtn().disabled = false;
+          this.el.snapshotImportError().textContent = `Erreur import : ${err.message}`;
+          return this.el.snapshotImportError().classList.remove('hidden');
+        });
+      });
+    },
+    _renderSnapshotDiff: function(diff) {
+      var _section, c, noop, p;
+      c = this.el.snapshotDiffContent();
+      c.innerHTML = '';
+      _section = function(title, items, cls) {
+        var h, i, item, len, li, ul;
+        if (!(items && items.length > 0)) {
+          return;
+        }
+        h = document.createElement('h5');
+        h.textContent = title;
+        c.appendChild(h);
+        ul = document.createElement('ul');
+        ul.className = cls;
+        for (i = 0, len = items.length; i < len; i++) {
+          item = items[i];
+          li = document.createElement('li');
+          if (typeof item === 'string') {
+            li.textContent = item;
+          } else {
+            // FieldDiff
+            if (item.oldType && item.newType) {
+              li.innerHTML = `<code>${item.space}.${item.field}</code> : <em>${item.oldType}</em> → <strong>${item.newType}</strong>`;
+            } else if (item.newType) {
+              li.innerHTML = `<code>${item.space}.${item.field}</code> (${item.newType}) — à créer`;
+            } else {
+              li.innerHTML = `<code>${item.space}.${item.field}</code> (${item.oldType}) — sera supprimé`;
+            }
+          }
+          ul.appendChild(li);
+        }
+        return c.appendChild(ul);
+      };
+      noop = diff.spacesToCreate.length === 0 && diff.spacesToDelete.length === 0 && diff.fieldsToCreate.length === 0 && diff.fieldsToDelete.length === 0 && diff.fieldsToChange.length === 0 && diff.customViewsToCreate.length === 0 && diff.customViewsToUpdate.length === 0;
+      if (noop) {
+        p = document.createElement('p');
+        p.className = 'snapshot-diff-noop';
+        p.textContent = '✓ Le schéma importé correspond exactement au schéma actuel.';
+        return c.appendChild(p);
+      } else {
+        _section('⚠ Espaces à supprimer (données perdues)', diff.spacesToDelete, 'diff-list diff-delete');
+        _section('+ Espaces à créer', diff.spacesToCreate, 'diff-list diff-create');
+        _section('⚠ Champs à supprimer', diff.fieldsToDelete, 'diff-list diff-delete');
+        _section('~ Champs à modifier (type)', diff.fieldsToChange, 'diff-list diff-change');
+        _section('+ Champs à créer', diff.fieldsToCreate, 'diff-list diff-create');
+        _section('+ Vues personnalisées à créer', diff.customViewsToCreate, 'diff-list diff-create');
+        return _section('~ Vues personnalisées à mettre à jour', diff.customViewsToUpdate, 'diff-list diff-change');
+      }
     },
     // ── Hash-based navigation ────────────────────────────────────────────────────
     _restoreFromHash: function() {

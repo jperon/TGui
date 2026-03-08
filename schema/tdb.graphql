@@ -47,6 +47,10 @@ type Query {
   user(id: ID!):   User
   groups:          [Group!]!
   group(id: ID!):  Group
+
+  # Snapshot export / diff
+  exportSnapshot(includeData: Boolean!): String!
+  diffSnapshot(yaml: String!):           SnapshotDiff!
 }
 
 type Mutation {
@@ -96,6 +100,9 @@ type Mutation {
   # Permissions
   grant(groupId: ID!, input: PermissionInput!):  Permission!
   revoke(permissionId: ID!):                     Boolean!
+
+  # Snapshot import
+  importSnapshot(yaml: String!, mode: ImportMode!): ImportResult!
 }
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -345,4 +352,37 @@ input AggregateInput {
   field: String   # champ à agréger (absent = COUNT(*))
   fn:    String!  # sum | count | avg | min | max
   as:    String   # alias colonne résultat (optionnel, défaut auto : fn_field)
+}
+
+# ────────────────────────────────────────────────────────────────────────────
+# Snapshot export / import
+# ────────────────────────────────────────────────────────────────────────────
+
+enum ImportMode {
+  merge    # crée le manquant, ignore l'existant (idempotent)
+  replace  # supprime tout puis recrée (destructif)
+}
+
+type ImportResult {
+  ok:      Boolean!
+  created: Int!
+  skipped: Int!
+  errors:  [String!]!
+}
+
+type FieldDiff {
+  space:   String!
+  field:   String!
+  oldType: String
+  newType: String
+}
+
+type SnapshotDiff {
+  spacesToCreate:       [String!]!
+  spacesToDelete:       [String!]!
+  fieldsToCreate:       [FieldDiff!]!
+  fieldsToDelete:       [FieldDiff!]!
+  fieldsToChange:       [FieldDiff!]!
+  customViewsToCreate:  [String!]!
+  customViewsToUpdate:  [String!]!
 }

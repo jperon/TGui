@@ -479,3 +479,44 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
 
 .hidden { display: none !important; }
 
+
+/* ── Snapshot export / import ──────────────────────────────────────────────── */
+.snapshot-export-box, .snapshot-import-box {
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: 8px; padding: 1.25rem; display: flex; flex-direction: column; gap: .75rem;
+}
+.snapshot-export-box h3, .snapshot-import-box h3 {
+  margin: 0; font-size: 1rem; font-weight: 600;
+}
+.snapshot-export-btns { display: flex; gap: .75rem; flex-wrap: wrap; }
+.snapshot-import-file-row {
+  display: flex; align-items: center; gap: .75rem; flex-wrap: wrap;
+}
+.snapshot-file-name { font-size: .85rem; color: #888; font-style: italic; }
+
+/* Diff box */
+.snapshot-diff-box {
+  border: 1px solid var(--color-border); border-radius: 6px;
+  padding: 1rem; background: var(--color-bg); display: flex; flex-direction: column; gap: .5rem;
+}
+.snapshot-diff-box h4 { margin: 0 0 .5rem 0; font-size: .95rem; }
+.snapshot-diff-box h5 { margin: .5rem 0 .25rem 0; font-size: .85rem; font-weight: 600; }
+.diff-list { margin: 0 0 .25rem 0; padding-left: 1.25rem; font-size: .85rem; }
+.diff-list li { margin: .1rem 0; }
+.diff-create { color: #4caf50; }
+.diff-delete { color: #f44336; }
+.diff-change { color: #ff9800; }
+.snapshot-diff-noop { color: #4caf50; font-size: .9rem; margin: 0; }
+
+/* Import mode radios */
+.snapshot-import-mode { display: flex; flex-direction: column; gap: .4rem; font-size: .875rem; }
+.snapshot-import-mode label { display: flex; align-items: flex-start; gap: .4rem; cursor: pointer; }
+.snapshot-import-mode input[type=radio] { margin-top: .15rem; flex-shrink: 0; }
+
+/* Import result */
+.snapshot-import-result {
+  padding: .75rem 1rem; border-radius: 6px; font-size: .875rem;
+}
+.snapshot-result-ok  { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+.snapshot-result-err { background: #fff3e0; color: #e65100; border: 1px solid #ffcc80; }
+.snapshot-import-result code { display: block; margin-top: .25rem; font-size: .8rem; }

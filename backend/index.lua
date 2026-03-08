@@ -185,6 +185,10 @@ make_sidebar = function()
         H.li({
           id = 'admin-nav-groups',
           'Groupes'
+        }),
+        H.li({
+          id = 'admin-nav-snapshot',
+          'Export / Import'
         })
       })
     }),
@@ -488,6 +492,127 @@ make_content = function()
         H.ul({
           id = 'admin-groups-list',
           ''
+        })
+      }),
+      H.div({
+        id = 'admin-snapshot-section',
+        class = 'hidden',
+        H.div({
+          class = 'admin-section-header',
+          H.h2({
+            'Export / Import'
+          })
+        }),
+        H.div({
+          class = 'snapshot-export-box',
+          H.h3({
+            'Exporter'
+          }),
+          H.p({
+            'Téléchargez la définition complète de l\'application sous forme de fichier YAML.'
+          }),
+          H.div({
+            class = 'snapshot-export-btns',
+            H.button({
+              id = 'snapshot-export-schema-btn',
+              class = 'toolbar-btn',
+              '⬇ Structure seule'
+            }),
+            H.button({
+              id = 'snapshot-export-full-btn',
+              class = 'toolbar-btn',
+              '⬇ Structure + données'
+            })
+          })
+        }),
+        H.div({
+          class = 'snapshot-import-box',
+          H.h3({
+            'Importer'
+          }),
+          H.p({
+            'Importez un fichier .tdb.yaml exporté depuis tdb.'
+          }),
+          H.div({
+            class = 'snapshot-import-file-row',
+            H.label({
+              ["for"] = 'snapshot-file-input',
+              class = 'toolbar-btn',
+              '📂 Choisir un fichier'
+            }),
+            H.input({
+              id = 'snapshot-file-input',
+              type = 'file',
+              accept = '.yaml,.yml,.tdb.yaml',
+              class = 'hidden'
+            }),
+            H.span({
+              id = 'snapshot-file-name',
+              class = 'snapshot-file-name',
+              ''
+            })
+          }),
+          H.div({
+            id = 'snapshot-diff-box',
+            class = 'hidden snapshot-diff-box',
+            H.h4({
+              'Modifications détectées'
+            }),
+            H.div({
+              id = 'snapshot-diff-content',
+              ''
+            }),
+            H.div({
+              class = 'snapshot-import-mode',
+              H.label({
+                H.input({
+                  id = 'snapshot-mode-merge',
+                  type = 'radio',
+                  name = 'snapshot-mode',
+                  value = 'merge',
+                  checked = true
+                }),
+                H.span({
+                  ' Fusion (recommandé) — crée ce qui manque, ignore l\'existant'
+                })
+              }),
+              H.label({
+                H.input({
+                  id = 'snapshot-mode-replace',
+                  type = 'radio',
+                  name = 'snapshot-mode',
+                  value = 'replace'
+                }),
+                H.span({
+                  ' Remplacement — '
+                }),
+                H.strong({
+                  'efface toutes les données existantes'
+                }),
+                H.span({
+                  ' puis recrée'
+                })
+              })
+            }),
+            H.p({
+              id = 'snapshot-import-error',
+              class = 'error hidden',
+              ''
+            }),
+            H.div({
+              class = 'modal-actions',
+              H.button({
+                id = 'snapshot-import-confirm-btn',
+                class = 'toolbar-btn',
+                '⬆ Importer'
+              })
+            })
+          }),
+          H.div({
+            id = 'snapshot-import-result',
+            class = 'hidden snapshot-import-result',
+            ''
+          })
         })
       })
     }),

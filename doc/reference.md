@@ -20,7 +20,8 @@ tout ce qui est faisable dans l'UI l'est aussi directement via des requêtes Gra
 7. [Authentification](#7-authentification)
 8. [Utilisateurs et groupes](#8-utilisateurs-et-groupes)
 9. [Droits (permissions)](#9-droits-permissions)
-10. [API GraphQL complète](#10-api-graphql-complète)
+10. [Export et import de snapshots](#10-export-et-import-de-snapshots)
+11. [API GraphQL complète](#11-api-graphql-complète)
 
 ---
 
@@ -652,7 +653,105 @@ mutation { revoke(permissionId: "...") }
 
 ---
 
-## 10. API GraphQL complète
+## 10. Export et import de snapshots
+
+La section **Export / Import** du panneau Administration permet de sauvegarder l'intégralité
+d'une application tdb (schéma, vues personnalisées, groupes, permissions, et optionnellement
+les données) dans un fichier `.tdb.yaml`, puis de le restaurer sur une autre instance.
+
+### Export
+
+Deux modes d'export sont disponibles :
+
+- **Structure seule** (`exportSnapshot(includeData: false)`) : exporte le schéma complet
+  (espaces, champs, relations, vues personnalisées, groupes, permissions) sans les données.
+  Utile pour partager un modèle d'application.
+- **Structure + données** (`exportSnapshot(includeData: true)`) : exporte également toutes
+  les lignes de chaque espace. Utile pour une sauvegarde complète ou une migration.
+
+Le fichier produit est du YAML lisible :
+
+```yaml
+version: "1"
+exported_at: "2026-03-08T12:00:00"
+schema:
+  spaces:
+    - name: personnes
+      fields:
+        - name: nom
+          fieldType: String
+          notNull: false
+        - name: nom_complet
+          fieldType: String
+          formula: "=> \"#{@prenom} #{@nom}\""
+          language: moonscript
+      views:
+        - name: Grille
+          viewType: Grid
+  relations:
+    - fromSpace: chorale
+      fromField: choriste
+      toSpace: personnes
+      toField: id
+  custom_views:
+    - name: Chorale
+      yaml: |
+        layout: …
+  groups:
+    - name: admin
+      members: [admin]
+      permissions:
+        - resourceType: space
+          level: admin
+data:                    # absent si export structure seulement
+  personnes:
+    - {nom: Dupont, prenom: Jean}
+```
+
+Les identifiants internes sont exclus ; la correspondance lors de l'import se fait par **nom**.
+
+### Import
+
+1. Cliquer sur **Choisir un fichier** et sélectionner un fichier `.tdb.yaml`.
+2. tdb calcule automatiquement un **diff** entre le schéma du fichier et le schéma courant,
+   et l'affiche avec un code couleur :
+   - vert **Créer** : l'élément sera ajouté.
+   - rouge **Supprimer** : l'élément sera retiré (mode Remplacement uniquement).
+   - orange **Modifier** : le type d'un champ a changé.
+3. Choisir le **mode** d'import et confirmer.
+
+### Modes d'import
+
+| Mode | Comportement |
+|------|-------------|
+| **Fusion** (`merge`) | Crée les espaces, champs, relations, vues et groupes manquants. Les éléments déjà présents (même nom) sont laissés intacts. |
+| **Remplacement** (`replace`) | Supprime d'abord tous les espaces et groupes existants, puis recrée tout depuis le snapshot. Attention : toutes les données existantes sont perdues. |
+
+Le résultat de l'opération indique le nombre d'éléments créés, ignorés et les erreurs
+éventuelles.
+
+### API GraphQL correspondante
+
+```graphql
+# Export
+query {
+  exportSnapshot(includeData: Boolean!): String!
+}
+
+# Prévisualisation du diff
+query {
+  diffSnapshot(yaml: String!): SnapshotDiff!
+}
+
+# Import
+mutation {
+  importSnapshot(yaml: String!, mode: merge|replace): ImportResult!
+}
+```
+
+---
+
+## 11. API GraphQL complète
 
 ### Queries
 
@@ -672,6 +771,9 @@ mutation { revoke(permissionId: "...") }
 | `user(id)` | Détail d'un utilisateur (admin) |
 | `groups` | Tous les groupes (admin) |
 | `group(id)` | Détail d'un groupe (admin) |
+| `exportSnapshot(includeData)` | Export YAML de l'application (admin) |
+| `diffSnapshot(yaml)` | Prévisualisation du diff avant import (admin) |
+| `aggregateSpace(spaceName, groupBy, aggregate)` | Requête d'agrégation sur un espace |
 
 ### Mutations
 
@@ -690,6 +792,7 @@ mutation { revoke(permissionId: "...") }
 | `createGroup` / `deleteGroup` | CRUD groupes (admin) |
 | `addMember` / `removeMember` | Gestion des membres (admin) |
 | `grant` / `revoke` | Gestion des permissions (admin) |
+| `importSnapshot(yaml, mode)` | Import d'un snapshot YAML (admin) |
 
 ---
 

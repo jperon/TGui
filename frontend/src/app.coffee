@@ -57,6 +57,7 @@ window.App =
     adminSidebarSection: -> document.getElementById 'admin-sidebar-section'
     adminNavUsers:     -> document.getElementById 'admin-nav-users'
     adminNavGroups:    -> document.getElementById 'admin-nav-groups'
+    adminNavSnapshot:  -> document.getElementById 'admin-nav-snapshot'
     dataToolbar:       -> document.getElementById 'data-toolbar'
     dataTitle:         -> document.getElementById 'data-title'
     renameSpaceBtn:    -> document.getElementById 'rename-space-btn'
@@ -99,10 +100,21 @@ window.App =
     adminPanel:        -> document.getElementById 'admin-panel'
     adminUsersSection: -> document.getElementById 'admin-users-section'
     adminGroupsSection: -> document.getElementById 'admin-groups-section'
+    adminSnapshotSection: -> document.getElementById 'admin-snapshot-section'
     adminUsersList:    -> document.getElementById 'admin-users-list'
     adminGroupsList:   -> document.getElementById 'admin-groups-list'
     adminCreateUserBtn: -> document.getElementById 'admin-create-user-btn'
     adminCreateGroupBtn: -> document.getElementById 'admin-create-group-btn'
+    adminNavSnapshot:  -> document.getElementById 'admin-nav-snapshot'
+    snapshotExportSchemaBtn: -> document.getElementById 'snapshot-export-schema-btn'
+    snapshotExportFullBtn:   -> document.getElementById 'snapshot-export-full-btn'
+    snapshotFileInput:       -> document.getElementById 'snapshot-file-input'
+    snapshotFileName:        -> document.getElementById 'snapshot-file-name'
+    snapshotDiffBox:         -> document.getElementById 'snapshot-diff-box'
+    snapshotDiffContent:     -> document.getElementById 'snapshot-diff-content'
+    snapshotImportError:     -> document.getElementById 'snapshot-import-error'
+    snapshotImportConfirmBtn: -> document.getElementById 'snapshot-import-confirm-btn'
+    snapshotImportResult:    -> document.getElementById 'snapshot-import-result'
     defaultPasswordWarning: -> document.getElementById 'default-password-warning'
     warningChangePasswordBtn: -> document.getElementById 'warning-change-password-btn'
     # Dialog: changement de mot de passe
@@ -213,6 +225,8 @@ window.App =
       @_showAdminPanel 'users'
     @el.adminNavGroups().addEventListener 'click', =>
       @_showAdminPanel 'groups'
+    @el.adminNavSnapshot().addEventListener 'click', =>
+      @_showAdminPanel 'snapshot'
 
     # Bandeau d'avertissement
     @el.warningChangePasswordBtn().addEventListener 'click', =>
@@ -221,6 +235,7 @@ window.App =
     @_bindChangePasswordDialog()
     @_bindCreateUserDialog()
     @_bindCreateGroupDialog()
+    @_bindSnapshotPanel()
 
   # ── Load everything ─────────────────────────────────────────────────────────
   _loadAll: ->
@@ -233,14 +248,17 @@ window.App =
     @el.welcome().classList.add 'hidden'
     @el.yamlEditorPanel().classList.add 'hidden'
     @el.adminPanel().classList.remove 'hidden'
+    @el.adminUsersSection().classList.add 'hidden'
+    @el.adminGroupsSection().classList.add 'hidden'
+    @el.adminSnapshotSection().classList.add 'hidden'
     if section == 'users'
       @el.adminUsersSection().classList.remove 'hidden'
-      @el.adminGroupsSection().classList.add 'hidden'
       @_loadAdminUsers()
-    else
-      @el.adminUsersSection().classList.add 'hidden'
+    else if section == 'groups'
       @el.adminGroupsSection().classList.remove 'hidden'
       @_loadAdminGroups()
+    else
+      @el.adminSnapshotSection().classList.remove 'hidden'
 
   _hideAdminPanel: ->
     @el.adminPanel().classList.add 'hidden'
@@ -377,6 +395,135 @@ window.App =
           @_loadAdminGroups()
         .catch (err) =>
           @el.cgError().textContent = "Erreur : #{err.message}"
+
+  # ── Snapshot export / import ─────────────────────────────────────────────────
+  _bindSnapshotPanel: ->
+    @_snapshotYaml = null
+
+    # ── Export ──────────────────────────────────────────────────────────────────
+    _doExport = (includeData) =>
+      GQL.query("""
+        query($d: Boolean!) { exportSnapshot(includeData: $d) }
+      """, { d: includeData }).then (data) ->
+        yaml   = data.exportSnapshot
+        fname  = if includeData then 'backup.tdb.yaml' else 'schema.tdb.yaml'
+        blob   = new Blob [yaml], { type: 'text/yaml' }
+        url    = URL.createObjectURL blob
+        a      = document.createElement 'a'
+        a.href = url
+        a.download = fname
+        a.click()
+        URL.revokeObjectURL url
+      .catch (err) -> alert "Erreur export : #{err.message}"
+
+    @el.snapshotExportSchemaBtn().addEventListener 'click', => _doExport false
+    @el.snapshotExportFullBtn().addEventListener   'click', => _doExport true
+
+    # ── Import — file selection → diff ──────────────────────────────────────────
+    @el.snapshotFileInput().addEventListener 'change', (e) =>
+      file = e.target.files[0]
+      return unless file
+      @el.snapshotFileName().textContent = file.name
+      @el.snapshotDiffBox().classList.add 'hidden'
+      @el.snapshotImportResult().classList.add 'hidden'
+      @el.snapshotImportError().classList.add 'hidden'
+      reader = new FileReader()
+      reader.onload = (ev) =>
+        @_snapshotYaml = ev.target.result
+        GQL.query("""
+          query($y: String!) { diffSnapshot(yaml: $y) {
+            spacesToCreate spacesToDelete
+            fieldsToCreate { space field oldType newType }
+            fieldsToDelete { space field oldType newType }
+            fieldsToChange { space field oldType newType }
+            customViewsToCreate customViewsToUpdate
+          } }
+        """, { y: @_snapshotYaml })
+        .then (data) =>
+          diff = data.diffSnapshot
+          @_renderSnapshotDiff diff
+          @el.snapshotDiffBox().classList.remove 'hidden'
+        .catch (err) =>
+          @el.snapshotImportError().textContent = "Erreur analyse : #{err.message}"
+          @el.snapshotImportError().classList.remove 'hidden'
+      reader.readAsText file
+
+    # ── Import — confirm ─────────────────────────────────────────────────────────
+    @el.snapshotImportConfirmBtn().addEventListener 'click', =>
+      return unless @_snapshotYaml
+      mode = document.querySelector('input[name="snapshot-mode"]:checked')?.value or 'merge'
+      if mode == 'replace'
+        unless confirm "⚠ Mode Remplacement : toutes les données existantes seront effacées. Continuer ?"
+          return
+      @el.snapshotImportConfirmBtn().disabled = true
+      GQL.mutate("""
+        mutation($y: String!, $m: ImportMode!) {
+          importSnapshot(yaml: $y, mode: $m) { ok created skipped errors }
+        }
+      """, { y: @_snapshotYaml, m: mode })
+      .then (data) =>
+        r = data.importSnapshot
+        @el.snapshotImportConfirmBtn().disabled = false
+        @el.snapshotDiffBox().classList.add 'hidden'
+        res = @el.snapshotImportResult()
+        res.classList.remove 'hidden'
+        if r.ok
+          res.className = 'snapshot-import-result snapshot-result-ok'
+          res.innerHTML = "✓ Import réussi — #{r.created} créé(s), #{r.skipped} ignoré(s)."
+        else
+          res.className = 'snapshot-import-result snapshot-result-err'
+          res.innerHTML = "⚠ Import terminé avec erreurs — #{r.created} créé(s), #{r.skipped} ignoré(s).<br>" +
+            r.errors.map((e) -> "<code>#{e}</code>").join('<br>')
+        # Reload spaces/views to reflect changes
+        @_loadAll() if r.ok or r.created > 0
+      .catch (err) =>
+        @el.snapshotImportConfirmBtn().disabled = false
+        @el.snapshotImportError().textContent = "Erreur import : #{err.message}"
+        @el.snapshotImportError().classList.remove 'hidden'
+
+  _renderSnapshotDiff: (diff) ->
+    c = @el.snapshotDiffContent()
+    c.innerHTML = ''
+    _section = (title, items, cls) ->
+      return unless items and items.length > 0
+      h = document.createElement 'h5'
+      h.textContent = title
+      c.appendChild h
+      ul = document.createElement 'ul'
+      ul.className = cls
+      for item in items
+        li = document.createElement 'li'
+        if typeof item == 'string'
+          li.textContent = item
+        else
+          # FieldDiff
+          if item.oldType and item.newType
+            li.innerHTML = "<code>#{item.space}.#{item.field}</code> : <em>#{item.oldType}</em> → <strong>#{item.newType}</strong>"
+          else if item.newType
+            li.innerHTML = "<code>#{item.space}.#{item.field}</code> (#{item.newType}) — à créer"
+          else
+            li.innerHTML = "<code>#{item.space}.#{item.field}</code> (#{item.oldType}) — sera supprimé"
+        ul.appendChild li
+      c.appendChild ul
+
+    noop = diff.spacesToCreate.length == 0 and diff.spacesToDelete.length == 0 and
+           diff.fieldsToCreate.length == 0 and diff.fieldsToDelete.length == 0 and
+           diff.fieldsToChange.length == 0 and diff.customViewsToCreate.length == 0 and
+           diff.customViewsToUpdate.length == 0
+
+    if noop
+      p = document.createElement 'p'
+      p.className = 'snapshot-diff-noop'
+      p.textContent = '✓ Le schéma importé correspond exactement au schéma actuel.'
+      c.appendChild p
+    else
+      _section '⚠ Espaces à supprimer (données perdues)', diff.spacesToDelete, 'diff-list diff-delete'
+      _section '+ Espaces à créer', diff.spacesToCreate, 'diff-list diff-create'
+      _section '⚠ Champs à supprimer', diff.fieldsToDelete, 'diff-list diff-delete'
+      _section '~ Champs à modifier (type)', diff.fieldsToChange, 'diff-list diff-change'
+      _section '+ Champs à créer', diff.fieldsToCreate, 'diff-list diff-create'
+      _section '+ Vues personnalisées à créer', diff.customViewsToCreate, 'diff-list diff-create'
+      _section '~ Vues personnalisées à mettre à jour', diff.customViewsToUpdate, 'diff-list diff-change'
 
   # ── Hash-based navigation ────────────────────────────────────────────────────
   _restoreFromHash: ->

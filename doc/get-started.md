@@ -292,6 +292,25 @@ La section **Administration** n'est visible que pour les membres du groupe `admi
 
 > Les droits (`grant` / `revoke`) sont actuellement gérables via l'API GraphQL.
 
+### Export et import de snapshots
+
+La section **Export / Import** permet de sauvegarder et restaurer une application tdb.
+
+**Exporter** :
+
+- **Structure seule** : télécharge un fichier `.tdb.yaml` contenant le schéma complet
+  (espaces, champs, relations, vues, groupes, permissions) sans les données.
+- **Structure + données** : inclut également toutes les lignes de chaque espace.
+
+**Importer** :
+
+1. Cliquer sur **Choisir un fichier** et sélectionner un fichier `.tdb.yaml`.
+2. Un **diff** s'affiche (vert = créer, rouge = supprimer, orange = modifier).
+3. Choisir le mode :
+   - **Fusion** : crée les éléments manquants, laisse l'existant intact.
+   - **Remplacement** : supprime tout puis recrée depuis le snapshot (attention : données perdues).
+4. Cliquer sur **Confirmer l'import**.
+
 ---
 
 ## Profil utilisateur
