@@ -24,16 +24,17 @@ sequence_fields = (space_id) ->
   result
 
 -- Test one record against a filter (recursively handles and/or).
--- parsed is the decoded JSON data of the record.
-matches_filter = (parsed, flt) ->
+-- self_val: the record as a make_self_proxy (for formula) or plain dict (for field filters)
+matches_filter = (self_val, flt) ->
   return true unless flt
   ok = if flt.formula and flt.formula != ''
     if type(flt._formula_fn) == 'function'
-      r_ok, r_val = pcall flt._formula_fn, parsed
+      r_ok, r_val = pcall flt._formula_fn, self_val
       r_ok and r_val and r_val != false
     else false  -- formula failed to compile or not yet cached
   else if flt.field
-    v = tostring (parsed[flt.field] or '')
+    -- For field comparisons use the raw value (proxy passes through scalars)
+    v = tostring (self_val[flt.field] or '')
     switch flt.op
       when 'EQ'          then v == flt.value
       when 'NEQ'         then v != flt.value
@@ -48,28 +49,34 @@ matches_filter = (parsed, flt) ->
   if ok and flt.and
     for sub in *flt.and
       break unless ok
-      ok = matches_filter parsed, sub
+      ok = matches_filter self_val, sub
   if flt.or
     any = false
     for sub in *flt.or
-      if matches_filter parsed, sub
+      if matches_filter self_val, sub
         any = true
         break
     ok = ok and any
   ok
 
-apply_filter = (tuples, filter) ->
+-- fk_def_map is optional; when present, formula filters receive an FK-aware proxy.
+apply_filter = (tuples, filter, fk_def_map) ->
   return tuples unless filter and (filter.field or filter.formula or filter.and or filter.or)
   -- Pre-compile formula once to avoid re-compiling per record
   if filter.formula and filter.formula != '' and filter._formula_fn == nil
     triggers = require 'core.triggers'
-    lang = filter.language or 'lua'
+    lang = filter.language or 'moonscript'
     ok_c, fn = pcall triggers.compile_formula, filter.formula, 'filter', lang
     filter._formula_fn = if ok_c and type(fn) == 'function' then fn else false
+  triggers_mod = require 'core.triggers'
   filtered = {}
   for rec in *tuples
     parsed = if type(rec.data) == 'string' then json.decode(rec.data) else rec.data
-    if matches_filter parsed, filter
+    self_val = if fk_def_map
+      parsed._id = tostring rec.id
+      triggers_mod.make_self_proxy parsed, fk_def_map
+    else parsed
+    if matches_filter self_val, filter
       table.insert filtered, rec
   filtered
 
@@ -113,25 +120,23 @@ Query =
     sp = data_space args.spaceId
     limit  = args.limit  or 100
     offset = args.offset or 0
+    triggers_mod = require 'core.triggers'
+    -- Build FK map once for this space (used by both reprFormula and filter formulas)
+    ok_fk, fk_def_map = pcall triggers_mod.build_fk_def_map, args.spaceId
+    fk_def_map = if ok_fk then fk_def_map else {}
     -- Pre-compile reprFormula if provided
-    repr_fn   = nil
-    fk_def_map = nil
+    repr_fn = nil
     if args.reprFormula and args.reprFormula != ''
-      triggers = require 'core.triggers'
       lang = args.reprLanguage or 'moonscript'
-      ok_c, fn = pcall triggers.compile_formula, args.reprFormula, 'repr', lang
-      if ok_c and type(fn) == 'function'
-        repr_fn    = fn
-        -- Build FK map for this space so formulas can traverse FK chains (@field.subfield)
-        ok_fk, fm = pcall triggers.build_fk_def_map, args.spaceId
-        fk_def_map = if ok_fk then fm else {}
+      ok_c, fn = pcall triggers_mod.compile_formula, args.reprFormula, 'repr', lang
+      repr_fn = if ok_c and type(fn) == 'function' then fn else nil
     -- Collect all records, injecting _repr when formula is available
     all = {}
     for t in *sp\select {}
       if repr_fn
         parsed = json.decode t[2]
         parsed._id = tostring t[1]
-        self_proxy = (require 'core.triggers').make_self_proxy parsed, fk_def_map
+        self_proxy = triggers_mod.make_self_proxy parsed, fk_def_map
         ok_r, val = pcall repr_fn, self_proxy, nil
         if ok_r and val != nil
           parsed._repr = tostring val
@@ -139,8 +144,8 @@ Query =
         table.insert all, { id: t[1], spaceId: args.spaceId, data: json.encode(parsed) }
       else
         table.insert all, { id: t[1], spaceId: args.spaceId, data: t[2] }
-    -- Filter
-    filtered = apply_filter all, args.filter
+    -- Filter (fk_def_map enables FK traversal in formula filters)
+    filtered = apply_filter all, args.filter, fk_def_map
     -- Paginate
     total = #filtered
     items = {}

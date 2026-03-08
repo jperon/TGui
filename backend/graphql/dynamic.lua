@@ -24,56 +24,22 @@ gql_scalar = function(ft)
     return 'String'
   end
 end
-local make_self_proxy
-make_self_proxy = function(record, fk_def_map)
-  local proxy = { }
-  setmetatable(proxy, {
-    __index = function(t, k)
-      local cached = rawget(t, k)
-      if cached ~= nil then
-        return cached
-      end
-      local v = record[k]
-      if v == nil then
-        return nil
-      end
-      local fk = fk_def_map[k]
-      if fk then
-        local tb = box.space["data_" .. tostring(fk.toSpaceName)]
-        if tb then
-          local _list_0 = tb:select({ })
-          for _index_0 = 1, #_list_0 do
-            local tup = _list_0[_index_0]
-            local d = decode_tuple(tup)
-            if tostring(d[fk.toFieldName]) == tostring(v) then
-              rawset(t, k, d)
-              return d
-            end
-          end
-        end
-        return nil
-      end
-      return v
-    end
-  })
-  return proxy
-end
 local matches_filter
-matches_filter = function(r, flt)
+matches_filter = function(self_val, flt)
   if not (flt) then
     return true
   end
   local ok
   if flt.formula and flt.formula ~= '' then
     if type(flt._formula_fn) == 'function' then
-      local r_ok, r_val = pcall(flt._formula_fn, r)
+      local r_ok, r_val = pcall(flt._formula_fn, self_val)
       ok = r_ok and r_val and r_val ~= false
     else
       ok = false
     end
   else
     if flt.field then
-      local v = tostring((r[flt.field] or ''))
+      local v = tostring((self_val[flt.field] or ''))
       local _exp_0 = flt.op
       if 'EQ' == _exp_0 then
         ok = v == flt.value
@@ -105,14 +71,14 @@ matches_filter = function(r, flt)
       if not (ok) then
         break
       end
-      ok = matches_filter(r, sub)
+      ok = matches_filter(self_val, sub)
     end
   end
   if not ok and flt["or"] then
     local _list_0 = flt["or"]
     for _index_0 = 1, #_list_0 do
       local sub = _list_0[_index_0]
-      if matches_filter(r, sub) then
+      if matches_filter(self_val, sub) then
         ok = true
         break
       end
@@ -121,12 +87,12 @@ matches_filter = function(r, flt)
   return ok
 end
 local apply_filter
-apply_filter = function(all, flt)
+apply_filter = function(all, flt, fk_def_map)
   if not (flt and (flt.field or flt.formula or flt["and"] or flt["or"])) then
     return all
   end
   if flt.formula and flt.formula ~= '' and flt._formula_fn == nil then
-    local lang = flt.language or 'lua'
+    local lang = flt.language or 'moonscript'
     local ok_c, fn = pcall(triggers.compile_formula, flt.formula, 'filter', lang)
     if ok_c and type(fn) == 'function' then
       flt._formula_fn = fn
@@ -138,7 +104,13 @@ apply_filter = function(all, flt)
   local _len_0 = 1
   for _index_0 = 1, #all do
     local r = all[_index_0]
-    if matches_filter(r, flt) then
+    if matches_filter(((function()
+      if fk_def_map then
+        return triggers.make_self_proxy(r, fk_def_map)
+      else
+        return r
+      end
+    end)()), flt) then
       _accum_0[_len_0] = r
       _len_0 = _len_0 + 1
     end
@@ -259,7 +231,13 @@ generate = function()
           end
           all = _accum_0
         end
-        all = apply_filter(all, args.filter)
+        local ok_fk, fk_def_map = pcall(triggers.build_fk_def_map, sp_cap.id)
+        if ok_fk then
+          fk_def_map = fk_def_map
+        else
+          fk_def_map = { }
+        end
+        all = apply_filter(all, args.filter, fk_def_map)
         local total = #all
         local items
         do
@@ -359,7 +337,7 @@ generate = function()
       local f = _list_3[_index_1]
       local rel = fk_sp[f.id]
       if rel and space_by_id[rel.toSpaceId] then
-        fk_name_map[gql_name(f.name)] = {
+        fk_name_map[f.name] = {
           toSpaceName = space_by_id[rel.toSpaceId].name,
           toFieldName = (field_by_id[rel.toFieldId] and field_by_id[rel.toFieldId].name) or 'id'
         }
@@ -369,11 +347,11 @@ generate = function()
     for _index_1 = 1, #_list_4 do
       local f = _list_4[_index_1]
       if f.formula and f.formula ~= '' then
-        local formula_fn = triggers.compile_formula(f.formula, f.name, (f.language or 'lua'))
+        local formula_fn = triggers.compile_formula(f.formula, f.name, (f.language or 'moonscript'))
         if formula_fn then
           tr[gql_name(f.name)] = (function(fn_cap, fk_nm_cap)
             return function(obj, a, ctx)
-              local proxy = make_self_proxy(obj, fk_nm_cap)
+              local proxy = triggers.make_self_proxy(obj, fk_nm_cap)
               local space_helper
               space_helper = function(sname)
                 local sp_box = box.space["data_" .. tostring(sname)]

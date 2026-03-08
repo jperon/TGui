@@ -31,21 +31,21 @@ sequence_fields = function(space_id)
   return result
 end
 local matches_filter
-matches_filter = function(parsed, flt)
+matches_filter = function(self_val, flt)
   if not (flt) then
     return true
   end
   local ok
   if flt.formula and flt.formula ~= '' then
     if type(flt._formula_fn) == 'function' then
-      local r_ok, r_val = pcall(flt._formula_fn, parsed)
+      local r_ok, r_val = pcall(flt._formula_fn, self_val)
       ok = r_ok and r_val and r_val ~= false
     else
       ok = false
     end
   else
     if flt.field then
-      local v = tostring((parsed[flt.field] or ''))
+      local v = tostring((self_val[flt.field] or ''))
       local _exp_0 = flt.op
       if 'EQ' == _exp_0 then
         ok = v == flt.value
@@ -77,7 +77,7 @@ matches_filter = function(parsed, flt)
       if not (ok) then
         break
       end
-      ok = matches_filter(parsed, sub)
+      ok = matches_filter(self_val, sub)
     end
   end
   if flt["or"] then
@@ -85,7 +85,7 @@ matches_filter = function(parsed, flt)
     local _list_0 = flt["or"]
     for _index_0 = 1, #_list_0 do
       local sub = _list_0[_index_0]
-      if matches_filter(parsed, sub) then
+      if matches_filter(self_val, sub) then
         any = true
         break
       end
@@ -95,13 +95,13 @@ matches_filter = function(parsed, flt)
   return ok
 end
 local apply_filter
-apply_filter = function(tuples, filter)
+apply_filter = function(tuples, filter, fk_def_map)
   if not (filter and (filter.field or filter.formula or filter["and"] or filter["or"])) then
     return tuples
   end
   if filter.formula and filter.formula ~= '' and filter._formula_fn == nil then
     local triggers = require('core.triggers')
-    local lang = filter.language or 'lua'
+    local lang = filter.language or 'moonscript'
     local ok_c, fn = pcall(triggers.compile_formula, filter.formula, 'filter', lang)
     if ok_c and type(fn) == 'function' then
       filter._formula_fn = fn
@@ -109,6 +109,7 @@ apply_filter = function(tuples, filter)
       filter._formula_fn = false
     end
   end
+  local triggers_mod = require('core.triggers')
   local filtered = { }
   for _index_0 = 1, #tuples do
     local rec = tuples[_index_0]
@@ -118,7 +119,14 @@ apply_filter = function(tuples, filter)
     else
       parsed = rec.data
     end
-    if matches_filter(parsed, filter) then
+    local self_val
+    if fk_def_map then
+      parsed._id = tostring(rec.id)
+      self_val = triggers_mod.make_self_proxy(parsed, fk_def_map)
+    else
+      self_val = parsed
+    end
+    if matches_filter(self_val, filter) then
       table.insert(filtered, rec)
     end
   end
@@ -197,20 +205,21 @@ local Query = {
     local sp = data_space(args.spaceId)
     local limit = args.limit or 100
     local offset = args.offset or 0
+    local triggers_mod = require('core.triggers')
+    local ok_fk, fk_def_map = pcall(triggers_mod.build_fk_def_map, args.spaceId)
+    if ok_fk then
+      fk_def_map = fk_def_map
+    else
+      fk_def_map = { }
+    end
     local repr_fn = nil
-    local fk_def_map = nil
     if args.reprFormula and args.reprFormula ~= '' then
-      local triggers = require('core.triggers')
       local lang = args.reprLanguage or 'moonscript'
-      local ok_c, fn = pcall(triggers.compile_formula, args.reprFormula, 'repr', lang)
+      local ok_c, fn = pcall(triggers_mod.compile_formula, args.reprFormula, 'repr', lang)
       if ok_c and type(fn) == 'function' then
         repr_fn = fn
-        local ok_fk, fm = pcall(triggers.build_fk_def_map, args.spaceId)
-        if ok_fk then
-          fk_def_map = fm
-        else
-          fk_def_map = { }
-        end
+      else
+        repr_fn = nil
       end
     end
     local all = { }
@@ -220,7 +229,7 @@ local Query = {
       if repr_fn then
         local parsed = json.decode(t[2])
         parsed._id = tostring(t[1])
-        local self_proxy = (require('core.triggers')).make_self_proxy(parsed, fk_def_map)
+        local self_proxy = triggers_mod.make_self_proxy(parsed, fk_def_map)
         local ok_r, val = pcall(repr_fn, self_proxy, nil)
         if ok_r and val ~= nil then
           parsed._repr = tostring(val)
@@ -239,7 +248,7 @@ local Query = {
         })
       end
     end
-    local filtered = apply_filter(all, args.filter)
+    local filtered = apply_filter(all, args.filter, fk_def_map)
     local total = #filtered
     local items = { }
     for i = offset + 1, math.min(offset + limit, total) do

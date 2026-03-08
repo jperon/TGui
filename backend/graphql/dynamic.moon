@@ -22,42 +22,18 @@ gql_scalar = (ft) ->
     when 'Any', 'Map', 'Array' then 'Any'
     else                        'String'
 
--- Build a proxy for `self` in formula evaluation.
--- Scalars resolve directly from the record; FK fields are resolved lazily on first access.
--- fk_def_map: { gql_field_name => { toSpaceName, toFieldName } }
-make_self_proxy = (record, fk_def_map) ->
-  proxy = {}
-  setmetatable proxy,
-    __index: (t, k) ->
-      cached = rawget t, k
-      return cached if cached != nil
-      v = record[k]
-      return nil if v == nil
-      fk = fk_def_map[k]
-      if fk
-        tb = box.space["data_#{fk.toSpaceName}"]
-        if tb
-          for tup in *tb\select {}
-            d = decode_tuple tup
-            if tostring(d[fk.toFieldName]) == tostring(v)
-              rawset t, k, d
-              return d
-        return nil
-      v
-  proxy
-
--- Apply a RecordFilter to a list of decoded record objects
+-- Build a record object from a raw Tarantool tuple
 -- Test one record object against a filter (recursively handles and/or)
-matches_filter = (r, flt) ->
+matches_filter = (self_val, flt) ->
   return true unless flt
   -- Evaluate the primary condition
   ok = if flt.formula and flt.formula != ''
     if type(flt._formula_fn) == 'function'
-      r_ok, r_val = pcall flt._formula_fn, r
+      r_ok, r_val = pcall flt._formula_fn, self_val
       r_ok and r_val and r_val != false
     else false  -- formula failed to compile or not yet cached
   else if flt.field
-    v = tostring (r[flt.field] or '')
+    v = tostring (self_val[flt.field] or '')
     switch flt.op
       when 'EQ'          then v == flt.value
       when 'NEQ'         then v != flt.value
@@ -73,23 +49,24 @@ matches_filter = (r, flt) ->
   if ok and flt.and
     for sub in *flt.and
       break unless ok
-      ok = matches_filter r, sub
+      ok = matches_filter self_val, sub
   -- OR sub-conditions (short-circuit on first match)
   if not ok and flt.or
     for sub in *flt.or
-      if matches_filter r, sub
+      if matches_filter self_val, sub
         ok = true
         break
   ok
 
-apply_filter = (all, flt) ->
+-- fk_def_map is optional; when present, formula filters receive an FK-aware proxy.
+apply_filter = (all, flt, fk_def_map) ->
   return all unless flt and (flt.field or flt.formula or flt.and or flt.or)
   -- Pre-compile formula once
   if flt.formula and flt.formula != '' and flt._formula_fn == nil
-    lang = flt.language or 'lua'
+    lang = flt.language or 'moonscript'
     ok_c, fn = pcall triggers.compile_formula, flt.formula, 'filter', lang
     flt._formula_fn = if ok_c and type(fn) == 'function' then fn else false
-  [r for r in *all when matches_filter r, flt]
+  [r for r in *all when matches_filter (if fk_def_map then triggers.make_self_proxy(r, fk_def_map) else r), flt]
 
 -- Build a record object from a raw Tarantool tuple
 decode_tuple = (t) ->
@@ -171,7 +148,10 @@ generate = ->
         limit  = args.limit  or 100
         offset = args.offset or 0
         all    = [decode_tuple(t) for t in *sp_box\select {}]
-        all    = apply_filter all, args.filter
+        -- Build FK def map for this space so filter formulas can traverse FK chains
+        ok_fk, fk_def_map = pcall triggers.build_fk_def_map, sp_cap.id
+        fk_def_map = if ok_fk then fk_def_map else {}
+        all    = apply_filter all, args.filter, fk_def_map
         total  = #all
         items  = [all[i] for i = offset + 1, math.min(offset + limit, total)]
         { items: items, total: total, offset: offset, limit: limit }
@@ -226,21 +206,22 @@ generate = ->
 
     -- Formula field resolvers (pre-compiled at schema build time)
     -- Build FK name map so self proxy can lazily resolve FK fields
+    -- Keys are raw field names (matching MoonScript @field syntax = self.field)
     fk_name_map = {}
     for f in *(sp.fields or {})
       rel = fk_sp[f.id]
       if rel and space_by_id[rel.toSpaceId]
-        fk_name_map[gql_name f.name] =
+        fk_name_map[f.name] =
           toSpaceName: space_by_id[rel.toSpaceId].name
           toFieldName: (field_by_id[rel.toFieldId] and field_by_id[rel.toFieldId].name) or 'id'
 
     for f in *(sp.fields or {})
       if f.formula and f.formula != ''
-        formula_fn = triggers.compile_formula f.formula, f.name, (f.language or 'lua')
+        formula_fn = triggers.compile_formula f.formula, f.name, (f.language or 'moonscript')
         if formula_fn
           tr[gql_name f.name] = ((fn_cap, fk_nm_cap) ->
             (obj, a, ctx) ->
-              proxy = make_self_proxy obj, fk_nm_cap
+              proxy = triggers.make_self_proxy obj, fk_nm_cap
               space_helper = (sname) ->
                 sp_box = box.space["data_#{sname}"]
                 return {} unless sp_box
