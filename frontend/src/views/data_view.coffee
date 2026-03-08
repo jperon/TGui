@@ -98,6 +98,7 @@ window.DataView = class DataView
 
     wrapper = document.createElement 'div'
     wrapper.style.cssText = 'width:100%;height:100%;'
+    wrapper.tabIndex = -1   # focusable programmatically, invisible in tab order
     @container.appendChild wrapper
 
     fields   = @space.fields or []
@@ -158,12 +159,25 @@ window.DataView = class DataView
 
     # Tab / Shift+Tab: move to next/prev cell (all columns), wrapping at row
     # boundaries. Start editing only if the target cell is editable.
-    # Capture phase to intercept before tui.Grid's own Tab handler.
+    # Listener on document (capture) so it fires even when focus is on wrapper
+    # itself (non-editable cell); guarded by wrapper.contains(activeElement).
     editableCols = columns.filter((c) -> c.editor).map((c) -> c.name)
     allCols      = columns.map (c) -> c.name
     editableSet  = new Set editableCols
-    wrapper.addEventListener 'keydown', (e) =>
+
+    moveTo = (rowKey, colName) =>
+      setTimeout =>
+        @_grid.focus rowKey, colName
+        if editableSet.has colName
+          @_grid.startEditing rowKey, colName
+        else
+          wrapper.focus()   # keep browser focus inside grid for non-editable cells
+      , 0
+
+    @_tabListener = (e) =>
       return unless e.key == 'Tab'
+      return unless @_grid?
+      return unless wrapper.contains document.activeElement
       cell = @_grid.getFocusedCell()
       return unless cell?.columnName
       colIdx = allCols.indexOf cell.columnName
@@ -171,13 +185,6 @@ window.DataView = class DataView
       e.preventDefault()
       e.stopImmediatePropagation()
       rowIdx = @_grid.getIndexOfRow cell.rowKey
-
-      moveTo = (rowKey, colName) =>
-        setTimeout =>
-          @_grid.focus rowKey, colName
-          @_grid.startEditing rowKey, colName if editableSet.has colName
-        , 0
-
       if e.shiftKey
         if colIdx > 0
           moveTo cell.rowKey, allCols[colIdx - 1]
@@ -191,7 +198,7 @@ window.DataView = class DataView
           nextRow = @_grid.getRowAt rowIdx + 1
           if nextRow? and not nextRow.__isNew
             moveTo nextRow.rowKey, allCols[0]
-    , true  # capture: true
+    document.addEventListener 'keydown', @_tabListener, true
 
     # Handle cell edits (single edit and paste)
     @_grid.on 'afterChange', (ev) =>
@@ -364,6 +371,7 @@ window.DataView = class DataView
     @_mounted = false
     clearTimeout @_formulaTimer
     document.removeEventListener 'keydown', @_pasteListener if @_pasteListener
+    document.removeEventListener 'keydown', @_tabListener,  true if @_tabListener
     @_grid?.destroy()
     @_grid = null
     @_currentData = []

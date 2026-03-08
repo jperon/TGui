@@ -118,11 +118,12 @@
     }
 
     async mount() {
-      var allCols, col, columns, editableCols, editableSet, f, fields, fkMap, fkOptions, formulaNames, ref, saved, seqNames, wrapper;
+      var allCols, col, columns, editableCols, editableSet, f, fields, fkMap, fkOptions, formulaNames, moveTo, ref, saved, seqNames, wrapper;
       this._mounted = true;
       this.container.innerHTML = '';
       wrapper = document.createElement('div');
       wrapper.style.cssText = 'width:100%;height:100%;';
+      wrapper.tabIndex = -1; // focusable programmatically, invisible in tab order
       this.container.appendChild(wrapper);
       fields = this.space.fields || [];
       seqNames = new Set((function() {
@@ -226,7 +227,8 @@
       });
       // Tab / Shift+Tab: move to next/prev cell (all columns), wrapping at row
       // boundaries. Start editing only if the target cell is editable.
-      // Capture phase to intercept before tui.Grid's own Tab handler.
+      // Listener on document (capture) so it fires even when focus is on wrapper
+      // itself (non-editable cell); guarded by wrapper.contains(activeElement).
       editableCols = columns.filter(function(c) {
         return c.editor;
       }).map(function(c) {
@@ -236,9 +238,25 @@
         return c.name;
       });
       editableSet = new Set(editableCols);
-      wrapper.addEventListener('keydown', (e) => {
-        var cell, colIdx, moveTo, nextRow, prevRow, rowIdx;
+      moveTo = (rowKey, colName) => {
+        return setTimeout(() => {
+          this._grid.focus(rowKey, colName);
+          if (editableSet.has(colName)) {
+            return this._grid.startEditing(rowKey, colName);
+          } else {
+            return wrapper.focus(); // keep browser focus inside grid for non-editable cells
+          }
+        }, 0);
+      };
+      this._tabListener = (e) => {
+        var cell, colIdx, nextRow, prevRow, rowIdx;
         if (e.key !== 'Tab') {
+          return;
+        }
+        if (this._grid == null) {
+          return;
+        }
+        if (!wrapper.contains(document.activeElement)) {
           return;
         }
         cell = this._grid.getFocusedCell();
@@ -252,14 +270,6 @@
         e.preventDefault();
         e.stopImmediatePropagation();
         rowIdx = this._grid.getIndexOfRow(cell.rowKey);
-        moveTo = (rowKey, colName) => {
-          return setTimeout(() => {
-            this._grid.focus(rowKey, colName);
-            if (editableSet.has(colName)) {
-              return this._grid.startEditing(rowKey, colName);
-            }
-          }, 0);
-        };
         if (e.shiftKey) {
           if (colIdx > 0) {
             return moveTo(cell.rowKey, allCols[colIdx - 1]);
@@ -279,8 +289,8 @@
             }
           }
         }
-      }, true); // capture: true
-      
+      };
+      document.addEventListener('keydown', this._tabListener, true);
       // Handle cell edits (single edit and paste)
       this._grid.on('afterChange', async(ev) => {
         var byRow, c, changes, clipErr, clipRow, clipRows, clipText, colNames, data, i, j, l, len, len1, len2, len3, len4, m, n, name, name1, o, ops, p, patch, ref1, ref2, ref3, ref4, ref5, ref6, rk, row, sentinelPatch, val;
@@ -630,6 +640,9 @@
       clearTimeout(this._formulaTimer);
       if (this._pasteListener) {
         document.removeEventListener('keydown', this._pasteListener);
+      }
+      if (this._tabListener) {
+        document.removeEventListener('keydown', this._tabListener, true);
       }
       if ((ref = this._grid) != null) {
         ref.destroy();
