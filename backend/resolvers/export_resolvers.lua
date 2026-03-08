@@ -644,6 +644,9 @@ local Mutation = {
     if not (ok and snap) then
       error("Invalid YAML: " .. tostring(snap))
     end
+    if not (type(snap) == 'table') then
+      error("Invalid YAML: expected a mapping")
+    end
     return do_import(snap, args.mode)
   end
 }

@@ -24,6 +24,7 @@ math.randomseed os.time!
 require 'tests.test_spaces'
 require 'tests.test_triggers'
 require 'tests.test_custom_views'
+require 'tests.test_snapshot'
 
 -- Bilan (os.exit 1 si des tests échouent)
 R.summary!

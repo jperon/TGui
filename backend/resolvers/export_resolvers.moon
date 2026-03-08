@@ -378,6 +378,7 @@ Mutation =
     require_admin ctx
     ok, snap = pcall -> yaml.decode args.yaml
     error "Invalid YAML: #{snap}" unless ok and snap
+    error "Invalid YAML: expected a mapping" unless type(snap) == 'table'
     do_import snap, args.mode
 
 { :Query, :Mutation }
