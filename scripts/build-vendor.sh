@@ -23,7 +23,8 @@ npm install --save-dev \
   tui-date-picker \
   tui-pagination \
   xlsx \
-  js-yaml
+  js-yaml \
+  codemirror@5
 
 # ── Entry: tui-grid (expose as window.tui.Grid) ───────────────────────────
 cat > entry-tui.js <<'JSEOF'
@@ -84,7 +85,43 @@ JSEOF
 
 ./node_modules/.bin/rollup -c rollup-yaml.mjs
 
+# ── Entry: CodeMirror v5 (core + YAML mode + Lua mode) ────────────────────
+cat > entry-cm.js <<'JSEOF'
+import CodeMirror from 'codemirror/lib/codemirror';
+import 'codemirror/mode/yaml/yaml';
+import 'codemirror/mode/lua/lua';
+window.CodeMirror = CodeMirror;
+JSEOF
+
+cat > rollup-cm.mjs <<JSEOF
+import resolve from "@rollup/plugin-node-resolve";
+import commonjs from "@rollup/plugin-commonjs";
+
+export default {
+  input: "entry-cm.js",
+  output: {
+    file: "$VENDOR/codemirror.bundle.js",
+    format: "iife",
+    name: "_cm_init",
+  },
+  plugins: [resolve({ browser: true }), commonjs()],
+  onwarn(w, warn) {
+    if (w.code === "CIRCULAR_DEPENDENCY") return;
+    warn(w);
+  },
+};
+JSEOF
+
+./node_modules/.bin/rollup -c rollup-cm.mjs
+
+# ── CSS: CodeMirror core + monokai theme ──────────────────────────────────
+cat node_modules/codemirror/lib/codemirror.css \
+    node_modules/codemirror/theme/monokai.css \
+  > "$VENDOR/codemirror.bundle.css"
+
 echo "Done:"
 echo "  $VENDOR/tui-grid.bundle.js"
 echo "  $VENDOR/tui-grid.bundle.css"
 echo "  $VENDOR/jsyaml.bundle.js"
+echo "  $VENDOR/codemirror.bundle.js"
+echo "  $VENDOR/codemirror.bundle.css"

@@ -34,6 +34,7 @@ make_head = ->
     H.title {'tdb'}
     H.link {rel: 'icon', href: ICON}
     H.link {rel: 'stylesheet', href: '/vendor/tui-grid.bundle.css'}
+    H.link {rel: 'stylesheet', href: '/vendor/codemirror.bundle.css'}
     H.link {rel: 'stylesheet', href: '/css/app.css'}
   }
 
@@ -133,6 +134,8 @@ make_fields_panel = ->
           }
           H.textarea {id: 'field-formula', rows: '3',
             placeholder: "Expression (Lua : self.prenom .. ' ' .. self.nom)", ''}
+          H.button {id: 'formula-expand-btn', class: 'formula-expand-btn',
+            title: 'Ouvrir dans l\'éditeur', '⤢ Agrandir'}
           H.div {id: 'trigger-fields-row', class: 'hidden',
             H.label {class: 'formula-hint', ['for']: 'field-trigger-fields',
               'Déclencher quand :'}
@@ -172,13 +175,9 @@ make_content = ->
     H.div {id: 'yaml-editor-panel', class: 'hidden',
       H.div {class: 'yaml-editor-toolbar',
         H.span {id: 'yaml-view-name', class: 'content-title', ''}
-        H.button {id: 'yaml-edit-btn', class: 'toolbar-btn', '✎ Éditer la vue'}
-        H.button {id: 'yaml-save-btn', '💾 Enregistrer'}
-        H.button {id: 'yaml-preview-btn', '▶ Aperçu'}
-        H.button {id: 'yaml-close-editor-btn', class: 'toolbar-btn', "✕ Fermer l'éditeur"}
-        H.button {id: 'yaml-delete-btn', '🗑 Supprimer la vue'}
+        H.button {id: 'yaml-edit-btn', class: 'toolbar-btn', '✎ Éditer'}
+        H.button {id: 'yaml-delete-btn', class: 'toolbar-btn toolbar-btn--danger', title: 'Supprimer la vue', '🗑'}
       }
-      H.textarea {id: 'yaml-editor', spellcheck: 'false', ''}
     }
     H.div {id: 'content-row',
       H.div {id: 'grid-container', ''}
@@ -246,6 +245,33 @@ make_content = ->
         }
       }
     }
+    -- Modal : éditeur YAML (CodeMirror)
+    H.div {id: 'yaml-modal', class: 'modal-overlay hidden',
+      H.div {class: 'modal-box modal-box--editor',
+        H.div {class: 'modal-editor-header',
+          H.span {id: 'yaml-modal-title', class: 'modal-title', ''}
+          H.div {class: 'modal-editor-actions',
+            H.button {id: 'yaml-modal-preview-btn', class: 'toolbar-btn', '▶ Aperçu'}
+            H.button {id: 'yaml-modal-save-btn', class: 'btn-primary', '💾 Enregistrer'}
+            H.button {id: 'yaml-modal-close-btn', class: 'toolbar-btn', '✕'}
+          }
+        }
+        H.div {id: 'yaml-cm-editor', ''}
+      }
+    }
+    -- Modal : éditeur de formule (CodeMirror)
+    H.div {id: 'formula-modal', class: 'modal-overlay hidden',
+      H.div {class: 'modal-box modal-box--editor',
+        H.div {class: 'modal-editor-header',
+          H.span {class: 'modal-title', 'Éditeur de formule'}
+          H.div {class: 'modal-editor-actions',
+            H.button {id: 'formula-modal-apply-btn', class: 'btn-primary', 'Appliquer'}
+            H.button {id: 'formula-modal-close-btn', class: 'toolbar-btn', '✕'}
+          }
+        }
+        H.div {id: 'formula-cm-editor', ''}
+      }
+    }
   }
 
 -- <body> complet avec scripts
@@ -260,6 +286,7 @@ make_body = ->
     }
     H.script {src: '/vendor/tui-grid.bundle.js', ''}
     H.script {src: '/vendor/jsyaml.bundle.js', ''}
+    H.script {src: '/vendor/codemirror.bundle.js', ''}
     H.script {src: '/src/graphql_client.js', ''}
     H.script {src: '/src/auth.js', ''}
     H.script {src: '/src/spaces.js', ''}

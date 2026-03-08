@@ -83,11 +83,17 @@ window.App =
     yamlEditorPanel:   -> document.getElementById 'yaml-editor-panel'
     yamlViewName:      -> document.getElementById 'yaml-view-name'
     yamlEditBtn:       -> document.getElementById 'yaml-edit-btn'
-    yamlCloseEditorBtn: -> document.getElementById 'yaml-close-editor-btn'
-    yamlEditor:        -> document.getElementById 'yaml-editor'
-    yamlSaveBtn:       -> document.getElementById 'yaml-save-btn'
-    yamlPreviewBtn:    -> document.getElementById 'yaml-preview-btn'
     yamlDeleteBtn:     -> document.getElementById 'yaml-delete-btn'
+    # YAML modal (CodeMirror)
+    yamlModal:         -> document.getElementById 'yaml-modal'
+    yamlModalTitle:    -> document.getElementById 'yaml-modal-title'
+    yamlModalSaveBtn:  -> document.getElementById 'yaml-modal-save-btn'
+    yamlModalCloseBtn: -> document.getElementById 'yaml-modal-close-btn'
+    yamlModalPreviewBtn: -> document.getElementById 'yaml-modal-preview-btn'
+    # Formula modal (CodeMirror)
+    formulaModal:      -> document.getElementById 'formula-modal'
+    formulaModalApplyBtn: -> document.getElementById 'formula-modal-apply-btn'
+    formulaModalCloseBtn: -> document.getElementById 'formula-modal-close-btn'
     welcome:           -> document.getElementById 'welcome'
     contentRow:        -> document.getElementById 'content-row'
     adminPanel:        -> document.getElementById 'admin-panel'
@@ -495,20 +501,12 @@ window.App =
     panel = @el.yamlEditorPanel()
     panel.classList.remove 'hidden'
     @el.yamlViewName().textContent = cv.name
-    @el.yamlEditor().value = cv.yaml or ''
 
-    # If YAML exists, start in view mode; otherwise go straight to editor
+    # If YAML exists, render preview; otherwise open the editor modal directly
     if cv.yaml?.trim()
-      @_setYamlMode 'view'
       @_renderCustomViewPreview cv.yaml
     else
-      @_setYamlMode 'edit'
-      @el.customViewContainer().classList.add 'hidden'
-
-  _setYamlMode: (mode) ->   # 'view' or 'edit'
-    panel = @el.yamlEditorPanel()
-    panel.classList.toggle 'view-mode', mode == 'view'
-    panel.classList.toggle 'edit-mode', mode == 'edit'
+      @_openYamlModal()
 
   _renderCustomViewPreview: (yamlText) ->
     container = @el.customViewContainer()
@@ -521,26 +519,7 @@ window.App =
   # ── YAML editor ─────────────────────────────────────────────────────────────
   _bindYamlEditor: ->
     @el.yamlEditBtn().addEventListener 'click', =>
-      @_setYamlMode 'edit'
-
-    @el.yamlCloseEditorBtn().addEventListener 'click', =>
-      @_setYamlMode 'view'
-
-    @el.yamlSaveBtn().addEventListener 'click', =>
-      cv = @_currentCustomView
-      return unless cv
-      yaml = @el.yamlEditor().value
-      GQL.mutate(UPDATE_CUSTOM_VIEW, { id: cv.id, input: { yaml } })
-        .then (data) =>
-          @_currentCustomView = data.updateCustomView
-          @_renderCustomViewPreview yaml
-          @_setYamlMode 'view'
-          @loadCustomViews()
-        .catch (err) -> alert "Erreur : #{err.message}"
-
-    @el.yamlPreviewBtn().addEventListener 'click', =>
-      return unless @_currentCustomView
-      @_renderCustomViewPreview @el.yamlEditor().value
+      @_openYamlModal()
 
     @el.yamlDeleteBtn().addEventListener 'click', =>
       cv = @_currentCustomView
@@ -556,6 +535,41 @@ window.App =
           @el.welcome().classList.remove 'hidden'
           @loadCustomViews()
         .catch (err) -> alert "Erreur : #{err.message}"
+
+    @el.yamlModalSaveBtn().addEventListener 'click', =>
+      cv = @_currentCustomView
+      return unless cv
+      yaml = @_cmYaml.getValue()
+      GQL.mutate(UPDATE_CUSTOM_VIEW, { id: cv.id, input: { yaml } })
+        .then (data) =>
+          @_currentCustomView = data.updateCustomView
+          @el.yamlModal().classList.add 'hidden'
+          @_renderCustomViewPreview yaml
+          @loadCustomViews()
+        .catch (err) -> alert "Erreur : #{err.message}"
+
+    @el.yamlModalCloseBtn().addEventListener 'click', =>
+      @el.yamlModal().classList.add 'hidden'
+
+    @el.yamlModalPreviewBtn().addEventListener 'click', =>
+      return unless @_cmYaml
+      @_renderCustomViewPreview @_cmYaml.getValue()
+
+  _openYamlModal: ->
+    cv = @_currentCustomView
+    return unless cv
+    @el.yamlModalTitle().textContent = cv.name
+    @el.yamlModal().classList.remove 'hidden'
+    unless @_cmYaml
+      @_cmYaml = CodeMirror document.getElementById('yaml-cm-editor'),
+        mode: 'yaml'
+        theme: 'monokai'
+        lineNumbers: true
+        lineWrapping: true
+        tabSize: 2
+        indentWithTabs: false
+    @_cmYaml.setValue cv.yaml or ''
+    setTimeout (=> @_cmYaml.refresh()), 10
 
   # ── Data toolbar ─────────────────────────────────────────────────────────────
   _bindDataToolbar: ->
@@ -618,6 +632,34 @@ window.App =
         val = document.querySelector('input[name="formula-type"]:checked').value
         @el.formulaBody().classList.toggle 'hidden', val == 'none'
         @el.triggerFieldsRow().classList.toggle 'hidden', val != 'trigger'
+
+    # CodeMirror formula modal
+    document.getElementById('formula-expand-btn').addEventListener 'click', =>
+      lang = @el.formulaLanguage()?.value or 'lua'
+      @el.formulaModal().classList.remove 'hidden'
+      unless @_cmFormula
+        @_cmFormula = CodeMirror document.getElementById('formula-cm-editor'),
+          mode: lang
+          theme: 'monokai'
+          lineNumbers: true
+          lineWrapping: true
+          tabSize: 2
+          indentWithTabs: false
+      else
+        @_cmFormula.setOption 'mode', lang
+      @_cmFormula.setValue @el.fieldFormula().value
+      setTimeout (=> @_cmFormula.refresh()), 10
+
+    @el.formulaModalApplyBtn().addEventListener 'click', =>
+      @el.fieldFormula().value = @_cmFormula.getValue() if @_cmFormula
+      @el.formulaModal().classList.add 'hidden'
+
+    @el.formulaModalCloseBtn().addEventListener 'click', =>
+      @el.formulaModal().classList.add 'hidden'
+
+    # Sync CM mode when language selector changes
+    @el.formulaLanguage()?.addEventListener 'change', =>
+      @_cmFormula?.setOption 'mode', @el.formulaLanguage().value
 
     @el.fieldCancelBtn().addEventListener 'click', =>
       @_resetFieldForm()
@@ -736,6 +778,7 @@ window.App =
     @el.fieldNotNull().closest('label')?.classList.remove 'hidden'
     formulaSection = @el.formulaBody().closest('.formula-section')
     formulaSection?.classList.remove 'hidden'
+    @el.formulaModal().classList.add 'hidden'
     @el.fieldAddBtn().textContent = 'Ajouter'
     @el.fieldCancelBtn().classList.add 'hidden'
 

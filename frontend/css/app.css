@@ -286,20 +286,11 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
 }
 #rel-add-btn { padding: .35rem; background: var(--color-accent); border: none; border-radius: 4px; cursor: pointer; font-size: .85rem; color: #fff; }
 
-/* ── YAML editor ──────────────────────────────────────────────────────────── */
+/* ── YAML editor panel (toolbar only — editing is in modal) ───────────────── */
 #yaml-editor-panel {
-  display: flex; flex-direction: column; overflow: hidden;
+  flex: 0 0 auto; display: flex; flex-direction: column;
 }
 #yaml-editor-panel.hidden  { display: none; }
-#yaml-editor-panel.view-mode { flex: 0 0 auto; }   /* toolbar only */
-#yaml-editor-panel.edit-mode { flex: 1; }           /* toolbar + textarea */
-
-/* Buttons visibility per mode */
-#yaml-editor-panel.view-mode #yaml-save-btn,
-#yaml-editor-panel.view-mode #yaml-preview-btn,
-#yaml-editor-panel.view-mode #yaml-close-editor-btn,
-#yaml-editor-panel.view-mode #yaml-editor { display: none; }
-#yaml-editor-panel.edit-mode  #yaml-edit-btn { display: none; }
 
 .yaml-editor-toolbar {
   height: var(--toolbar-h); display: flex; align-items: center; gap: .5rem;
@@ -310,13 +301,47 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   background: none; border: 1px solid var(--color-border);
   border-radius: 4px; padding: .2rem .6rem; cursor: pointer; font-size: .85rem;
 }
-.yaml-editor-toolbar #yaml-save-btn { background: var(--color-accent); color: #fff; border-color: var(--color-accent); }
-.yaml-editor-toolbar #yaml-delete-btn { color: var(--color-error); border-color: var(--color-error); }
-#yaml-editor {
-  flex: 1; resize: none; font-family: 'Courier New', monospace; font-size: .875rem;
-  padding: .75rem 1rem; border: none; outline: none; background: #1e1e2e; color: #cdd6f4;
-  line-height: 1.5;
+.yaml-editor-toolbar .toolbar-btn--danger { color: var(--color-error); border-color: var(--color-error); }
+
+/* ── CodeMirror editor modals (YAML + formula) ────────────────────────────── */
+.modal-box--editor {
+  width: 90vw; height: 85vh; max-width: none; padding: 0;
+  display: flex; flex-direction: column; overflow: hidden;
 }
+.modal-editor-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .5rem .75rem; border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface); flex-shrink: 0; gap: .5rem;
+}
+.modal-title { font-weight: 600; font-size: .95rem; flex: 1; }
+.modal-editor-actions { display: flex; gap: .5rem; align-items: center; }
+.modal-editor-actions button {
+  border: 1px solid var(--color-border); border-radius: 4px;
+  padding: .2rem .7rem; cursor: pointer; font-size: .85rem;
+  background: var(--color-surface); color: var(--color-text);
+}
+.btn-primary {
+  background: var(--color-accent) !important; color: #fff !important;
+  border-color: var(--color-accent) !important;
+}
+/* CodeMirror fills the remaining space inside the editor modal */
+.modal-box--editor .CodeMirror {
+  flex: 1; height: 100%; font-size: .875rem; font-family: 'DejaVu Sans Mono', monospace;
+}
+#yaml-cm-editor, #formula-cm-editor {
+  flex: 1; display: flex; flex-direction: column; overflow: hidden;
+  min-height: 0;
+}
+#yaml-cm-editor .CodeMirror, #formula-cm-editor .CodeMirror { height: 100%; }
+
+/* ── Formula expand button ────────────────────────────────────────────────── */
+.formula-expand-btn {
+  align-self: flex-end; margin-top: .15rem;
+  background: none; border: 1px solid var(--color-border);
+  border-radius: 4px; padding: .15rem .5rem; cursor: pointer;
+  font-size: .8rem; color: var(--color-text); opacity: .7;
+}
+.formula-expand-btn:hover { opacity: 1; }
 
 /* ── Welcome ──────────────────────────────────────────────────────────────── */
 .welcome { flex: 1; display: flex; align-items: center; justify-content: center; color: #888; }
