@@ -10,13 +10,6 @@ local select = select
 local tostring = tostring
 local pairs = pairs
 
--- HTML5 void elements (never need a closing tag)
-local VOID = {
-	area=true, base=true, br=true, col=true, embed=true, hr=true,
-	img=true, input=true, link=true, meta=true, param=true,
-	source=true, track=true, wbr=true,
-}
-
 local html = {
 	__index = function(self, k)
 		-- k is the HTML tag name (e.g., "div", "p")
@@ -50,14 +43,12 @@ local html = {
 
 			local attributesHtml = concat(attributeStrings) -- Joins attribute strings (e.g., " id='x'" .. " class='y'")
 
-			if VOID[k] then
-				-- True void elements: self-closing (no content, no closing tag)
+			if #childrenContent == 0 then
+				-- Self-closing tag (e.g., <img src="..."/>)
 				return "<" .. k .. attributesHtml .. "/>"
 			else
-				-- All other elements always use open+close tags, even when empty.
-				-- (Self-closing syntax for non-void elements is invalid HTML5 and
-				-- browsers treat it as an opening tag, making subsequent siblings children.)
-				local contentHtml = concat(childrenContent, '\n')
+				-- Tag with content (e.g., <div><span>hello</span></div>)
+				local contentHtml = concat(childrenContent, '\n') -- Join children, separated by newlines
 				return "<" .. k .. attributesHtml .. ">" .. contentHtml .. "</" .. k .. ">"
 			end
 		end
