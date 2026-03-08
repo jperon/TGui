@@ -212,6 +212,30 @@ Chaque boîte représente un espace. Pour chaque champ (rangée) :
 | **▶ Aperçu** | Affiche la vue rendue |
 | **✕** | Ferme le modal sans sauvegarder |
 
+### Widgets agrégats
+
+Un widget de type `aggregate` affiche un tableau de synthèse en lecture seule — l'équivalent
+d'un `GROUP BY` SQL, calculé en Lua côté serveur.
+
+```yaml
+- widget:
+    type: aggregate
+    title: Par pupitre
+    space: chorale
+    groupBy: [pupitre]
+    aggregate:
+      - fn: count
+        as: nb
+      - field: annee
+        fn: avg
+        as: annee_moy
+```
+
+Les fonctions disponibles sont `sum`, `count`, `avg`, `min`, `max`. L'alias `as` est
+optionnel (nom par défaut : `fn_champ`, ex. `avg_annee`).
+
+![Exemple de widget agrégat](img/aggregate-widget.png)
+
 ---
 
 ## Gestion des utilisateurs et droits (admin)

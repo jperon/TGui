@@ -32,6 +32,13 @@ type Query {
   # Relations
   relations(spaceId: ID!): [Relation!]!
 
+  # Aggregation query
+  aggregateSpace(
+    spaceName: String!
+    groupBy:   [String!]!
+    aggregate: [AggregateInput!]!
+  ): [JSON]
+
   # Auth
   me: User
 
@@ -329,3 +336,13 @@ input PermissionInput {
 scalar JSON
 
 scalar Any
+
+# ────────────────────────────────────────────────────────────────────────────
+# Aggregation
+# ────────────────────────────────────────────────────────────────────────────
+
+input AggregateInput {
+  field: String   # champ à agréger (absent = COUNT(*))
+  fn:    String!  # sum | count | avg | min | max
+  as:    String   # alias colonne résultat (optionnel, défaut auto : fn_field)
+}

@@ -190,6 +190,17 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
 .cv-widget-body { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
 .cv-widget-body > div { flex: 1; min-height: 0; }
 
+/* Aggregate widget table */
+.agg-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.agg-table thead th {
+  background: var(--bg-sidebar, #1e1e2e); color: var(--color-muted, #aaa);
+  padding: 5px 8px; text-align: left; border-bottom: 1px solid var(--border-color, #333);
+  font-weight: 600; position: sticky; top: 0;
+}
+.agg-table tbody tr:nth-child(even) { background: rgba(255,255,255,.03); }
+.agg-table tbody td { padding: 4px 8px; border-bottom: 1px solid var(--border-color, #2a2a3a); }
+.cv-widget-body .agg-table-wrap { overflow: auto; flex: 1; min-height: 0; }
+
 /* ── Fields panel ─────────────────────────────────────────────────────────── */
 #fields-panel {
   width: 240px; flex-shrink: 0;

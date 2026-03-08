@@ -412,6 +412,30 @@ layout:
               factor: 1
 ```
 
+### Widget agrégat
+
+Un widget de type `aggregate` affiche un tableau de synthèse en lecture seule, calculé
+côté serveur par itération sur l'espace. Il est équivalent à un `GROUP BY` SQL.
+
+```yaml
+widget:
+  type: aggregate
+  title: "Par pupitre"      # optionnel
+  space: chorale            # espace source
+  groupBy: [pupitre]        # un ou plusieurs champs de groupement
+  aggregate:
+    - fn: count             # COUNT(*) — pas besoin de field
+      as: nb
+    - field: annee          # champ à agréger
+      fn: avg               # sum | count | avg | min | max
+      as: annee_moy         # alias colonne (défaut : fn_field)
+```
+
+L'alias `as` est optionnel : s'il est absent, le nom de colonne généré est `fn_field`
+(ex. `avg_annee`) ou `count` pour `COUNT(*)`.
+
+![Widget agrégat](img/aggregate-widget.png)
+
 ### API GraphQL
 
 ```graphql
@@ -433,6 +457,18 @@ mutation {
 
 # Supprimer
 mutation { deleteCustomView(id: "...") }
+
+# Requête d'agrégation directe
+query {
+  aggregateSpace(
+    spaceName: "chorale",
+    groupBy: ["pupitre"],
+    aggregate: [
+      { fn: "count", as: "nb" },
+      { field: "annee", fn: "avg", as: "annee_moy" }
+    ]
+  )
+}
 ```
 
 ---

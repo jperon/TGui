@@ -5,6 +5,7 @@ schema_r      = require 'resolvers.schema_resolvers'
 data_r        = require 'resolvers.data_resolvers'
 auth_r        = require 'resolvers.auth_resolvers'
 custom_view_r = require 'resolvers.custom_view_resolvers'
+aggregate_r   = require 'resolvers.aggregate_resolvers'
 dynamic       = require 'graphql.dynamic'
 introspection = require 'graphql.introspection'
 triggers      = require 'core.triggers'
@@ -46,7 +47,7 @@ build = ->
 
   -- Build static resolvers base
   static_resolvers = {
-    Query:    merge(schema_r.Query,    merge(data_r.Query,    merge(auth_r.Query,    custom_view_r.Query)))
+    Query:    merge(schema_r.Query,    merge(data_r.Query,    merge(auth_r.Query,    merge(custom_view_r.Query, aggregate_r.Query))))
     Mutation: merge(schema_r.Mutation, merge(data_r.Mutation, merge(auth_r.Mutation, custom_view_r.Mutation)))
     Space:    schema_r.Space
     User:     auth_r.User

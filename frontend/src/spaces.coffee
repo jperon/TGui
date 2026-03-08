@@ -113,3 +113,11 @@ window.Spaces =
 
   deleteRelation: (id) ->
     GQL.mutate(DELETE_RELATION, { id }).then (d) -> d.deleteRelation
+
+  aggregateSpace: (spaceName, groupBy, aggregate) ->
+    q = """
+      query AggregateSpace($spaceName: String!, $groupBy: [String!]!, $aggregate: [AggregateInput!]!) {
+        aggregateSpace(spaceName: $spaceName, groupBy: $groupBy, aggregate: $aggregate)
+      }
+    """
+    GQL.query(q, { spaceName, groupBy, aggregate }).then (d) -> d.aggregateSpace

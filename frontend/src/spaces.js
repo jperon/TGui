@@ -141,6 +141,15 @@
       return GQL.mutate(DELETE_RELATION, {id}).then(function(d) {
         return d.deleteRelation;
       });
+    },
+    aggregateSpace: function(spaceName, groupBy, aggregate) {
+      var q;
+      q = `query AggregateSpace($spaceName: String!, $groupBy: [String!]!, $aggregate: [AggregateInput!]!) {
+  aggregateSpace(spaceName: $spaceName, groupBy: $groupBy, aggregate: $aggregate)
+}`;
+      return GQL.query(q, {spaceName, groupBy, aggregate}).then(function(d) {
+        return d.aggregateSpace;
+      });
     }
   };
 

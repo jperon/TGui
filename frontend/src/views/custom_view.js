@@ -26,11 +26,12 @@
   //         widget:
   //           title: Personnes
   //           space: personnes
-  var CustomView;
+  var CustomView,
+    indexOf = [].indexOf;
 
   window.CustomView = CustomView = class CustomView {
-    constructor(container, yamlText, allSpaces) {
-      this.container = container;
+    constructor(container1, yamlText, allSpaces) {
+      this.container = container1;
       this.yamlText = yamlText;
       this.allSpaces = allSpaces;
       this._widgets = []; // list of { dataView, node, el }
@@ -93,24 +94,39 @@
 
     _renderWidget(wNode) {
       var body, col, delBtn, dv, entry, f, fieldMap, i, len, ref, sp, titleBar, titleText, wrapper;
-      sp = this._findSpace(wNode.space);
       wrapper = document.createElement('div');
       wrapper.className = 'cv-widget';
-      // Title bar with optional delete button
+      // Title bar
       titleBar = document.createElement('div');
       titleBar.className = 'cv-widget-title';
       titleText = document.createElement('span');
       titleText.textContent = wNode.title || wNode.space || '';
       titleBar.appendChild(titleText);
+      wrapper.appendChild(titleBar);
+      body = document.createElement('div');
+      body.className = 'cv-widget-body';
+      wrapper.appendChild(body);
+      // Aggregate widget (read-only summary table)
+      if (wNode.type === 'aggregate') {
+        this._renderAggregate(body, wNode);
+        entry = {
+          dataView: null,
+          node: wNode,
+          el: wrapper
+        };
+        this._widgets.push(entry);
+        if (wNode.id) {
+          this._widgetsById[wNode.id] = entry;
+        }
+        return wrapper;
+      }
+      // Regular data widget
+      sp = this._findSpace(wNode.space);
       delBtn = document.createElement('button');
       delBtn.className = 'cv-widget-delete-btn';
       delBtn.title = 'Supprimer les enregistrements sélectionnés';
       delBtn.textContent = '🗑';
       titleBar.appendChild(delBtn);
-      wrapper.appendChild(titleBar);
-      body = document.createElement('div');
-      body.className = 'cv-widget-body';
-      wrapper.appendChild(body);
       if (!sp) {
         body.innerHTML = `<p style='color:#aaa;padding:.5rem'>Espace « ${wNode.space} » introuvable.</p>`;
         entry = {
@@ -161,6 +177,89 @@
         this._widgetsById[wNode.id] = entry;
       }
       return wrapper;
+    }
+
+    // Render an aggregate (GROUP BY) widget as a read-only table.
+    _renderAggregate(container, wNode) {
+      var agg, aggInput, aggregate, groupBy, makeAlias, spaceName;
+      groupBy = wNode.groupBy || [];
+      aggregate = wNode.aggregate || [];
+      spaceName = wNode.space;
+      if (!spaceName) {
+        container.innerHTML = "<p style='color:#aaa;padding:.5rem'>Paramètre <code>space</code> manquant.</p>";
+        return;
+      }
+      // Show loading state
+      container.innerHTML = "<p style='color:#888;padding:.5rem'>Chargement…</p>";
+      // Normalize aggregate: ensure each entry has fn and as
+      makeAlias = function(agg) {
+        if (agg.as) {
+          return agg.as;
+        }
+        if (!agg.field) {
+          return 'count';
+        } else {
+          return `${agg.fn}_${agg.field}`;
+        }
+      };
+      aggInput = (function() {
+        var i, len, results;
+        results = [];
+        for (i = 0, len = aggregate.length; i < len; i++) {
+          agg = aggregate[i];
+          results.push({
+            fn: agg.fn,
+            field: agg.field || null,
+            as: makeAlias(agg)
+          });
+        }
+        return results;
+      })();
+      return Spaces.aggregateSpace(spaceName, groupBy, aggInput).then((rows) => {
+        var i, j, k, keys, l, len, len1, len2, len3, m, ref, row, tbl, tbody, td, th, thead, tr, v;
+        container.innerHTML = '';
+        if (!(rows && rows.length > 0)) {
+          container.innerHTML = "<p style='color:#aaa;padding:.5rem'>Aucun résultat.</p>";
+          return;
+        }
+        // Build column list from first row keys (preserve groupBy order first)
+        keys = groupBy.slice();
+        for (i = 0, len = aggInput.length; i < len; i++) {
+          agg = aggInput[i];
+          if (ref = agg.as, indexOf.call(keys, ref) < 0) {
+            keys.push(agg.as);
+          }
+        }
+        tbl = document.createElement('table');
+        tbl.className = 'agg-table';
+        thead = document.createElement('thead');
+        tr = document.createElement('tr');
+        for (j = 0, len1 = keys.length; j < len1; j++) {
+          k = keys[j];
+          th = document.createElement('th');
+          th.textContent = k;
+          tr.appendChild(th);
+        }
+        thead.appendChild(tr);
+        tbl.appendChild(thead);
+        tbody = document.createElement('tbody');
+        for (l = 0, len2 = rows.length; l < len2; l++) {
+          row = rows[l];
+          tr = document.createElement('tr');
+          for (m = 0, len3 = keys.length; m < len3; m++) {
+            k = keys[m];
+            td = document.createElement('td');
+            v = row[k];
+            td.textContent = v != null ? String(v) : '';
+            tr.appendChild(td);
+          }
+          tbody.appendChild(tr);
+        }
+        tbl.appendChild(tbody);
+        return container.appendChild(tbl);
+      }).catch((err) => {
+        return container.innerHTML = `<p style='color:#c55;padding:.5rem'>Erreur : ${err.message || err}</p>`;
+      });
     }
 
     _wireDepends() {

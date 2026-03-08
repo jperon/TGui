@@ -73,26 +73,36 @@ window.CustomView = class CustomView
     el
 
   _renderWidget: (wNode) ->
-    sp = @_findSpace wNode.space
     wrapper = document.createElement 'div'
     wrapper.className = 'cv-widget'
 
-    # Title bar with optional delete button
+    # Title bar
     titleBar = document.createElement 'div'
     titleBar.className = 'cv-widget-title'
     titleText = document.createElement 'span'
     titleText.textContent = wNode.title or wNode.space or ''
     titleBar.appendChild titleText
-    delBtn = document.createElement 'button'
-    delBtn.className = 'cv-widget-delete-btn'
-    delBtn.title = 'Supprimer les enregistrements sélectionnés'
-    delBtn.textContent = '🗑'
-    titleBar.appendChild delBtn
     wrapper.appendChild titleBar
 
     body = document.createElement 'div'
     body.className = 'cv-widget-body'
     wrapper.appendChild body
+
+    # Aggregate widget (read-only summary table)
+    if wNode.type == 'aggregate'
+      @_renderAggregate body, wNode
+      entry = { dataView: null, node: wNode, el: wrapper }
+      @_widgets.push entry
+      @_widgetsById[wNode.id] = entry if wNode.id
+      return wrapper
+
+    # Regular data widget
+    sp = @_findSpace wNode.space
+    delBtn = document.createElement 'button'
+    delBtn.className = 'cv-widget-delete-btn'
+    delBtn.title = 'Supprimer les enregistrements sélectionnés'
+    delBtn.textContent = '🗑'
+    titleBar.appendChild delBtn
 
     unless sp
       body.innerHTML = "<p style='color:#aaa;padding:.5rem'>Espace « #{wNode.space} » introuvable.</p>"
@@ -115,6 +125,63 @@ window.CustomView = class CustomView
     @_widgets.push entry
     @_widgetsById[wNode.id] = entry if wNode.id
     wrapper
+
+  # Render an aggregate (GROUP BY) widget as a read-only table.
+  _renderAggregate: (container, wNode) ->
+    groupBy   = wNode.groupBy   or []
+    aggregate = wNode.aggregate or []
+    spaceName = wNode.space
+    unless spaceName
+      container.innerHTML = "<p style='color:#aaa;padding:.5rem'>Paramètre <code>space</code> manquant.</p>"
+      return
+
+    # Show loading state
+    container.innerHTML = "<p style='color:#888;padding:.5rem'>Chargement…</p>"
+
+    # Normalize aggregate: ensure each entry has fn and as
+    makeAlias = (agg) ->
+      return agg.as if agg.as
+      if not agg.field then 'count' else "#{agg.fn}_#{agg.field}"
+
+    aggInput = for agg in aggregate
+      fn: agg.fn, field: (agg.field or null), as: makeAlias(agg)
+
+    Spaces.aggregateSpace(spaceName, groupBy, aggInput).then (rows) =>
+      container.innerHTML = ''
+      unless rows and rows.length > 0
+        container.innerHTML = "<p style='color:#aaa;padding:.5rem'>Aucun résultat.</p>"
+        return
+
+      # Build column list from first row keys (preserve groupBy order first)
+      keys = groupBy.slice()
+      for agg in aggInput
+        keys.push agg.as unless agg.as in keys
+
+      tbl = document.createElement 'table'
+      tbl.className = 'agg-table'
+
+      thead = document.createElement 'thead'
+      tr = document.createElement 'tr'
+      for k in keys
+        th = document.createElement 'th'
+        th.textContent = k
+        tr.appendChild th
+      thead.appendChild tr
+      tbl.appendChild thead
+
+      tbody = document.createElement 'tbody'
+      for row in rows
+        tr = document.createElement 'tr'
+        for k in keys
+          td = document.createElement 'td'
+          v = row[k]
+          td.textContent = if v? then String(v) else ''
+          tr.appendChild td
+        tbody.appendChild tr
+      tbl.appendChild tbody
+      container.appendChild tbl
+    .catch (err) =>
+      container.innerHTML = "<p style='color:#c55;padding:.5rem'>Erreur : #{err.message or err}</p>"
 
   _wireDepends: ->
     for entry in @_widgets
