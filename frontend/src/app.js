@@ -577,6 +577,14 @@
       this.el.cpCancelBtn().addEventListener('click', () => {
         return this.el.changePasswordDialog().classList.add('hidden');
       });
+      this.el.changePasswordDialog().addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          this.el.cpSubmitBtn().click();
+        }
+        if (e.key === 'Escape') {
+          return this.el.changePasswordDialog().classList.add('hidden');
+        }
+      });
       return this.el.cpSubmitBtn().addEventListener('click', () => {
         var confirm, current, nw;
         current = this.el.cpCurrent().value;

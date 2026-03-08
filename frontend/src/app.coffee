@@ -329,6 +329,10 @@ window.App =
     @el.cpCancelBtn().addEventListener 'click', =>
       @el.changePasswordDialog().classList.add 'hidden'
 
+    @el.changePasswordDialog().addEventListener 'keydown', (e) =>
+      if e.key == 'Enter' then @el.cpSubmitBtn().click()
+      if e.key == 'Escape' then @el.changePasswordDialog().classList.add 'hidden'
+
     @el.cpSubmitBtn().addEventListener 'click', =>
       current = @el.cpCurrent().value
       nw      = @el.cpNew().value
