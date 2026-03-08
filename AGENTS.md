@@ -161,6 +161,28 @@ Pour ajouter un champ au schéma :
 2. Mettre à jour les resolvers correspondants dans `backend/resolvers/`
 3. Mettre à jour les requêtes frontend dans `frontend/src/spaces.coffee` si besoin
 
+## Vérification dans le navigateur
+
+L'outil `chrome-devtools` permet d'inspecter l'application dans Chrome sans quitter
+l'agent. Utiliser systématiquement pour valider les changements frontend :
+
+```
+# Prendre un snapshot de la page courante (arbre d'accessibilité)
+→ chrome-devtools-take_snapshot
+
+# Naviguer vers l'application
+→ chrome-devtools-navigate_page  url: "http://localhost:8080"
+
+# Vérifier les erreurs console après un changement
+→ chrome-devtools-list_console_messages  types: ["error", "warn"]
+
+# Inspecter les requêtes réseau (GraphQL)
+→ chrome-devtools-list_network_requests  resourceTypes: ["fetch", "xhr"]
+```
+
+L'application tourne sur **http://localhost:8080**.
+Identifiants par défaut : `admin` / `admin`.
+
 ## Commandes utiles
 
 ```bash
@@ -188,10 +210,6 @@ curl -s -X POST http://localhost:8080/graphql \
 
 - Messages en anglais, préfixe conventionnel : `feat:`, `fix:`, `test:`, `refactor:`, `docs:`
 - Toujours committer les sources **et** les artefacts compilés ensemble
-- Toujours inclure le trailer :
-  ```
-  Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
-  ```
 
 ## Points de vigilance
 
