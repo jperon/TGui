@@ -171,16 +171,42 @@ layout:
               factor: 1
 ```
 
-![Éditeur YAML](img/yaml-editor.png)
+### Éditeur YAML avec schéma ERD
 
-**Boutons de l'éditeur :**
+Cliquer sur **« Éditer »** ouvre un modal plein écran avec deux panneaux :
+
+- **Gauche** : éditeur CodeMirror (coloration syntaxique YAML, thème monokai).
+- **Droite** : diagramme ERD interactif montrant tous les espaces et leurs relations.
+
+![Modal éditeur YAML et diagramme ERD](img/erd-modal-overview.png)
+
+**Utiliser le diagramme ERD pour construire le YAML :**
+
+Chaque boîte représente un espace. Pour chaque champ (rangée) :
+
+- Cliquer sur **`*`** (première rangée, en italique) ajoute l'espace **sans restriction de colonnes**.
+  La boîte s'illumine avec le badge `* ✓`.
+
+![Sélection avec le pseudo-champ *](img/erd-star-field.png)
+
+- Cliquer sur un **champ nommé** l'ajoute à la liste `columns` du widget.
+  Si l'espace n'est pas encore dans le YAML, il est créé. Si cet espace a une clé étrangère
+  vers un espace déjà présent dans le YAML, un `depends_on` est généré automatiquement.
+
+![Détection automatique de depends_on](img/erd-depends-on.png)
+
+- Recliquer un champ déjà sélectionné le retire. Retirer tous les champs supprime le widget.
+- Le bouton **Effacer** réinitialise la sélection.
+- Les **flèches** indiquent les clés étrangères ; les **auto-relations** (ex. `parent_id → id`)
+  sont dessinées comme une boucle sur le côté droit de la boîte.
+
+**Boutons du modal :**
 
 | Bouton | Action |
 |--------|--------|
-| **[enr.] Enregistrer** | Sauvegarde le YAML |
-| **[>] Aperçu** | Affiche la vue rendue |
-| **(crayon) Éditer la vue** | Revient à l'éditeur |
-| **[suppr] Supprimer la vue** | Supprime la vue personnalisée |
+| **💾 Enregistrer** | Sauvegarde le YAML |
+| **▶ Aperçu** | Affiche la vue rendue |
+| **✕** | Ferme le modal sans sauvegarder |
 
 ---
 

@@ -318,6 +318,19 @@ mutation { deleteView(id: "...") }
 
 Les **vues personnalisées** sont des tableaux de bord multi-espaces déclarés en YAML.
 
+### Éditeur
+
+Cliquer **« Éditer »** sur une vue ouvre un modal plein écran composé de :
+
+- Un éditeur **CodeMirror** (YAML, thème monokai) pour saisir directement le YAML.
+- Un **diagramme ERD interactif** à droite : cliquer sur un champ génère automatiquement
+  le YAML correspondant dans l'éditeur (widget, colonnes, `depends_on` si FK détectée).
+
+Chaque boîte ERD dispose d'un pseudo-champ **`*`** (première rangée) qui ajoute l'espace
+sans restriction de colonnes (pas de clé `columns` dans le YAML).
+Les champs sont classés **par ordre alphabétique**. Les auto-relations (ex. `parent_id → id`)
+sont représentées par une boucle sur le côté droit de la boîte.
+
 ### Structure de base
 
 ```yaml
