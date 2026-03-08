@@ -1,4 +1,5 @@
 local json = require('json')
+local log = require('log')
 local uuid_mod = require('uuid')
 local spaces_mod = require('core.spaces')
 local require_auth
@@ -197,14 +198,19 @@ local Query = {
     local limit = args.limit or 100
     local offset = args.offset or 0
     local repr_fn = nil
+    local fk_def_map = nil
     if args.reprFormula and args.reprFormula ~= '' then
       local triggers = require('core.triggers')
       local lang = args.reprLanguage or 'moonscript'
       local ok_c, fn = pcall(triggers.compile_formula, args.reprFormula, 'repr', lang)
       if ok_c and type(fn) == 'function' then
         repr_fn = fn
-      else
-        repr_fn = nil
+        local ok_fk, fm = pcall(triggers.build_fk_def_map, args.spaceId)
+        if ok_fk then
+          fk_def_map = fm
+        else
+          fk_def_map = { }
+        end
       end
     end
     local all = { }
@@ -213,10 +219,13 @@ local Query = {
       local t = _list_0[_index_0]
       if repr_fn then
         local parsed = json.decode(t[2])
-        local ok_r, val = pcall(repr_fn, parsed, nil)
+        parsed._id = tostring(t[1])
+        local self_proxy = (require('core.triggers')).make_self_proxy(parsed, fk_def_map)
+        local ok_r, val = pcall(repr_fn, self_proxy, nil)
         if ok_r and val ~= nil then
           parsed._repr = tostring(val)
         end
+        parsed._id = nil
         table.insert(all, {
           id = t[1],
           spaceId = args.spaceId,

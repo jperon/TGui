@@ -77,10 +77,41 @@ compile_formula = (formula, field_name, language) ->
     return nil
   fn
 
+-- ── FK def map builder ────────────────────────────────────────────────────────
+
+-- Build { field_name => { toSpaceName, toFieldName } } for a space's FK fields.
+build_fk_def_map = (space_id) ->
+  rels = {}
+  for t in *box.space._tdb_relations\select {}
+    if t[2] == space_id
+      rels[t[3]] = { toSpaceId: t[4], toFieldId: t[5] }
+  -- Resolve space names and field names
+  fk_def_map = {}
+  space_by_id = {}
+  for t in *box.space._tdb_spaces\select {}
+    space_by_id[t[1]] = { name: t[2] }
+  field_by_id = {}
+  for t in *box.space._tdb_fields.index.by_space\select { space_id }
+    field_by_id[t[1]] = { name: t[3] }
+  -- Also need field names from other spaces for toFieldId
+  for _, rel in pairs rels
+    tf = box.space._tdb_fields\get rel.toFieldId
+    field_by_id[rel.toFieldId] = { name: tf and tf[3] or 'id' }
+  for field_id, rel in pairs rels
+    fld = box.space._tdb_fields\get field_id
+    sp  = space_by_id[rel.toSpaceId]
+    if fld and sp
+      fk_def_map[fld[3]] =
+        toSpaceName: sp.name
+        toFieldName: (field_by_id[rel.toFieldId] and field_by_id[rel.toFieldId].name) or 'id'
+  fk_def_map
+
 -- ── Self proxy ────────────────────────────────────────────────────────────────
 
--- Build a self proxy that resolves FK fields lazily.
+-- Build a self proxy that resolves FK fields lazily, with recursive chaining.
 -- fk_def_map: { field_name => { toSpaceName, toFieldName } }
+-- When a FK field is accessed, the referenced record is returned as another proxy,
+-- enabling chains like self.livre_id.auteur_id.nom across multiple spaces.
 make_self_proxy = (record, fk_def_map) ->
   decode_tuple = (t) ->
     d = if type(t[2]) == 'string' then json.decode(t[2]) else t[2]
@@ -97,16 +128,30 @@ make_self_proxy = (record, fk_def_map) ->
       if fk
         tb = box.space["data_#{fk.toSpaceName}"]
         if tb
-          for tup in *tb\select {}
+          -- Direct PK lookup (most FK relations point to the primary key)
+          tup = tb\get tostring(v)
+          if tup
             d = decode_tuple tup
+            -- Recursively build fk_def_map for the nested space so chaining works
+            target_sp_meta = box.space._tdb_spaces.index.by_name\get { fk.toSpaceName }
+            nested_fk_map = if target_sp_meta then build_fk_def_map(target_sp_meta[1]) else {}
+            nested = make_self_proxy d, nested_fk_map
+            rawset t, k, nested
+            return nested
+          -- Fallback: full scan for non-PK FK references
+          for tup2 in *tb\select {}
+            d = decode_tuple tup2
             if tostring(d[fk.toFieldName]) == tostring(v)
-              rawset t, k, d
-              return d
+              target_sp_meta = box.space._tdb_spaces.index.by_name\get { fk.toSpaceName }
+              nested_fk_map = if target_sp_meta then build_fk_def_map(target_sp_meta[1]) else {}
+              nested = make_self_proxy d, nested_fk_map
+              rawset t, k, nested
+              return nested
         return nil
       v
   proxy
 
--- ── Trigger condition check ───────────────────────────────────────────────────
+
 
 -- Returns true if the trigger formula should run given old/new data and the
 -- field's triggerFields configuration.
@@ -159,35 +204,6 @@ make_trigger_fn = (trigger_defs) ->
       box.tuple.new { new_tuple[1], json.encode(new_data) }
     else
       new_tuple
-
--- ── FK def map builder ────────────────────────────────────────────────────────
-
--- Build { field_name => { toSpaceName, toFieldName } } for a space's FK fields.
-build_fk_def_map = (space_id) ->
-  rels = {}
-  for t in *box.space._tdb_relations\select {}
-    if t[2] == space_id
-      rels[t[3]] = { toSpaceId: t[4], toFieldId: t[5] }
-  -- Resolve space names and field names
-  fk_def_map = {}
-  space_by_id = {}
-  for t in *box.space._tdb_spaces\select {}
-    space_by_id[t[1]] = { name: t[2] }
-  field_by_id = {}
-  for t in *box.space._tdb_fields.index.by_space\select { space_id }
-    field_by_id[t[1]] = { name: t[3] }
-  -- Also need field names from other spaces for toFieldId
-  for _, rel in pairs rels
-    tf = box.space._tdb_fields\get rel.toFieldId
-    field_by_id[rel.toFieldId] = { name: tf and tf[3] or 'id' }
-  for field_id, rel in pairs rels
-    fld = box.space._tdb_fields\get field_id
-    sp  = space_by_id[rel.toSpaceId]
-    if fld and sp
-      fk_def_map[fld[3]] =
-        toSpaceName: sp.name
-        toFieldName: (field_by_id[rel.toFieldId] and field_by_id[rel.toFieldId].name) or 'id'
-  fk_def_map
 
 -- ── Public API ────────────────────────────────────────────────────────────────
 
@@ -257,4 +273,4 @@ deregister_space_trigger = (space_name) ->
     pcall -> data_sp\before_replace nil, old_fn
   active_triggers[space_name] = nil
 
-{ :compile_formula, :register_space_trigger, :deregister_space_trigger, :init_all_triggers }
+{ :compile_formula, :make_self_proxy, :build_fk_def_map, :register_space_trigger, :deregister_space_trigger, :init_all_triggers }

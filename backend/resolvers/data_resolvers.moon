@@ -2,6 +2,7 @@
 -- Resolvers for CRUD operations on user-defined data spaces.
 
 json      = require 'json'
+log       = require 'log'
 uuid_mod  = require 'uuid'
 spaces_mod = require 'core.spaces'
 { :require_auth } = require 'resolvers.utils'
@@ -113,20 +114,28 @@ Query =
     limit  = args.limit  or 100
     offset = args.offset or 0
     -- Pre-compile reprFormula if provided
-    repr_fn = nil
+    repr_fn   = nil
+    fk_def_map = nil
     if args.reprFormula and args.reprFormula != ''
       triggers = require 'core.triggers'
       lang = args.reprLanguage or 'moonscript'
       ok_c, fn = pcall triggers.compile_formula, args.reprFormula, 'repr', lang
-      repr_fn = if ok_c and type(fn) == 'function' then fn else nil
+      if ok_c and type(fn) == 'function'
+        repr_fn    = fn
+        -- Build FK map for this space so formulas can traverse FK chains (@field.subfield)
+        ok_fk, fm = pcall triggers.build_fk_def_map, args.spaceId
+        fk_def_map = if ok_fk then fm else {}
     -- Collect all records, injecting _repr when formula is available
     all = {}
     for t in *sp\select {}
       if repr_fn
         parsed = json.decode t[2]
-        ok_r, val = pcall repr_fn, parsed, nil
+        parsed._id = tostring t[1]
+        self_proxy = (require 'core.triggers').make_self_proxy parsed, fk_def_map
+        ok_r, val = pcall repr_fn, self_proxy, nil
         if ok_r and val != nil
           parsed._repr = tostring val
+        parsed._id = nil
         table.insert all, { id: t[1], spaceId: args.spaceId, data: json.encode(parsed) }
       else
         table.insert all, { id: t[1], spaceId: args.spaceId, data: t[2] }
