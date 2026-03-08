@@ -1,9 +1,9 @@
-# Démarrage rapide — tdb
+# Démarrage rapide — TGui
 
-**tdb** est inspiré de [Grist](https://www.getgrist.com) — pour tout usage sérieux ou en
+**TGui** est inspiré de [Grist](https://www.getgrist.com) — pour tout usage sérieux ou en
 production, l'utilisateur est invité à se tourner vers ce dernier en priorité.
 
-**tdb** est une interface graphique pour [Tarantool](https://www.tarantool.io/) permettant
+**TGui** est une interface graphique pour [Tarantool](https://www.tarantool.io/) permettant
 de créer et gérer des espaces de données (tables), de les relier entre eux, d'y définir des
 colonnes calculées ou des triggers, et de composer des vues personnalisées déclaratives (YAML).
 
@@ -24,7 +24,7 @@ scolaire** fonctionnelle : catalogue de livres, exemplaires physiques, emprunteu
 
 ```bash
 git clone <repo>
-cd tdb
+cd tgui
 docker compose up
 ```
 
@@ -414,7 +414,7 @@ La section **Administration** n'est visible que pour les membres du groupe `admi
 
 ### Export et import de snapshots
 
-La section **Export / Import** permet de sauvegarder et restaurer une application tdb.
+La section **Export / Import** permet de sauvegarder et restaurer une application TGui.
 
 **Exporter** :
 

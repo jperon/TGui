@@ -1,5 +1,5 @@
 -- tests/run.moon
--- Point d'entrée de la suite de tests tdb.
+-- Point d'entrée de la suite de tests TGui.
 -- Évalué dans l'instance Tarantool en cours via :
 --   make test
 -- (qui utilise `tt connect --eval` sur le socket de contrôle)
@@ -10,7 +10,7 @@
 R = require 'tests.runner'
 
 print "══════════════════════════════════════"
-print "   tdb — suite de tests"
+print "   TGui — suite de tests"
 print "══════════════════════════════════════"
 
 -- Ensure admin group and admin membership exist (may have been wiped by a broken test run)

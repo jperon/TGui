@@ -1,5 +1,5 @@
 -- backend/index.moon
--- Génère dynamiquement la page HTML principale de tdb.
+-- Génère dynamiquement la page HTML principale de TGui.
 -- Utilise backend/html.lua pour construire l'arbre HTML sans concaténation manuelle.
 
 H = require 'html'
@@ -31,7 +31,7 @@ make_head = ->
   H.head {
     H.meta {charset: 'UTF-8'}
     H.meta {name: 'viewport', content: 'width=device-width, initial-scale=1.0'}
-    H.title {'tdb'}
+    H.title {'TGui'}
     H.link {rel: 'icon', href: ICON}
     H.link {rel: 'stylesheet', href: '/vendor/tui-grid.bundle.css'}
     H.link {rel: 'stylesheet', href: '/vendor/codemirror.bundle.css'}
@@ -42,7 +42,7 @@ make_head = ->
 make_login_overlay = ->
   H.div {id: 'login-overlay', class: 'overlay',
     H.div {class: 'login-box',
-      H.h1 {'tdb'}
+      H.h1 {'TGui'}
       H.input {id: 'login-username', type: 'text',     placeholder: "Nom d'utilisateur"}
       H.input {id: 'login-password', type: 'password', placeholder: 'Mot de passe'}
       H.button {id: 'login-btn', 'Connexion'}
@@ -54,7 +54,7 @@ make_login_overlay = ->
 make_sidebar = ->
   H.nav {id: 'sidebar',
     H.div {class: 'sidebar-header',
-      H.span {class: 'logo', 'tdb'}
+      H.span {class: 'logo', 'TGui'}
     }
     H.div {class: 'sidebar-section',
       H.div {class: 'sidebar-section-title',
@@ -225,7 +225,7 @@ make_content = ->
         }
         H.div {class: 'snapshot-import-box',
           H.h3 {'Importer'}
-          H.p {'Importez un fichier .tdb.yaml exporté depuis tdb.'}
+          H.p {'Importez un fichier .tdb.yaml exporté depuis TGui.'}
           H.div {class: 'snapshot-import-file-row',
             H.label {for: 'snapshot-file-input', class: 'toolbar-btn', '📂 Choisir un fichier'}
             H.input {id: 'snapshot-file-input', type: 'file', accept: '.yaml,.yml,.tdb.yaml', class: 'hidden'}

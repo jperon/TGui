@@ -1,9 +1,9 @@
-# Référence des fonctionnalités — tdb
+# Référence des fonctionnalités — TGui
 
-**tdb** est inspiré de [Grist](https://www.getgrist.com) — pour tout usage sérieux ou en
+**TGui** est inspiré de [Grist](https://www.getgrist.com) — pour tout usage sérieux ou en
 production, l'utilisateur est invité à se tourner vers ce dernier en priorité.
 
-tdb expose toutes ses fonctionnalités via une **API GraphQL** accessible sur
+TGui expose toutes ses fonctionnalités via une **API GraphQL** accessible sur
 `http://localhost:8080/graphql`. L'interface web est un client de cette même API ;
 tout ce qui est faisable dans l'UI l'est aussi directement via des requêtes GraphQL.
 
@@ -648,7 +648,7 @@ query {
 
 ## 7. Authentification
 
-tdb utilise des **tokens Bearer** (SHA-256 + sel, stockés en session Tarantool).
+TGui utilise des **tokens Bearer** (SHA-256 + sel, stockés en session Tarantool).
 Le token est persisté dans `localStorage` et envoyé automatiquement par le client.
 
 ### Flux de connexion
@@ -773,7 +773,7 @@ mutation { revoke(permissionId: "...") }
 ## 10. Export et import de snapshots
 
 La section **Export / Import** du panneau Administration permet de sauvegarder l'intégralité
-d'une application tdb (schéma, vues personnalisées, groupes, permissions, et optionnellement
+d'une application TGui (schéma, vues personnalisées, groupes, permissions, et optionnellement
 les données) dans un fichier `.tdb.yaml`, puis de le restaurer sur une autre instance.
 
 ### Export
@@ -878,7 +878,7 @@ Les identifiants internes sont exclus ; la correspondance lors de l'import se fa
 ### Import
 
 1. Cliquer sur **Choisir un fichier** et sélectionner un fichier `.tdb.yaml`.
-2. tdb calcule automatiquement un **diff** entre le schéma du fichier et le schéma courant,
+2. TGui calcule automatiquement un **diff** entre le schéma du fichier et le schéma courant,
    et l'affiche avec un code couleur :
    - vert **Créer** : l'élément sera ajouté.
    - rouge **Supprimer** : l'élément sera retiré (mode Remplacement uniquement).

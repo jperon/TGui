@@ -1,6 +1,6 @@
 local R = require('tests.runner')
 print("══════════════════════════════════════")
-print("   tdb — suite de tests")
+print("   TGui — suite de tests")
 print("══════════════════════════════════════")
 do
   local auth = require('core.auth')

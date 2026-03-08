@@ -68,7 +68,7 @@ make_head = function()
       content = 'width=device-width, initial-scale=1.0'
     }),
     H.title({
-      'tdb'
+      'TGui'
     }),
     H.link({
       rel = 'icon',
@@ -96,7 +96,7 @@ make_login_overlay = function()
     H.div({
       class = 'login-box',
       H.h1({
-        'tdb'
+        'TGui'
       }),
       H.input({
         id = 'login-username',
@@ -128,7 +128,7 @@ make_sidebar = function()
       class = 'sidebar-header',
       H.span({
         class = 'logo',
-        'tdb'
+        'TGui'
       })
     }),
     H.div({
@@ -554,7 +554,7 @@ make_content = function()
             'Importer'
           }),
           H.p({
-            'Importez un fichier .tdb.yaml exporté depuis tdb.'
+            'Importez un fichier .tdb.yaml exporté depuis TGui.'
           }),
           H.div({
             class = 'snapshot-import-file-row',

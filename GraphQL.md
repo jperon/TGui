@@ -1,4 +1,4 @@
-# API GraphQL de tdb
+# API GraphQL de TGui
 
 L'API est accessible via HTTP POST sur `/graphql`.  
 Toutes les requêtes doivent inclure l'en-tête `Authorization: Bearer <token>` sauf `login`.
@@ -742,7 +742,7 @@ os.date "%Y-%m-%d"   -- date d'inscription
 ### Persistance des triggers
 
 Les triggers `before_replace` de Tarantool sont des hooks **en mémoire** : ils ne
-survivent pas aux redémarrages. tdb les re-enregistre automatiquement au démarrage
+survivent pas aux redémarrages. TGui les re-enregistre automatiquement au démarrage
 depuis les métadonnées `_tdb_fields` (colonne `triggerFields`).
 
 ### Supprimer un champ trigger formula

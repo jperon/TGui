@@ -1,6 +1,6 @@
 ---
 # ──────────────────────────────────────────────────────────────────────────────
-# Préambule Pandoc/XeLaTeX — documentation tdb
+# Préambule Pandoc/XeLaTeX — documentation TGui
 #
 # Usage (exécuter depuis le dossier doc/) :
 #   cd doc/
@@ -13,11 +13,11 @@
 #   # Ou les deux en un seul PDF :
 #   pandoc --metadata-file=00_header.yml \
 #          get-started.md reference.md \
-#          --pdf-engine=xelatex -o tdb.pdf
+#          --pdf-engine=xelatex -o tgui.pdf
 # ──────────────────────────────────────────────────────────────────────────────
 
 # ── Identité du document ──────────────────────────────────────────────────────
-title: "tdb — Documentation"
+title: "TGui — Documentation"
 subtitle: "Interface graphique pour Tarantool"
 author: ""
 lang: fr
@@ -66,7 +66,7 @@ header-includes:
   - \usepackage{fancyhdr}
   - \pagestyle{fancy}
   - \fancyhf{}
-  - \fancyhead[L]{\small\textit{tdb}}
+  - \fancyhead[L]{\small\textit{TGui}}
   - \fancyhead[R]{\small\textit{\leftmark}}
   - \fancyfoot[C]{\small\thepage}
   - \renewcommand{\headrulewidth}{0.4pt}

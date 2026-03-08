@@ -1,4 +1,4 @@
-# tdb — GUI pour Tarantool
+# TGui — GUI pour Tarantool
 
 GUI web pour [Tarantool 3](https://hub.docker.com/r/tarantool/tarantool/) :
 création et modification d'espaces (tables), vues multiples sur les données (grille/formulaire/galerie),
@@ -64,7 +64,7 @@ open http://localhost:8080
 ## Structure du projet
 
 ```
-tdb/
+tgui/
 ├── Dockerfile                  # Image Tarantool 3 + rock http
 ├── docker-compose.yml
 ├── Makefile
