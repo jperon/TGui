@@ -2,13 +2,14 @@
 # Visual YAML builder: ERD diagram + widget state for custom view editor.
 # Exposed as window.YamlBuilder (no module system, loaded via <script>).
 
-SVG_NS   = 'http://www.w3.org/2000/svg'
-BOX_W    = 160   # box width in px
-HEADER_H = 26    # space-name header height
-FIELD_H  = 19    # height per field row
-COL_GAP  = 64    # horizontal gap between columns (space for arrows)
-ROW_GAP  = 20    # vertical gap between boxes in the same column
-PAD      = 14    # SVG margin
+SVG_NS      = 'http://www.w3.org/2000/svg'
+BOX_W       = 160   # box width in px
+HEADER_H    = 26    # space-name header height
+FIELD_H     = 19    # height per field row
+COL_GAP     = 64    # horizontal gap between columns (space for arrows)
+ROW_GAP     = 20    # vertical gap between boxes in the same column
+PAD         = 14    # SVG margin
+SELF_LOOP_R = 28    # self-loop horizontal extent past the right edge
 
 svgEl = (tag, attrs = {}) ->
   el = document.createElementNS SVG_NS, tag
@@ -33,6 +34,10 @@ class YamlBuilder
 
   # ── Helpers ─────────────────────────────────────────────────────────────────
 
+  # Returns fields sorted alphabetically by name
+  _sortedFields: (sp) ->
+    (sp.fields or []).slice().sort (a, b) -> a.name.localeCompare b.name
+
   _widgetForSpace: (spaceId) -> @_widgets.find (w) -> w.spaceId == spaceId
 
   _needsId: (widget) -> @_widgets.some (w) -> w.dependsOn?.widgetId == widget.id
@@ -46,7 +51,13 @@ class YamlBuilder
   _onFieldClick: (spaceId, fieldName) ->
     existing = @_widgetForSpace spaceId
     if existing
-      if fieldName in existing.columns
+      if fieldName == '*'
+        # Toggle: if already "all columns" mode (empty), remove widget; else switch to all
+        if existing.columns.length == 0
+          @_widgets = @_widgets.filter (w) -> w.spaceId != spaceId
+        else
+          existing.columns = []
+      else if fieldName in existing.columns
         existing.columns = existing.columns.filter (c) -> c != fieldName
         @_widgets = @_widgets.filter (w) -> w.spaceId != spaceId if existing.columns.length == 0
       else
@@ -65,7 +76,8 @@ class YamlBuilder
       sp = @_spaceById[spaceId]
       id = @_makeId sp?.name
       @_idCounter++
-      @_widgets.push { id, spaceId, spaceName: (sp?.name or spaceId), columns: [fieldName], dependsOn }
+      initialColumns = if fieldName == '*' then [] else [fieldName]
+      @_widgets.push { id, spaceId, spaceName: (sp?.name or spaceId), columns: initialColumns, dependsOn }
 
     @_notify()
     @_render()
@@ -98,6 +110,7 @@ class YamlBuilder
     return {} if spaces.length == 0
 
     # Build outgoing FK map: spaceId -> [toSpaceId, ...]
+    # Self-relations are excluded from level assignment (they don't affect column placement)
     outgoing = {}
     outgoing[sp.id] = [] for sp in spaces
     for rel in rels
@@ -124,13 +137,14 @@ class YamlBuilder
       byCol[col] ?= []
       byCol[col].push sp
 
-    # Compute pixel positions
+    # Compute pixel positions (+1 row for * pseudo-field)
     positions = {}
     for colStr, spList of byCol
       col = parseInt colStr
       cumY = PAD
       for sp in spList
-        boxH = HEADER_H + (sp.fields?.length or 0) * FIELD_H
+        nFields = (sp.fields?.length or 0) + 1  # +1 for * pseudo-field row
+        boxH = HEADER_H + nFields * FIELD_H
         positions[sp.id] =
           x:      PAD + col * (BOX_W + COL_GAP)
           y:      cumY
@@ -183,13 +197,13 @@ class YamlBuilder
     positions = @_computeLayout()
     @_positions = positions
 
-    # SVG canvas dimensions
+    # SVG canvas dimensions (include extra right margin for self-loop arrows)
     totalW = PAD
     totalH = PAD
     for sp in spaces
       pos = positions[sp.id]
       continue unless pos
-      totalW = Math.max totalW, pos.x + pos.width  + PAD
+      totalW = Math.max totalW, pos.x + pos.width + SELF_LOOP_R + PAD
       totalH = Math.max totalH, pos.y + pos.height + PAD
 
     svg = svgEl 'svg',
@@ -214,30 +228,43 @@ class YamlBuilder
     # Arrows (drawn behind boxes)
     arrowsG = svgEl 'g', { class: 'erd-arrows' }
     for rel in rels
-      continue if rel.fromSpaceId == rel.toSpaceId   # skip self-relations
       fp = positions[rel.fromSpaceId]
       tp = positions[rel.toSpaceId]
       continue unless fp and tp
       fromSp = @_spaceById[rel.fromSpaceId]
       toSp   = @_spaceById[rel.toSpaceId]
       continue unless fromSp and toSp
-      fi = (fromSp.fields or []).findIndex (f) -> f.id == rel.fromFieldId
-      ti = (toSp.fields   or []).findIndex (f) -> f.id == rel.toFieldId
-      y1 = fp.y + HEADER_H + Math.max(0, fi) * FIELD_H + FIELD_H / 2
-      y2 = tp.y + HEADER_H + Math.max(0, ti) * FIELD_H + FIELD_H / 2
-      # Connect: from left edge of child to right edge of parent (child is to the right)
-      if fp.x >= tp.x
-        x1 = fp.x;           x2 = tp.x + tp.width
+      sortedFrom = @_sortedFields fromSp
+      sortedTo   = @_sortedFields toSp
+      fi = sortedFrom.findIndex (f) -> f.id == rel.fromFieldId
+      ti = sortedTo.findIndex   (f) -> f.id == rel.toFieldId
+      # +1 offset: row 0 is the * pseudo-field; real fields start at row 1
+      y1 = fp.y + HEADER_H + (Math.max(0, fi) + 1) * FIELD_H + FIELD_H / 2
+      y2 = tp.y + HEADER_H + (Math.max(0, ti) + 1) * FIELD_H + FIELD_H / 2
+      if rel.fromSpaceId == rel.toSpaceId
+        # Self-loop: bezier arc on the right side of the box
+        x  = fp.x + fp.width
+        lx = x + SELF_LOOP_R
+        arrowsG.appendChild svgEl 'path',
+          d:              "M #{x} #{y1} C #{lx} #{y1} #{lx} #{y2} #{x} #{y2}"
+          fill:           'none'
+          stroke:         '#7878a8'
+          'stroke-width': '1.5'
+          'marker-end':   'url(#erd-arrow)'
+          class:          'erd-arrow-path'
       else
-        x1 = fp.x + fp.width; x2 = tp.x
-      cx = (x1 + x2) / 2
-      arrowsG.appendChild svgEl 'path',
-        d:              "M #{x1} #{y1} C #{cx} #{y1} #{cx} #{y2} #{x2} #{y2}"
-        fill:           'none'
-        stroke:         '#7878a8'
-        'stroke-width': '1.5'
-        'marker-end':   'url(#erd-arrow)'
-        class:          'erd-arrow-path'
+        if fp.x >= tp.x
+          x1 = fp.x;           x2 = tp.x + tp.width
+        else
+          x1 = fp.x + fp.width; x2 = tp.x
+        cx = (x1 + x2) / 2
+        arrowsG.appendChild svgEl 'path',
+          d:              "M #{x1} #{y1} C #{cx} #{y1} #{cx} #{y2} #{x2} #{y2}"
+          fill:           'none'
+          stroke:         '#7878a8'
+          'stroke-width': '1.5'
+          'marker-end':   'url(#erd-arrow)'
+          class:          'erd-arrow-path'
     svg.appendChild arrowsG
 
     # Boxes (drawn on top of arrows)
@@ -250,8 +277,10 @@ class YamlBuilder
   _drawBox: (sp, pos) ->
     widget   = @_widgetForSpace sp.id
     isActive = !!widget
-    fields   = sp.fields or []
-    boxH     = HEADER_H + fields.length * FIELD_H
+    fields   = @_sortedFields sp
+    allCols  = isActive and widget.columns.length == 0  # * mode: all columns
+    nRows    = fields.length + 1   # +1 for * pseudo-field
+    boxH     = HEADER_H + nRows * FIELD_H
 
     g = svgEl 'g', { class: 'erd-space', transform: "translate(#{pos.x},#{pos.y})" }
 
@@ -278,13 +307,13 @@ class YamlBuilder
     nameEl.textContent = sp.name
     g.appendChild nameEl
 
-    # Badge showing column count
+    # Badge: * if all-columns mode, else specific column count
     if isActive
       badgeEl = svgEl 'text',
         x: BOX_W - 4; y: HEADER_H / 2 + 1
         'text-anchor': 'end'; 'dominant-baseline': 'middle'
         class: 'erd-badge'
-      badgeEl.textContent = "#{widget.columns.length} \u2713"
+      badgeEl.textContent = if allCols then '* \u2713' else "#{widget.columns.length} \u2713"
       g.appendChild badgeEl
 
     # Separator between header and fields
@@ -292,11 +321,37 @@ class YamlBuilder
       x1: '0'; y1: HEADER_H; x2: BOX_W; y2: HEADER_H
       class: 'erd-separator'
 
-    # Field rows
+    # * pseudo-field at row 0 (adds all columns / no restriction)
+    do (spaceId = sp.id) =>
+      fy = HEADER_H
+      bg = svgEl 'rect',
+        x: '0'; y: fy; width: BOX_W; height: FIELD_H
+        class: 'erd-field-bg' + (if allCols then ' erd-field-active' else '')
+      bg.addEventListener 'click', => @_onFieldClick spaceId, '*'
+      g.appendChild bg
+
+      nm = svgEl 'text',
+        x: '5'; y: fy + FIELD_H / 2 + 1
+        'dominant-baseline': 'middle'
+        class: 'erd-field-name' + (if allCols then ' erd-field-name-active' else '')
+      nm.textContent = '*'
+      nm.style.pointerEvents = 'none'
+      nm.style.fontStyle = 'italic'
+      g.appendChild nm
+
+      tp = svgEl 'text',
+        x: BOX_W - 4; y: fy + FIELD_H / 2 + 1
+        'text-anchor': 'end'; 'dominant-baseline': 'middle'
+        class: 'erd-field-type'
+      tp.textContent = 'tous'
+      tp.style.pointerEvents = 'none'
+      g.appendChild tp
+
+    # Real field rows (sorted alphabetically, starting at row index 1)
     for field, i in fields
       do (spaceId = sp.id, fname = field.name) =>
         inWidget = isActive and fname in widget.columns
-        fy = HEADER_H + i * FIELD_H
+        fy = HEADER_H + (i + 1) * FIELD_H
 
         bg = svgEl 'rect',
           x: '0'; y: fy; width: BOX_W; height: FIELD_H
@@ -304,11 +359,10 @@ class YamlBuilder
         bg.addEventListener 'click', => @_onFieldClick spaceId, fname
         g.appendChild bg
 
-        # Separator between field rows (subtle)
-        if i > 0
-          g.appendChild svgEl 'line',
-            x1: '0'; y1: fy; x2: BOX_W; y2: fy
-            class: 'erd-field-sep'
+        # Separator above every real field row (separates * from first, then real from real)
+        g.appendChild svgEl 'line',
+          x1: '0'; y1: fy; x2: BOX_W; y2: fy
+          class: 'erd-field-sep'
 
         nm = svgEl 'text',
           x: '5'; y: fy + FIELD_H / 2 + 1

@@ -2,7 +2,7 @@
   // frontend/src/yaml_builder.coffee
   // Visual YAML builder: ERD diagram + widget state for custom view editor.
   // Exposed as window.YamlBuilder (no module system, loaded via <script>).
-  var BOX_W, COL_GAP, FIELD_H, HEADER_H, PAD, ROW_GAP, SVG_NS, YamlBuilder, svgEl,
+  var BOX_W, COL_GAP, FIELD_H, HEADER_H, PAD, ROW_GAP, SELF_LOOP_R, SVG_NS, YamlBuilder, svgEl,
     indexOf = [].indexOf;
 
   SVG_NS = 'http://www.w3.org/2000/svg';
@@ -18,6 +18,8 @@
   ROW_GAP = 20; // vertical gap between boxes in the same column
 
   PAD = 14; // SVG margin
+
+  SELF_LOOP_R = 28; // self-loop horizontal extent past the right edge
 
   svgEl = function(tag, attrs = {}) {
     var el, k, v;
@@ -57,6 +59,14 @@
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────────
+
+      // Returns fields sorted alphabetically by name
+    _sortedFields(sp) {
+      return (sp.fields || []).slice().sort(function(a, b) {
+        return a.name.localeCompare(b.name);
+      });
+    }
+
     _widgetForSpace(spaceId) {
       return this._widgets.find(function(w) {
         return w.spaceId === spaceId;
@@ -78,10 +88,19 @@
 
     // ── State mutation ───────────────────────────────────────────────────────────
     _onFieldClick(spaceId, fieldName) {
-      var dependsOn, existing, existingSpaceIds, ff, id, j, len, ref, ref1, ref2, rel, sp, tf, tw;
+      var dependsOn, existing, existingSpaceIds, ff, id, initialColumns, j, len, ref, ref1, ref2, rel, sp, tf, tw;
       existing = this._widgetForSpace(spaceId);
       if (existing) {
-        if (indexOf.call(existing.columns, fieldName) >= 0) {
+        if (fieldName === '*') {
+          // Toggle: if already "all columns" mode (empty), remove widget; else switch to all
+          if (existing.columns.length === 0) {
+            this._widgets = this._widgets.filter(function(w) {
+              return w.spaceId !== spaceId;
+            });
+          } else {
+            existing.columns = [];
+          }
+        } else if (indexOf.call(existing.columns, fieldName) >= 0) {
           existing.columns = existing.columns.filter(function(c) {
             return c !== fieldName;
           });
@@ -120,11 +139,12 @@
         sp = this._spaceById[spaceId];
         id = this._makeId(sp != null ? sp.name : void 0);
         this._idCounter++;
+        initialColumns = fieldName === '*' ? [] : [fieldName];
         this._widgets.push({
           id,
           spaceId,
           spaceName: (sp != null ? sp.name : void 0) || spaceId,
-          columns: [fieldName],
+          columns: initialColumns,
           dependsOn
         });
       }
@@ -189,13 +209,14 @@
     // Parents (no outgoing FKs, or unknown targets) sit at level 0 on the left.
     // Children (have FKs) sit to the right of their parents.
     _computeLayout() {
-      var boxH, byCol, changed, col, colStr, cumY, j, l, len, len1, len2, len3, len4, len5, len6, level, m, n, o, outgoing, p, passes, positions, q, ref, ref1, ref2, rel, rels, sp, spList, spaces, toId;
+      var boxH, byCol, changed, col, colStr, cumY, j, l, len, len1, len2, len3, len4, len5, len6, level, m, n, nFields, o, outgoing, p, passes, positions, q, ref, ref1, ref2, rel, rels, sp, spList, spaces, toId;
       spaces = this.allSpaces || [];
       rels = this.allRelations || [];
       if (spaces.length === 0) {
         return {};
       }
       // Build outgoing FK map: spaceId -> [toSpaceId, ...]
+      // Self-relations are excluded from level assignment (they don't affect column placement)
       outgoing = {};
       for (j = 0, len = spaces.length; j < len; j++) {
         sp = spaces[j];
@@ -242,7 +263,7 @@
         }
         byCol[col].push(sp);
       }
-      // Compute pixel positions
+      // Compute pixel positions (+1 row for * pseudo-field)
       positions = {};
       for (colStr in byCol) {
         spList = byCol[colStr];
@@ -250,7 +271,8 @@
         cumY = PAD;
         for (q = 0, len6 = spList.length; q < len6; q++) {
           sp = spList[q];
-          boxH = HEADER_H + (((ref2 = sp.fields) != null ? ref2.length : void 0) || 0) * FIELD_H;
+          nFields = (((ref2 = sp.fields) != null ? ref2.length : void 0) || 0) + 1; // +1 for * pseudo-field row
+          boxH = HEADER_H + nFields * FIELD_H;
           positions[sp.id] = {
             x: PAD + col * (BOX_W + COL_GAP),
             y: cumY,
@@ -269,7 +291,7 @@
     }
 
     _render() {
-      var arrowsG, boxesG, btn, c, cx, defs, fi, fp, fromSp, hdr, hint, j, l, lbl, len, len1, len2, m, marker, msg, pos, positions, rel, rels, sp, spaces, svg, ti, toSp, totalH, totalW, tp, x1, x2, y1, y2;
+      var arrowsG, boxesG, btn, c, cx, defs, fi, fp, fromSp, hdr, hint, j, l, lbl, len, len1, len2, lx, m, marker, msg, pos, positions, rel, rels, sortedFrom, sortedTo, sp, spaces, svg, ti, toSp, totalH, totalW, tp, x, x1, x2, y1, y2;
       c = this.container;
       c.innerHTML = '';
       // Sticky header
@@ -307,7 +329,7 @@
       }
       positions = this._computeLayout();
       this._positions = positions;
-      // SVG canvas dimensions
+      // SVG canvas dimensions (include extra right margin for self-loop arrows)
       totalW = PAD;
       totalH = PAD;
       for (j = 0, len = spaces.length; j < len; j++) {
@@ -316,7 +338,7 @@
         if (!pos) {
           continue;
         }
-        totalW = Math.max(totalW, pos.x + pos.width + PAD);
+        totalW = Math.max(totalW, pos.x + pos.width + SELF_LOOP_R + PAD);
         totalH = Math.max(totalH, pos.y + pos.height + PAD);
       }
       svg = svgEl('svg', {
@@ -347,9 +369,6 @@
       });
       for (l = 0, len1 = rels.length; l < len1; l++) {
         rel = rels[l];
-        if (rel.fromSpaceId === rel.toSpaceId) { // skip self-relations
-          continue;
-        }
         fp = positions[rel.fromSpaceId];
         tp = positions[rel.toSpaceId];
         if (!(fp && tp)) {
@@ -360,31 +379,47 @@
         if (!(fromSp && toSp)) {
           continue;
         }
-        fi = (fromSp.fields || []).findIndex(function(f) {
+        sortedFrom = this._sortedFields(fromSp);
+        sortedTo = this._sortedFields(toSp);
+        fi = sortedFrom.findIndex(function(f) {
           return f.id === rel.fromFieldId;
         });
-        ti = (toSp.fields || []).findIndex(function(f) {
+        ti = sortedTo.findIndex(function(f) {
           return f.id === rel.toFieldId;
         });
-        y1 = fp.y + HEADER_H + Math.max(0, fi) * FIELD_H + FIELD_H / 2;
-        y2 = tp.y + HEADER_H + Math.max(0, ti) * FIELD_H + FIELD_H / 2;
-        // Connect: from left edge of child to right edge of parent (child is to the right)
-        if (fp.x >= tp.x) {
-          x1 = fp.x;
-          x2 = tp.x + tp.width;
+        // +1 offset: row 0 is the * pseudo-field; real fields start at row 1
+        y1 = fp.y + HEADER_H + (Math.max(0, fi) + 1) * FIELD_H + FIELD_H / 2;
+        y2 = tp.y + HEADER_H + (Math.max(0, ti) + 1) * FIELD_H + FIELD_H / 2;
+        if (rel.fromSpaceId === rel.toSpaceId) {
+          // Self-loop: bezier arc on the right side of the box
+          x = fp.x + fp.width;
+          lx = x + SELF_LOOP_R;
+          arrowsG.appendChild(svgEl('path', {
+            d: `M ${x} ${y1} C ${lx} ${y1} ${lx} ${y2} ${x} ${y2}`,
+            fill: 'none',
+            stroke: '#7878a8',
+            'stroke-width': '1.5',
+            'marker-end': 'url(#erd-arrow)',
+            class: 'erd-arrow-path'
+          }));
         } else {
-          x1 = fp.x + fp.width;
-          x2 = tp.x;
+          if (fp.x >= tp.x) {
+            x1 = fp.x;
+            x2 = tp.x + tp.width;
+          } else {
+            x1 = fp.x + fp.width;
+            x2 = tp.x;
+          }
+          cx = (x1 + x2) / 2;
+          arrowsG.appendChild(svgEl('path', {
+            d: `M ${x1} ${y1} C ${cx} ${y1} ${cx} ${y2} ${x2} ${y2}`,
+            fill: 'none',
+            stroke: '#7878a8',
+            'stroke-width': '1.5',
+            'marker-end': 'url(#erd-arrow)',
+            class: 'erd-arrow-path'
+          }));
         }
-        cx = (x1 + x2) / 2;
-        arrowsG.appendChild(svgEl('path', {
-          d: `M ${x1} ${y1} C ${cx} ${y1} ${cx} ${y2} ${x2} ${y2}`,
-          fill: 'none',
-          stroke: '#7878a8',
-          'stroke-width': '1.5',
-          'marker-end': 'url(#erd-arrow)',
-          class: 'erd-arrow-path'
-        }));
       }
       svg.appendChild(arrowsG);
       // Boxes (drawn on top of arrows)
@@ -402,11 +437,13 @@
     }
 
     _drawBox(sp, pos) {
-      var badgeEl, boxH, field, fields, g, i, isActive, j, len, nameEl, widget;
+      var allCols, badgeEl, boxH, field, fields, g, i, isActive, j, len, nRows, nameEl, widget;
       widget = this._widgetForSpace(sp.id);
       isActive = !!widget;
-      fields = sp.fields || [];
-      boxH = HEADER_H + fields.length * FIELD_H;
+      fields = this._sortedFields(sp);
+      allCols = isActive && widget.columns.length === 0; // * mode: all columns
+      nRows = fields.length + 1; // +1 for * pseudo-field
+      boxH = HEADER_H + nRows * FIELD_H;
       g = svgEl('g', {
         class: 'erd-space',
         transform: `translate(${pos.x},${pos.y})`
@@ -447,7 +484,7 @@
       });
       nameEl.textContent = sp.name;
       g.appendChild(nameEl);
-      // Badge showing column count
+      // Badge: * if all-columns mode, else specific column count
       if (isActive) {
         badgeEl = svgEl('text', {
           x: BOX_W - 4,
@@ -456,7 +493,7 @@
           'dominant-baseline': 'middle',
           class: 'erd-badge'
         });
-        badgeEl.textContent = `${widget.columns.length} \u2713`;
+        badgeEl.textContent = allCols ? '* \u2713' : `${widget.columns.length} \u2713`;
         g.appendChild(badgeEl);
       }
       // Separator between header and fields
@@ -467,13 +504,49 @@
         y2: HEADER_H,
         class: 'erd-separator'
       }));
-// Field rows
+      // * pseudo-field at row 0 (adds all columns / no restriction)
+      ((spaceId) => {
+        var bg, fy, nm, tp;
+        fy = HEADER_H;
+        bg = svgEl('rect', {
+          x: '0',
+          y: fy,
+          width: BOX_W,
+          height: FIELD_H,
+          class: 'erd-field-bg' + (allCols ? ' erd-field-active' : '')
+        });
+        bg.addEventListener('click', () => {
+          return this._onFieldClick(spaceId, '*');
+        });
+        g.appendChild(bg);
+        nm = svgEl('text', {
+          x: '5',
+          y: fy + FIELD_H / 2 + 1,
+          'dominant-baseline': 'middle',
+          class: 'erd-field-name' + (allCols ? ' erd-field-name-active' : '')
+        });
+        nm.textContent = '*';
+        nm.style.pointerEvents = 'none';
+        nm.style.fontStyle = 'italic';
+        g.appendChild(nm);
+        tp = svgEl('text', {
+          x: BOX_W - 4,
+          y: fy + FIELD_H / 2 + 1,
+          'text-anchor': 'end',
+          'dominant-baseline': 'middle',
+          class: 'erd-field-type'
+        });
+        tp.textContent = 'tous';
+        tp.style.pointerEvents = 'none';
+        return g.appendChild(tp);
+      })(sp.id);
+// Real field rows (sorted alphabetically, starting at row index 1)
       for (i = j = 0, len = fields.length; j < len; i = ++j) {
         field = fields[i];
         ((spaceId, fname) => {
           var bg, fy, inWidget, nm, tp;
           inWidget = isActive && indexOf.call(widget.columns, fname) >= 0;
-          fy = HEADER_H + i * FIELD_H;
+          fy = HEADER_H + (i + 1) * FIELD_H;
           bg = svgEl('rect', {
             x: '0',
             y: fy,
@@ -485,16 +558,14 @@
             return this._onFieldClick(spaceId, fname);
           });
           g.appendChild(bg);
-          // Separator between field rows (subtle)
-          if (i > 0) {
-            g.appendChild(svgEl('line', {
-              x1: '0',
-              y1: fy,
-              x2: BOX_W,
-              y2: fy,
-              class: 'erd-field-sep'
-            }));
-          }
+          // Separator above every real field row (separates * from first, then real from real)
+          g.appendChild(svgEl('line', {
+            x1: '0',
+            y1: fy,
+            x2: BOX_W,
+            y2: fy,
+            class: 'erd-field-sep'
+          }));
           nm = svgEl('text', {
             x: '5',
             y: fy + FIELD_H / 2 + 1,
