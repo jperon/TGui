@@ -1,7 +1,8 @@
 (function() {
   // tests/js/dom_stub.coffee — stub DOM minimal pour Node.js
-  // Expose global.window, global.document (pas de dépendance jsdom)
-  var _elementsById, makeElement;
+  // Expose global.window, global.document, global.localStorage, global.fetch
+  // (pas de dépendance jsdom)
+  var _elementsById, _lsStore, fetchStub, localStorageStub, makeElement;
 
   makeElement = function(tag) {
     var classes, el;
@@ -71,7 +72,56 @@
 
   _elementsById = {};
 
+  // --- localStorage stub -------------------------------------------------------
+  _lsStore = {};
+
+  localStorageStub = {
+    getItem: function(k) {
+      var ref;
+      return (ref = _lsStore[k]) != null ? ref : null;
+    },
+    setItem: function(k, v) {
+      return _lsStore[k] = String(v);
+    },
+    removeItem: function(k) {
+      return delete _lsStore[k];
+    },
+    clear: function() {
+      return _lsStore = {};
+    },
+    _store: function() {
+      return _lsStore; // helper pour les tests
+    }
+  };
+
+  
+  // --- fetch stub (configurable par test) -------------------------------------
+  // Par défaut, retourne {} (pas d'erreurs). Remplacer global.fetch dans les tests.
+  fetchStub = function(url, opts) {
+    return Promise.resolve({
+      json: function() {
+        return Promise.resolve({});
+      }
+    });
+  };
+
   global.window = {};
+
+  global.localStorage = localStorageStub;
+
+  global.fetch = fetchStub;
+
+  global.history = {
+    replaceState: function() {}
+  };
+
+  global.navigator = {
+    clipboard: {
+      readText: function() {
+        return Promise.resolve('');
+      }
+    }
+  };
 
   global.document = {
     createElement: function(tag) {
@@ -86,11 +136,13 @@
     querySelectorAll: function() {
       return [];
     },
+    addEventListener: function() {},
+    removeEventListener: function() {},
     _setById: function(id, el) {
       return _elementsById[id] = el; // helper pour les tests
     }
   };
 
-  module.exports = {makeElement};
+  module.exports = {makeElement, localStorageStub};
 
 }).call(this);

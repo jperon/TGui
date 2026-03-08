@@ -1,0 +1,293 @@
+(function() {
+  // tests/js/test_data_view.coffee — tests pour DataView (data_view.js)
+  // Teste la logique pure (sans mount/tui.Grid).
+  var DV, assert, container, deepEq, describe, eq, it, makeSpace, summary;
+
+  require('./dom_stub');
+
+  ({describe, it, eq, deepEq, assert, summary} = require('./runner'));
+
+  // Stubs requis par data_view.js
+  global.GQL = {
+    query: function() {
+      return Promise.resolve({});
+    },
+    mutate: function() {
+      return Promise.resolve({});
+    }
+  };
+
+  global.tui = {
+    Grid: class {
+      constructor() {
+        this._data = [];
+      }
+
+      resetData(d) {
+        return this._data = d;
+      }
+
+      getRowAt(i) {
+        return this._data[i] || null;
+      }
+
+      addRowClassName() {}
+
+      on() {}
+
+      destroy() {}
+
+      getIndexOfRow() {
+        return 0;
+      }
+
+      getRowCount() {
+        return this._data.length;
+      }
+
+      getFocusedCell() {
+        return null;
+      }
+
+      getCheckedRowKeys() {
+        return [];
+      }
+
+    }
+  };
+
+  require('../../frontend/src/views/data_view');
+
+  DV = global.window.DataView;
+
+  makeSpace = function(overrides = {}) {
+    return {
+      id: overrides.id || 'sp1',
+      name: overrides.name || 'test_space',
+      fields: overrides.fields || [
+        {
+          id: 'f1',
+          name: 'nom',
+          fieldType: 'Str',
+          formula: null,
+          triggerFields: null
+        },
+        {
+          id: 'f2',
+          name: 'age',
+          fieldType: 'Int',
+          formula: null,
+          triggerFields: null
+        },
+        {
+          id: 'f3',
+          name: 'seq',
+          fieldType: 'Sequence',
+          formula: null,
+          triggerFields: null
+        }
+      ]
+    };
+  };
+
+  container = function() {
+    return global.document.createElement('div');
+  };
+
+  // ---------------------------------------------------------------------------
+  describe('DataView._sentinel', function() {
+    it('produit une ligne avec __isNew et tous les champs non-Sequence', function() {
+      var dv, s;
+      dv = new DV(container(), makeSpace());
+      s = dv._sentinel();
+      assert(s.__isNew, '__isNew absent');
+      assert('nom' in s, 'nom manquant');
+      assert('age' in s, 'age manquant');
+      return assert(!('seq' in s), 'seq (Sequence) ne doit pas figurer dans le sentinel');
+    });
+    it('utilise les defaultValues', function() {
+      var dv, s;
+      dv = new DV(container(), makeSpace());
+      dv.setDefaultValues({
+        nom: 'Alice'
+      });
+      s = dv._sentinel();
+      eq(s.nom, 'Alice');
+      return eq(s.age, ''); // pas dans defaults
+    });
+    return it('retourne chaîne vide pour les champs sans default', function() {
+      var dv, s;
+      dv = new DV(container(), makeSpace());
+      s = dv._sentinel();
+      eq(s.nom, '');
+      return eq(s.age, '');
+    });
+  });
+
+  describe('DataView._lsKey', function() {
+    return it('inclut l\'id de l\'espace', function() {
+      var dv;
+      dv = new DV(container(), makeSpace({
+        id: 'abc'
+      }));
+      return eq(dv._lsKey(), 'tdb_colwidths_abc');
+    });
+  });
+
+  describe('DataView._loadColWidths', function() {
+    it('retourne {} si rien en localStorage', function() {
+      var dv;
+      global.localStorage.clear();
+      dv = new DV(container(), makeSpace());
+      return deepEq(dv._loadColWidths(), {});
+    });
+    it('parse le JSON depuis localStorage', function() {
+      var dv;
+      global.localStorage.setItem('tdb_colwidths_sp1', JSON.stringify({
+        nom: 200
+      }));
+      dv = new DV(container(), makeSpace({
+        id: 'sp1'
+      }));
+      return eq(dv._loadColWidths().nom, 200);
+    });
+    return it('retourne {} si JSON invalide', function() {
+      var dv;
+      global.localStorage.setItem('tdb_colwidths_sp1', 'not-json');
+      dv = new DV(container(), makeSpace({
+        id: 'sp1'
+      }));
+      return deepEq(dv._loadColWidths(), {});
+    });
+  });
+
+  describe('DataView.setDefaultValues', function() {
+    it('stocke les valeurs et les reflète dans le sentinel', function() {
+      var dv;
+      dv = new DV(container(), makeSpace());
+      dv.setDefaultValues({
+        age: '42'
+      });
+      return eq(dv._sentinel().age, '42');
+    });
+    return it('accepte null/undefined → remet à zéro', function() {
+      var dv;
+      dv = new DV(container(), makeSpace());
+      dv.setDefaultValues({
+        nom: 'Bob'
+      });
+      dv.setDefaultValues(null);
+      return deepEq(dv._defaultValues, {});
+    });
+  });
+
+  describe('DataView.setFilter + _applyData', function() {
+    it('setFilter met à jour @filter', function() {
+      var dv;
+      dv = new DV(container(), makeSpace());
+      dv.setFilter({
+        field: 'age',
+        value: '30'
+      });
+      eq(dv.filter.field, 'age');
+      return eq(dv.filter.value, '30');
+    });
+    it('_applyData filtre les lignes par field/value', function() {
+      var dv, gridData, sp;
+      sp = makeSpace();
+      dv = new DV(container(), sp);
+      // Monte un grid mock minimal
+      gridData = [];
+      dv._grid = {
+        resetData: function(d) {
+          return gridData = d;
+        },
+        getRowAt: function(i) {
+          return null;
+        },
+        addRowClassName: function() {}
+      };
+      dv._rows = [
+        {
+          __rowId: '1',
+          nom: 'Alice',
+          age: '30'
+        },
+        {
+          __rowId: '2',
+          nom: 'Bob',
+          age: '25'
+        },
+        {
+          __rowId: '3',
+          nom: 'Carol',
+          age: '30'
+        }
+      ];
+      dv.filter = {
+        field: 'age',
+        value: '30'
+      };
+      dv._applyData();
+      // sentinel excluded from assertion count, so total = 2 data + 1 sentinel
+      eq(gridData.length, 3);
+      assert(gridData[0].nom === 'Alice', 'première ligne filtrée incorrecte');
+      assert(gridData[1].nom === 'Carol', 'deuxième ligne filtrée incorrecte');
+      return assert(gridData[2].__isNew, 'sentinel absent en fin');
+    });
+    return it('_applyData sans filtre inclut toutes les lignes', function() {
+      var dv, gridData, sp;
+      sp = makeSpace();
+      dv = new DV(container(), sp);
+      gridData = [];
+      dv._grid = {
+        resetData: function(d) {
+          return gridData = d;
+        },
+        getRowAt: function() {
+          return null;
+        },
+        addRowClassName: function() {}
+      };
+      dv._rows = [
+        {
+          __rowId: '1',
+          nom: 'Alice'
+        },
+        {
+          __rowId: '2',
+          nom: 'Bob'
+        }
+      ];
+      dv._applyData();
+      return eq(gridData.length, 3); // 2 data + 1 sentinel
+    });
+  });
+
+  describe('DataView.unmount', function() {
+    return it('remet _mounted à false et vide les tableaux', function() {
+      var dv;
+      dv = new DV(container(), makeSpace());
+      dv._mounted = true;
+      dv._rows = [
+        {
+          __rowId: '1'
+        }
+      ];
+      dv._currentData = [
+        {
+          __rowId: '1'
+        }
+      ];
+      dv._pasteListener = null;
+      dv._grid = null;
+      dv.unmount();
+      assert(!dv._mounted, '_mounted doit être false');
+      eq(dv._rows.length, 0);
+      return eq(dv._currentData.length, 0);
+    });
+  });
+
+  summary();
+
+}).call(this);

@@ -1,7 +1,8 @@
 # tests/js/runner.coffee — minimal test runner (aucune dépendance)
 
-passed = 0
-failed = 0
+passed  = 0
+failed  = 0
+_pending = []   # promesses en attente (it() async)
 currentSuite = ''
 
 describe = (name, fn) ->
@@ -9,13 +10,26 @@ describe = (name, fn) ->
   fn()
 
 it = (desc, fn) ->
+  result = undefined
   try
-    fn()
-    passed++
+    result = fn()
   catch e
     failed++
     console.error "  ✗  #{currentSuite} — #{desc}"
     console.error "     #{e.message}"
+    return
+
+  if result and typeof result.then is 'function'
+    # it() asynchrone : on suit la promesse
+    _pending.push result.then(
+      -> passed++
+      (e) ->
+        failed++
+        console.error "  ✗  #{currentSuite} — #{desc}"
+        console.error "     #{e.message}"
+    )
+  else
+    passed++
 
 assert = (cond, msg) ->
   throw new Error(msg or 'assertion échouée') unless cond
@@ -42,12 +56,18 @@ raises = (fn, pattern) ->
   throw new Error 'une erreur était attendue mais aucune levée' unless threw
 
 summary = ->
-  total = passed + failed
-  console.log "#{total} assertions — #{passed} ✓  #{failed} ✗"
-  if failed > 0
-    console.log 'RÉSULTAT: ÉCHEC'
-    process.exit 1
+  finish = ->
+    total = passed + failed
+    console.log "#{total} assertions — #{passed} ✓  #{failed} ✗"
+    if failed > 0
+      console.log 'RÉSULTAT: ÉCHEC'
+      process.exit 1
+    else
+      console.log 'RÉSULTAT: SUCCÈS'
+
+  if _pending.length > 0
+    Promise.all(_pending).then finish
   else
-    console.log 'RÉSULTAT: SUCCÈS'
+    finish()
 
 module.exports = { describe, it, assert, eq, deepEq, raises, summary }
