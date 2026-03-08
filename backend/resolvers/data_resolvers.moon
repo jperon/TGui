@@ -112,10 +112,24 @@ Query =
     sp = data_space args.spaceId
     limit  = args.limit  or 100
     offset = args.offset or 0
-    -- Collect all records
+    -- Pre-compile reprFormula if provided
+    repr_fn = nil
+    if args.reprFormula and args.reprFormula != ''
+      triggers = require 'core.triggers'
+      lang = args.reprLanguage or 'moonscript'
+      ok_c, fn = pcall triggers.compile_formula, args.reprFormula, 'repr', lang
+      repr_fn = if ok_c and type(fn) == 'function' then fn else nil
+    -- Collect all records, injecting _repr when formula is available
     all = {}
     for t in *sp\select {}
-      table.insert all, { id: t[1], spaceId: args.spaceId, data: t[2] }
+      if repr_fn
+        parsed = json.decode t[2]
+        ok_r, val = pcall repr_fn, parsed, nil
+        if ok_r and val != nil
+          parsed._repr = tostring val
+        table.insert all, { id: t[1], spaceId: args.spaceId, data: json.encode(parsed) }
+      else
+        table.insert all, { id: t[1], spaceId: args.spaceId, data: t[2] }
     -- Filter
     filtered = apply_filter all, args.filter
     -- Paginate

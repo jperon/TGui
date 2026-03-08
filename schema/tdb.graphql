@@ -26,7 +26,7 @@ type Query {
   customView(id: ID!):    CustomView
 
   # Raw data from a user space
-  records(spaceId: ID!, filter: RecordFilter, limit: Int, offset: Int): RecordPage!
+  records(spaceId: ID!, filter: RecordFilter, limit: Int, offset: Int, reprFormula: String, reprLanguage: String): RecordPage!
   record(spaceId: ID!, id: ID!): Record
 
   # Relations

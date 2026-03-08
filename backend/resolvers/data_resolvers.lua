@@ -196,15 +196,39 @@ local Query = {
     local sp = data_space(args.spaceId)
     local limit = args.limit or 100
     local offset = args.offset or 0
+    local repr_fn = nil
+    if args.reprFormula and args.reprFormula ~= '' then
+      local triggers = require('core.triggers')
+      local lang = args.reprLanguage or 'moonscript'
+      local ok_c, fn = pcall(triggers.compile_formula, args.reprFormula, 'repr', lang)
+      if ok_c and type(fn) == 'function' then
+        repr_fn = fn
+      else
+        repr_fn = nil
+      end
+    end
     local all = { }
     local _list_0 = sp:select({ })
     for _index_0 = 1, #_list_0 do
       local t = _list_0[_index_0]
-      table.insert(all, {
-        id = t[1],
-        spaceId = args.spaceId,
-        data = t[2]
-      })
+      if repr_fn then
+        local parsed = json.decode(t[2])
+        local ok_r, val = pcall(repr_fn, parsed, nil)
+        if ok_r and val ~= nil then
+          parsed._repr = tostring(val)
+        end
+        table.insert(all, {
+          id = t[1],
+          spaceId = args.spaceId,
+          data = json.encode(parsed)
+        })
+      else
+        table.insert(all, {
+          id = t[1],
+          spaceId = args.spaceId,
+          data = t[2]
+        })
+      end
     end
     local filtered = apply_filter(all, args.filter)
     local total = #filtered

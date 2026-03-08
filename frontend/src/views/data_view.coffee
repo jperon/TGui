@@ -2,8 +2,8 @@
 # Raw data grid view using Toast UI Grid (tui.Grid).
 
 RECORDS_QUERY = """
-  query Records($spaceId: ID!, $limit: Int, $offset: Int, $filter: RecordFilter) {
-    records(spaceId: $spaceId, limit: $limit, offset: $offset, filter: $filter) {
+  query Records($spaceId: ID!, $limit: Int, $offset: Int, $filter: RecordFilter, $reprFormula: String, $reprLanguage: String) {
+    records(spaceId: $spaceId, limit: $limit, offset: $offset, filter: $filter, reprFormula: $reprFormula, reprLanguage: $reprLanguage) {
       items { id data }
       total
     }
@@ -46,41 +46,30 @@ window.DataView = class DataView
     @_formulaFilter = ''     # Lua/MoonScript formula for server-side row filtering
     @_formulaTimer  = null   # debounce handle
 
-  # Build FK display maps for all relation fields.
+   # Build FK display maps for all relation fields.
   _buildFkMaps: ->
     for rel in @_relations
       field = (@space.fields or []).find (f) -> f.id == rel.fromFieldId
       continue unless field
       try
-        data    = await GQL.query RECORDS_QUERY, { spaceId: rel.toSpaceId, limit: 5000 }
+        formula = rel.reprFormula?.trim() or null
+        data    = await GQL.query RECORDS_QUERY, {
+          spaceId:     rel.toSpaceId
+          limit:       5000
+          reprFormula: formula
+          reprLanguage: if formula then 'moonscript' else null
+        }
         records = data.records.items.map (r) ->
           parsed = if typeof r.data == 'string' then JSON.parse(r.data) else r.data
           Object.assign { __rowId: r.id }, parsed
 
-        reprFn  = null
-        formula = rel.reprFormula?.trim()
-        if formula
-          # Transpile MoonScript repr formula → JavaScript
-          jsFormula = formula
-            .replace(/\.\./g, '+')      # string concat
-            .replace(/ and /g, ' && ')  # boolean and
-            .replace(/ or /g, ' || ')   # boolean or
-            .replace(/\bnil\b/g, 'null') # nil → null
-          try
-            reprFn = new Function('self', "try { return String(#{jsFormula}); } catch(e) { return String(self.id || ''); }")
-          catch
-            reprFn = null
-
         map     = {}
         options = []
         for rec in records
-          display = if reprFn
-            reprFn rec
-          else if rec._repr?
+          display = if rec._repr?
             String rec._repr
           else
-            String(rec.id ? rec[Object.keys(rec)[0]] ? '')
-          # FK columns store the integer sequence value (rec.id), not the Tarantool UUID
+            String(rec.id ? rec[Object.keys(rec).find((k) -> k != '__rowId')] ? '')
           fkId = rec.id ? rec[Object.keys(rec).find (k) -> k != '__rowId']
           map[String fkId] = display
           options.push { text: display, value: String(fkId) }

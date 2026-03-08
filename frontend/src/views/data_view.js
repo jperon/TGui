@@ -5,8 +5,8 @@
   var DELETE_RECORD, DataView, INSERT_RECORD, RECORDS_QUERY, UPDATE_RECORD, gqlName,
     hasProp = {}.hasOwnProperty;
 
-  RECORDS_QUERY = `query Records($spaceId: ID!, $limit: Int, $offset: Int, $filter: RecordFilter) {
-  records(spaceId: $spaceId, limit: $limit, offset: $offset, filter: $filter) {
+  RECORDS_QUERY = `query Records($spaceId: ID!, $limit: Int, $offset: Int, $filter: RecordFilter, $reprFormula: String, $reprLanguage: String) {
+  records(spaceId: $spaceId, limit: $limit, offset: $offset, filter: $filter, reprFormula: $reprFormula, reprLanguage: $reprLanguage) {
     items { id data }
     total
   }
@@ -55,7 +55,7 @@
     
       // Build FK display maps for all relation fields.
     async _buildFkMaps() {
-      var data, display, e, field, fkId, formula, j, jsFormula, l, len, len1, map, options, rec, records, ref, ref1, ref2, ref3, ref4, rel, reprFn, results;
+      var data, display, e, field, fkId, formula, j, l, len, len1, map, options, rec, records, ref, ref1, ref2, ref3, ref4, rel, results;
       ref = this._relations;
       results = [];
       for (j = 0, len = ref.length; j < len; j++) {
@@ -67,9 +67,12 @@
           continue;
         }
         try {
+          formula = ((ref1 = rel.reprFormula) != null ? ref1.trim() : void 0) || null;
           data = (await GQL.query(RECORDS_QUERY, {
             spaceId: rel.toSpaceId,
-            limit: 5000
+            limit: 5000,
+            reprFormula: formula,
+            reprLanguage: formula ? 'moonscript' : null
           }));
           records = data.records.items.map(function(r) {
             var parsed;
@@ -78,23 +81,13 @@
               __rowId: r.id
             }, parsed);
           });
-          reprFn = null;
-          formula = (ref1 = rel.reprFormula) != null ? ref1.trim() : void 0;
-          if (formula) {
-            // Transpile MoonScript repr formula → JavaScript
-            jsFormula = formula.replace(/\.\./g, '+').replace(/ and /g, ' && ').replace(/ or /g, ' || ').replace(/\bnil\b/g, 'null'); // string concat // boolean and // boolean or // nil → null
-            try {
-              reprFn = new Function('self', `try { return String(${jsFormula}); } catch(e) { return String(self.id || ''); }`);
-            } catch (error) {
-              reprFn = null;
-            }
-          }
           map = {};
           options = [];
           for (l = 0, len1 = records.length; l < len1; l++) {
             rec = records[l];
-            display = reprFn ? reprFn(rec) : rec._repr != null ? String(rec._repr) : String((ref2 = (ref3 = rec.id) != null ? ref3 : rec[Object.keys(rec)[0]]) != null ? ref2 : '');
-            // FK columns store the integer sequence value (rec.id), not the Tarantool UUID
+            display = rec._repr != null ? String(rec._repr) : String((ref2 = (ref3 = rec.id) != null ? ref3 : rec[Object.keys(rec).find(function(k) {
+              return k !== '__rowId';
+            })]) != null ? ref2 : '');
             fkId = (ref4 = rec.id) != null ? ref4 : rec[Object.keys(rec).find(function(k) {
               return k !== '__rowId';
             })];
