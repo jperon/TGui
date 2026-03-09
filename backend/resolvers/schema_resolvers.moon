@@ -5,6 +5,8 @@ spaces_mod  = require 'core.spaces'
 views_mod   = require 'core.views'
 triggers    = require 'core.triggers'
 executor    = require 'graphql.executor'
+local data_r
+data_r      = require 'resolvers.data_resolvers'
 { :require_auth } = require 'resolvers.utils'
 
 -- ────────────────────────────────────────────────────────────────────────────

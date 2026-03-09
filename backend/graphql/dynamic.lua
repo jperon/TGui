@@ -273,7 +273,7 @@ generate = function()
             if not (tb) then
               return nil
             end
-            if to_fn_cap == 'id' then
+            if to_fn_cap == '_id' then
               local t = tb:get(tostring(raw))
               return t and decode_tuple(t)
             end
@@ -281,7 +281,7 @@ generate = function()
             for _index_2 = 1, #_list_3 do
               local t = _list_3[_index_2]
               local d = decode_tuple(t)
-              if tostring(d[to_fn_cap]) == tostring(raw) then
+              if tostring(d[to_fn_cap or 'id']) == tostring(raw) then
                 return d
               end
             end

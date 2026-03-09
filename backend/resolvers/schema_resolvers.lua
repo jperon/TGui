@@ -2,6 +2,8 @@ local spaces_mod = require('core.spaces')
 local views_mod = require('core.views')
 local triggers = require('core.triggers')
 local executor = require('graphql.executor')
+local data_r
+data_r = require('resolvers.data_resolvers')
 local require_auth
 require_auth = require('resolvers.utils').require_auth
 local list_relations

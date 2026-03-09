@@ -2,7 +2,10 @@ local _state = {
   passed = 0,
   failed = 0,
   errors = 0,
-  current = ''
+  current = '',
+  before_all_fn = nil,
+  after_all_fn = nil,
+  before_all_done = false
 }
 local fmt
 fmt = function(v)
@@ -97,12 +100,36 @@ raises = function(fn, pattern, label)
 end
 local describe
 describe = function(name, fn)
+  local old_before = _state.before_all_fn
+  local old_after = _state.after_all_fn
+  local old_done = _state.before_all_done
   _state.current = name
+  _state.before_all_fn = nil
+  _state.after_all_fn = nil
+  _state.before_all_done = false
   print("\n" .. tostring(name))
-  return fn()
+  fn()
+  if _state.after_all_fn then
+    _state.after_all_fn()
+  end
+  _state.before_all_fn = old_before
+  _state.after_all_fn = old_after
+  _state.before_all_done = old_done
+end
+local before_all
+before_all = function(fn)
+  _state.before_all_fn = fn
+end
+local after_all
+after_all = function(fn)
+  _state.after_all_fn = fn
 end
 local it
 it = function(desc, fn)
+  if _state.before_all_fn and not _state.before_all_done then
+    _state.before_all_fn()
+    _state.before_all_done = true
+  end
   local before = _state.failed + _state.errors
   local success, err = pcall(fn)
   if not success then
@@ -128,6 +155,8 @@ end
 return {
   describe = describe,
   it = it,
+  before_all = before_all,
+  after_all = after_all,
   eq = eq,
   ne = ne,
   ok = ok,

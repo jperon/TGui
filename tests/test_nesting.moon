@@ -4,13 +4,28 @@
 R = require 'tests.runner'
 spaces   = require 'core.spaces'
 executor = require 'graphql.executor'
+auth     = require 'core.auth'
 json     = require 'json'
+
+local user_id, GQL
+
+GQL = {
+  query: (q, v) ->
+    res = executor.execute { query: q, variables: v, context: { :user_id } }
+    if res.errors
+      error json.encode res.errors
+    res.data
+  mutate: (q, v) -> GQL.query q, v
+}
 
 R.describe "GraphQL — Requêtes imbriquées (Nesting)", ->
   local user_sp, task_sp
   local user_fid, task_user_fid
 
   R.before_all ->
+    admin = auth.get_user_by_username 'admin'
+    user_id = admin.id
+
     -- 1. Créer espace Utilisateurs
     user_sp = spaces.create_user_space "users_#{math.random 100000, 999999}"
     user_fid = spaces.add_field(user_sp.id, "id", "Sequence", true).id
@@ -51,7 +66,6 @@ R.describe "GraphQL — Requêtes imbriquées (Nesting)", ->
     items = res[tname].items
     R.eq #items, 3
     
-    -- Trier par titre pour vérifier
     table.sort items, (a, b) -> a.title < b.title
     R.eq items[1].title, "Task 1"
     R.eq items[1].user_id.name, "Alice"
@@ -78,4 +92,4 @@ R.describe "GraphQL — Requêtes imbriquées (Nesting)", ->
     R.ok res.space
     R.eq res.space.name, task_sp.name
     R.eq #res.space.records.items, 2
-    R.eq res.space.records.total, 3
+    return R.eq(res.space.records.total, 3)

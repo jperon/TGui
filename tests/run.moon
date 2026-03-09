@@ -49,6 +49,7 @@ require 'tests.test_executor'
 -- Tests avec Tarantool box (données temporaires avec suffixe aléatoire)
 math.randomseed os.time!
 require 'tests.test_spaces'
+require 'tests.test_batch_ops'
 require 'tests.test_triggers'
 require 'tests.test_custom_views'
 require 'tests.test_relations'

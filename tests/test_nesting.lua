@@ -1,11 +1,33 @@
 local R = require('tests.runner')
 local spaces = require('core.spaces')
 local executor = require('graphql.executor')
+local auth = require('core.auth')
 local json = require('json')
+local user_id, GQL
+GQL = {
+  query = function(q, v)
+    local res = executor.execute({
+      query = q,
+      variables = v,
+      context = {
+        user_id = user_id
+      }
+    })
+    if res.errors then
+      error(json.encode(res.errors))
+    end
+    return res.data
+  end,
+  mutate = function(q, v)
+    return GQL.query(q, v)
+  end
+}
 return R.describe("GraphQL — Requêtes imbriquées (Nesting)", function()
   local user_sp, task_sp
   local user_fid, task_user_fid
   R.before_all(function()
+    local admin = auth.get_user_by_username('admin')
+    user_id = admin.id
     user_sp = spaces.create_user_space("users_" .. tostring(math.random(100000, 999999)))
     user_fid = spaces.add_field(user_sp.id, "id", "Sequence", true).id
     spaces.add_field(user_sp.id, "name", "String", true)

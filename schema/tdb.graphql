@@ -85,6 +85,8 @@ type Mutation {
   updateRecord(spaceId: ID!, id: ID!, data: JSON!): Record!
   deleteRecord(spaceId: ID!, id: ID!):           Boolean!
   deleteRecords(spaceId: ID!, ids: [ID!]!):      [Boolean!]!
+  insertRecords(spaceId: ID!, data: [JSON!]!):   [Record!]!
+  updateRecords(spaceId: ID!, records: [RecordUpdateInput!]!): [Record!]!
 
   # Auth
   login(username: String!, password: String!):                AuthPayload!
@@ -197,6 +199,11 @@ type RecordPage {
   total:      Int!
   offset:     Int!
   limit:      Int!
+}
+
+input RecordUpdateInput {
+  id: ID!
+  data: JSON!
 }
 
 input RecordFilter {
