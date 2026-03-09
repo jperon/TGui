@@ -194,6 +194,18 @@ class Executor
     args      = collect_args field_node, field_def, @variables, @schema
 
     new_path = extend path, field_name
+
+    -- Short-circuit: if the field resolves to a composite type but the query
+    -- has no selection set, skip the resolver entirely (avoids costly FK scans).
+    if field_def and not field_node.selectionSet
+      named = field_def.type
+      while named and (named.kind == 'NonNullType' or named.kind == 'ListType')
+        named = named.ofType
+      if named
+        t = @schema.types[named.name]
+        if t and (t.kind == 'OBJECT' or t.kind == 'INTERFACE' or t.kind == 'UNION')
+          return nil
+
     raw_value = resolver parent_obj, args, @context, {
       field_name:     field_name
       field_def:      field_def
@@ -253,8 +265,10 @@ class Executor
       return @complete_value { kind: 'NamedType', name: concrete }, value, field_node, path
 
     -- OBJECT
-    unless field_node.selectionSet
-      error "Field #{type_name} is a composite type but has no selection set"
+    if not field_node.selectionSet
+      -- For composite types without selection set, return null to allow
+      -- the frontend to work even when FK fields are not explicitly requested
+      return nil
     @execute_selection_set field_node.selectionSet, type_name, value, path
 
 -- ────────────────────────────────────────────────────────────────────────────
