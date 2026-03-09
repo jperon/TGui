@@ -39,10 +39,15 @@ ou de committer.
 ## Tests
 
 ```bash
-make test   # nécessite le conteneur Docker en cours d'exécution
+# Lancer l'environnement de test (fortement recommandé pour éviter de supprimer les données de production)
+make test-up
+
+# Lancer les tests
+make test
 ```
 
-Les tests tournent dans l'instance Tarantool live via `tt connect`.
+Les tests tournent dans l'instance Tarantool dédiée `tgui-tarantool-test`.
+L'instance de production (`tgui-tarantool-1`) ne doit être utilisée que pour une visualisation manuelle et ne doit pas subir de tests invasifs.
 Ils sont écrits en MoonScript dans `tests/` avec un micro-framework maison (`tests/runner.moon`).
 **Aucune dépendance externe** de test.
 
@@ -190,7 +195,9 @@ make build          # Compile tout
 make test           # Lance les tests (container doit tourner)
 make up             # Build + lance le container Docker
 make down           # Arrête le container
-make logs           # Suit les logs Tarantool
+make logs           # Suit les logs Tarantool (production)
+make test-up        # Build + lance le container de test
+make test-down      # Arrête le container de test
 make vendor         # Régénère le bundle Univer (rare)
 
 # Inspecter la base en live
