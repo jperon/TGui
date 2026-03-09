@@ -165,22 +165,31 @@ window.DataView = class DataView
       return unless cell?.columnName
       colIdx = allCols.indexOf cell.columnName
       return if colIdx < 0
+      
+      rowIdx = @_grid.getIndexOfRow cell.rowKey
+      rowCount = @_grid.getRowCount()
+
+      # Let browser handle Tab/Shift+Tab if at start/end of grid
+      if e.shiftKey
+        return if colIdx == 0 and rowIdx == 0
+      else
+        return if colIdx == allCols.length - 1 and rowIdx == rowCount - 1
+
       e.preventDefault()
       e.stopImmediatePropagation()
-      rowIdx = @_grid.getIndexOfRow cell.rowKey
+      
       if e.shiftKey
         if colIdx > 0
           moveTo cell.rowKey, allCols[colIdx - 1]
         else if rowIdx > 0
           prevRow = @_grid.getRowAt rowIdx - 1
-          moveTo prevRow.rowKey, allCols[allCols.length - 1] unless prevRow?.__isNew
+          moveTo prevRow.rowKey, allCols[allCols.length - 1]
       else
         if colIdx < allCols.length - 1
           moveTo cell.rowKey, allCols[colIdx + 1]
-        else
+        else if rowIdx < rowCount - 1
           nextRow = @_grid.getRowAt rowIdx + 1
-          if nextRow? and not nextRow.__isNew
-            moveTo nextRow.rowKey, allCols[0]
+          moveTo nextRow.rowKey, allCols[0]
     document.addEventListener 'keydown', @_tabListener, true
 
     # Handle cell edits (single edit and paste)
@@ -250,6 +259,17 @@ window.DataView = class DataView
 
   load: ->
     return unless @_mounted
+
+    # Save current focus to restore it after resetData
+    focus = @_grid?.getFocusedCell()
+    if focus?.rowKey? and focus.columnName
+      focusedRow = @_grid.getRow focus.rowKey
+      if focusedRow
+        @_lastFocus =
+          rowId:      focusedRow.__rowId
+          isNew:      focusedRow.__isNew
+          columnName: focus.columnName
+
     fields       = @space.fields or []
     formulaNames = new Set (f.name for f in fields when f.formula and f.formula != '' and not f.triggerFields)
 
@@ -281,8 +301,28 @@ window.DataView = class DataView
     rows = @_rows
     if @filter
       rows = rows.filter (r) => String(r[@filter.field]) == String(@filter.value)
-    @_currentData = rows.concat [@_sentinel()]
+    
+    sentinel = @_sentinel()
+    @_currentData = rows.concat [sentinel]
     @_grid.resetData @_currentData
+
+    # Restore focus if we have saved it
+    if @_lastFocus
+      { rowId, isNew, columnName } = @_lastFocus
+      @_lastFocus = null
+      
+      # Find the new row object matching the old one
+      targetRow = if isNew
+        @_grid.getData().find (r) -> r.__isNew
+      else if rowId
+        @_grid.getData().find (r) -> r.__rowId == rowId
+      else
+        null
+
+      if targetRow
+        # Small delay to ensure TUI has finished DOM updates
+        setTimeout (=> @_grid.focus targetRow.rowKey, columnName), 0
+
     # Find the actual rowKey tui.Grid assigned to the sentinel (last visual row)
     lastIdx = @_currentData.length - 1
     sentinelRow = @_grid.getRowAt lastIdx
