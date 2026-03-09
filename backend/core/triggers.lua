@@ -113,7 +113,10 @@ build_fk_def_map = function(space_id)
   return fk_def_map
 end
 local make_self_proxy
-make_self_proxy = function(record, fk_def_map)
+make_self_proxy = function(record, fk_def_map, fk_cache)
+  fk_cache = fk_cache or { }
+  fk_cache.spaces = fk_cache.spaces or { }
+  fk_cache.fk_def_maps = fk_cache.fk_def_maps or { }
   local decode_tuple
   decode_tuple = function(t)
     local d
@@ -124,6 +127,48 @@ make_self_proxy = function(record, fk_def_map)
     end
     d._id = tostring(t[1])
     return d
+  end
+  local ensure_space
+  ensure_space = function(space_name, to_field_name)
+    local sc = fk_cache.spaces[space_name]
+    if not (sc) then
+      sc = {
+        records = { },
+        by_field = { }
+      }
+      local tb = box.space["data_" .. tostring(space_name)]
+      if tb then
+        local _list_0 = tb:select({ })
+        for _index_0 = 1, #_list_0 do
+          local tup = _list_0[_index_0]
+          local d = decode_tuple(tup)
+          sc.records[d._id] = d
+        end
+      end
+      fk_cache.spaces[space_name] = sc
+    end
+    if not (sc.by_field[to_field_name]) then
+      local idx = { }
+      for _, d in pairs(sc.records) do
+        idx[tostring(d[to_field_name] or '')] = d
+      end
+      sc.by_field[to_field_name] = idx
+    end
+    return sc
+  end
+  local ensure_fk_def_map
+  ensure_fk_def_map = function(space_name)
+    if not (fk_cache.fk_def_maps[space_name]) then
+      local target_sp_meta = box.space._tdb_spaces.index.by_name:get({
+        space_name
+      })
+      if target_sp_meta then
+        fk_cache.fk_def_maps[space_name] = build_fk_def_map(target_sp_meta[1])
+      else
+        fk_cache.fk_def_maps[space_name] = { }
+      end
+    end
+    return fk_cache.fk_def_maps[space_name]
   end
   local proxy = { }
   setmetatable(proxy, {
@@ -138,43 +183,13 @@ make_self_proxy = function(record, fk_def_map)
       end
       local fk = fk_def_map and fk_def_map[k]
       if fk then
-        local tb = box.space["data_" .. tostring(fk.toSpaceName)]
-        if tb then
-          local tup = tb:get(tostring(v))
-          if tup then
-            local d = decode_tuple(tup)
-            local target_sp_meta = box.space._tdb_spaces.index.by_name:get({
-              fk.toSpaceName
-            })
-            local nested_fk_map
-            if target_sp_meta then
-              nested_fk_map = build_fk_def_map(target_sp_meta[1])
-            else
-              nested_fk_map = { }
-            end
-            local nested = make_self_proxy(d, nested_fk_map)
-            rawset(t, k, nested)
-            return nested
-          end
-          local _list_0 = tb:select({ })
-          for _index_0 = 1, #_list_0 do
-            local tup2 = _list_0[_index_0]
-            local d = decode_tuple(tup2)
-            if tostring(d[fk.toFieldName]) == tostring(v) then
-              local target_sp_meta = box.space._tdb_spaces.index.by_name:get({
-                fk.toSpaceName
-              })
-              local nested_fk_map
-              if target_sp_meta then
-                nested_fk_map = build_fk_def_map(target_sp_meta[1])
-              else
-                nested_fk_map = { }
-              end
-              local nested = make_self_proxy(d, nested_fk_map)
-              rawset(t, k, nested)
-              return nested
-            end
-          end
+        local sc = ensure_space(fk.toSpaceName, fk.toFieldName)
+        local d = sc.by_field[fk.toFieldName] and sc.by_field[fk.toFieldName][tostring(v)]
+        if d then
+          local nested_fk_map = ensure_fk_def_map(fk.toSpaceName)
+          local nested = make_self_proxy(d, nested_fk_map, fk_cache)
+          rawset(t, k, nested)
+          return nested
         end
         return nil
       end

@@ -110,13 +110,47 @@ build_fk_def_map = (space_id) ->
 
 -- Build a self proxy that resolves FK fields lazily, with recursive chaining.
 -- fk_def_map: { field_name => { toSpaceName, toFieldName } }
--- When a FK field is accessed, the referenced record is returned as another proxy,
--- enabling chains like self.livre_id.auteur_id.nom across multiple spaces.
-make_self_proxy = (record, fk_def_map) ->
+-- fk_cache: optional shared cache (passed across all records of a single request)
+--   { spaces: { name -> { records: {_id->rec}, by_field: {fname->{val->rec}} } },
+--     fk_def_maps: { name -> fk_def_map } }
+-- Avoids reloading FK target tables for each record in a batch query.
+make_self_proxy = (record, fk_def_map, fk_cache) ->
+  fk_cache          = fk_cache or {}
+  fk_cache.spaces   = fk_cache.spaces   or {}
+  fk_cache.fk_def_maps = fk_cache.fk_def_maps or {}
+
   decode_tuple = (t) ->
     d = if type(t[2]) == 'string' then json.decode(t[2]) else t[2]
     d._id = tostring t[1]
     d
+
+  -- Load target space once; build field index on demand (no extra scan).
+  ensure_space = (space_name, to_field_name) ->
+    sc = fk_cache.spaces[space_name]
+    unless sc
+      sc = { records: {}, by_field: {} }
+      tb = box.space["data_#{space_name}"]
+      if tb
+        for tup in *tb\select {}
+          d = decode_tuple tup
+          sc.records[d._id] = d
+      fk_cache.spaces[space_name] = sc
+    unless sc.by_field[to_field_name]
+      idx = {}
+      for _, d in pairs sc.records
+        idx[tostring(d[to_field_name] or '')] = d
+      sc.by_field[to_field_name] = idx
+    sc
+
+  -- Get or build nested fk_def_map (cached, avoids repeated metadata scans).
+  ensure_fk_def_map = (space_name) ->
+    unless fk_cache.fk_def_maps[space_name]
+      target_sp_meta = box.space._tdb_spaces.index.by_name\get { space_name }
+      fk_cache.fk_def_maps[space_name] = if target_sp_meta
+        build_fk_def_map target_sp_meta[1]
+      else {}
+    fk_cache.fk_def_maps[space_name]
+
   proxy = {}
   setmetatable proxy,
     __index: (t, k) ->
@@ -126,27 +160,13 @@ make_self_proxy = (record, fk_def_map) ->
       return nil if v == nil
       fk = fk_def_map and fk_def_map[k]
       if fk
-        tb = box.space["data_#{fk.toSpaceName}"]
-        if tb
-          -- Direct PK lookup (most FK relations point to the primary key)
-          tup = tb\get tostring(v)
-          if tup
-            d = decode_tuple tup
-            -- Recursively build fk_def_map for the nested space so chaining works
-            target_sp_meta = box.space._tdb_spaces.index.by_name\get { fk.toSpaceName }
-            nested_fk_map = if target_sp_meta then build_fk_def_map(target_sp_meta[1]) else {}
-            nested = make_self_proxy d, nested_fk_map
-            rawset t, k, nested
-            return nested
-          -- Fallback: full scan for non-PK FK references
-          for tup2 in *tb\select {}
-            d = decode_tuple tup2
-            if tostring(d[fk.toFieldName]) == tostring(v)
-              target_sp_meta = box.space._tdb_spaces.index.by_name\get { fk.toSpaceName }
-              nested_fk_map = if target_sp_meta then build_fk_def_map(target_sp_meta[1]) else {}
-              nested = make_self_proxy d, nested_fk_map
-              rawset t, k, nested
-              return nested
+        sc = ensure_space fk.toSpaceName, fk.toFieldName
+        d = sc.by_field[fk.toFieldName] and sc.by_field[fk.toFieldName][tostring v]
+        if d
+          nested_fk_map = ensure_fk_def_map fk.toSpaceName
+          nested = make_self_proxy d, nested_fk_map, fk_cache
+          rawset t, k, nested
+          return nested
         return nil
       v
   proxy
