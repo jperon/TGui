@@ -95,7 +95,7 @@ matches_filter = function(self_val, flt)
   return ok
 end
 local apply_filter
-apply_filter = function(tuples, filter, fk_def_map)
+apply_filter = function(tuples, filter, fk_def_map, fk_cache, space_name)
   if not (filter and (filter.field or filter.formula or filter["and"] or filter["or"])) then
     return tuples
   end
@@ -122,7 +122,7 @@ apply_filter = function(tuples, filter, fk_def_map)
     local self_val
     if fk_def_map then
       parsed._id = tostring(rec.id)
-      self_val = triggers_mod.make_self_proxy(parsed, fk_def_map)
+      self_val = triggers_mod.make_self_proxy(parsed, fk_def_map, fk_cache, space_name)
     else
       self_val = parsed
     end
@@ -320,6 +320,9 @@ local Query = {
     else
       fk_def_map = { }
     end
+    local sp_meta = box.space._tdb_spaces:get(args.spaceId)
+    local space_name = sp_meta and sp_meta[2]
+    ctx._fk_cache = ctx._fk_cache or { }
     local repr_fn = nil
     if args.reprFormula and args.reprFormula ~= '' then
       local lang = args.reprLanguage or 'moonscript'
@@ -337,7 +340,7 @@ local Query = {
       if repr_fn then
         local parsed = json.decode(t[2])
         parsed._id = tostring(t[1])
-        local self_proxy = triggers_mod.make_self_proxy(parsed, fk_def_map)
+        local self_proxy = triggers_mod.make_self_proxy(parsed, fk_def_map, ctx._fk_cache, space_name)
         local ok_r, val = pcall(repr_fn, self_proxy, nil)
         if ok_r and val ~= nil then
           parsed._repr = tostring(val)
@@ -356,7 +359,7 @@ local Query = {
         })
       end
     end
-    local filtered = apply_filter(all, args.filter, fk_def_map)
+    local filtered = apply_filter(all, args.filter, fk_def_map, ctx._fk_cache, space_name)
     local total = #filtered
     local items = { }
     for i = offset + 1, math.min(offset + limit, total) do

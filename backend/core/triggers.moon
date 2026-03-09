@@ -106,6 +106,18 @@ build_fk_def_map = (space_id) ->
         toFieldName: (field_by_id[rel.toFieldId] and field_by_id[rel.toFieldId].name) or 'id'
   fk_def_map
 
+-- ── Space helper for formulas ─────────────────────────────────────────────────
+
+make_space_helper = ->
+  decode_tuple = (t) ->
+    d = if type(t[2]) == 'string' then json.decode(t[2]) else t[2]
+    d._id = tostring t[1]
+    d
+  (sname) ->
+    sp = box.space["data_#{sname}"]
+    return {} unless sp
+    [decode_tuple t for t in *sp\select {}]
+
 -- ── Self proxy ────────────────────────────────────────────────────────────────
 
 -- Build a self proxy that resolves FK fields lazily, with recursive chaining.
@@ -161,10 +173,10 @@ make_self_proxy = (record, fk_def_map, fk_cache, space_name) ->
       if sp_meta
         for t in *box.space._tdb_fields.index.by_space\select { sp_meta[1] }
           formula = t[8]
-          trigger_json = t[9]
           language = t[10] or 'lua'
-          -- only pre-compile formula columns (triggers already exist in DB data)
-          if formula and formula != '' and (trigger_json == nil or trigger_json == 'null')
+          -- pre-compile all formula fields to allow dynamic fallback evaluation 
+          -- if the stored trigger value is missing (nil) from the database record.
+          if formula and formula != ''
             fn = compile_formula formula, t[3], language
             fns[t[3]] = fn if fn
       fk_cache.formulas[s_name] = fns
@@ -177,19 +189,19 @@ make_self_proxy = (record, fk_def_map, fk_cache, space_name) ->
       return cached if cached != nil
       v = record[k]
       
-      -- If the field is missing from raw data, check if it's a computed formula
-      if v == nil and space_name
+      -- If the field is missing (or empty string) from raw data, check if it's a computed formula
+      if (v == nil or v == '') and space_name
         fns = ensure_formulas space_name
         if fns[k]
           fk_cache.space_helper = fk_cache.space_helper or make_space_helper!
           r_ok, val = pcall fns[k], t, fk_cache.space_helper
-          if r_ok
+          if r_ok and val != nil and val != ''
             v = val
             rawset t, k, v -- cache computed value for next time
           else
-            log.error "tdb proxy: error evaluating formula for '#{space_name}.#{k}': #{val}"
+            if not r_ok then log.error "tdb proxy: error evaluating formula for '#{space_name}.#{k}': #{val}"
       
-      return nil if v == nil
+      return nil if v == nil or v == ''
       
       fk = fk_def_map and fk_def_map[k]
       if fk
@@ -216,18 +228,6 @@ should_run = (is_insert, trigger_fields_list, old_data, new_data) ->
     if tostring(old_data[fname] or '') != tostring(new_data[fname] or '')
       return true
   false
-
--- ── Space helper for formulas ─────────────────────────────────────────────────
-
-make_space_helper = ->
-  decode_tuple = (t) ->
-    d = if type(t[2]) == 'string' then json.decode(t[2]) else t[2]
-    d._id = tostring t[1]
-    d
-  (sname) ->
-    sp = box.space["data_#{sname}"]
-    return {} unless sp
-    [decode_tuple t for t in *sp\select {}]
 
 -- ── Trigger function builder ──────────────────────────────────────────────────
 

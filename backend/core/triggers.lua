@@ -112,6 +112,35 @@ build_fk_def_map = function(space_id)
   end
   return fk_def_map
 end
+local make_space_helper
+make_space_helper = function()
+  local decode_tuple
+  decode_tuple = function(t)
+    local d
+    if type(t[2]) == 'string' then
+      d = json.decode(t[2])
+    else
+      d = t[2]
+    end
+    d._id = tostring(t[1])
+    return d
+  end
+  return function(sname)
+    local sp = box.space["data_" .. tostring(sname)]
+    if not (sp) then
+      return { }
+    end
+    local _accum_0 = { }
+    local _len_0 = 1
+    local _list_0 = sp:select({ })
+    for _index_0 = 1, #_list_0 do
+      local t = _list_0[_index_0]
+      _accum_0[_len_0] = decode_tuple(t)
+      _len_0 = _len_0 + 1
+    end
+    return _accum_0
+  end
+end
 local make_self_proxy
 make_self_proxy = function(record, fk_def_map, fk_cache, space_name)
   fk_cache = fk_cache or { }
@@ -185,9 +214,8 @@ make_self_proxy = function(record, fk_def_map, fk_cache, space_name)
         for _index_0 = 1, #_list_0 do
           local t = _list_0[_index_0]
           local formula = t[8]
-          local trigger_json = t[9]
           local language = t[10] or 'lua'
-          if formula and formula ~= '' and (trigger_json == nil or trigger_json == 'null') then
+          if formula and formula ~= '' then
             local fn = compile_formula(formula, t[3], language)
             if fn then
               fns[t[3]] = fn
@@ -207,20 +235,22 @@ make_self_proxy = function(record, fk_def_map, fk_cache, space_name)
         return cached
       end
       local v = record[k]
-      if v == nil and space_name then
+      if (v == nil or v == '') and space_name then
         local fns = ensure_formulas(space_name)
         if fns[k] then
           fk_cache.space_helper = fk_cache.space_helper or make_space_helper()
           local r_ok, val = pcall(fns[k], t, fk_cache.space_helper)
-          if r_ok then
+          if r_ok and val ~= nil and val ~= '' then
             v = val
             rawset(t, k, v)
           else
-            log.error("tdb proxy: error evaluating formula for '" .. tostring(space_name) .. "." .. tostring(k) .. "': " .. tostring(val))
+            if not r_ok then
+              log.error("tdb proxy: error evaluating formula for '" .. tostring(space_name) .. "." .. tostring(k) .. "': " .. tostring(val))
+            end
           end
         end
       end
-      if v == nil then
+      if v == nil or v == '' then
         return nil
       end
       local fk = fk_def_map and fk_def_map[k]
@@ -257,35 +287,6 @@ should_run = function(is_insert, trigger_fields_list, old_data, new_data)
     end
   end
   return false
-end
-local make_space_helper
-make_space_helper = function()
-  local decode_tuple
-  decode_tuple = function(t)
-    local d
-    if type(t[2]) == 'string' then
-      d = json.decode(t[2])
-    else
-      d = t[2]
-    end
-    d._id = tostring(t[1])
-    return d
-  end
-  return function(sname)
-    local sp = box.space["data_" .. tostring(sname)]
-    if not (sp) then
-      return { }
-    end
-    local _accum_0 = { }
-    local _len_0 = 1
-    local _list_0 = sp:select({ })
-    for _index_0 = 1, #_list_0 do
-      local t = _list_0[_index_0]
-      _accum_0[_len_0] = decode_tuple(t)
-      _len_0 = _len_0 + 1
-    end
-    return _accum_0
-  end
 end
 local make_trigger_fn
 make_trigger_fn = function(trigger_defs, space_name)
