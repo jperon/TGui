@@ -348,6 +348,16 @@ make_body = ->
         make_content!
       }
     }
+    -- Anti-flicker script: immediately show the app shell if a token exists in localStorage
+    H.script { [[
+      if (localStorage.getItem('tdb_token')) {
+        document.getElementById('login-overlay').classList.add('hidden');
+        document.getElementById('main').classList.remove('hidden');
+        if (localStorage.getItem('tdb_menu_state') === 'collapsed') {
+          document.getElementById('main').classList.add('sidebar-collapsed');
+        }
+      }
+    ]] }
     H.script {src: '/vendor/tui-grid.bundle.js', ''}
     H.script {src: '/vendor/jsyaml.bundle.js', ''}
     H.script {src: '/vendor/codemirror.bundle.js', ''}

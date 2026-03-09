@@ -1974,12 +1974,16 @@
   document.addEventListener('DOMContentLoaded', function() {
     GQL.loadToken();
     App.init();
+    // Le flash initial est évité par le script inline dans index.moon.
     return Auth.restoreSession().then(function(user) {
       if (user) {
         App.showMain(user);
         return App._loadAll();
+      } else {
+        return App.showLogin();
       }
     }).catch(function() {
+      App.showLogin();
       return GQL.clearToken();
     });
   });

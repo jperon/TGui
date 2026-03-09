@@ -891,6 +891,16 @@ make_body = function()
       })
     }),
     H.script({
+      [[      if (localStorage.getItem('tdb_token')) {
+        document.getElementById('login-overlay').classList.add('hidden');
+        document.getElementById('main').classList.remove('hidden');
+        if (localStorage.getItem('tdb_menu_state') === 'collapsed') {
+          document.getElementById('main').classList.add('sidebar-collapsed');
+        }
+      }
+    ]]
+    }),
+    H.script({
       src = '/vendor/tui-grid.bundle.js',
       ''
     }),
