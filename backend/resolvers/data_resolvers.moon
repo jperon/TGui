@@ -114,6 +114,14 @@ Mutation =
     sp\delete args.id
     true
 
+  deleteRecords: (_, args, ctx) ->
+    require_auth ctx
+    sp = data_space args.spaceId
+    results = for id in *args.ids
+      sp\delete id
+      true
+    results
+
 Query =
   records: (_, args, ctx) ->
     require_auth ctx

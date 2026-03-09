@@ -27,12 +27,6 @@ UPDATE_RECORD = """
   }
 """
 
-DELETE_RECORD = """
-  mutation DeleteRecord($spaceId: ID!, $id: ID!) {
-    deleteRecord(spaceId: $spaceId, id: $id)
-  }
-"""
-
 window.DataView = class DataView
   constructor: (@container, @space, @filter = null, relations = []) ->
     @_grid          = null   # tui.Grid instance
@@ -314,9 +308,10 @@ window.DataView = class DataView
       .map    (rk) => @_currentData[Number rk]
       .filter (row) -> row and not row.__isNew and row.__rowId
     return unless toDelete.length
-    ops = toDelete.map (row) =>
-      GQL.mutate DELETE_RECORD, { spaceId: @space.id, id: row.__rowId }
-    Promise.all(ops).then(=> @load()).catch (err) => @_showError "Erreur suppression : #{err.message}"
+    ids = (row.__rowId for row in toDelete)
+    Spaces.deleteRecords(@space.id, ids)
+      .then(=> @load())
+      .catch (err) => @_showError "Erreur suppression : #{err.message}"
 
   setDefaultValues: (values) ->
     @_defaultValues = values or {}

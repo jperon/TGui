@@ -66,6 +66,12 @@ DELETE_RELATION = """
   }
 """
 
+DELETE_RECORDS = """
+  mutation DeleteRecords($spaceId: ID!, $ids: [ID!]!) {
+    deleteRecords(spaceId: $spaceId, ids: $ids)
+  }
+"""
+
 UPDATE_RELATION = """
   mutation UpdateRelation($id: ID!, $input: UpdateRelationInput!) {
     updateRelation(id: $id, input: $input) { id name fromSpaceId fromFieldId toSpaceId toFieldId reprFormula }
@@ -120,6 +126,9 @@ window.Spaces =
 
   deleteRelation: (id) ->
     GQL.mutate(DELETE_RELATION, { id }).then (d) -> d.deleteRelation
+
+  deleteRecords: (spaceId, ids) ->
+    GQL.mutate(DELETE_RECORDS, { spaceId, ids }).then (d) -> d.deleteRecords
 
   updateRelation: (id, reprFormula) ->
     GQL.mutate(UPDATE_RELATION, { id, input: { reprFormula } }).then (d) -> d.updateRelation
