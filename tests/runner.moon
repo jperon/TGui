@@ -12,6 +12,9 @@ _state =
   failed:  0
   errors:  0
   current: ''
+  before_all_fn: nil
+  after_all_fn:  nil
+  before_all_done: false
 
 -- Formatage de valeur pour l'affichage des échecs
 fmt = (v) ->
@@ -94,11 +97,32 @@ raises = (fn, pattern, label) ->
 -- ── Structure ─────────────────────────────────────────────────────────────────
 
 describe = (name, fn) ->
+  old_before = _state.before_all_fn
+  old_after  = _state.after_all_fn
+  old_done   = _state.before_all_done
+  
   _state.current = name
+  _state.before_all_fn = nil
+  _state.after_all_fn  = nil
+  _state.before_all_done = false
+  
   print "\n#{name}"
   fn!
+  
+  _state.after_all_fn! if _state.after_all_fn
+  
+  _state.before_all_fn = old_before
+  _state.after_all_fn  = old_after
+  _state.before_all_done = old_done
+
+before_all = (fn) -> _state.before_all_fn = fn
+after_all  = (fn) -> _state.after_all_fn  = fn
 
 it = (desc, fn) ->
+  if _state.before_all_fn and not _state.before_all_done
+    _state.before_all_fn!
+    _state.before_all_done = true
+
   before = _state.failed + _state.errors
   success, err = pcall fn
   if not success
@@ -121,4 +145,4 @@ summary = ->
   print "RÉSULTAT: SUCCÈS"
   return 0
 
-{ :describe, :it, :eq, :ne, :ok, :nok, :is_nil, :matches, :raises, :summary }
+{ :describe, :it, :before_all, :after_all, :eq, :ne, :ok, :nok, :is_nil, :matches, :raises, :summary }

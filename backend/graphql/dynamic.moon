@@ -170,14 +170,18 @@ generate = ->
             return nil if raw == nil
             tb  = box.space["data_#{to_sp_cap.name}"]
             return nil unless tb
-            -- Use primary index if looking up by 'id'
-            if to_fn_cap == 'id'
+            -- If looking up by the system-level UUID (_id)
+            if to_fn_cap == '_id'
               t = tb\get tostring(raw)
               return t and decode_tuple(t)
-            -- Fallback to scan if no secondary index on to_fn (user spaces only have primary by default)
+            
+            -- Otherwise, we must scan the space to find the record where d[to_fn_cap] == raw
+            -- This is slow but necessary for non-indexed fields (like 'id' sequence)
             for t in *tb\select {}
               d = decode_tuple t
-              return d if tostring(d[to_fn_cap]) == tostring(raw)
+              -- Compare as strings for robustness (handles Int vs String IDs)
+              if tostring(d[to_fn_cap or 'id']) == tostring(raw)
+                return d
             nil
         )(
           gql_name(f.name),

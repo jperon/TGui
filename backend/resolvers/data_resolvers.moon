@@ -122,6 +122,53 @@ Mutation =
       true
     results
 
+  insertRecords: (_, args, ctx) ->
+    require_auth ctx
+    sp, meta = data_space args.spaceId
+    seq_fields = sequence_fields args.spaceId
+    triggers_mod = require 'core.triggers'
+    
+    results = {}
+    box.atomic ->
+      for d in *args.data
+        id = tostring uuid_mod.new!
+        data = if type(d) == 'string' then json.decode(d) else d
+        -- Auto-populate Sequence fields
+        for field_name, field_id in pairs seq_fields
+          seq = box.sequence["_tdb_seq_#{field_id}"]
+          data[field_name] = seq\next! if seq
+        sp\insert { id, json.encode data }
+        table.insert results, { id: id, spaceId: args.spaceId, data: json.encode(data) }
+    results
+
+  updateRecords: (_, args, ctx) ->
+    require_auth ctx
+    sp, meta = data_space args.spaceId
+    seq_fields = sequence_fields args.spaceId
+    
+    results = {}
+    box.atomic ->
+      for rec in *args.records
+        id = rec.id
+        existing = sp\get id
+        unless existing
+          log.error "Record not found: #{id}"
+          continue
+        
+        ok_d, old_data = pcall json.decode, existing[2]
+        unless ok_d
+          log.error "Corrupted record data for #{id}: #{old_data}"
+          continue
+          
+        new_data = if type(rec.data) == 'string' then json.decode(rec.data) else rec.data
+        -- Skip Sequence fields (immutable)
+        for k, v in pairs new_data
+          old_data[k] = v unless seq_fields[k]
+        
+        sp\replace { id, json.encode old_data }
+        table.insert results, { id: id, spaceId: args.spaceId, data: json.encode(old_data) }
+    results
+
 Query =
   records: (_, args, ctx) ->
     require_auth ctx

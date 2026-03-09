@@ -216,6 +216,95 @@ local Mutation = {
       results = _accum_0
     end
     return results
+  end,
+  insertRecords = function(_, args, ctx)
+    require_auth(ctx)
+    local sp, meta = data_space(args.spaceId)
+    local seq_fields = sequence_fields(args.spaceId)
+    local triggers_mod = require('core.triggers')
+    local results = { }
+    box.atomic(function()
+      local _list_0 = args.data
+      for _index_0 = 1, #_list_0 do
+        local d = _list_0[_index_0]
+        local id = tostring(uuid_mod.new())
+        local data
+        if type(d) == 'string' then
+          data = json.decode(d)
+        else
+          data = d
+        end
+        for field_name, field_id in pairs(seq_fields) do
+          local seq = box.sequence["_tdb_seq_" .. tostring(field_id)]
+          if seq then
+            data[field_name] = seq:next()
+          end
+        end
+        sp:insert({
+          id,
+          json.encode(data)
+        })
+        table.insert(results, {
+          id = id,
+          spaceId = args.spaceId,
+          data = json.encode(data)
+        })
+      end
+    end)
+    return results
+  end,
+  updateRecords = function(_, args, ctx)
+    require_auth(ctx)
+    local sp, meta = data_space(args.spaceId)
+    local seq_fields = sequence_fields(args.spaceId)
+    local results = { }
+    box.atomic(function()
+      local _list_0 = args.records
+      for _index_0 = 1, #_list_0 do
+        local _continue_0 = false
+        repeat
+          local rec = _list_0[_index_0]
+          local id = rec.id
+          local existing = sp:get(id)
+          if not (existing) then
+            log.error("Record not found: " .. tostring(id))
+            _continue_0 = true
+            break
+          end
+          local ok_d, old_data = pcall(json.decode, existing[2])
+          if not (ok_d) then
+            log.error("Corrupted record data for " .. tostring(id) .. ": " .. tostring(old_data))
+            _continue_0 = true
+            break
+          end
+          local new_data
+          if type(rec.data) == 'string' then
+            new_data = json.decode(rec.data)
+          else
+            new_data = rec.data
+          end
+          for k, v in pairs(new_data) do
+            if not (seq_fields[k]) then
+              old_data[k] = v
+            end
+          end
+          sp:replace({
+            id,
+            json.encode(old_data)
+          })
+          table.insert(results, {
+            id = id,
+            spaceId = args.spaceId,
+            data = json.encode(old_data)
+          })
+          _continue_0 = true
+        until true
+        if not _continue_0 then
+          break
+        end
+      end
+    end)
+    return results
   end
 }
 local Query = {
