@@ -201,7 +201,7 @@ generate = function()
     end
     for _index_1 = 1, #backrefs do
       local ref = backrefs[_index_1]
-      table.insert(fields_sdl, "  " .. tostring(gql_name(ref.rel.name)) .. ": " .. tostring(gql_name(ref.fromSpace.name)) .. "_page!")
+      table.insert(fields_sdl, "  " .. tostring(gql_name(ref.rel.name)) .. "(limit: Int, offset: Int, filter: RecordFilter): " .. tostring(gql_name(ref.fromSpace.name)) .. "_page!")
     end
     table.insert(sdl_parts, "type " .. tostring(tname) .. "_record {\n" .. tostring(table.concat(fields_sdl, '\n')) .. "\n}")
     table.insert(sdl_parts, "type " .. tostring(tname) .. "_page {\n  items: [" .. tostring(tname) .. "_record!]!\n  total: Int!\n  offset: Int!\n  limit: Int!\n}")
@@ -273,6 +273,10 @@ generate = function()
             if not (tb) then
               return nil
             end
+            if to_fn_cap == 'id' then
+              local t = tb:get(tostring(raw))
+              return t and decode_tuple(t)
+            end
             local _list_3 = tb:select({ })
             for _index_2 = 1, #_list_3 do
               local t = _list_3[_index_2]
@@ -288,7 +292,7 @@ generate = function()
     end
     for _index_1 = 1, #backrefs do
       local ref = backrefs[_index_1]
-      tr[gql_name(ref.rel.name)] = (function(rel_fn_cap, to_fn_cap, from_fn_cap, from_sp_name_cap)
+      tr[gql_name(ref.rel.name)] = (function(rel_fn_cap, to_fn_cap, from_fn_cap, from_sp_name_cap, from_sp_id_cap)
         return function(obj, args, ctx)
           local filter_val = tostring((obj[to_fn_cap] or obj._id or ''))
           local tb = box.space["data_" .. tostring(from_sp_name_cap)]
@@ -311,6 +315,15 @@ generate = function()
               table.insert(all, d)
             end
           end
+          if args and args.filter then
+            local ok_fk, fk_def_map = pcall(triggers.build_fk_def_map, from_sp_id_cap)
+            if ok_fk then
+              fk_def_map = fk_def_map
+            else
+              fk_def_map = { }
+            end
+            all = apply_filter(all, args.filter, fk_def_map)
+          end
           local total = #all
           local items
           do
@@ -329,7 +342,7 @@ generate = function()
             limit = limit
           }
         end
-      end)(gql_name(ref.rel.name), (ref.toField and ref.toField.name) or 'id', ref.fromField and ref.fromField.name, ref.fromSpace.name)
+      end)(gql_name(ref.rel.name), (ref.toField and ref.toField.name) or 'id', ref.fromField and ref.fromField.name, ref.fromSpace.name, ref.fromSpace.id)
     end
     local fk_name_map = { }
     local _list_3 = (sp.fields or { })

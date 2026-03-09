@@ -47,10 +47,14 @@ query {
   spaces { id name description fields { id name fieldType } }
 }
 
-# Détail d'un espace
+# Détail d'un espace, y compris les enregistrements (imbriqués)
 query {
   space(id: "...") {
     id name fields { id name fieldType formula }
+    records(limit: 10, offset: 0, filter: { field: "status", op: EQ, value: "active" }) {
+      items { id data }
+      total
+    }
   }
 }
 
@@ -66,6 +70,49 @@ mutation {
 
 # Supprimer
 mutation { deleteSpace(id: "...") }
+```
+
+---
+
+## Requêtes imbriquées (Nesting)
+
+En plus de pouvoir récupérer les relations simples (FK) directement dans les enregistrements, il est possible de **requêter des collections d'enregistrements liés (back-references) avec pagination et filtrage directement au sein d'une requête parente**.
+
+### Back-references avec pagination et filtrage
+
+Les champs de back-reference générés dynamiquement (basés sur les relations inverses) supportent les arguments `limit`, `offset` et `filter`:
+
+```graphql
+# Récupérer les utilisateurs et leurs tâches, en filtrant les tâches par titre
+query {
+  users {
+    items {
+      id
+      name
+      tasks(limit: 5, offset: 0, filter: { field: "title", op: CONTAINS, value: "important" }) {
+        items { id title status }
+        total
+      }
+    }
+  }
+}
+```
+
+### Accès direct aux enregistrements d'un espace via `Space.records`
+
+Le type `Space` expose un champ `records` qui permet de récupérer directement les enregistrements d'un espace donné, avec pagination et filtrage, sans passer par la racine `Query.records`:
+
+```graphql
+# Récupérer les détails d'un espace et ses 10 premiers enregistrements
+query {
+  space(id: "mon_espace_id") {
+    name
+    records(limit: 10, offset: 0) {
+      items { id data }
+      total
+    }
+  }
+}
 ```
 
 ---

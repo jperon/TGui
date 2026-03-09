@@ -127,7 +127,7 @@ generate = ->
       else
         table.insert fields_sdl, "  #{fn}: #{gql_scalar f.fieldType}"
     for ref in *backrefs
-      table.insert fields_sdl, "  #{gql_name ref.rel.name}: #{gql_name ref.fromSpace.name}_page!"
+      table.insert fields_sdl, "  #{gql_name ref.rel.name}(limit: Int, offset: Int, filter: RecordFilter): #{gql_name ref.fromSpace.name}_page!"
 
     table.insert sdl_parts,
       "type #{tname}_record {\n#{table.concat fields_sdl, '\n'}\n}"
@@ -170,6 +170,11 @@ generate = ->
             return nil if raw == nil
             tb  = box.space["data_#{to_sp_cap.name}"]
             return nil unless tb
+            -- Use primary index if looking up by 'id'
+            if to_fn_cap == 'id'
+              t = tb\get tostring(raw)
+              return t and decode_tuple(t)
+            -- Fallback to scan if no secondary index on to_fn (user spaces only have primary by default)
             for t in *tb\select {}
               d = decode_tuple t
               return d if tostring(d[to_fn_cap]) == tostring(raw)
@@ -182,18 +187,29 @@ generate = ->
 
     -- Back-reference resolvers
     for ref in *backrefs
-      tr[gql_name ref.rel.name] = ((rel_fn_cap, to_fn_cap, from_fn_cap, from_sp_name_cap) ->
+      tr[gql_name ref.rel.name] = ((rel_fn_cap, to_fn_cap, from_fn_cap, from_sp_name_cap, from_sp_id_cap) ->
         (obj, args, ctx) ->
           filter_val = tostring (obj[to_fn_cap] or obj._id or '')
           tb = box.space["data_#{from_sp_name_cap}"]
           unless tb
             return { items: {}, total: 0, offset: 0, limit: 0 }
+          
           limit  = (args and args.limit)  or 100
           offset = (args and args.offset) or 0
+          
+          -- Find all matching records
           all = {}
           for t in *tb\select {}
             d = decode_tuple t
-            table.insert all, d if from_fn_cap and tostring(d[from_fn_cap]) == filter_val
+            if from_fn_cap and tostring(d[from_fn_cap]) == filter_val
+              table.insert all, d
+          
+          -- Apply additional filters if provided
+          if args and args.filter
+            ok_fk, fk_def_map = pcall triggers.build_fk_def_map, from_sp_id_cap
+            fk_def_map = if ok_fk then fk_def_map else {}
+            all = apply_filter all, args.filter, fk_def_map
+
           total = #all
           items = [all[i] for i = offset + 1, math.min(offset + limit, total)]
           { items: items, total: total, offset: offset, limit: limit }
@@ -201,7 +217,8 @@ generate = ->
         gql_name(ref.rel.name),
         (ref.toField  and ref.toField.name)  or 'id',
         ref.fromField and ref.fromField.name,
-        ref.fromSpace.name
+        ref.fromSpace.name,
+        ref.fromSpace.id
       )
 
     -- Formula field resolvers (pre-compiled at schema build time)

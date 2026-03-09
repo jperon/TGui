@@ -218,6 +218,16 @@ local Space = {
   end,
   views = function(obj, args, ctx)
     return views_mod.list_views(obj.id)
+  end,
+  records = function(obj, args, ctx)
+    return data_r.Query.records(nil, {
+      spaceId = obj.id,
+      limit = args.limit,
+      offset = args.offset,
+      filter = args.filter,
+      reprFormula = args.reprFormula,
+      reprLanguage = args.reprLanguage
+    }, ctx)
   end
 }
 return {

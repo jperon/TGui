@@ -305,6 +305,12 @@ get_space = (id) ->
   return nil unless t
   { id: t[1], name: t[2], description: t[3], createdAt: t[4], updatedAt: t[5] }
 
+-- Get a single space by name
+get_space_by_name = (name) ->
+  t = box.space._tdb_spaces.index.by_name\get name
+  return nil unless t
+  { id: t[1], name: t[2], description: t[3], createdAt: t[4], updatedAt: t[5] }
+
 -- List fields for a space, sorted by position.
 list_fields = (space_id) ->
   result = {}

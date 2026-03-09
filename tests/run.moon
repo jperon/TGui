@@ -55,6 +55,7 @@ require 'tests.test_relations'
 require 'tests.test_snapshot'
 require 'tests.test_permissions'
 require 'tests.test_data_filters'
+require 'tests.test_nesting'
 
 -- Bilan (os.exit 1 si des tests échouent)
 R.summary!
