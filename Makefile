@@ -19,12 +19,18 @@ TESTFILE := /tmp/.tgui_test_runner.lua
 
 test: build
 	@printf "package.path='/app/?.lua;/app/backend/?.lua;'..package.path\nfor k,_ in pairs(package.loaded) do if k:match('^tests') or k:match('^resolvers') then package.loaded[k]=nil end end\nrequire('tests.run')\n" > $(TESTFILE)
-	@nlines=$$(docker logs tgui-tarantool-1 2>&1 | wc -l); \
-	docker exec -i tgui-tarantool-1 tt connect $(SOCKET) -f - < $(TESTFILE) 2>&1; \
+	@nlines=$$(docker logs tgui-tarantool-test 2>&1 | wc -l); \
+	docker exec -i tgui-tarantool-test tt connect $(SOCKET) -f - < $(TESTFILE) 2>&1; \
 	sleep 8; \
-	new_output=$$(docker logs tgui-tarantool-1 2>&1 | tail -n +$$((nlines + 1))); \
+	new_output=$$(docker logs tgui-tarantool-test 2>&1 | tail -n +$$((nlines + 1))); \
 	echo "$$new_output" | grep -E 'assertions|RÉSULTAT'; \
 	echo "$$new_output" | grep -q "RÉSULTAT: SUCCÈS" && exit 0 || exit 1; echo "$$new_output" ; exit 1
+
+test-up: build
+	docker compose -f docker-compose.test.yml up -d --build
+
+test-down:
+	docker compose -f docker-compose.test.yml down
 
 test-js: $(TEST_JS_OUTS)
 	coffee tests/js/run.coffee
