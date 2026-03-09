@@ -56,7 +56,7 @@ clean:
 # ── Documentation PDF ────────────────────────────────────────────────────────
 DOC_DIR    = doc
 DOC_HEADER = $(DOC_DIR)/00_header.yml
-DOC_PDFS   = $(DOC_DIR)/get-started.pdf $(DOC_DIR)/reference.pdf
+DOC_PDFS   = $(DOC_DIR)/get-started.pdf $(DOC_DIR)/reference.pdf $(DOC_DIR)/en/get-started.pdf $(DOC_DIR)/en/reference.pdf
 
 PANDOC_FLAGS = --metadata-file=00_header.yml --pdf-engine=xelatex
 
