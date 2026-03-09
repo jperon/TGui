@@ -1329,10 +1329,14 @@ window.App =
 document.addEventListener 'DOMContentLoaded', ->
   GQL.loadToken()
   App.init()
+  # Le flash initial est évité par le script inline dans index.moon.
   Auth.restoreSession()
     .then (user) ->
       if user
         App.showMain user
         App._loadAll()
+      else
+        App.showLogin()
     .catch ->
+      App.showLogin()
       GQL.clearToken()
