@@ -364,7 +364,8 @@ generate = function()
         if formula_fn then
           tr[gql_name(f.name)] = (function(fn_cap, fk_nm_cap)
             return function(obj, a, ctx)
-              local proxy = triggers.make_self_proxy(obj, fk_nm_cap)
+              ctx._fk_cache = ctx._fk_cache or { }
+              local proxy = triggers.make_self_proxy(obj, fk_nm_cap, ctx._fk_cache)
               local space_helper
               space_helper = function(sname)
                 local sp_box = box.space["data_" .. tostring(sname)]

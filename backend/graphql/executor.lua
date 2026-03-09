@@ -261,7 +261,7 @@ do
         if named then
           local t = self.schema.types[named.name]
           if t and (t.kind == 'OBJECT' or t.kind == 'INTERFACE' or t.kind == 'UNION') then
-            return nil
+            return parent_obj and parent_obj[field_name]
           end
         end
       end

@@ -197,6 +197,7 @@ class Executor
 
     -- Short-circuit: if the field resolves to a composite type but the query
     -- has no selection set, skip the resolver entirely (avoids costly FK scans).
+    -- Return the raw FK value (integer ID) so the frontend can use its fkMap.
     if field_def and not field_node.selectionSet
       named = field_def.type
       while named and (named.kind == 'NonNullType' or named.kind == 'ListType')
@@ -204,7 +205,7 @@ class Executor
       if named
         t = @schema.types[named.name]
         if t and (t.kind == 'OBJECT' or t.kind == 'INTERFACE' or t.kind == 'UNION')
-          return nil
+          return parent_obj and parent_obj[field_name]
 
     raw_value = resolver parent_obj, args, @context, {
       field_name:     field_name

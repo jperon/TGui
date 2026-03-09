@@ -242,7 +242,10 @@ generate = ->
         if formula_fn
           tr[gql_name f.name] = ((fn_cap, fk_nm_cap) ->
             (obj, a, ctx) ->
-              proxy = triggers.make_self_proxy obj, fk_nm_cap
+              -- Reuse a per-request FK cache stored in ctx to avoid rescanning
+              -- FK target tables for every record in a batch query.
+              ctx._fk_cache = ctx._fk_cache or {}
+              proxy = triggers.make_self_proxy obj, fk_nm_cap, ctx._fk_cache
               space_helper = (sname) ->
                 sp_box = box.space["data_#{sname}"]
                 return {} unless sp_box
