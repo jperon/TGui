@@ -673,3 +673,20 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   font-size: .8rem; font-family: monospace; resize: vertical;
   box-sizing: border-box;
 }
+
+.formula-error {
+  color: #f38ba8;
+  background-color: rgba(243, 139, 168, 0.1);
+  border: 1px solid #f38ba8;
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-size: 0.85em;
+  font-weight: bold;
+  cursor: help;
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+

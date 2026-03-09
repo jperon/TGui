@@ -104,6 +104,8 @@ window.DataView = class DataView
         fkOptions = @_fkOptions[f.name] or []
         col.formatter = do (fkMap) -> (props) ->
           val = props.value
+          if typeof val == 'string' and val.indexOf('[Erreur de formule:') == 0
+            return "<span class=\"formula-error\" title=\"#{val}\">⚠ Erreur</span>"
           fkMap[String val] ? String(val ? '')
         col.editor =
           type: 'select'
@@ -111,6 +113,12 @@ window.DataView = class DataView
             listItems: fkOptions
       else
         col.editor = 'text' unless seqNames.has(f.name) or formulaNames.has(f.name)
+        # Highlight formula errors in normal text columns
+        col.formatter = (props) ->
+          val = props.value
+          if typeof val == 'string' and val.indexOf('[Erreur de formule:') == 0
+            return "<span class=\"formula-error\" title=\"#{val}\">⚠ Erreur</span>"
+          String(val ? '')
       col
 
     @_grid = new tui.Grid
@@ -278,21 +286,33 @@ window.DataView = class DataView
       tname      = gqlName @space.name
       fieldList  = (gqlName f.name for f in fields).join(' ')
       spaceQuery = "query { #{tname}(limit: 2000) { items { _id #{fieldList} } } }"
-      data       = await GQL.query spaceQuery, {}
-      return unless @_mounted
-      @_rows = data[tname].items.map (item) ->
-        row           = Object.assign {}, item
-        row.__rowId   = item._id
-        row
+      try
+        data = await GQL.query spaceQuery, {}
+        return unless @_mounted
+        @_rows = data[tname].items.map (item) ->
+          row           = Object.assign {}, item
+          row.__rowId   = item._id
+          row
+      catch e
+        @_showError "Erreur de colonne calculée : #{e.message}"
+        @_rows = []
     else
       gqlFilter = if @_formulaFilter then { formula: @_formulaFilter, language: 'moonscript' } else undefined
-      data    = await GQL.query RECORDS_QUERY, { spaceId: @space.id, limit: 2000, filter: gqlFilter }
-      return unless @_mounted
-      @_rows  = data.records.items.map (r) ->
-        parsed      = if typeof r.data == 'string' then JSON.parse(r.data) else r.data
-        row         = Object.assign {}, parsed
-        row.__rowId = r.id
-        row
+      try
+        data = await GQL.query RECORDS_QUERY, { spaceId: @space.id, limit: 2000, filter: gqlFilter }
+        return unless @_mounted
+        @_rows  = data.records.items.map (r) ->
+          parsed      = if typeof r.data == 'string' then JSON.parse(r.data) else r.data
+          row         = Object.assign {}, parsed
+          row.__rowId = r.id
+          row
+        document.getElementById('formula-filter-input')?.classList.remove 'input-error'
+      catch e
+        msg = if @_formulaFilter then "Erreur de filtre : #{e.message}" else "Erreur de chargement : #{e.message}"
+        @_showError msg
+        document.getElementById('formula-filter-input')?.classList.add 'input-error' if @_formulaFilter
+        @_rows = []
+
     @_applyData()
     @_rows
 

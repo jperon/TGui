@@ -242,7 +242,7 @@ generate = ->
       if f.formula and f.formula != ''
         formula_fn = triggers.compile_formula f.formula, f.name, (f.language or 'moonscript')
         if formula_fn
-          tr[gql_name f.name] = ((fn_cap, fk_nm_cap, raw_name_cap) ->
+          tr[gql_name f.name] = ((fn_cap, fk_nm_cap, raw_name_cap, sp_name_cap) ->
             (obj, a, ctx) ->
               -- Prefer raw stored value if it's a trigger formula that was saved
               raw_val = obj[raw_name_cap]
@@ -250,14 +250,18 @@ generate = ->
               -- Reuse a per-request FK cache stored in ctx to avoid rescanning
               -- FK target tables for every record in a batch query.
               ctx._fk_cache = ctx._fk_cache or {}
-              proxy = triggers.make_self_proxy obj, fk_nm_cap, ctx._fk_cache, sp_cap.name
+              proxy = triggers.make_self_proxy obj, fk_nm_cap, ctx._fk_cache, sp_name_cap
               space_helper = (sname) ->
                 sp_box = box.space["data_#{sname}"]
                 return {} unless sp_box
                 [decode_tuple t for t in *sp_box\select {}]
               r_ok, val = pcall fn_cap, proxy, space_helper
-              if r_ok then val else nil
-          )(formula_fn, fk_name_map, f.name)
+              if r_ok 
+                return val
+              else
+                log.error "tdb proxy: error evaluating formula for '#{sp_name_cap}.#{f.name}': #{val}"
+                return "[Erreur de formule: #{val}]"
+          )(formula_fn, fk_name_map, f.name, sp.name)
 
     type_resolvers["#{tname}_record"] = tr
 
