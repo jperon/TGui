@@ -96,6 +96,7 @@ make_login_overlay = function()
     H.div({
       class = 'login-box',
       H.h1({
+        ['data-i18n'] = 'ui.login.title',
         'TGui'
       }),
       H.input({
@@ -110,6 +111,7 @@ make_login_overlay = function()
       }),
       H.button({
         id = 'login-btn',
+        ['data-i18n'] = 'ui.login.button',
         'Connexion'
       }),
       H.p({
@@ -204,11 +206,28 @@ make_sidebar = function()
         class = 'user-menu hidden',
         H.button({
           id = 'change-password-btn',
+          ['data-i18n'] = 'ui.menu.changePassword',
           'Changer le mot de passe'
         }),
         H.button({
           id = 'logout-btn',
+          ['data-i18n'] = 'ui.menu.logout',
           'Déconnexion'
+        }),
+        H.div({
+          class = 'menu-lang-row',
+          H.button({
+            id = 'lang-fr-btn',
+            class = 'toolbar-btn',
+            ['data-i18n'] = 'ui.menu.langFr',
+            'FR'
+          }),
+          H.button({
+            id = 'lang-en-btn',
+            class = 'toolbar-btn',
+            ['data-i18n'] = 'ui.menu.langEn',
+            'EN'
+          })
         })
       })
     })
@@ -870,6 +889,10 @@ make_body = function()
     }),
     H.script({
       src = '/vendor/codemirror.bundle.js',
+      ''
+    }),
+    H.script({
+      src = '/src/i18n.js',
       ''
     }),
     H.script({

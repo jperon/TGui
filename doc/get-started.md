@@ -441,6 +441,7 @@ Cliquez sur votre **nom d'utilisateur** (en bas à gauche) pour ouvrir le menu :
 
 - **Changer le mot de passe** : saisir l'ancien puis le nouveau mot de passe.
 - **Déconnexion** : invalide la session côté serveur et revient à l'écran de connexion.
+- **FR / EN** : change la langue de l'interface (préférence conservée localement dans le navigateur).
 
 ![Dialog changement de mot de passe](img/change-password.png)
 

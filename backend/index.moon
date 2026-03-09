@@ -41,11 +41,11 @@ make_head = ->
 -- Overlay de connexion
 make_login_overlay = ->
   H.div {id: 'login-overlay', class: 'overlay',
-    H.div {class: 'login-box',
-      H.h1 {'TGui'}
+      H.div {class: 'login-box',
+      H.h1 {['data-i18n']: 'ui.login.title', 'TGui'}
       H.input {id: 'login-username', type: 'text',     placeholder: "Nom d'utilisateur"}
       H.input {id: 'login-password', type: 'password', placeholder: 'Mot de passe'}
-      H.button {id: 'login-btn', 'Connexion'}
+      H.button {id: 'login-btn', ['data-i18n']: 'ui.login.button', 'Connexion'}
       H.p {id: 'login-error', class: 'error', ''}
     }
   }
@@ -83,8 +83,12 @@ make_sidebar = ->
     H.div {class: 'sidebar-footer',
       H.button {id: 'current-user-btn', class: 'current-user-btn', ''}
       H.div {id: 'user-menu', class: 'user-menu hidden',
-        H.button {id: 'change-password-btn', 'Changer le mot de passe'}
-        H.button {id: 'logout-btn', 'Déconnexion'}
+        H.button {id: 'change-password-btn', ['data-i18n']: 'ui.menu.changePassword', 'Changer le mot de passe'}
+        H.button {id: 'logout-btn', ['data-i18n']: 'ui.menu.logout', 'Déconnexion'}
+        H.div {class: 'menu-lang-row',
+          H.button {id: 'lang-fr-btn', class: 'toolbar-btn', ['data-i18n']: 'ui.menu.langFr', 'FR'}
+          H.button {id: 'lang-en-btn', class: 'toolbar-btn', ['data-i18n']: 'ui.menu.langEn', 'EN'}
+        }
       }
     }
   }
@@ -345,6 +349,7 @@ make_body = ->
     H.script {src: '/vendor/tui-grid.bundle.js', ''}
     H.script {src: '/vendor/jsyaml.bundle.js', ''}
     H.script {src: '/vendor/codemirror.bundle.js', ''}
+    H.script {src: '/src/i18n.js', ''}
     H.script {src: '/src/modal.js', ''}
     H.script {src: '/src/graphql_client.js', ''}
     H.script {src: '/src/auth.js', ''}

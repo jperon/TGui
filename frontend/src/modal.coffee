@@ -11,6 +11,9 @@ _input   = null
 _okBtn   = null
 _cancelBtn = null
 
+_t = (key, vars = {}) ->
+  if window.I18N?.t then window.I18N.t key, vars else key
+
 _init = ->
   return if _overlay
   _overlay = document.createElement 'div'
@@ -32,11 +35,11 @@ _init = ->
 
   _cancelBtn = document.createElement 'button'
   _cancelBtn.className = 'toolbar-btn'
-  _cancelBtn.textContent = 'Annuler'
+  _cancelBtn.textContent = _t 'common.cancel'
 
   _okBtn = document.createElement 'button'
   _okBtn.className = 'btn-primary'
-  _okBtn.textContent = 'OK'
+  _okBtn.textContent = _t 'common.ok'
 
   btns.appendChild _cancelBtn
   btns.appendChild _okBtn
@@ -48,6 +51,8 @@ _init = ->
 
 _show = (msg, type = 'info', showInput = false, defaultVal = '', showCancel = false) ->
   _init()
+  _okBtn.textContent = _t 'common.ok'
+  _cancelBtn.textContent = _t 'common.cancel'
   _msg.textContent = msg
   _box.className = "tdb-modal-box tdb-modal-box--#{type}"
   if showInput

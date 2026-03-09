@@ -110,6 +110,15 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   color: var(--color-text);
 }
 .user-menu button:hover { background: var(--color-hover); }
+.menu-lang-row {
+  display: flex;
+  gap: .35rem;
+  padding: .35rem .5rem .5rem;
+}
+.menu-lang-row .toolbar-btn {
+  flex: 1;
+  text-align: center;
+}
 
 /* ── Content area ─────────────────────────────────────────────────────────── */
 #content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }

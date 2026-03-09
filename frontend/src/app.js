@@ -27,7 +27,18 @@
     _activeCustomView: null,
     _allSpaces: [],
     _editingFieldId: null, // fieldId being edited in the Champs form, or null
-    
+    _localeListenerBound: false,
+    _t: function(key, vars = {}) {
+      var ref;
+      if ((ref = window.I18N) != null ? ref.t : void 0) {
+        return window.I18N.t(key, vars);
+      } else {
+        return key;
+      }
+    },
+    _err: function(err, key = 'common.error') {
+      return `${this._t(key)} : ${err.message}`;
+    },
     // ── DOM refs ────────────────────────────────────────────────────────────────
     el: {
       loginOverlay: function() {
@@ -59,6 +70,12 @@
       },
       logoutBtn: function() {
         return document.getElementById('logout-btn');
+      },
+      langFrBtn: function() {
+        return document.getElementById('lang-fr-btn');
+      },
+      langEnBtn: function() {
+        return document.getElementById('lang-en-btn');
       },
       spaceList: function() {
         return document.getElementById('space-list');
@@ -332,11 +349,32 @@
     },
     // ── Bootstrap ───────────────────────────────────────────────────────────────
     init: function() {
+      var ref;
+      if ((ref = window.I18N) != null) {
+        if (typeof ref.init === "function") {
+          ref.init();
+        }
+      }
+      this._bindLocaleChange();
       this._bindLogin();
       this._bindSidebar();
       this._bindDataToolbar();
       this._bindFieldsPanel();
-      return this._bindYamlEditor();
+      this._bindYamlEditor();
+      return this._applyI18nDynamic();
+    },
+    _bindLocaleChange: function() {
+      if (this._localeListenerBound) {
+        return;
+      }
+      this._localeListenerBound = true;
+      return window.addEventListener('i18n:locale-changed', () => {
+        return this._applyI18nDynamic();
+      });
+    },
+    _applyI18nDynamic: function() {
+      var ref;
+      return (ref = this.el.fieldAddBtn()) != null ? ref.textContent = this._editingFieldId ? this._t('ui.fields.update') : this._t('ui.fields.add') : void 0;
     },
     // ── Login ───────────────────────────────────────────────────────────────────
     _bindLogin: function() {
@@ -387,21 +425,22 @@
     },
     // ── Sidebar ─────────────────────────────────────────────────────────────────
     _bindSidebar: function() {
+      var ref, ref1;
       this.el.newSpaceBtn().addEventListener('click', async() => {
         var name;
-        name = (await tdbPrompt('Nom du nouvel espace :'));
+        name = (await tdbPrompt(this._t('ui.prompts.newSpace')));
         if (!(name != null ? name.trim() : void 0)) {
           return;
         }
         return Spaces.create(name.trim()).then(() => {
           return this._loadAll();
-        }).catch(function(err) {
-          return tdbAlert(`Erreur : ${err.message}`, 'error');
+        }).catch((err) => {
+          return tdbAlert(this._err(err), 'error');
         });
       });
       this.el.newViewBtn().addEventListener('click', async() => {
         var name;
-        name = (await tdbPrompt('Nom de la nouvelle vue :'));
+        name = (await tdbPrompt(this._t('ui.prompts.newView')));
         if (!(name != null ? name.trim() : void 0)) {
           return;
         }
@@ -416,8 +455,8 @@
             cv = data.createCustomView;
             return this.selectCustomView(cv);
           });
-        }).catch(function(err) {
-          return tdbAlert(`Erreur : ${err.message}`, 'error');
+        }).catch((err) => {
+          return tdbAlert(this._err(err), 'error');
         });
       });
       // Menu profil utilisateur
@@ -438,6 +477,18 @@
       this.el.logoutBtn().addEventListener('click', () => {
         return Auth.logout();
       });
+      if ((ref = this.el.langFrBtn()) != null) {
+        ref.addEventListener('click', () => {
+          var ref1;
+          return (ref1 = window.I18N) != null ? ref1.setLocale('fr') : void 0;
+        });
+      }
+      if ((ref1 = this.el.langEnBtn()) != null) {
+        ref1.addEventListener('click', () => {
+          var ref2;
+          return (ref2 = window.I18N) != null ? ref2.setLocale('en') : void 0;
+        });
+      }
       // Navigation admin
       this.el.adminNavUsers().addEventListener('click', () => {
         return this._showAdminPanel('users');
@@ -503,21 +554,23 @@
           btnPwd = document.createElement('button');
           btnPwd.className = 'toolbar-btn';
           btnPwd.textContent = '🔑';
-          btnPwd.title = 'Changer le mot de passe';
+          btnPwd.title = this._t('ui.admin.pwdBtnTitle');
           btnPwd.addEventListener('click', async() => {
             var newPwd, uid;
             uid = u.id;
-            newPwd = (await tdbPrompt(`Nouveau mot de passe pour ${u.username} :`));
+            newPwd = (await tdbPrompt(this._t('ui.prompts.newPasswordFor', {
+              username: u.username
+            })));
             if (!(newPwd != null ? newPwd.trim() : void 0)) {
               return;
             }
             return GQL.mutate('mutation SetPwd($uid: ID!, $pwd: String!) { adminSetPassword(userId: $uid, newPassword: $pwd) }', {
               uid,
               pwd: newPwd
-            }).then(function() {
-              return tdbAlert('Mot de passe changé.', 'info');
-            }).catch(function(err) {
-              return tdbAlert(`Erreur : ${err.message}`, 'error');
+            }).then(() => {
+              return tdbAlert(this._t('ui.alerts.passwordChanged'), 'info');
+            }).catch((err) => {
+              return tdbAlert(this._err(err), 'error');
             });
           });
           li.appendChild(btnPwd);
@@ -527,8 +580,8 @@
         return this.el.adminCreateUserBtn().onclick = () => {
           return this.el.createUserDialog().classList.remove('hidden');
         };
-      }).catch(function(err) {
-        return tdbAlert(`Erreur chargement utilisateurs : ${err.message}`, 'error');
+      }).catch((err) => {
+        return tdbAlert(this._err(err), 'error');
       });
     },
     _loadAdminGroups: function() {
@@ -549,18 +602,20 @@
             btnDel = document.createElement('button');
             btnDel.className = 'toolbar-btn toolbar-btn--icon toolbar-btn--danger';
             btnDel.textContent = '🗑';
-            btnDel.title = 'Supprimer le groupe';
+            btnDel.title = this._t('ui.admin.deleteGroupTitle');
             btnDel.addEventListener('click', async() => {
               var gid, gname;
               gid = g.id;
               gname = g.name;
-              if (!(await tdbConfirm(`Supprimer le groupe « ${gname} » ?`))) {
+              if (!(await tdbConfirm(this._t('ui.confirms.deleteGroup', {
+                name: gname
+              })))) {
                 return;
               }
               return Auth.deleteGroup(gid).then(() => {
                 return this._loadAdminGroups();
-              }).catch(function(err) {
-                return tdbAlert(`Erreur : ${err.message}`, 'error');
+              }).catch((err) => {
+                return tdbAlert(this._err(err), 'error');
               });
             });
             li.appendChild(btnDel);
@@ -570,8 +625,8 @@
         return this.el.adminCreateGroupBtn().onclick = () => {
           return this.el.createGroupDialog().classList.remove('hidden');
         };
-      }).catch(function(err) {
-        return tdbAlert(`Erreur chargement groupes : ${err.message}`, 'error');
+      }).catch((err) => {
+        return tdbAlert(this._err(err), 'error');
       });
     },
     // ── Dialog: changement de mot de passe ──────────────────────────────────────
@@ -601,11 +656,11 @@
         confirm = this.el.cpConfirm().value;
         this.el.cpError().textContent = '';
         if (!(current && nw)) {
-          this.el.cpError().textContent = 'Veuillez remplir tous les champs.';
+          this.el.cpError().textContent = this._t('ui.validation.requiredAllFields');
           return;
         }
         if (nw !== confirm) {
-          this.el.cpError().textContent = 'Les nouveaux mots de passe ne correspondent pas.';
+          this.el.cpError().textContent = this._t('ui.validation.newPasswordsMismatch');
           return;
         }
         return Auth.changePassword(current, nw).then((ok) => {
@@ -613,12 +668,12 @@
             localStorage.setItem('tdb_password_changed', '1');
             this.el.changePasswordDialog().classList.add('hidden');
             this.el.defaultPasswordWarning().classList.add('hidden');
-            return tdbAlert('Mot de passe changé avec succès.', 'info');
+            return tdbAlert(this._t('ui.alerts.passwordChangedSuccess'), 'info');
           } else {
-            return this.el.cpError().textContent = 'Erreur : mot de passe actuel incorrect.';
+            return this.el.cpError().textContent = this._t('ui.validation.currentPasswordIncorrect');
           }
         }).catch((err) => {
-          return this.el.cpError().textContent = `Erreur : ${err.message}`;
+          return this.el.cpError().textContent = this._err(err);
         });
       });
     },
@@ -634,7 +689,7 @@
         password = this.el.cuPassword().value;
         this.el.cuError().textContent = '';
         if (!(username && password)) {
-          this.el.cuError().textContent = "Nom d'utilisateur et mot de passe requis.";
+          this.el.cuError().textContent = this._t('ui.validation.usernamePasswordRequired');
           return;
         }
         return Auth.createUser(username, email || null, password).then(() => {
@@ -644,7 +699,7 @@
           this.el.cuPassword().value = '';
           return this._loadAdminUsers();
         }).catch((err) => {
-          return this.el.cuError().textContent = `Erreur : ${err.message}`;
+          return this.el.cuError().textContent = this._err(err);
         });
       });
     },
@@ -659,7 +714,7 @@
         description = this.el.cgDescription().value.trim();
         this.el.cgError().textContent = '';
         if (!name) {
-          this.el.cgError().textContent = 'Le nom est requis.';
+          this.el.cgError().textContent = this._t('ui.validation.groupNameRequired');
           return;
         }
         return Auth.createGroup(name, description).then(() => {
@@ -668,7 +723,7 @@
           this.el.cgDescription().value = '';
           return this._loadAdminGroups();
         }).catch((err) => {
-          return this.el.cgError().textContent = `Erreur : ${err.message}`;
+          return this.el.cgError().textContent = this._err(err);
         });
       });
     },
@@ -693,8 +748,8 @@
           a.download = fname;
           a.click();
           return URL.revokeObjectURL(url);
-        }).catch(function(err) {
-          return tdbAlert(`Erreur export : ${err.message}`, 'error');
+        }).catch((err) => {
+          return tdbAlert(this._err(err), 'error');
         });
       };
       this.el.snapshotExportSchemaBtn().addEventListener('click', () => {
@@ -731,7 +786,7 @@
             this._renderSnapshotDiff(diff);
             return this.el.snapshotDiffBox().classList.remove('hidden');
           }).catch((err) => {
-            this.el.snapshotImportError().textContent = `Erreur analyse : ${err.message}`;
+            this.el.snapshotImportError().textContent = this._err(err);
             return this.el.snapshotImportError().classList.remove('hidden');
           });
         };
@@ -745,7 +800,7 @@
         }
         mode = ((ref = document.querySelector('input[name="snapshot-mode"]:checked')) != null ? ref.value : void 0) || 'merge';
         if (mode === 'replace') {
-          if (!(await tdbConfirm("⚠ Mode Remplacement : toutes les données existantes seront effacées. Continuer ?"))) {
+          if (!(await tdbConfirm(this._t('ui.confirms.replaceImport')))) {
             return;
           }
         }
@@ -764,10 +819,16 @@
           res.classList.remove('hidden');
           if (r.ok) {
             res.className = 'snapshot-import-result snapshot-result-ok';
-            res.innerHTML = `✓ Import réussi — ${r.created} créé(s), ${r.skipped} ignoré(s).`;
+            res.innerHTML = this._t('ui.snapshot.importOk', {
+              created: r.created,
+              skipped: r.skipped
+            });
           } else {
             res.className = 'snapshot-import-result snapshot-result-err';
-            res.innerHTML = `⚠ Import terminé avec erreurs — ${r.created} créé(s), ${r.skipped} ignoré(s).<br>` + r.errors.map(function(e) {
+            res.innerHTML = this._t('ui.snapshot.importErr', {
+              created: r.created,
+              skipped: r.skipped
+            }) + '<br>' + r.errors.map(function(e) {
               return `<code>${e}</code>`;
             }).join('<br>');
           }
@@ -777,7 +838,7 @@
           }
         }).catch((err) => {
           this.el.snapshotImportConfirmBtn().disabled = false;
-          this.el.snapshotImportError().textContent = `Erreur import : ${err.message}`;
+          this.el.snapshotImportError().textContent = this._err(err);
           return this.el.snapshotImportError().classList.remove('hidden');
         });
       });
@@ -806,9 +867,9 @@
             if (item.oldType && item.newType) {
               li.innerHTML = `<code>${item.space}.${item.field}</code> : <em>${item.oldType}</em> → <strong>${item.newType}</strong>`;
             } else if (item.newType) {
-              li.innerHTML = `<code>${item.space}.${item.field}</code> (${item.newType}) — à créer`;
+              li.innerHTML = this._t('ui.snapshot.fieldToCreate', item);
             } else {
-              li.innerHTML = `<code>${item.space}.${item.field}</code> (${item.oldType}) — sera supprimé`;
+              li.innerHTML = this._t('ui.snapshot.fieldToDelete', item);
             }
           }
           ul.appendChild(li);
@@ -819,16 +880,16 @@
       if (noop) {
         p = document.createElement('p');
         p.className = 'snapshot-diff-noop';
-        p.textContent = '✓ Le schéma importé correspond exactement au schéma actuel.';
+        p.textContent = this._t('ui.snapshot.noop');
         return c.appendChild(p);
       } else {
-        _section('⚠ Espaces à supprimer (données perdues)', diff.spacesToDelete, 'diff-list diff-delete');
-        _section('+ Espaces à créer', diff.spacesToCreate, 'diff-list diff-create');
-        _section('⚠ Champs à supprimer', diff.fieldsToDelete, 'diff-list diff-delete');
-        _section('~ Champs à modifier (type)', diff.fieldsToChange, 'diff-list diff-change');
-        _section('+ Champs à créer', diff.fieldsToCreate, 'diff-list diff-create');
-        _section('+ Vues personnalisées à créer', diff.customViewsToCreate, 'diff-list diff-create');
-        return _section('~ Vues personnalisées à mettre à jour', diff.customViewsToUpdate, 'diff-list diff-change');
+        _section(this._t('ui.snapshot.sectionSpacesDelete'), diff.spacesToDelete, 'diff-list diff-delete');
+        _section(this._t('ui.snapshot.sectionSpacesCreate'), diff.spacesToCreate, 'diff-list diff-create');
+        _section(this._t('ui.snapshot.sectionFieldsDelete'), diff.fieldsToDelete, 'diff-list diff-delete');
+        _section(this._t('ui.snapshot.sectionFieldsChange'), diff.fieldsToChange, 'diff-list diff-change');
+        _section(this._t('ui.snapshot.sectionFieldsCreate'), diff.fieldsToCreate, 'diff-list diff-create');
+        _section(this._t('ui.snapshot.sectionCustomViewsCreate'), diff.customViewsToCreate, 'diff-list diff-create');
+        return _section(this._t('ui.snapshot.sectionCustomViewsUpdate'), diff.customViewsToUpdate, 'diff-list diff-change');
       }
     },
     // ── Hash-based navigation ────────────────────────────────────────────────────
@@ -865,8 +926,8 @@
       return Spaces.list().then((spaces) => {
         this._allSpaces = spaces;
         return this.renderSpaceList(spaces);
-      }).catch(function(err) {
-        return tdbAlert(`Erreur chargement espaces : ${err.message}`, 'error');
+      }).catch((err) => {
+        return tdbAlert(this._err(err), 'error');
       });
     },
     renderSpaceList: function(spaces) {
@@ -925,8 +986,8 @@
         this._currentSpace = full;
         this.el.dataTitle().textContent = full.name;
         return this._mountDataView(full);
-      }).catch(function(err) {
-        return tdbAlert(`Erreur chargement espace : ${err.message}`, 'error');
+      }).catch((err) => {
+        return tdbAlert(this._err(err), 'error');
       });
     },
     // Keep @_allSpaces in sync after any field mutation on the current space.
@@ -966,8 +1027,8 @@
     loadCustomViews: function() {
       return GQL.query(LIST_CUSTOM_VIEWS).then((data) => {
         return this.renderCustomViewList(data.customViews);
-      }).catch(function(err) {
-        return tdbAlert(`Erreur chargement vues : ${err.message}`, 'error');
+      }).catch((err) => {
+        return tdbAlert(this._err(err), 'error');
       });
     },
     renderCustomViewList: function(views) {
@@ -1053,7 +1114,9 @@
         if (!cv) {
           return;
         }
-        if (!(await tdbConfirm(`Supprimer la vue « ${cv.name} » ?`))) {
+        if (!(await tdbConfirm(this._t('ui.confirms.deleteView', {
+          name: cv.name
+        })))) {
           return;
         }
         return GQL.mutate(DELETE_CUSTOM_VIEW, {
@@ -1071,8 +1134,8 @@
           this.el.customViewContainer().classList.add('hidden');
           this.el.welcome().classList.remove('hidden');
           return this.loadCustomViews();
-        }).catch(function(err) {
-          return tdbAlert(`Erreur : ${err.message}`, 'error');
+        }).catch((err) => {
+          return tdbAlert(this._err(err), 'error');
         });
       });
       this.el.yamlModalSaveBtn().addEventListener('click', () => {
@@ -1090,8 +1153,8 @@
           this.el.yamlModal().classList.add('hidden');
           this._renderCustomViewPreview(yaml);
           return this.loadCustomViews();
-        }).catch(function(err) {
-          return tdbAlert(`Erreur : ${err.message}`, 'error');
+        }).catch((err) => {
+          return tdbAlert(this._err(err), 'error');
         });
       });
       this.el.yamlModalCloseBtn().addEventListener('click', () => {
@@ -1207,7 +1270,7 @@
           return;
         }
         name = this._currentSpace.name;
-        if (!(await tdbConfirm(`Supprimer l'espace « ${name} » et toutes ses données ?`))) {
+        if (!(await tdbConfirm(this._t('ui.confirms.deleteSpace', {name})))) {
           return;
         }
         return Spaces.delete(this._currentSpace.id).then(() => {
@@ -1224,8 +1287,8 @@
           this.el.fieldsBtn().classList.remove('active');
           this.el.welcome().classList.remove('hidden');
           return this._loadAll();
-        }).catch(function(err) {
-          return tdbAlert(`Erreur : ${err.message}`, 'error');
+        }).catch((err) => {
+          return tdbAlert(this._err(err), 'error');
         });
       });
       return this.el.renameSpaceBtn().addEventListener('click', async() => {
@@ -1233,7 +1296,7 @@
         if (!this._currentSpace) {
           return;
         }
-        newName = (await tdbPrompt("Nouveau nom de l'espace :", this._currentSpace.name));
+        newName = (await tdbPrompt(this._t('ui.prompts.renameSpace'), this._currentSpace.name));
         if (!((newName != null ? newName.trim() : void 0) && newName.trim() !== this._currentSpace.name)) {
           return;
         }
@@ -1246,8 +1309,8 @@
           if (li) {
             return li.textContent = updated.name;
           }
-        }).catch(function(err) {
-          return tdbAlert(`Erreur : ${err.message}`, 'error');
+        }).catch((err) => {
+          return tdbAlert(this._err(err), 'error');
         });
       });
     },
@@ -1335,12 +1398,12 @@
         notNull = this.el.fieldNotNull().checked;
         if (!name) {
           this.el.fieldName().classList.add('input-error');
-          this.el.fieldName().placeholder = 'Le nom est requis !';
+          this.el.fieldName().placeholder = this._t('ui.validation.groupNameRequired');
           this.el.fieldName().focus();
           return;
         }
         this.el.fieldName().classList.remove('input-error');
-        this.el.fieldName().placeholder = 'Nom du champ';
+        this.el.fieldName().placeholder = this._t('ui.fields.namePlaceholder');
         if (this._editingFieldId) {
           // ── Update existing field ──────────────────────────────────────────
           formulaType = document.querySelector('input[name="formula-type"]:checked').value;
@@ -1389,8 +1452,8 @@
               this.renderFieldsList();
               return this._mountDataView(full);
             });
-          }).catch(function(err) {
-            return tdbAlert(`Erreur : ${err.message}`, 'error');
+          }).catch((err) => {
+            return tdbAlert(this._err(err), 'error');
           });
           return this._resetFieldForm();
         } else if (type === 'Relation') {
@@ -1406,7 +1469,7 @@
               return f.fieldType === 'Sequence';
             });
             if (!idField) {
-              tdbAlert("L'espace cible n'a pas de champ Séquence.", 'warn');
+              tdbAlert(this._t('ui.alerts.targetNoSequence'), 'warn');
               return;
             }
             return Spaces.addField(this._currentSpace.id, name, 'Int', notNull, '').then((newField) => {
@@ -1417,11 +1480,11 @@
                   this.renderFieldsList();
                   return this._mountDataView(full);
                 });
-              }).catch(function(err) {
-                return tdbAlert(`Erreur : ${err.message}`, 'error');
+              }).catch((err) => {
+                return tdbAlert(this._err(err), 'error');
               });
-            }).catch(function(err) {
-              return tdbAlert(`Erreur : ${err.message}`, 'error');
+            }).catch((err) => {
+              return tdbAlert(this._err(err), 'error');
             });
           });
           return this._resetFieldForm();
@@ -1462,8 +1525,8 @@
               this.renderFieldsList();
               return this._mountDataView(full);
             });
-          }).catch(function(err) {
-            return tdbAlert(`Erreur : ${err.message}`, 'error');
+          }).catch((err) => {
+            return tdbAlert(this._err(err), 'error');
           });
           return this._resetFieldForm();
         }
@@ -1524,7 +1587,7 @@
         formulaSection.classList.remove('hidden');
       }
       this.el.formulaModal().classList.add('hidden');
-      this.el.fieldAddBtn().textContent = 'Ajouter';
+      this.el.fieldAddBtn().textContent = this._t('ui.fields.add');
       return this.el.fieldCancelBtn().classList.add('hidden');
     },
     renderFieldsList: function() {
@@ -1554,7 +1617,7 @@
         }
         if (fields.length === 0) {
           li = document.createElement('li');
-          li.textContent = 'Aucun champ défini.';
+          li.textContent = this._t('ui.fields.noneDefined');
           li.style.color = '#aaa';
           ul.appendChild(li);
           return;
@@ -1569,7 +1632,7 @@
           li.style.cursor = 'grab';
           handle = document.createElement('span');
           handle.textContent = '⠿';
-          handle.title = 'Glisser pour réordonner';
+          handle.title = this._t('ui.fields.dragToReorder');
           handle.style.cssText = 'margin-right:.4rem;color:#888;cursor:grab;user-select:none;';
           rel = relMap[f.id];
           badge = document.createElement('span');
@@ -1596,13 +1659,13 @@
             langLabel = f.language === 'moonscript' ? ' [moon]' : '';
             if (f.triggerFields) {
               fb.className = 'field-trigger-badge';
-              triggerDesc = f.triggerFields.length === 0 ? 'création' : f.triggerFields[0] === '*' ? 'tout changement' : f.triggerFields.join(', ');
+              triggerDesc = f.triggerFields.length === 0 ? this._t('ui.fields.triggerCreation') : f.triggerFields[0] === '*' ? this._t('ui.fields.triggerAnyChange') : f.triggerFields.join(', ');
               fb.textContent = '⚡';
               fb.title = `Trigger formula${langLabel} (${triggerDesc}) : ${f.formula}`;
             } else {
               fb.className = 'field-formula-badge';
               fb.textContent = 'λ';
-              fb.title = `Colonne calculée${langLabel} : ${f.formula}`;
+              fb.title = `${this._t('ui.fields.computedColumn')}${langLabel} : ${f.formula}`;
             }
             name.appendChild(fb);
           }
@@ -1616,7 +1679,7 @@
               var tf;
               this._editingFieldId = field.id;
               this._editingRelation = relation || null;
-              this.el.fieldAddBtn().textContent = 'Mettre à jour';
+              this.el.fieldAddBtn().textContent = this._t('ui.fields.update');
               this.el.fieldCancelBtn().classList.remove('hidden');
               this.el.fieldName().value = field.name;
               if (relation) {
@@ -1658,7 +1721,9 @@
           ((fieldId, fieldName, relation) => {
             return del.addEventListener('click', async() => {
               var doDelete;
-              if (!(await tdbConfirm(`Supprimer le champ « ${fieldName} » ?`))) {
+              if (!(await tdbConfirm(this._t('ui.confirms.deleteField', {
+                name: fieldName
+              })))) {
                 return;
               }
               doDelete = () => {
@@ -1669,13 +1734,13 @@
                     this.renderFieldsList();
                     return this._mountDataView(full);
                   });
-                }).catch(function(err) {
-                  return tdbAlert(`Erreur : ${err.message}`, 'error');
+                }).catch((err) => {
+                  return tdbAlert(this._err(err), 'error');
                 });
               };
               if (relation) {
-                return Spaces.deleteRelation(relation.id).then(doDelete).catch(function(err) {
-                  return tdbAlert(`Erreur : ${err.message}`, 'error');
+                return Spaces.deleteRelation(relation.id).then(doDelete).catch((err) => {
+                  return tdbAlert(this._err(err), 'error');
                 });
               } else {
                 return doDelete();
@@ -1737,8 +1802,8 @@
               this._syncSpaceFields(this._currentSpace);
               this.renderFieldsList();
               return this._mountDataView(this._currentSpace);
-            }).catch(function(err) {
-              return tdbAlert(`Erreur réordonnancement : ${err.message}`, 'error');
+            }).catch((err) => {
+              return tdbAlert(this._err(err), 'error');
             });
           });
           results1.push(ul.appendChild(li));

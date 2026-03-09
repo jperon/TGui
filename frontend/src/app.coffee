@@ -37,6 +37,13 @@ window.App =
   _activeCustomView: null
   _allSpaces:        []
   _editingFieldId:   null   # fieldId being edited in the Champs form, or null
+  _localeListenerBound: false
+
+  _t: (key, vars = {}) ->
+    if window.I18N?.t then window.I18N.t key, vars else key
+
+  _err: (err, key = 'common.error') ->
+    "#{@_t(key)} : #{err.message}"
 
   # ── DOM refs ────────────────────────────────────────────────────────────────
   el:
@@ -50,6 +57,8 @@ window.App =
     userMenu:          -> document.getElementById 'user-menu'
     changePasswordBtn: -> document.getElementById 'change-password-btn'
     logoutBtn:         -> document.getElementById 'logout-btn'
+    langFrBtn:         -> document.getElementById 'lang-fr-btn'
+    langEnBtn:         -> document.getElementById 'lang-en-btn'
     spaceList:         -> document.getElementById 'space-list'
     newSpaceBtn:       -> document.getElementById 'new-space-btn'
     customViewList:    -> document.getElementById 'custom-view-list'
@@ -146,11 +155,23 @@ window.App =
 
   # ── Bootstrap ───────────────────────────────────────────────────────────────
   init: ->
+    window.I18N?.init?()
+    @_bindLocaleChange()
     @_bindLogin()
     @_bindSidebar()
     @_bindDataToolbar()
     @_bindFieldsPanel()
     @_bindYamlEditor()
+    @_applyI18nDynamic()
+
+  _bindLocaleChange: ->
+    return if @_localeListenerBound
+    @_localeListenerBound = true
+    window.addEventListener 'i18n:locale-changed', =>
+      @_applyI18nDynamic()
+
+  _applyI18nDynamic: ->
+    @el.fieldAddBtn()?.textContent = if @_editingFieldId then @_t('ui.fields.update') else @_t('ui.fields.add')
 
   # ── Login ───────────────────────────────────────────────────────────────────
   _bindLogin: ->
@@ -192,21 +213,21 @@ window.App =
   # ── Sidebar ─────────────────────────────────────────────────────────────────
   _bindSidebar: ->
     @el.newSpaceBtn().addEventListener 'click', =>
-      name = await tdbPrompt 'Nom du nouvel espace :'
+      name = await tdbPrompt @_t('ui.prompts.newSpace')
       return unless name?.trim()
       Spaces.create(name.trim())
         .then => @_loadAll()
-        .catch (err) -> tdbAlert "Erreur : #{err.message}", 'error'
+        .catch (err) => tdbAlert @_err(err), 'error'
 
     @el.newViewBtn().addEventListener 'click', =>
-      name = await tdbPrompt 'Nom de la nouvelle vue :'
+      name = await tdbPrompt @_t('ui.prompts.newView')
       return unless name?.trim()
       GQL.mutate(CREATE_CUSTOM_VIEW, { input: { name: name.trim(), yaml: "layout:\n  direction: vertical\n  children: []\n" } })
         .then (data) =>
           @loadCustomViews().then =>
             cv = data.createCustomView
             @selectCustomView cv
-        .catch (err) -> tdbAlert "Erreur : #{err.message}", 'error'
+        .catch (err) => tdbAlert @_err(err), 'error'
 
     # Menu profil utilisateur
     @el.currentUserBtn().addEventListener 'click', =>
@@ -222,6 +243,10 @@ window.App =
 
     @el.logoutBtn().addEventListener 'click', =>
       Auth.logout()
+    @el.langFrBtn()?.addEventListener 'click', =>
+      window.I18N?.setLocale 'fr'
+    @el.langEnBtn()?.addEventListener 'click', =>
+      window.I18N?.setLocale 'en'
 
     # Navigation admin
     @el.adminNavUsers().addEventListener 'click', =>
@@ -279,19 +304,19 @@ window.App =
         btnPwd = document.createElement 'button'
         btnPwd.className = 'toolbar-btn'
         btnPwd.textContent = '🔑'
-        btnPwd.title = 'Changer le mot de passe'
+        btnPwd.title = @_t('ui.admin.pwdBtnTitle')
         btnPwd.addEventListener 'click', =>
           uid = u.id
-          newPwd = await tdbPrompt "Nouveau mot de passe pour #{u.username} :"
+          newPwd = await tdbPrompt @_t('ui.prompts.newPasswordFor', { username: u.username })
           return unless newPwd?.trim()
           GQL.mutate('mutation SetPwd($uid: ID!, $pwd: String!) { adminSetPassword(userId: $uid, newPassword: $pwd) }', { uid, pwd: newPwd })
-            .then -> tdbAlert 'Mot de passe changé.', 'info'
-            .catch (err) -> tdbAlert "Erreur : #{err.message}", 'error'
+            .then => tdbAlert @_t('ui.alerts.passwordChanged'), 'info'
+            .catch (err) => tdbAlert @_err(err), 'error'
         li.appendChild btnPwd
         ul.appendChild li
       # Bouton créer
       @el.adminCreateUserBtn().onclick = => @el.createUserDialog().classList.remove 'hidden'
-    .catch (err) -> tdbAlert "Erreur chargement utilisateurs : #{err.message}", 'error'
+    .catch (err) => tdbAlert @_err(err), 'error'
 
   _loadAdminGroups: ->
     Auth.listGroups().then (groups) =>
@@ -307,18 +332,18 @@ window.App =
           btnDel = document.createElement 'button'
           btnDel.className = 'toolbar-btn toolbar-btn--icon toolbar-btn--danger'
           btnDel.textContent = '🗑'
-          btnDel.title = 'Supprimer le groupe'
+          btnDel.title = @_t('ui.admin.deleteGroupTitle')
           btnDel.addEventListener 'click', =>
             gid = g.id
             gname = g.name
-            return unless await tdbConfirm "Supprimer le groupe « #{gname} » ?"
+            return unless await tdbConfirm @_t('ui.confirms.deleteGroup', { name: gname })
             Auth.deleteGroup(gid)
               .then => @_loadAdminGroups()
-              .catch (err) -> tdbAlert "Erreur : #{err.message}", 'error'
+              .catch (err) => tdbAlert @_err(err), 'error'
           li.appendChild btnDel
         ul.appendChild li
       @el.adminCreateGroupBtn().onclick = => @el.createGroupDialog().classList.remove 'hidden'
-    .catch (err) -> tdbAlert "Erreur chargement groupes : #{err.message}", 'error'
+    .catch (err) => tdbAlert @_err(err), 'error'
 
   # ── Dialog: changement de mot de passe ──────────────────────────────────────
   _openChangePasswordDialog: ->
@@ -342,10 +367,10 @@ window.App =
       confirm = @el.cpConfirm().value
       @el.cpError().textContent = ''
       unless current and nw
-        @el.cpError().textContent = 'Veuillez remplir tous les champs.'
+        @el.cpError().textContent = @_t('ui.validation.requiredAllFields')
         return
       unless nw == confirm
-        @el.cpError().textContent = 'Les nouveaux mots de passe ne correspondent pas.'
+        @el.cpError().textContent = @_t('ui.validation.newPasswordsMismatch')
         return
       Auth.changePassword(current, nw)
         .then (ok) =>
@@ -353,11 +378,11 @@ window.App =
             localStorage.setItem 'tdb_password_changed', '1'
             @el.changePasswordDialog().classList.add 'hidden'
             @el.defaultPasswordWarning().classList.add 'hidden'
-            tdbAlert 'Mot de passe changé avec succès.', 'info'
+            tdbAlert @_t('ui.alerts.passwordChangedSuccess'), 'info'
           else
-            @el.cpError().textContent = 'Erreur : mot de passe actuel incorrect.'
+            @el.cpError().textContent = @_t('ui.validation.currentPasswordIncorrect')
         .catch (err) =>
-          @el.cpError().textContent = "Erreur : #{err.message}"
+          @el.cpError().textContent = @_err(err)
 
   # ── Dialog: créer utilisateur ─────────────────────────────────────────────
   _bindCreateUserDialog: ->
@@ -370,7 +395,7 @@ window.App =
       password = @el.cuPassword().value
       @el.cuError().textContent = ''
       unless username and password
-        @el.cuError().textContent = "Nom d'utilisateur et mot de passe requis."
+        @el.cuError().textContent = @_t('ui.validation.usernamePasswordRequired')
         return
       Auth.createUser(username, email or null, password)
         .then =>
@@ -380,7 +405,7 @@ window.App =
           @el.cuPassword().value = ''
           @_loadAdminUsers()
         .catch (err) =>
-          @el.cuError().textContent = "Erreur : #{err.message}"
+          @el.cuError().textContent = @_err(err)
 
   # ── Dialog: créer groupe ──────────────────────────────────────────────────
   _bindCreateGroupDialog: ->
@@ -392,7 +417,7 @@ window.App =
       description = @el.cgDescription().value.trim()
       @el.cgError().textContent = ''
       unless name
-        @el.cgError().textContent = 'Le nom est requis.'
+        @el.cgError().textContent = @_t('ui.validation.groupNameRequired')
         return
       Auth.createGroup(name, description)
         .then =>
@@ -401,7 +426,7 @@ window.App =
           @el.cgDescription().value = ''
           @_loadAdminGroups()
         .catch (err) =>
-          @el.cgError().textContent = "Erreur : #{err.message}"
+          @el.cgError().textContent = @_err(err)
 
   # ── Snapshot export / import ─────────────────────────────────────────────────
   _bindSnapshotPanel: ->
@@ -421,7 +446,7 @@ window.App =
         a.download = fname
         a.click()
         URL.revokeObjectURL url
-      .catch (err) -> tdbAlert "Erreur export : #{err.message}", 'error'
+      .catch (err) => tdbAlert @_err(err), 'error'
 
     @el.snapshotExportSchemaBtn().addEventListener 'click', => _doExport false
     @el.snapshotExportFullBtn().addEventListener   'click', => _doExport true
@@ -451,7 +476,7 @@ window.App =
           @_renderSnapshotDiff diff
           @el.snapshotDiffBox().classList.remove 'hidden'
         .catch (err) =>
-          @el.snapshotImportError().textContent = "Erreur analyse : #{err.message}"
+          @el.snapshotImportError().textContent = @_err(err)
           @el.snapshotImportError().classList.remove 'hidden'
       reader.readAsText file
 
@@ -460,7 +485,7 @@ window.App =
       return unless @_snapshotYaml
       mode = document.querySelector('input[name="snapshot-mode"]:checked')?.value or 'merge'
       if mode == 'replace'
-        unless await tdbConfirm "⚠ Mode Remplacement : toutes les données existantes seront effacées. Continuer ?"
+        unless await tdbConfirm @_t('ui.confirms.replaceImport')
           return
       @el.snapshotImportConfirmBtn().disabled = true
       GQL.mutate("""
@@ -476,16 +501,16 @@ window.App =
         res.classList.remove 'hidden'
         if r.ok
           res.className = 'snapshot-import-result snapshot-result-ok'
-          res.innerHTML = "✓ Import réussi — #{r.created} créé(s), #{r.skipped} ignoré(s)."
+          res.innerHTML = @_t('ui.snapshot.importOk', { created: r.created, skipped: r.skipped })
         else
           res.className = 'snapshot-import-result snapshot-result-err'
-          res.innerHTML = "⚠ Import terminé avec erreurs — #{r.created} créé(s), #{r.skipped} ignoré(s).<br>" +
+          res.innerHTML = @_t('ui.snapshot.importErr', { created: r.created, skipped: r.skipped }) + '<br>' +
             r.errors.map((e) -> "<code>#{e}</code>").join('<br>')
         # Reload spaces/views to reflect changes
         @_loadAll() if r.ok or r.created > 0
       .catch (err) =>
         @el.snapshotImportConfirmBtn().disabled = false
-        @el.snapshotImportError().textContent = "Erreur import : #{err.message}"
+        @el.snapshotImportError().textContent = @_err(err)
         @el.snapshotImportError().classList.remove 'hidden'
 
   _renderSnapshotDiff: (diff) ->
@@ -507,9 +532,9 @@ window.App =
           if item.oldType and item.newType
             li.innerHTML = "<code>#{item.space}.#{item.field}</code> : <em>#{item.oldType}</em> → <strong>#{item.newType}</strong>"
           else if item.newType
-            li.innerHTML = "<code>#{item.space}.#{item.field}</code> (#{item.newType}) — à créer"
+            li.innerHTML = @_t('ui.snapshot.fieldToCreate', item)
           else
-            li.innerHTML = "<code>#{item.space}.#{item.field}</code> (#{item.oldType}) — sera supprimé"
+            li.innerHTML = @_t('ui.snapshot.fieldToDelete', item)
         ul.appendChild li
       c.appendChild ul
 
@@ -521,16 +546,16 @@ window.App =
     if noop
       p = document.createElement 'p'
       p.className = 'snapshot-diff-noop'
-      p.textContent = '✓ Le schéma importé correspond exactement au schéma actuel.'
+      p.textContent = @_t('ui.snapshot.noop')
       c.appendChild p
     else
-      _section '⚠ Espaces à supprimer (données perdues)', diff.spacesToDelete, 'diff-list diff-delete'
-      _section '+ Espaces à créer', diff.spacesToCreate, 'diff-list diff-create'
-      _section '⚠ Champs à supprimer', diff.fieldsToDelete, 'diff-list diff-delete'
-      _section '~ Champs à modifier (type)', diff.fieldsToChange, 'diff-list diff-change'
-      _section '+ Champs à créer', diff.fieldsToCreate, 'diff-list diff-create'
-      _section '+ Vues personnalisées à créer', diff.customViewsToCreate, 'diff-list diff-create'
-      _section '~ Vues personnalisées à mettre à jour', diff.customViewsToUpdate, 'diff-list diff-change'
+      _section @_t('ui.snapshot.sectionSpacesDelete'), diff.spacesToDelete, 'diff-list diff-delete'
+      _section @_t('ui.snapshot.sectionSpacesCreate'), diff.spacesToCreate, 'diff-list diff-create'
+      _section @_t('ui.snapshot.sectionFieldsDelete'), diff.fieldsToDelete, 'diff-list diff-delete'
+      _section @_t('ui.snapshot.sectionFieldsChange'), diff.fieldsToChange, 'diff-list diff-change'
+      _section @_t('ui.snapshot.sectionFieldsCreate'), diff.fieldsToCreate, 'diff-list diff-create'
+      _section @_t('ui.snapshot.sectionCustomViewsCreate'), diff.customViewsToCreate, 'diff-list diff-create'
+      _section @_t('ui.snapshot.sectionCustomViewsUpdate'), diff.customViewsToUpdate, 'diff-list diff-change'
 
   # ── Hash-based navigation ────────────────────────────────────────────────────
   _restoreFromHash: ->
@@ -554,7 +579,7 @@ window.App =
       .then (spaces) =>
         @_allSpaces = spaces
         @renderSpaceList spaces
-      .catch (err) -> tdbAlert "Erreur chargement espaces : #{err.message}", 'error'
+      .catch (err) => tdbAlert @_err(err), 'error'
 
   renderSpaceList: (spaces) ->
     ul = @el.spaceList()
@@ -599,7 +624,7 @@ window.App =
         @_currentSpace = full
         @el.dataTitle().textContent = full.name
         @_mountDataView full
-      .catch (err) -> tdbAlert "Erreur chargement espace : #{err.message}", 'error'
+      .catch (err) => tdbAlert @_err(err), 'error'
 
   # Keep @_allSpaces in sync after any field mutation on the current space.
   # If a custom view is active, rebuilds it so widgets get the fresh columns.
@@ -624,7 +649,7 @@ window.App =
   loadCustomViews: ->
     GQL.query(LIST_CUSTOM_VIEWS)
       .then (data) => @renderCustomViewList data.customViews
-      .catch (err) -> tdbAlert "Erreur chargement vues : #{err.message}", 'error'
+      .catch (err) => tdbAlert @_err(err), 'error'
 
   renderCustomViewList: (views) ->
     ul = @el.customViewList()
@@ -684,7 +709,7 @@ window.App =
     @el.yamlDeleteBtn().addEventListener 'click', =>
       cv = @_currentCustomView
       return unless cv
-      return unless await tdbConfirm "Supprimer la vue « #{cv.name} » ?"
+      return unless await tdbConfirm @_t('ui.confirms.deleteView', { name: cv.name })
       GQL.mutate(DELETE_CUSTOM_VIEW, { id: cv.id })
         .then =>
           @_currentCustomView = null
@@ -694,7 +719,7 @@ window.App =
           @el.customViewContainer().classList.add 'hidden'
           @el.welcome().classList.remove 'hidden'
           @loadCustomViews()
-        .catch (err) -> tdbAlert "Erreur : #{err.message}", 'error'
+        .catch (err) => tdbAlert @_err(err), 'error'
 
     @el.yamlModalSaveBtn().addEventListener 'click', =>
       cv = @_currentCustomView
@@ -706,7 +731,7 @@ window.App =
           @el.yamlModal().classList.add 'hidden'
           @_renderCustomViewPreview yaml
           @loadCustomViews()
-        .catch (err) -> tdbAlert "Erreur : #{err.message}", 'error'
+        .catch (err) => tdbAlert @_err(err), 'error'
 
     @el.yamlModalCloseBtn().addEventListener 'click', =>
       @el.yamlModal().classList.add 'hidden'
@@ -783,7 +808,7 @@ window.App =
     @el.deleteSpaceBtn().addEventListener 'click', =>
       return unless @_currentSpace
       name = @_currentSpace.name
-      return unless await tdbConfirm "Supprimer l'espace « #{name} » et toutes ses données ?"
+      return unless await tdbConfirm @_t('ui.confirms.deleteSpace', { name })
       Spaces.delete(@_currentSpace.id)
         .then =>
           @_currentSpace = null
@@ -794,11 +819,11 @@ window.App =
           @el.fieldsBtn().classList.remove 'active'
           @el.welcome().classList.remove 'hidden'
           @_loadAll()
-        .catch (err) -> tdbAlert "Erreur : #{err.message}", 'error'
+        .catch (err) => tdbAlert @_err(err), 'error'
 
     @el.renameSpaceBtn().addEventListener 'click', =>
       return unless @_currentSpace
-      newName = await tdbPrompt "Nouveau nom de l'espace :", @_currentSpace.name
+      newName = await tdbPrompt @_t('ui.prompts.renameSpace'), @_currentSpace.name
       return unless newName?.trim() and newName.trim() != @_currentSpace.name
       Spaces.update(@_currentSpace.id, newName.trim())
         .then (updated) =>
@@ -807,7 +832,7 @@ window.App =
           # Update sidebar
           li = @el.spaceList().querySelector("li[data-id='#{updated.id}']")
           li.textContent = updated.name if li
-        .catch (err) -> tdbAlert "Erreur : #{err.message}", 'error'
+        .catch (err) => tdbAlert @_err(err), 'error'
 
   # ── Fields panel ─────────────────────────────────────────────────────────────
   _bindFieldsPanel: ->
@@ -875,11 +900,11 @@ window.App =
       notNull = @el.fieldNotNull().checked
       unless name
         @el.fieldName().classList.add 'input-error'
-        @el.fieldName().placeholder = 'Le nom est requis !'
+        @el.fieldName().placeholder = @_t('ui.validation.groupNameRequired')
         @el.fieldName().focus()
         return
       @el.fieldName().classList.remove 'input-error'
-      @el.fieldName().placeholder = 'Nom du champ'
+      @el.fieldName().placeholder = @_t('ui.fields.namePlaceholder')
 
       if @_editingFieldId
         # ── Update existing field ──────────────────────────────────────────
@@ -913,7 +938,7 @@ window.App =
               @_syncSpaceFields full
               @renderFieldsList()
               @_mountDataView full
-          .catch (err) -> tdbAlert "Erreur : #{err.message}", 'error'
+          .catch (err) => tdbAlert @_err(err), 'error'
         @_resetFieldForm()
 
       else if type == 'Relation'
@@ -924,7 +949,7 @@ window.App =
         Spaces.getWithFields(toSpaceId).then (targetSpace) =>
           idField = (targetSpace.fields or []).find (f) -> f.fieldType == 'Sequence'
           unless idField
-            tdbAlert "L'espace cible n'a pas de champ Séquence.", 'warn'
+            tdbAlert @_t('ui.alerts.targetNoSequence'), 'warn'
             return
           Spaces.addField(@_currentSpace.id, name, 'Int', notNull, '')
             .then (newField) =>
@@ -935,8 +960,8 @@ window.App =
                     @_syncSpaceFields full
                     @renderFieldsList()
                     @_mountDataView full
-                .catch (err) -> tdbAlert "Erreur : #{err.message}", 'error'
-            .catch (err) -> tdbAlert "Erreur : #{err.message}", 'error'
+                .catch (err) => tdbAlert @_err(err), 'error'
+            .catch (err) => tdbAlert @_err(err), 'error'
         @_resetFieldForm()
 
       else
@@ -962,7 +987,7 @@ window.App =
               @_syncSpaceFields full
               @renderFieldsList()
               @_mountDataView full
-          .catch (err) -> tdbAlert "Erreur : #{err.message}", 'error'
+          .catch (err) => tdbAlert @_err(err), 'error'
         @_resetFieldForm()
 
   _onFieldTypeChange: ->
@@ -1002,7 +1027,7 @@ window.App =
     formulaSection = @el.formulaBody().closest('.formula-section')
     formulaSection?.classList.remove 'hidden'
     @el.formulaModal().classList.add 'hidden'
-    @el.fieldAddBtn().textContent = 'Ajouter'
+    @el.fieldAddBtn().textContent = @_t('ui.fields.add')
     @el.fieldCancelBtn().classList.add 'hidden'
 
   renderFieldsList: ->
@@ -1023,7 +1048,7 @@ window.App =
 
       if fields.length == 0
         li = document.createElement 'li'
-        li.textContent = 'Aucun champ défini.'
+        li.textContent = @_t('ui.fields.noneDefined')
         li.style.color = '#aaa'
         ul.appendChild li
         return
@@ -1037,7 +1062,7 @@ window.App =
 
         handle = document.createElement 'span'
         handle.textContent = '⠿'
-        handle.title = 'Glisser pour réordonner'
+        handle.title = @_t('ui.fields.dragToReorder')
         handle.style.cssText = 'margin-right:.4rem;color:#888;cursor:grab;user-select:none;'
 
         rel = relMap[f.id]
@@ -1065,15 +1090,15 @@ window.App =
           if f.triggerFields
             fb.className = 'field-trigger-badge'
             triggerDesc =
-              if f.triggerFields.length == 0 then 'création'
-              else if f.triggerFields[0] == '*' then 'tout changement'
+              if f.triggerFields.length == 0 then @_t('ui.fields.triggerCreation')
+              else if f.triggerFields[0] == '*' then @_t('ui.fields.triggerAnyChange')
               else f.triggerFields.join(', ')
             fb.textContent = '⚡'
             fb.title = "Trigger formula#{langLabel} (#{triggerDesc}) : #{f.formula}"
           else
             fb.className = 'field-formula-badge'
             fb.textContent = 'λ'
-            fb.title = "Colonne calculée#{langLabel} : #{f.formula}"
+            fb.title = "#{@_t('ui.fields.computedColumn')}#{langLabel} : #{f.formula}"
           name.appendChild fb
 
         # Edit button (not for Sequence fields)
@@ -1085,7 +1110,7 @@ window.App =
           editBtn.addEventListener 'click', =>
             @_editingFieldId = field.id
             @_editingRelation = relation or null
-            @el.fieldAddBtn().textContent = 'Mettre à jour'
+            @el.fieldAddBtn().textContent = @_t('ui.fields.update')
             @el.fieldCancelBtn().classList.remove 'hidden'
             @el.fieldName().value = field.name
             if relation
@@ -1123,7 +1148,7 @@ window.App =
         del.style.cssText = 'margin-left:.2rem;background:none;border:none;cursor:pointer;color:#aaa;font-size:.9rem;'
         do (fieldId = f.id, fieldName = f.name, relation = rel) =>
           del.addEventListener 'click', =>
-            return unless await tdbConfirm "Supprimer le champ « #{fieldName} » ?"
+            return unless await tdbConfirm @_t('ui.confirms.deleteField', { name: fieldName })
             doDelete = =>
               GQL.mutate(REMOVE_FIELD, { fieldId })
                 .then =>
@@ -1132,9 +1157,9 @@ window.App =
                     @_syncSpaceFields full
                     @renderFieldsList()
                     @_mountDataView full
-                .catch (err) -> tdbAlert "Erreur : #{err.message}", 'error'
+                .catch (err) => tdbAlert @_err(err), 'error'
             if relation
-              Spaces.deleteRelation(relation.id).then(doDelete).catch (err) -> tdbAlert "Erreur : #{err.message}", 'error'
+              Spaces.deleteRelation(relation.id).then(doDelete).catch (err) => tdbAlert @_err(err), 'error'
             else
               doDelete()
 
@@ -1175,7 +1200,7 @@ window.App =
               @_syncSpaceFields @_currentSpace
               @renderFieldsList()
               @_mountDataView @_currentSpace
-            .catch (err) -> tdbAlert "Erreur réordonnancement : #{err.message}", 'error'
+            .catch (err) => tdbAlert @_err(err), 'error'
         ul.appendChild li
 
 # ── Entry point ────────────────────────────────────────────────────────────────

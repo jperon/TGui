@@ -4,7 +4,7 @@
   //   await tdbAlert "Message d'erreur", 'error'
   //   if await tdbConfirm "Supprimer ?"
   //   name = await tdbPrompt "Nom :", "valeur par défaut"
-  var _box, _cancelBtn, _hide, _init, _input, _msg, _okBtn, _overlay, _show;
+  var _box, _cancelBtn, _hide, _init, _input, _msg, _okBtn, _overlay, _show, _t;
 
   _overlay = null;
 
@@ -17,6 +17,15 @@
   _okBtn = null;
 
   _cancelBtn = null;
+
+  _t = function(key, vars = {}) {
+    var ref;
+    if ((ref = window.I18N) != null ? ref.t : void 0) {
+      return window.I18N.t(key, vars);
+    } else {
+      return key;
+    }
+  };
 
   _init = function() {
     var btns;
@@ -37,10 +46,10 @@
     btns.className = 'tdb-modal-actions';
     _cancelBtn = document.createElement('button');
     _cancelBtn.className = 'toolbar-btn';
-    _cancelBtn.textContent = 'Annuler';
+    _cancelBtn.textContent = _t('common.cancel');
     _okBtn = document.createElement('button');
     _okBtn.className = 'btn-primary';
-    _okBtn.textContent = 'OK';
+    _okBtn.textContent = _t('common.ok');
     btns.appendChild(_cancelBtn);
     btns.appendChild(_okBtn);
     _box.appendChild(_msg);
@@ -52,6 +61,8 @@
 
   _show = function(msg, type = 'info', showInput = false, defaultVal = '', showCancel = false) {
     _init();
+    _okBtn.textContent = _t('common.ok');
+    _cancelBtn.textContent = _t('common.cancel');
     _msg.textContent = msg;
     _box.className = `tdb-modal-box tdb-modal-box--${type}`;
     if (showInput) {
