@@ -25,7 +25,7 @@ et gestion des permissions par groupes (style Unix).
 | Backend | MoonScript → Lua (`moonc`), HTTP via lib Tarantool 3 |
 | API | GraphQL maison (SDL + parser + executor, écrit en MoonScript) |
 | Frontend | CoffeeScript compilé avec `coffee -c` (pas de bundler) |
-| UI | [Univer](https://univer.ai) pré-bundlé localement |
+| UI | Toast UI Grid + paquets locaux (pré-empaquetés) |
 
 ## Prérequis
 
