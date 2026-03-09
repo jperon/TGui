@@ -253,6 +253,18 @@ do
       local resolver = self.schema:get_resolver(type_name, field_name)
       local args = collect_args(field_node, field_def, self.variables, self.schema)
       local new_path = extend(path, field_name)
+      if field_def and not field_node.selectionSet then
+        local named = field_def.type
+        while named and (named.kind == 'NonNullType' or named.kind == 'ListType') do
+          named = named.ofType
+        end
+        if named then
+          local t = self.schema.types[named.name]
+          if t and (t.kind == 'OBJECT' or t.kind == 'INTERFACE' or t.kind == 'UNION') then
+            return nil
+          end
+        end
+      end
       local raw_value = resolver(parent_obj, args, self.context, {
         field_name = field_name,
         field_def = field_def,
@@ -324,8 +336,8 @@ do
           name = concrete
         }, value, field_node, path)
       end
-      if not (field_node.selectionSet) then
-        error("Field " .. tostring(type_name) .. " is a composite type but has no selection set")
+      if not field_node.selectionSet then
+        return nil
       end
       return self:execute_selection_set(field_node.selectionSet, type_name, value, path)
     end
