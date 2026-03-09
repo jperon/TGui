@@ -734,6 +734,20 @@ get_space = function(id)
     updatedAt = t[5]
   }
 end
+local get_space_by_name
+get_space_by_name = function(name)
+  local t = box.space._tdb_spaces.index.by_name:get(name)
+  if not (t) then
+    return nil
+  end
+  return {
+    id = t[1],
+    name = t[2],
+    description = t[3],
+    createdAt = t[4],
+    updatedAt = t[5]
+  }
+end
 local list_fields
 list_fields = function(space_id)
   local result = { }

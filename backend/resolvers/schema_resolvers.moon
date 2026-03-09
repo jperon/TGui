@@ -161,5 +161,6 @@ Mutation =
 Space =
   fields:   (obj, args, ctx) -> spaces_mod.list_fields obj.id
   views:    (obj, args, ctx) -> views_mod.list_views obj.id
+  records:  (obj, args, ctx) -> data_r.Query.records(nil, { spaceId: obj.id, limit: args.limit, offset: args.offset, filter: args.filter, reprFormula: args.reprFormula, reprLanguage: args.reprLanguage }, ctx)
 
 { :Query, :Mutation, :Space }

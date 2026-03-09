@@ -43,10 +43,14 @@ query {
   spaces { id name description fields { id name fieldType } }
 }
 
-# Space details
+# Space details, including nested records
 query {
   space(id: "...") {
     id name fields { id name fieldType formula }
+    records(limit: 10, offset: 0, filter: { field: "status", op: EQ, value: "active" }) {
+      items { id data }
+      total
+    }
   }
 }
 
@@ -62,6 +66,49 @@ mutation {
 
 # Delete
 mutation { deleteSpace(id: "...") }
+```
+
+---
+
+## Nested Queries (Nesting)
+
+In addition to fetching simple relations (FK) directly within records, it is possible to **query collections of related records (back-references) with pagination and filtering directly within a parent query**.
+
+### Back-references with pagination and filtering
+
+Dynamically generated back-reference fields (based on inverse relations) support `limit`, `offset`, and `filter` arguments:
+
+```graphql
+# Fetch users and their tasks, filtering tasks by title
+query {
+  users {
+    items {
+      id
+      name
+      tasks(limit: 5, offset: 0, filter: { field: "title", op: CONTAINS, value: "important" }) {
+        items { id title status }
+        total
+      }
+    }
+  }
+}
+```
+
+### Direct access to space records via `Space.records`
+
+The `Space` type exposes a `records` field that allows direct retrieval of records from a given space, with pagination and filtering, without going through the root `Query.records`:
+
+```graphql
+# Fetch space details and its first 10 records
+query {
+  space(id: "my_space_id") {
+    name
+    records(limit: 10, offset: 0) {
+      items { id data }
+      total
+    }
+  }
+}
 ```
 
 ---

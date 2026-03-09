@@ -116,6 +116,7 @@ type Space {
   description: String
   fields:      [Field!]!
   views:       [View!]!
+  records(limit: Int, offset: Int, filter: RecordFilter, reprFormula: String, reprLanguage: String): RecordPage!
   createdAt:   String!
   updatedAt:   String!
 }
