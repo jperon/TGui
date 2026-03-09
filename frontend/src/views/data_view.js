@@ -237,7 +237,7 @@
         }, 0);
       };
       this._tabListener = (e) => {
-        var cell, colIdx, nextRow, prevRow, rowIdx;
+        var cell, colIdx, nextRow, prevRow, rowCount, rowIdx;
         if (e.key !== 'Tab') {
           return;
         }
@@ -255,26 +255,33 @@
         if (colIdx < 0) {
           return;
         }
+        rowIdx = this._grid.getIndexOfRow(cell.rowKey);
+        rowCount = this._grid.getRowCount();
+        // Let browser handle Tab/Shift+Tab if at start/end of grid
+        if (e.shiftKey) {
+          if (colIdx === 0 && rowIdx === 0) {
+            return;
+          }
+        } else {
+          if (colIdx === allCols.length - 1 && rowIdx === rowCount - 1) {
+            return;
+          }
+        }
         e.preventDefault();
         e.stopImmediatePropagation();
-        rowIdx = this._grid.getIndexOfRow(cell.rowKey);
         if (e.shiftKey) {
           if (colIdx > 0) {
             return moveTo(cell.rowKey, allCols[colIdx - 1]);
           } else if (rowIdx > 0) {
             prevRow = this._grid.getRowAt(rowIdx - 1);
-            if (!(prevRow != null ? prevRow.__isNew : void 0)) {
-              return moveTo(prevRow.rowKey, allCols[allCols.length - 1]);
-            }
+            return moveTo(prevRow.rowKey, allCols[allCols.length - 1]);
           }
         } else {
           if (colIdx < allCols.length - 1) {
             return moveTo(cell.rowKey, allCols[colIdx + 1]);
-          } else {
+          } else if (rowIdx < rowCount - 1) {
             nextRow = this._grid.getRowAt(rowIdx + 1);
-            if ((nextRow != null) && !nextRow.__isNew) {
-              return moveTo(nextRow.rowKey, allCols[0]);
-            }
+            return moveTo(nextRow.rowKey, allCols[0]);
           }
         }
       };
@@ -409,9 +416,21 @@
     }
 
     async load() {
-      var data, f, fieldList, fields, formulaNames, gqlFilter, spaceQuery, tname;
+      var data, f, fieldList, fields, focus, focusedRow, formulaNames, gqlFilter, ref, spaceQuery, tname;
       if (!this._mounted) {
         return;
+      }
+      // Save current focus to restore it after resetData
+      focus = (ref = this._grid) != null ? ref.getFocusedCell() : void 0;
+      if (((focus != null ? focus.rowKey : void 0) != null) && focus.columnName) {
+        focusedRow = this._grid.getRow(focus.rowKey);
+        if (focusedRow) {
+          this._lastFocus = {
+            rowId: focusedRow.__rowId,
+            isNew: focusedRow.__isNew,
+            columnName: focus.columnName
+          };
+        }
       }
       fields = this.space.fields || [];
       formulaNames = new Set((function() {
@@ -474,7 +493,7 @@
     }
 
     _applyData() {
-      var lastIdx, rows, sentinelRow;
+      var columnName, isNew, lastIdx, rowId, rows, sentinel, sentinelRow, targetRow;
       if (!this._grid) {
         return;
       }
@@ -484,8 +503,27 @@
           return String(r[this.filter.field]) === String(this.filter.value);
         });
       }
-      this._currentData = rows.concat([this._sentinel()]);
+      sentinel = this._sentinel();
+      this._currentData = rows.concat([sentinel]);
       this._grid.resetData(this._currentData);
+      // Restore focus if we have saved it
+      if (this._lastFocus) {
+        ({rowId, isNew, columnName} = this._lastFocus);
+        this._lastFocus = null;
+        
+        // Find the new row object matching the old one
+        targetRow = isNew ? this._grid.getData().find(function(r) {
+          return r.__isNew;
+        }) : rowId ? this._grid.getData().find(function(r) {
+          return r.__rowId === rowId;
+        }) : null;
+        if (targetRow) {
+          // Small delay to ensure TUI has finished DOM updates
+          setTimeout((() => {
+            return this._grid.focus(targetRow.rowKey, columnName);
+          }), 0);
+        }
+      }
       // Find the actual rowKey tui.Grid assigned to the sentinel (last visual row)
       lastIdx = this._currentData.length - 1;
       sentinelRow = this._grid.getRowAt(lastIdx);
