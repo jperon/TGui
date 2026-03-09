@@ -87,7 +87,7 @@ matches_filter = function(self_val, flt)
   return ok
 end
 local apply_filter
-apply_filter = function(all, flt, fk_def_map)
+apply_filter = function(all, flt, fk_def_map, fk_cache, space_name)
   if not (flt and (flt.field or flt.formula or flt["and"] or flt["or"])) then
     return all
   end
@@ -106,7 +106,7 @@ apply_filter = function(all, flt, fk_def_map)
     local r = all[_index_0]
     if matches_filter(((function()
       if fk_def_map then
-        return triggers.make_self_proxy(r, fk_def_map)
+        return triggers.make_self_proxy(r, fk_def_map, fk_cache, space_name)
       else
         return r
       end
@@ -237,7 +237,8 @@ generate = function()
         else
           fk_def_map = { }
         end
-        all = apply_filter(all, args.filter, fk_def_map)
+        ctx._fk_cache = ctx._fk_cache or { }
+        all = apply_filter(all, args.filter, fk_def_map, ctx._fk_cache, sp_cap.name)
         local total = #all
         local items
         do
@@ -322,7 +323,8 @@ generate = function()
             else
               fk_def_map = { }
             end
-            all = apply_filter(all, args.filter, fk_def_map)
+            ctx._fk_cache = ctx._fk_cache or { }
+            all = apply_filter(all, args.filter, fk_def_map, ctx._fk_cache, from_sp_name_cap)
           end
           local total = #all
           local items
@@ -362,10 +364,14 @@ generate = function()
       if f.formula and f.formula ~= '' then
         local formula_fn = triggers.compile_formula(f.formula, f.name, (f.language or 'moonscript'))
         if formula_fn then
-          tr[gql_name(f.name)] = (function(fn_cap, fk_nm_cap)
+          tr[gql_name(f.name)] = (function(fn_cap, fk_nm_cap, raw_name_cap)
             return function(obj, a, ctx)
+              local raw_val = obj[raw_name_cap]
+              if raw_val ~= nil then
+                return raw_val
+              end
               ctx._fk_cache = ctx._fk_cache or { }
-              local proxy = triggers.make_self_proxy(obj, fk_nm_cap, ctx._fk_cache, sp.name)
+              local proxy = triggers.make_self_proxy(obj, fk_nm_cap, ctx._fk_cache, sp_cap.name)
               local space_helper
               space_helper = function(sname)
                 local sp_box = box.space["data_" .. tostring(sname)]
@@ -389,7 +395,7 @@ generate = function()
                 return nil
               end
             end
-          end)(formula_fn, fk_name_map)
+          end)(formula_fn, fk_name_map, f.name)
         end
       end
     end

@@ -59,14 +59,14 @@ matches_filter = (self_val, flt) ->
   ok
 
 -- fk_def_map is optional; when present, formula filters receive an FK-aware proxy.
-apply_filter = (all, flt, fk_def_map) ->
+apply_filter = (all, flt, fk_def_map, fk_cache, space_name) ->
   return all unless flt and (flt.field or flt.formula or flt.and or flt.or)
   -- Pre-compile formula once
   if flt.formula and flt.formula != '' and flt._formula_fn == nil
     lang = flt.language or 'moonscript'
     ok_c, fn = pcall triggers.compile_formula, flt.formula, 'filter', lang
     flt._formula_fn = if ok_c and type(fn) == 'function' then fn else false
-  [r for r in *all when matches_filter (if fk_def_map then triggers.make_self_proxy(r, fk_def_map) else r), flt]
+  [r for r in *all when matches_filter (if fk_def_map then triggers.make_self_proxy(r, fk_def_map, fk_cache, space_name) else r), flt]
 
 -- Build a record object from a raw Tarantool tuple
 decode_tuple = (t) ->
@@ -151,7 +151,8 @@ generate = ->
         -- Build FK def map for this space so filter formulas can traverse FK chains
         ok_fk, fk_def_map = pcall triggers.build_fk_def_map, sp_cap.id
         fk_def_map = if ok_fk then fk_def_map else {}
-        all    = apply_filter all, args.filter, fk_def_map
+        ctx._fk_cache = ctx._fk_cache or {}
+        all    = apply_filter all, args.filter, fk_def_map, ctx._fk_cache, sp_cap.name
         total  = #all
         items  = [all[i] for i = offset + 1, math.min(offset + limit, total)]
         { items: items, total: total, offset: offset, limit: limit }
@@ -212,7 +213,8 @@ generate = ->
           if args and args.filter
             ok_fk, fk_def_map = pcall triggers.build_fk_def_map, from_sp_id_cap
             fk_def_map = if ok_fk then fk_def_map else {}
-            all = apply_filter all, args.filter, fk_def_map
+            ctx._fk_cache = ctx._fk_cache or {}
+            all = apply_filter all, args.filter, fk_def_map, ctx._fk_cache, from_sp_name_cap
 
           total = #all
           items = [all[i] for i = offset + 1, math.min(offset + limit, total)]
@@ -240,19 +242,22 @@ generate = ->
       if f.formula and f.formula != ''
         formula_fn = triggers.compile_formula f.formula, f.name, (f.language or 'moonscript')
         if formula_fn
-          tr[gql_name f.name] = ((fn_cap, fk_nm_cap) ->
+          tr[gql_name f.name] = ((fn_cap, fk_nm_cap, raw_name_cap) ->
             (obj, a, ctx) ->
+              -- Prefer raw stored value if it's a trigger formula that was saved
+              raw_val = obj[raw_name_cap]
+              return raw_val if raw_val != nil
               -- Reuse a per-request FK cache stored in ctx to avoid rescanning
               -- FK target tables for every record in a batch query.
               ctx._fk_cache = ctx._fk_cache or {}
-              proxy = triggers.make_self_proxy obj, fk_nm_cap, ctx._fk_cache, sp.name
+              proxy = triggers.make_self_proxy obj, fk_nm_cap, ctx._fk_cache, sp_cap.name
               space_helper = (sname) ->
                 sp_box = box.space["data_#{sname}"]
                 return {} unless sp_box
                 [decode_tuple t for t in *sp_box\select {}]
               r_ok, val = pcall fn_cap, proxy, space_helper
               if r_ok then val else nil
-          )(formula_fn, fk_name_map)
+          )(formula_fn, fk_name_map, f.name)
 
     type_resolvers["#{tname}_record"] = tr
 

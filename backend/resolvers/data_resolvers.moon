@@ -60,7 +60,7 @@ matches_filter = (self_val, flt) ->
   ok
 
 -- fk_def_map is optional; when present, formula filters receive an FK-aware proxy.
-apply_filter = (tuples, filter, fk_def_map) ->
+apply_filter = (tuples, filter, fk_def_map, fk_cache, space_name) ->
   return tuples unless filter and (filter.field or filter.formula or filter.and or filter.or)
   -- Pre-compile formula once to avoid re-compiling per record
   if filter.formula and filter.formula != '' and filter._formula_fn == nil
@@ -74,7 +74,7 @@ apply_filter = (tuples, filter, fk_def_map) ->
     parsed = if type(rec.data) == 'string' then json.decode(rec.data) else rec.data
     self_val = if fk_def_map
       parsed._id = tostring rec.id
-      triggers_mod.make_self_proxy parsed, fk_def_map
+      triggers_mod.make_self_proxy parsed, fk_def_map, fk_cache, space_name
     else parsed
     if matches_filter self_val, filter
       table.insert filtered, rec
@@ -179,6 +179,14 @@ Query =
     -- Build FK map once for this space (used by both reprFormula and filter formulas)
     ok_fk, fk_def_map = pcall triggers_mod.build_fk_def_map, args.spaceId
     fk_def_map = if ok_fk then fk_def_map else {}
+    
+    -- Get space name to enable computed columns resolution
+    sp_meta = box.space._tdb_spaces\get args.spaceId
+    space_name = sp_meta and sp_meta[2]
+    
+    -- Reuse a per-request FK cache
+    ctx._fk_cache = ctx._fk_cache or {}
+    
     -- Pre-compile reprFormula if provided
     repr_fn = nil
     if args.reprFormula and args.reprFormula != ''
@@ -191,7 +199,7 @@ Query =
       if repr_fn
         parsed = json.decode t[2]
         parsed._id = tostring t[1]
-        self_proxy = triggers_mod.make_self_proxy parsed, fk_def_map
+        self_proxy = triggers_mod.make_self_proxy parsed, fk_def_map, ctx._fk_cache, space_name
         ok_r, val = pcall repr_fn, self_proxy, nil
         if ok_r and val != nil
           parsed._repr = tostring val
@@ -200,7 +208,7 @@ Query =
       else
         table.insert all, { id: t[1], spaceId: args.spaceId, data: t[2] }
     -- Filter (fk_def_map enables FK traversal in formula filters)
-    filtered = apply_filter all, args.filter, fk_def_map
+    filtered = apply_filter all, args.filter, fk_def_map, ctx._fk_cache, space_name
     -- Paginate
     total = #filtered
     items = {}
