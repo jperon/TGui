@@ -286,6 +286,8 @@ Tu ne dois JAMAIS écrire de syntaxe Lua quand l'utilisateur demande du MoonScri
 3. Aucun mot-clé `then` nulle part
 4. Tous les appels de méthodes utilisent `\`, jamais `:`
 5. Les fonctions utilisent `->` ou `=>`, jamais `function`
+6. Les tables clé / valeur utilisent la syntaxe `cle: valeur`, jamais `cle = valeur`
+7. Les arrays sont la même chose que les tables en Lua comme en MoonScript : `[]` est utilisé seulement pour les compréhensions, un array se définit avec `{}`.
 
 Si tu n'es pas sûr d'une fonctionnalité MoonScript, dis-le explicitement
 plutôt que de revenir à la syntaxe Lua.

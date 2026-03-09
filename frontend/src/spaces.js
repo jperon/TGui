@@ -1,7 +1,7 @@
 (function() {
   // spaces.coffee
   // Space and field management.
-  var ADD_FIELD, CREATE_RELATION, CREATE_SPACE, DELETE_RELATION, DELETE_SPACE, LIST_RELATIONS, LIST_SPACES, SPACE_FIELDS, UPDATE_FIELD, UPDATE_RELATION, UPDATE_SPACE;
+  var ADD_FIELD, CREATE_RELATION, CREATE_SPACE, DELETE_RECORDS, DELETE_RELATION, DELETE_SPACE, LIST_RELATIONS, LIST_SPACES, SPACE_FIELDS, UPDATE_FIELD, UPDATE_RELATION, UPDATE_SPACE;
 
   LIST_SPACES = `query { spaces { id name description fields { id name fieldType notNull position description formula triggerFields language } } }`;
 
@@ -46,6 +46,10 @@
 
   DELETE_RELATION = `mutation DeleteRelation($id: ID!) {
   deleteRelation(id: $id)
+}`;
+
+  DELETE_RECORDS = `mutation DeleteRecords($spaceId: ID!, $ids: [ID!]!) {
+  deleteRecords(spaceId: $spaceId, ids: $ids)
 }`;
 
   UPDATE_RELATION = `mutation UpdateRelation($id: ID!, $input: UpdateRelationInput!) {
@@ -147,6 +151,11 @@
     deleteRelation: function(id) {
       return GQL.mutate(DELETE_RELATION, {id}).then(function(d) {
         return d.deleteRelation;
+      });
+    },
+    deleteRecords: function(spaceId, ids) {
+      return GQL.mutate(DELETE_RECORDS, {spaceId, ids}).then(function(d) {
+        return d.deleteRecords;
       });
     },
     updateRelation: function(id, reprFormula) {

@@ -84,6 +84,7 @@ type Mutation {
   insertRecord(spaceId: ID!, data: JSON!):       Record!
   updateRecord(spaceId: ID!, id: ID!, data: JSON!): Record!
   deleteRecord(spaceId: ID!, id: ID!):           Boolean!
+  deleteRecords(spaceId: ID!, ids: [ID!]!):      [Boolean!]!
 
   # Auth
   login(username: String!, password: String!):                AuthPayload!

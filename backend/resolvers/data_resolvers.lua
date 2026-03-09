@@ -197,6 +197,25 @@ local Mutation = {
     local sp = data_space(args.spaceId)
     sp:delete(args.id)
     return true
+  end,
+  deleteRecords = function(_, args, ctx)
+    require_auth(ctx)
+    local sp = data_space(args.spaceId)
+    local results
+    do
+      local _accum_0 = { }
+      local _len_0 = 1
+      local _list_0 = args.ids
+      for _index_0 = 1, #_list_0 do
+        local id = _list_0[_index_0]
+        sp:delete(id)
+        local _value_0 = true
+        _accum_0[_len_0] = _value_0
+        _len_0 = _len_0 + 1
+      end
+      results = _accum_0
+    end
+    return results
   end
 }
 local Query = {
