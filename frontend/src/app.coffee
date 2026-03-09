@@ -170,6 +170,21 @@ window.App =
     window.addEventListener 'i18n:locale-changed', =>
       @_applyI18nDynamic()
 
+  _applySidebarState: ->
+    if localStorage.getItem('tdb_menu_state') == 'collapsed'
+      @el.main().classList.add 'sidebar-collapsed'
+    else
+      @el.main().classList.remove 'sidebar-collapsed'
+
+    spList = @el.spaceList()
+    spBtn  = document.getElementById 'spaces-toggle-btn'
+    if localStorage.getItem('tdb_spaces_collapsed') == 'true'
+      spList.classList.add 'hidden'
+      spBtn?.classList.add 'collapsed'
+    else
+      spList.classList.remove 'hidden'
+      spBtn?.classList.remove 'collapsed'
+
   _applyI18nDynamic: ->
     @el.fieldAddBtn()?.textContent = if @_editingFieldId then @_t('ui.fields.update') else @_t('ui.fields.add')
 
@@ -228,6 +243,34 @@ window.App =
             cv = data.createCustomView
             @selectCustomView cv
         .catch (err) => tdbAlert @_err(err), 'error'
+
+    # Gestion de la sidebar repliable
+    document.getElementById('sidebar-toggle')?.addEventListener 'click', =>
+      mainEl = @el.main()
+      isCollapsed = mainEl.classList.contains 'sidebar-collapsed'
+      if isCollapsed
+        mainEl.classList.remove 'sidebar-collapsed'
+        localStorage.removeItem 'tdb_menu_state'
+      else
+        mainEl.classList.add 'sidebar-collapsed'
+        localStorage.setItem 'tdb_menu_state', 'collapsed'
+
+    # Gestion de la section Données (Espaces)
+    document.getElementById('spaces-toggle-btn')?.addEventListener 'click', =>
+      spList = @el.spaceList()
+      spBtn  = document.getElementById('spaces-toggle-btn')
+      isHidden = spList.classList.contains 'hidden'
+      if isHidden
+        spList.classList.remove 'hidden'
+        spBtn.classList.remove 'collapsed'
+        localStorage.setItem 'tdb_spaces_collapsed', 'false'
+      else
+        spList.classList.add 'hidden'
+        spBtn.classList.add 'collapsed'
+        localStorage.setItem 'tdb_spaces_collapsed', 'true'
+
+    # Appliquer l'état par défaut au chargement
+    @_applySidebarState()
 
     # Menu profil utilisateur
     @el.currentUserBtn().addEventListener 'click', =>
@@ -584,8 +627,17 @@ window.App =
   renderSpaceList: (spaces) ->
     ul = @el.spaceList()
     ul.innerHTML = ''
-    for sp in spaces
+    # Tri alphabétique insensible à la casse
+    sortedSpaces = [spaces...].sort (a, b) ->
+      a.name.toLowerCase().localeCompare b.name.toLowerCase()
+      
+    for sp in sortedSpaces
       li = document.createElement 'li'
+      li.textContent = sp.name
+      li.dataset.id  = sp.id
+      do (sp) =>
+        li.addEventListener 'click', => @selectSpace sp
+      ul.appendChild li
       li.textContent = sp.name
       li.dataset.id  = sp.id
       do (sp) =>
@@ -654,13 +706,73 @@ window.App =
   renderCustomViewList: (views) ->
     ul = @el.customViewList()
     ul.innerHTML = ''
+    
+    # 1. Grouper en arbre
+    tree = { items: [], folders: {} }
     for cv in (views or [])
-      li = document.createElement 'li'
-      li.textContent = cv.name
-      li.dataset.id  = cv.id
-      do (cv) =>
-        li.addEventListener 'click', => @selectCustomView cv
-      ul.appendChild li
+      parts = cv.name.split '/'
+      curr = tree
+      # Dossiers intermédiaires
+      for dictName in parts[0 ... -1]
+        curr.folders[dictName] ?= { items: [], folders: {} }
+        curr = curr.folders[dictName]
+      # Insertion terminale (on garde cv original mais avec le nom court)
+      curr.items.push { cv: cv, shortName: parts[parts.length - 1] }
+
+    # 2. Fonction récursive de rendu
+    renderTree = (node, containerEl, pathStr = "") =>
+      # Trier les dossiers par ordre alphabétique
+      folderNames = Object.keys(node.folders).sort (a, b) -> a.toLowerCase().localeCompare b.toLowerCase()
+      for fName in folderNames
+        fNode = node.folders[fName]
+        fullPath = if pathStr then "#{pathStr}/#{fName}" else fName
+        
+        folderLi = document.createElement 'li'
+        folderLi.className = 'folder-item'
+        
+        # Header du dossier
+        header = document.createElement 'div'
+        header.className = 'folder-header'
+        icon = document.createElement 'span'
+        icon.className = 'folder-toggle-icon'
+        icon.textContent = '▾'
+        header.appendChild icon
+        header.appendChild document.createTextNode(" #{fName}")
+        folderLi.appendChild header
+        
+        # Liste déroulante
+        subUl = document.createElement 'ul'
+        subUl.className = 'folder-children'
+        folderLi.appendChild subUl
+        
+        # État du dossier dans le localStorage
+        lsKey = "tdb_folder_view_#{fullPath}"
+        if localStorage.getItem(lsKey) == 'true'
+          folderLi.classList.add 'collapsed'
+          
+        header.addEventListener 'click', (e) ->
+          e.stopPropagation()
+          isCollapsed = folderLi.classList.toggle 'collapsed'
+          localStorage.setItem lsKey, if isCollapsed then 'true' else 'false'
+          
+        renderTree fNode, subUl, fullPath
+        containerEl.appendChild folderLi
+
+      # Trier les items (vues)
+      sortedItems = node.items.sort (a, b) -> a.shortName.toLowerCase().localeCompare b.shortName.toLowerCase()
+      for item in sortedItems
+        li = document.createElement 'li'
+        li.className = 'leaf-item'
+        li.textContent = item.shortName
+        li.dataset.id  = item.cv.id
+        li.title = item.cv.name  # Le vrai nom complet sur hover
+        do (cv = item.cv) =>
+           li.addEventListener 'click', (e) =>
+             e.stopPropagation()
+             @selectCustomView cv
+        containerEl.appendChild li
+
+    renderTree tree, ul
 
   selectCustomView: (cv) ->
     history.replaceState null, '', "#view/#{cv.id}"
@@ -668,8 +780,18 @@ window.App =
     # Deactivate space items
     for li in @el.spaceList().querySelectorAll 'li'
       li.classList.remove 'active'
-    for li in @el.customViewList().querySelectorAll 'li'
+    for li in @el.customViewList().querySelectorAll '.leaf-item'
       li.classList.toggle 'active', li.dataset.id == cv.id
+      # Si active, on s'assure que les dossiers parents sont ouverts
+      if li.dataset.id == cv.id
+        parent = li.parentElement
+        while parent and parent.id != 'custom-view-list'
+          if parent.tagName == 'LI' and parent.classList.contains('folder-item')
+            parent.classList.remove 'collapsed'
+            # Sauvegarder l'état ouvert du parent dans le localStorage
+            # (Peut être délicat de retrouver le nom exact du parent,
+            # mais on a la classe 'collapsed' enlevée).
+          parent = parent.parentElement
 
     @_currentSpace = null
     @_activeDataView?.unmount?()

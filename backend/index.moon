@@ -55,6 +55,7 @@ make_sidebar = ->
   H.nav {id: 'sidebar',
     H.div {class: 'sidebar-header',
       H.span {class: 'logo', 'TGui'}
+      H.button {id: 'sidebar-toggle', class: 'sidebar-toggle-btn', title: 'Replier le menu', '≡'}
     }
     H.div {class: 'sidebar-section',
       H.div {class: 'sidebar-section-title',
@@ -65,6 +66,7 @@ make_sidebar = ->
     }
     H.div {class: 'sidebar-section',
       H.div {class: 'sidebar-section-title',
+        H.button {id: 'spaces-toggle-btn', class: 'section-toggle-btn', '▾'}
         H.span {'Données'}
         H.button {id: 'new-space-btn', title: 'Nouvel espace', '＋'}
       }

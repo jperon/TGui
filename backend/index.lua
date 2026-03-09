@@ -131,6 +131,12 @@ make_sidebar = function()
       H.span({
         class = 'logo',
         'TGui'
+      }),
+      H.button({
+        id = 'sidebar-toggle',
+        class = 'sidebar-toggle-btn',
+        title = 'Replier le menu',
+        '≡'
       })
     }),
     H.div({
@@ -155,6 +161,11 @@ make_sidebar = function()
       class = 'sidebar-section',
       H.div({
         class = 'sidebar-section-title',
+        H.button({
+          id = 'spaces-toggle-btn',
+          class = 'section-toggle-btn',
+          '▾'
+        }),
         H.span({
           'Données'
         }),
