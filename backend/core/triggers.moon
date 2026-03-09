@@ -112,12 +112,14 @@ build_fk_def_map = (space_id) ->
 -- fk_def_map: { field_name => { toSpaceName, toFieldName } }
 -- fk_cache: optional shared cache (passed across all records of a single request)
 --   { spaces: { name -> { records: {_id->rec}, by_field: {fname->{val->rec}} } },
---     fk_def_maps: { name -> fk_def_map } }
+--     fk_def_maps: { name -> fk_def_map },
+--     formulas: { space_name -> { field_name -> fn } } }
 -- Avoids reloading FK target tables for each record in a batch query.
-make_self_proxy = (record, fk_def_map, fk_cache) ->
+make_self_proxy = (record, fk_def_map, fk_cache, space_name) ->
   fk_cache          = fk_cache or {}
   fk_cache.spaces   = fk_cache.spaces   or {}
   fk_cache.fk_def_maps = fk_cache.fk_def_maps or {}
+  fk_cache.formulas = fk_cache.formulas or {}
 
   decode_tuple = (t) ->
     d = if type(t[2]) == 'string' then json.decode(t[2]) else t[2]
@@ -125,16 +127,16 @@ make_self_proxy = (record, fk_def_map, fk_cache) ->
     d
 
   -- Load target space once; build field index on demand (no extra scan).
-  ensure_space = (space_name, to_field_name) ->
-    sc = fk_cache.spaces[space_name]
+  ensure_space = (s_name, to_field_name) ->
+    sc = fk_cache.spaces[s_name]
     unless sc
       sc = { records: {}, by_field: {} }
-      tb = box.space["data_#{space_name}"]
+      tb = box.space["data_#{s_name}"]
       if tb
         for tup in *tb\select {}
           d = decode_tuple tup
           sc.records[d._id] = d
-      fk_cache.spaces[space_name] = sc
+      fk_cache.spaces[s_name] = sc
     unless sc.by_field[to_field_name]
       idx = {}
       for _, d in pairs sc.records
@@ -143,13 +145,30 @@ make_self_proxy = (record, fk_def_map, fk_cache) ->
     sc
 
   -- Get or build nested fk_def_map (cached, avoids repeated metadata scans).
-  ensure_fk_def_map = (space_name) ->
-    unless fk_cache.fk_def_maps[space_name]
-      target_sp_meta = box.space._tdb_spaces.index.by_name\get { space_name }
-      fk_cache.fk_def_maps[space_name] = if target_sp_meta
+  ensure_fk_def_map = (s_name) ->
+    unless fk_cache.fk_def_maps[s_name]
+      target_sp_meta = box.space._tdb_spaces.index.by_name\get { s_name }
+      fk_cache.fk_def_maps[s_name] = if target_sp_meta
         build_fk_def_map target_sp_meta[1]
       else {}
-    fk_cache.fk_def_maps[space_name]
+    fk_cache.fk_def_maps[s_name]
+
+  -- Load formulas for a space
+  ensure_formulas = (s_name) ->
+    unless fk_cache.formulas[s_name]
+      fns = {}
+      sp_meta = box.space._tdb_spaces.index.by_name\get { s_name }
+      if sp_meta
+        for t in *box.space._tdb_fields.index.by_space\select { sp_meta[1] }
+          formula = t[8]
+          trigger_json = t[9]
+          language = t[10] or 'lua'
+          -- only pre-compile formula columns (triggers already exist in DB data)
+          if formula and formula != '' and (trigger_json == nil or trigger_json == 'null')
+            fn = compile_formula formula, t[3], language
+            fns[t[3]] = fn if fn
+      fk_cache.formulas[s_name] = fns
+    fk_cache.formulas[s_name]
 
   proxy = {}
   setmetatable proxy,
@@ -157,14 +176,28 @@ make_self_proxy = (record, fk_def_map, fk_cache) ->
       cached = rawget t, k
       return cached if cached != nil
       v = record[k]
+      
+      -- If the field is missing from raw data, check if it's a computed formula
+      if v == nil and space_name
+        fns = ensure_formulas space_name
+        if fns[k]
+          fk_cache.space_helper = fk_cache.space_helper or make_space_helper!
+          r_ok, val = pcall fns[k], t, fk_cache.space_helper
+          if r_ok
+            v = val
+            rawset t, k, v -- cache computed value for next time
+          else
+            log.error "tdb proxy: error evaluating formula for '#{space_name}.#{k}': #{val}"
+      
       return nil if v == nil
+      
       fk = fk_def_map and fk_def_map[k]
       if fk
         sc = ensure_space fk.toSpaceName, fk.toFieldName
         d = sc.by_field[fk.toFieldName] and sc.by_field[fk.toFieldName][tostring v]
         if d
           nested_fk_map = ensure_fk_def_map fk.toSpaceName
-          nested = make_self_proxy d, nested_fk_map, fk_cache
+          nested = make_self_proxy d, nested_fk_map, fk_cache, fk.toSpaceName
           rawset t, k, nested
           return nested
         return nil
@@ -200,7 +233,7 @@ make_space_helper = ->
 
 -- Builds the before_replace function for a given space.
 -- trigger_defs: list of { field_name, fn, trigger_fields_list, fk_def_map }
-make_trigger_fn = (trigger_defs) ->
+make_trigger_fn = (trigger_defs, space_name) ->
   space_helper = make_space_helper!
   (old_tuple, new_tuple) ->
     -- On DELETE new_tuple is nil: nothing to compute, just pass through
@@ -213,7 +246,9 @@ make_trigger_fn = (trigger_defs) ->
     modified  = false
     for def in *trigger_defs
       if should_run is_insert, def.trigger_fields_list, old_data, new_data
-        proxy = make_self_proxy new_data, def.fk_def_map
+        -- fk_cache is passed as nil for triggers (triggers are usually single-record ops),
+        -- but space_name is passed to allow proxy to evaluate other computed formulas of the same record.
+        proxy = make_self_proxy new_data, def.fk_def_map, nil, space_name
         r_ok, val = pcall def.fn, proxy, space_helper
         if r_ok
           new_data[def.field_name] = val
@@ -273,7 +308,7 @@ register_space_trigger = (space_name) ->
   -- Register combined trigger
   data_sp = box.space["data_#{space_name}"]
   return unless data_sp
-  trigger_fn = make_trigger_fn trigger_defs
+  trigger_fn = make_trigger_fn trigger_defs, space_name
   data_sp\before_replace trigger_fn
   active_triggers[space_name] = trigger_fn
   log.info "tdb triggers: registered #{#trigger_defs} trigger formula(s) on '#{space_name}'"

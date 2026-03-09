@@ -245,7 +245,7 @@ generate = ->
               -- Reuse a per-request FK cache stored in ctx to avoid rescanning
               -- FK target tables for every record in a batch query.
               ctx._fk_cache = ctx._fk_cache or {}
-              proxy = triggers.make_self_proxy obj, fk_nm_cap, ctx._fk_cache
+              proxy = triggers.make_self_proxy obj, fk_nm_cap, ctx._fk_cache, sp.name
               space_helper = (sname) ->
                 sp_box = box.space["data_#{sname}"]
                 return {} unless sp_box

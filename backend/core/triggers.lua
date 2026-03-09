@@ -113,10 +113,11 @@ build_fk_def_map = function(space_id)
   return fk_def_map
 end
 local make_self_proxy
-make_self_proxy = function(record, fk_def_map, fk_cache)
+make_self_proxy = function(record, fk_def_map, fk_cache, space_name)
   fk_cache = fk_cache or { }
   fk_cache.spaces = fk_cache.spaces or { }
   fk_cache.fk_def_maps = fk_cache.fk_def_maps or { }
+  fk_cache.formulas = fk_cache.formulas or { }
   local decode_tuple
   decode_tuple = function(t)
     local d
@@ -129,14 +130,14 @@ make_self_proxy = function(record, fk_def_map, fk_cache)
     return d
   end
   local ensure_space
-  ensure_space = function(space_name, to_field_name)
-    local sc = fk_cache.spaces[space_name]
+  ensure_space = function(s_name, to_field_name)
+    local sc = fk_cache.spaces[s_name]
     if not (sc) then
       sc = {
         records = { },
         by_field = { }
       }
-      local tb = box.space["data_" .. tostring(space_name)]
+      local tb = box.space["data_" .. tostring(s_name)]
       if tb then
         local _list_0 = tb:select({ })
         for _index_0 = 1, #_list_0 do
@@ -145,7 +146,7 @@ make_self_proxy = function(record, fk_def_map, fk_cache)
           sc.records[d._id] = d
         end
       end
-      fk_cache.spaces[space_name] = sc
+      fk_cache.spaces[s_name] = sc
     end
     if not (sc.by_field[to_field_name]) then
       local idx = { }
@@ -157,18 +158,46 @@ make_self_proxy = function(record, fk_def_map, fk_cache)
     return sc
   end
   local ensure_fk_def_map
-  ensure_fk_def_map = function(space_name)
-    if not (fk_cache.fk_def_maps[space_name]) then
+  ensure_fk_def_map = function(s_name)
+    if not (fk_cache.fk_def_maps[s_name]) then
       local target_sp_meta = box.space._tdb_spaces.index.by_name:get({
-        space_name
+        s_name
       })
       if target_sp_meta then
-        fk_cache.fk_def_maps[space_name] = build_fk_def_map(target_sp_meta[1])
+        fk_cache.fk_def_maps[s_name] = build_fk_def_map(target_sp_meta[1])
       else
-        fk_cache.fk_def_maps[space_name] = { }
+        fk_cache.fk_def_maps[s_name] = { }
       end
     end
-    return fk_cache.fk_def_maps[space_name]
+    return fk_cache.fk_def_maps[s_name]
+  end
+  local ensure_formulas
+  ensure_formulas = function(s_name)
+    if not (fk_cache.formulas[s_name]) then
+      local fns = { }
+      local sp_meta = box.space._tdb_spaces.index.by_name:get({
+        s_name
+      })
+      if sp_meta then
+        local _list_0 = box.space._tdb_fields.index.by_space:select({
+          sp_meta[1]
+        })
+        for _index_0 = 1, #_list_0 do
+          local t = _list_0[_index_0]
+          local formula = t[8]
+          local trigger_json = t[9]
+          local language = t[10] or 'lua'
+          if formula and formula ~= '' and (trigger_json == nil or trigger_json == 'null') then
+            local fn = compile_formula(formula, t[3], language)
+            if fn then
+              fns[t[3]] = fn
+            end
+          end
+        end
+      end
+      fk_cache.formulas[s_name] = fns
+    end
+    return fk_cache.formulas[s_name]
   end
   local proxy = { }
   setmetatable(proxy, {
@@ -178,6 +207,19 @@ make_self_proxy = function(record, fk_def_map, fk_cache)
         return cached
       end
       local v = record[k]
+      if v == nil and space_name then
+        local fns = ensure_formulas(space_name)
+        if fns[k] then
+          fk_cache.space_helper = fk_cache.space_helper or make_space_helper()
+          local r_ok, val = pcall(fns[k], t, fk_cache.space_helper)
+          if r_ok then
+            v = val
+            rawset(t, k, v)
+          else
+            log.error("tdb proxy: error evaluating formula for '" .. tostring(space_name) .. "." .. tostring(k) .. "': " .. tostring(val))
+          end
+        end
+      end
       if v == nil then
         return nil
       end
@@ -187,7 +229,7 @@ make_self_proxy = function(record, fk_def_map, fk_cache)
         local d = sc.by_field[fk.toFieldName] and sc.by_field[fk.toFieldName][tostring(v)]
         if d then
           local nested_fk_map = ensure_fk_def_map(fk.toSpaceName)
-          local nested = make_self_proxy(d, nested_fk_map, fk_cache)
+          local nested = make_self_proxy(d, nested_fk_map, fk_cache, fk.toSpaceName)
           rawset(t, k, nested)
           return nested
         end
@@ -246,7 +288,7 @@ make_space_helper = function()
   end
 end
 local make_trigger_fn
-make_trigger_fn = function(trigger_defs)
+make_trigger_fn = function(trigger_defs, space_name)
   local space_helper = make_space_helper()
   return function(old_tuple, new_tuple)
     if new_tuple == nil then
@@ -275,7 +317,7 @@ make_trigger_fn = function(trigger_defs)
     for _index_0 = 1, #trigger_defs do
       local def = trigger_defs[_index_0]
       if should_run(is_insert, def.trigger_fields_list, old_data, new_data) then
-        local proxy = make_self_proxy(new_data, def.fk_def_map)
+        local proxy = make_self_proxy(new_data, def.fk_def_map, nil, space_name)
         local r_ok, val = pcall(def.fn, proxy, space_helper)
         if r_ok then
           new_data[def.field_name] = val
@@ -362,7 +404,7 @@ register_space_trigger = function(space_name)
   if not (data_sp) then
     return 
   end
-  local trigger_fn = make_trigger_fn(trigger_defs)
+  local trigger_fn = make_trigger_fn(trigger_defs, space_name)
   data_sp:before_replace(trigger_fn)
   active_triggers[space_name] = trigger_fn
   return log.info("tdb triggers: registered " .. tostring(#trigger_defs) .. " trigger formula(s) on '" .. tostring(space_name) .. "'")
