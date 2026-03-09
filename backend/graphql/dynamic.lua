@@ -364,14 +364,14 @@ generate = function()
       if f.formula and f.formula ~= '' then
         local formula_fn = triggers.compile_formula(f.formula, f.name, (f.language or 'moonscript'))
         if formula_fn then
-          tr[gql_name(f.name)] = (function(fn_cap, fk_nm_cap, raw_name_cap)
+          tr[gql_name(f.name)] = (function(fn_cap, fk_nm_cap, raw_name_cap, sp_name_cap)
             return function(obj, a, ctx)
               local raw_val = obj[raw_name_cap]
               if raw_val ~= nil then
                 return raw_val
               end
               ctx._fk_cache = ctx._fk_cache or { }
-              local proxy = triggers.make_self_proxy(obj, fk_nm_cap, ctx._fk_cache, sp_cap.name)
+              local proxy = triggers.make_self_proxy(obj, fk_nm_cap, ctx._fk_cache, sp_name_cap)
               local space_helper
               space_helper = function(sname)
                 local sp_box = box.space["data_" .. tostring(sname)]
@@ -392,10 +392,11 @@ generate = function()
               if r_ok then
                 return val
               else
-                return nil
+                log.error("tdb proxy: error evaluating formula for '" .. tostring(sp_name_cap) .. "." .. tostring(f.name) .. "': " .. tostring(val))
+                return "[Erreur de formule: " .. tostring(val) .. "]"
               end
             end
-          end)(formula_fn, fk_name_map, f.name)
+          end)(formula_fn, fk_name_map, f.name, sp.name)
         end
       end
     end

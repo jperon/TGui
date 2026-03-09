@@ -199,7 +199,10 @@ make_self_proxy = (record, fk_def_map, fk_cache, space_name) ->
             v = val
             rawset t, k, v -- cache computed value for next time
           else
-            if not r_ok then log.error "tdb proxy: error evaluating formula for '#{space_name}.#{k}': #{val}"
+            if not r_ok
+              err_msg = "[Erreur de formule: #{val}]"
+              log.error "tdb proxy: error evaluating formula for '#{space_name}.#{k}': #{val}"
+              return err_msg
       
       return nil if v == nil or v == ''
       

@@ -245,7 +245,9 @@ make_self_proxy = function(record, fk_def_map, fk_cache, space_name)
             rawset(t, k, v)
           else
             if not r_ok then
+              local err_msg = "[Erreur de formule: " .. tostring(val) .. "]"
               log.error("tdb proxy: error evaluating formula for '" .. tostring(space_name) .. "." .. tostring(k) .. "': " .. tostring(val))
+              return err_msg
             end
           end
         end

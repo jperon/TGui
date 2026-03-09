@@ -160,6 +160,9 @@
               return function(props) {
                 var ref1, val;
                 val = props.value;
+                if (typeof val === 'string' && val.indexOf('[Erreur de formule:') === 0) {
+                  return `<span class=\"formula-error\" title=\"${val}\">⚠ Erreur</span>`;
+                }
                 return (ref1 = fkMap[String(val)]) != null ? ref1 : String(val != null ? val : '');
               };
             })(fkMap);
@@ -173,6 +176,15 @@
             if (!(seqNames.has(f.name) || formulaNames.has(f.name))) {
               col.editor = 'text';
             }
+            // Highlight formula errors in normal text columns
+            col.formatter = function(props) {
+              var val;
+              val = props.value;
+              if (typeof val === 'string' && val.indexOf('[Erreur de formule:') === 0) {
+                return `<span class=\"formula-error\" title=\"${val}\">⚠ Erreur</span>`;
+              }
+              return String(val != null ? val : '');
+            };
           }
           results.push(col);
         }
@@ -416,7 +428,7 @@
     }
 
     async load() {
-      var data, f, fieldList, fields, focus, focusedRow, formulaNames, gqlFilter, ref, spaceQuery, tname;
+      var data, e, f, fieldList, fields, focus, focusedRow, formulaNames, gqlFilter, msg, ref, ref1, ref2, spaceQuery, tname;
       if (!this._mounted) {
         return;
       }
@@ -457,36 +469,57 @@
           return results;
         })()).join(' ');
         spaceQuery = `query { ${tname}(limit: 2000) { items { _id ${fieldList} } } }`;
-        data = (await GQL.query(spaceQuery, {}));
-        if (!this._mounted) {
-          return;
+        try {
+          data = (await GQL.query(spaceQuery, {}));
+          if (!this._mounted) {
+            return;
+          }
+          this._rows = data[tname].items.map(function(item) {
+            var row;
+            row = Object.assign({}, item);
+            row.__rowId = item._id;
+            return row;
+          });
+        } catch (error) {
+          e = error;
+          this._showError(`Erreur de colonne calculée : ${e.message}`);
+          this._rows = [];
         }
-        this._rows = data[tname].items.map(function(item) {
-          var row;
-          row = Object.assign({}, item);
-          row.__rowId = item._id;
-          return row;
-        });
       } else {
         gqlFilter = this._formulaFilter ? {
           formula: this._formulaFilter,
           language: 'moonscript'
         } : void 0;
-        data = (await GQL.query(RECORDS_QUERY, {
-          spaceId: this.space.id,
-          limit: 2000,
-          filter: gqlFilter
-        }));
-        if (!this._mounted) {
-          return;
+        try {
+          data = (await GQL.query(RECORDS_QUERY, {
+            spaceId: this.space.id,
+            limit: 2000,
+            filter: gqlFilter
+          }));
+          if (!this._mounted) {
+            return;
+          }
+          this._rows = data.records.items.map(function(r) {
+            var parsed, row;
+            parsed = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
+            row = Object.assign({}, parsed);
+            row.__rowId = r.id;
+            return row;
+          });
+          if ((ref1 = document.getElementById('formula-filter-input')) != null) {
+            ref1.classList.remove('input-error');
+          }
+        } catch (error) {
+          e = error;
+          msg = this._formulaFilter ? `Erreur de filtre : ${e.message}` : `Erreur de chargement : ${e.message}`;
+          this._showError(msg);
+          if (this._formulaFilter) {
+            if ((ref2 = document.getElementById('formula-filter-input')) != null) {
+              ref2.classList.add('input-error');
+            }
+          }
+          this._rows = [];
         }
-        this._rows = data.records.items.map(function(r) {
-          var parsed, row;
-          parsed = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
-          row = Object.assign({}, parsed);
-          row.__rowId = r.id;
-          return row;
-        });
       }
       this._applyData();
       return this._rows;
