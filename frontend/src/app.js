@@ -372,6 +372,23 @@
         return this._applyI18nDynamic();
       });
     },
+    _applySidebarState: function() {
+      var spBtn, spList;
+      if (localStorage.getItem('tdb_menu_state') === 'collapsed') {
+        this.el.main().classList.add('sidebar-collapsed');
+      } else {
+        this.el.main().classList.remove('sidebar-collapsed');
+      }
+      spList = this.el.spaceList();
+      spBtn = document.getElementById('spaces-toggle-btn');
+      if (localStorage.getItem('tdb_spaces_collapsed') === 'true') {
+        spList.classList.add('hidden');
+        return spBtn != null ? spBtn.classList.add('collapsed') : void 0;
+      } else {
+        spList.classList.remove('hidden');
+        return spBtn != null ? spBtn.classList.remove('collapsed') : void 0;
+      }
+    },
     _applyI18nDynamic: function() {
       var ref;
       return (ref = this.el.fieldAddBtn()) != null ? ref.textContent = this._editingFieldId ? this._t('ui.fields.update') : this._t('ui.fields.add') : void 0;
@@ -425,7 +442,7 @@
     },
     // ── Sidebar ─────────────────────────────────────────────────────────────────
     _bindSidebar: function() {
-      var ref, ref1;
+      var ref, ref1, ref2, ref3;
       this.el.newSpaceBtn().addEventListener('click', async() => {
         var name;
         name = (await tdbPrompt(this._t('ui.prompts.newSpace')));
@@ -459,6 +476,41 @@
           return tdbAlert(this._err(err), 'error');
         });
       });
+      // Gestion de la sidebar repliable
+      if ((ref = document.getElementById('sidebar-toggle')) != null) {
+        ref.addEventListener('click', () => {
+          var isCollapsed, mainEl;
+          mainEl = this.el.main();
+          isCollapsed = mainEl.classList.contains('sidebar-collapsed');
+          if (isCollapsed) {
+            mainEl.classList.remove('sidebar-collapsed');
+            return localStorage.removeItem('tdb_menu_state');
+          } else {
+            mainEl.classList.add('sidebar-collapsed');
+            return localStorage.setItem('tdb_menu_state', 'collapsed');
+          }
+        });
+      }
+      // Gestion de la section Données (Espaces)
+      if ((ref1 = document.getElementById('spaces-toggle-btn')) != null) {
+        ref1.addEventListener('click', () => {
+          var isHidden, spBtn, spList;
+          spList = this.el.spaceList();
+          spBtn = document.getElementById('spaces-toggle-btn');
+          isHidden = spList.classList.contains('hidden');
+          if (isHidden) {
+            spList.classList.remove('hidden');
+            spBtn.classList.remove('collapsed');
+            return localStorage.setItem('tdb_spaces_collapsed', 'false');
+          } else {
+            spList.classList.add('hidden');
+            spBtn.classList.add('collapsed');
+            return localStorage.setItem('tdb_spaces_collapsed', 'true');
+          }
+        });
+      }
+      // Appliquer l'état par défaut au chargement
+      this._applySidebarState();
       // Menu profil utilisateur
       this.el.currentUserBtn().addEventListener('click', () => {
         var menu;
@@ -477,16 +529,16 @@
       this.el.logoutBtn().addEventListener('click', () => {
         return Auth.logout();
       });
-      if ((ref = this.el.langFrBtn()) != null) {
-        ref.addEventListener('click', () => {
-          var ref1;
-          return (ref1 = window.I18N) != null ? ref1.setLocale('fr') : void 0;
+      if ((ref2 = this.el.langFrBtn()) != null) {
+        ref2.addEventListener('click', () => {
+          var ref3;
+          return (ref3 = window.I18N) != null ? ref3.setLocale('fr') : void 0;
         });
       }
-      if ((ref1 = this.el.langEnBtn()) != null) {
-        ref1.addEventListener('click', () => {
-          var ref2;
-          return (ref2 = window.I18N) != null ? ref2.setLocale('en') : void 0;
+      if ((ref3 = this.el.langEnBtn()) != null) {
+        ref3.addEventListener('click', () => {
+          var ref4;
+          return (ref4 = window.I18N) != null ? ref4.setLocale('en') : void 0;
         });
       }
       // Navigation admin
@@ -931,13 +983,25 @@
       });
     },
     renderSpaceList: function(spaces) {
-      var i, len, li, results1, sp, ul;
+      var i, len, li, results1, sortedSpaces, sp, ul;
       ul = this.el.spaceList();
       ul.innerHTML = '';
+      // Tri alphabétique insensible à la casse
+      sortedSpaces = [...spaces].sort(function(a, b) {
+        return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+      });
       results1 = [];
-      for (i = 0, len = spaces.length; i < len; i++) {
-        sp = spaces[i];
+      for (i = 0, len = sortedSpaces.length; i < len; i++) {
+        sp = sortedSpaces[i];
         li = document.createElement('li');
+        li.textContent = sp.name;
+        li.dataset.id = sp.id;
+        ((sp) => {
+          return li.addEventListener('click', () => {
+            return this.selectSpace(sp);
+          });
+        })(sp);
+        ul.appendChild(li);
         li.textContent = sp.name;
         li.dataset.id = sp.id;
         ((sp) => {
@@ -1032,27 +1096,107 @@
       });
     },
     renderCustomViewList: function(views) {
-      var cv, i, len, li, ref, results1, ul;
+      var base, curr, cv, dictName, i, j, len, len1, parts, ref, ref1, renderTree, tree, ul;
       ul = this.el.customViewList();
       ul.innerHTML = '';
+      
+      // 1. Grouper en arbre
+      tree = {
+        items: [],
+        folders: {}
+      };
       ref = views || [];
-      results1 = [];
       for (i = 0, len = ref.length; i < len; i++) {
         cv = ref[i];
-        li = document.createElement('li');
-        li.textContent = cv.name;
-        li.dataset.id = cv.id;
-        ((cv) => {
-          return li.addEventListener('click', () => {
-            return this.selectCustomView(cv);
-          });
-        })(cv);
-        results1.push(ul.appendChild(li));
+        parts = cv.name.split('/');
+        curr = tree;
+        ref1 = parts.slice(0, -1);
+        // Dossiers intermédiaires
+        for (j = 0, len1 = ref1.length; j < len1; j++) {
+          dictName = ref1[j];
+          if ((base = curr.folders)[dictName] == null) {
+            base[dictName] = {
+              items: [],
+              folders: {}
+            };
+          }
+          curr = curr.folders[dictName];
+        }
+        // Insertion terminale (on garde cv original mais avec le nom court)
+        curr.items.push({
+          cv: cv,
+          shortName: parts[parts.length - 1]
+        });
       }
-      return results1;
+      // 2. Fonction récursive de rendu
+      renderTree = (node, containerEl, pathStr = "") => {
+        var fName, fNode, folderLi, folderNames, fullPath, header, icon, item, k, l, len2, len3, li, lsKey, results1, sortedItems, subUl;
+        // Trier les dossiers par ordre alphabétique
+        folderNames = Object.keys(node.folders).sort(function(a, b) {
+          return a.toLowerCase().localeCompare(b.toLowerCase());
+        });
+        for (k = 0, len2 = folderNames.length; k < len2; k++) {
+          fName = folderNames[k];
+          fNode = node.folders[fName];
+          fullPath = pathStr ? `${pathStr}/${fName}` : fName;
+          folderLi = document.createElement('li');
+          folderLi.className = 'folder-item';
+          
+          // Header du dossier
+          header = document.createElement('div');
+          header.className = 'folder-header';
+          icon = document.createElement('span');
+          icon.className = 'folder-toggle-icon';
+          icon.textContent = '▾';
+          header.appendChild(icon);
+          header.appendChild(document.createTextNode(` ${fName}`));
+          folderLi.appendChild(header);
+          
+          // Liste déroulante
+          subUl = document.createElement('ul');
+          subUl.className = 'folder-children';
+          folderLi.appendChild(subUl);
+          
+          // État du dossier dans le localStorage
+          lsKey = `tdb_folder_view_${fullPath}`;
+          if (localStorage.getItem(lsKey) === 'true') {
+            folderLi.classList.add('collapsed');
+          }
+          header.addEventListener('click', function(e) {
+            var isCollapsed;
+            e.stopPropagation();
+            isCollapsed = folderLi.classList.toggle('collapsed');
+            return localStorage.setItem(lsKey, isCollapsed ? 'true' : 'false');
+          });
+          renderTree(fNode, subUl, fullPath);
+          containerEl.appendChild(folderLi);
+        }
+        // Trier les items (vues)
+        sortedItems = node.items.sort(function(a, b) {
+          return a.shortName.toLowerCase().localeCompare(b.shortName.toLowerCase());
+        });
+        results1 = [];
+        for (l = 0, len3 = sortedItems.length; l < len3; l++) {
+          item = sortedItems[l];
+          li = document.createElement('li');
+          li.className = 'leaf-item';
+          li.textContent = item.shortName;
+          li.dataset.id = item.cv.id;
+          li.title = item.cv.name; // Le vrai nom complet sur hover
+          ((cv) => {
+            return li.addEventListener('click', (e) => {
+              e.stopPropagation();
+              return this.selectCustomView(cv);
+            });
+          })(item.cv);
+          results1.push(containerEl.appendChild(li));
+        }
+        return results1;
+      };
+      return renderTree(tree, ul);
     },
     selectCustomView: function(cv) {
-      var i, j, len, len1, li, panel, ref, ref1, ref2, ref3;
+      var i, j, len, len1, li, panel, parent, ref, ref1, ref2, ref3;
       history.replaceState(null, '', `#view/${cv.id}`);
       this._currentCustomView = cv;
       ref = this.el.spaceList().querySelectorAll('li');
@@ -1061,10 +1205,23 @@
         li = ref[i];
         li.classList.remove('active');
       }
-      ref1 = this.el.customViewList().querySelectorAll('li');
+      ref1 = this.el.customViewList().querySelectorAll('.leaf-item');
       for (j = 0, len1 = ref1.length; j < len1; j++) {
         li = ref1[j];
         li.classList.toggle('active', li.dataset.id === cv.id);
+        // Si active, on s'assure que les dossiers parents sont ouverts
+        if (li.dataset.id === cv.id) {
+          parent = li.parentElement;
+          while (parent && parent.id !== 'custom-view-list') {
+            if (parent.tagName === 'LI' && parent.classList.contains('folder-item')) {
+              parent.classList.remove('collapsed');
+            }
+            // Sauvegarder l'état ouvert du parent dans le localStorage
+            // (Peut être délicat de retrouver le nom exact du parent,
+            // mais on a la classe 'collapsed' enlevée).
+            parent = parent.parentElement;
+          }
+        }
       }
       this._currentSpace = null;
       if ((ref2 = this._activeDataView) != null) {

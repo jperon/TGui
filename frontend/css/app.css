@@ -48,13 +48,51 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   width: var(--sidebar-w); background: var(--color-sidebar);
   color: var(--color-sidebar-text);
   display: flex; flex-direction: column; flex-shrink: 0;
-  overflow-y: auto;
+  overflow-y: auto; overflow-x: hidden;
+  transition: width 0.2s ease, transform 0.2s ease;
+  position: relative; z-index: 100;
 }
 .sidebar-header {
   padding: .75rem 1rem;
   border-bottom: 1px solid rgba(255,255,255,.1);
+  display: flex; justify-content: space-between; align-items: center;
 }
 .logo { font-weight: 700; font-size: 1.1rem; }
+.sidebar-toggle-btn {
+  background: none; border: none; color: var(--color-sidebar-text);
+  cursor: pointer; font-size: 1.2rem; line-height: 1; padding: 0.2rem;
+  opacity: 0.6; transition: opacity 0.2s;
+}
+.sidebar-toggle-btn:hover { opacity: 1; }
+
+/* ── Comportement "Replié" (Collapsed) ────────────────────────────────────── */
+#main.sidebar-collapsed #sidebar {
+  width: 4px; /* Un tout petit liseré visible */
+  overflow: hidden;
+}
+/* Zone de survol plus large pour déclencher l'ouverture */
+#main.sidebar-collapsed #sidebar::after {
+  content: ""; position: absolute; top: 0; right: -16px; bottom: 0; width: 16px; cursor: e-resize;
+}
+#main.sidebar-collapsed #sidebar:hover {
+  width: var(--sidebar-w);
+  position: absolute; height: 100%; top: 0; left: 0;
+  box-shadow: 4px 0 12px rgba(0,0,0,0.5);
+}
+/* Cacher le reste du monde pendant que c'est fermé statique */
+#main.sidebar-collapsed #sidebar > *:not(.sidebar-header) {
+  opacity: 0; transition: opacity 0.2s; pointer-events: none;
+}
+/* Quand on survole on ré-affiche le tout */
+#main.sidebar-collapsed #sidebar:hover > *:not(.sidebar-header) {
+  opacity: 1; pointer-events: auto;
+}
+#main.sidebar-collapsed #sidebar .sidebar-header {
+  opacity: 0; transition: opacity 0.2s; pointer-events: none; white-space: nowrap;
+}
+#main.sidebar-collapsed #sidebar:hover .sidebar-header {
+  opacity: 1; pointer-events: auto;
+}
 
 .sidebar-section { padding: .4rem 0; }
 .sidebar-section-title {
@@ -62,8 +100,17 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   display: flex; align-items: center; justify-content: space-between;
   font-size: .7rem; font-weight: 700; text-transform: uppercase;
   letter-spacing: .08em; color: rgba(255,255,255,.4);
+  gap: 0.3rem;
 }
-.sidebar-section-title button {
+.sidebar-section-title span { flex: 1; margin-left: 0.2rem; }
+.section-toggle-btn {
+  background: none; border: none; color: var(--color-sidebar-text);
+  font-size: 0.8rem; cursor: pointer; line-height: 1; opacity: 0.5; padding: 0 0.2rem;
+  transition: transform 0.15s;
+}
+.section-toggle-btn.collapsed { transform: rotate(-90deg); }
+.section-toggle-btn:hover { opacity: 1; }
+.sidebar-section-title > button[id$="-btn"]:not(.section-toggle-btn) {
   background: none; border: none; color: var(--color-accent);
   font-size: 1rem; cursor: pointer; line-height: 1;
 }
@@ -71,15 +118,30 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
 #space-list, #custom-view-list {
   list-style: none; padding: 0;
 }
-#space-list li, #custom-view-list li {
+#space-list li, #custom-view-list .leaf-item {
   padding: .4rem 1rem .4rem 1.25rem; cursor: pointer;
   border-radius: 4px; transition: background .15s;
   font-size: .875rem; display: flex; align-items: center; gap: .4rem;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 #space-list li:hover, #space-list li.active,
-#custom-view-list li:hover, #custom-view-list li.active {
+#custom-view-list .leaf-item:hover, #custom-view-list .leaf-item.active {
   background: rgba(255,255,255,.1);
 }
+
+/* Dossiers hiérarchiques Vues */
+.folder-item { display: flex; flex-direction: column; }
+.folder-header {
+  padding: .4rem 1rem .4rem 1.25rem; cursor: pointer;
+  border-radius: 4px; transition: background .15s;
+  font-size: .875rem; display: flex; align-items: center; gap: .4rem;
+  color: var(--color-sidebar-text); opacity: 0.8; font-weight: 600;
+}
+.folder-header:hover { background: rgba(255,255,255,.05); opacity: 1; }
+.folder-toggle-icon { font-size: 0.7rem; transition: transform 0.15s; display: inline-block; width: 0.8rem; text-align: center; }
+.folder-item.collapsed > .folder-header .folder-toggle-icon { transform: rotate(-90deg); }
+.folder-children { list-style: none; padding-left: 1rem; }
+.folder-item.collapsed > .folder-children { display: none; }
 
 .sidebar-footer {
   margin-top: auto; padding: .75rem 1rem;
