@@ -16,6 +16,7 @@ FIELD_TYPE_OPTIONS = {
   {'Map',      'Map (objet JSON)'}
   {'Array',    'Array (tableau JSON)'}
   {'Sequence', 'Séquence (auto-incrément)'}
+  {'Datetime', 'Datetime'}
   {'Relation', 'Relation'}
 }
 
@@ -24,6 +25,14 @@ field_type_select = ->
   opts = {id: 'field-type'}
   for {val, label} in *FIELD_TYPE_OPTIONS
     table.insert opts, H.option({value: val}, label)
+  H.select opts
+
+-- Construit le <select> des types de champs pour changement (sans Relation).
+change_type_select = ->
+  opts = {id: 'change-type-select'}
+  for {val, label} in *FIELD_TYPE_OPTIONS
+    if val != 'Relation'
+      table.insert opts, H.option({value: val}, label)
   H.select opts
 
 -- Section <head>
@@ -161,9 +170,17 @@ make_fields_panel = ->
           }
         }
       }
+      H.div {id: 'field-repr-section',
+        H.label {class: 'formula-hint', ['for']: 'field-repr-formula', 'Représentation (affichage) :'}
+        H.textarea {id: 'field-repr-formula', rows: '2',
+          placeholder: "Ex: os.date('%d/%m/%Y', self.date) ou string.format('%.2f', self.montant)", ''}
+        H.span {class: 'formula-hint', 'Formule MoonScript/Lua de rendu visuel (ne modifie pas la donnée brute).'}
+      }
       H.div {class: 'fields-form-actions',
         H.button {id: 'field-add-btn', 'Ajouter'}
         H.button {id: 'field-cancel-btn', class: 'hidden', 'Annuler'}
+        H.button {id: 'field-change-type-btn', class: 'hidden toolbar-btn toolbar-btn--warn',
+          title: 'Changer le type de ce champ', '⇄ Type…'}
       }
     }
   }
@@ -334,6 +351,39 @@ make_content = ->
           }
         }
         H.div {id: 'formula-cm-editor', ''}
+      }
+    }
+    -- Modal : changement de type de champ
+    H.div {id: 'change-type-dialog', class: 'modal-overlay hidden',
+      H.div {class: 'modal-box',
+        H.h2 {'Changer le type du champ'}
+        H.p {id: 'change-type-field-name', class: 'formula-hint', ''}
+        H.div {class: 'formula-lang-row',
+          H.label {class: 'formula-hint', ['for']: 'change-type-select', 'Nouveau type :'}
+          change_type_select!
+        }
+        H.div {class: 'formula-section',
+          H.label {class: 'formula-hint', 'Formule de conversion (optionnelle) :'}
+          H.div {class: 'formula-lang-row',
+            H.label {class: 'formula-hint', ['for']: 'change-type-lang', 'Langage :'}
+            H.select {id: 'change-type-lang',
+              H.option {value: 'lua', 'Lua'}
+              H.option {value: 'moonscript', 'MoonScript'}
+            }
+          }
+          H.textarea {id: 'change-type-formula', rows: '3',
+            placeholder: "Ex (timestamp → datetime) :\nrequire('datetime').new({timestamp = tonumber(self.date)})", ''}
+          H.span {class: 'formula-hint',
+            'La formule reçoit '
+            H.code {'self'}
+            ' = enregistrement courant. Son résultat remplace la valeur du champ.'
+          }
+        }
+        H.p {id: 'change-type-error', class: 'error hidden', ''}
+        H.div {class: 'modal-actions',
+          H.button {id: 'change-type-confirm-btn', class: 'btn-primary', 'Confirmer'}
+          H.button {id: 'change-type-cancel-btn', class: 'toolbar-btn', 'Annuler'}
+        }
       }
     }
   }

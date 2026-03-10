@@ -122,19 +122,25 @@ window.DataView = class DataView
       else
         col.editor = 'text' unless seqNames.has(f.name) or formulaNames.has(f.name)
         # Highlight formula errors in normal text columns
-        col.formatter = (props) ->
+        col.formatter = do (fieldName = f.name) -> (props) ->
+          row = props.row
           val = props.value
-          if typeof val == 'string'
-            m = val.match /^\[ERROR\|(.*?)\|(.*)\]$/
+          displayVal = val
+          # Use per-field representation if available from backend
+          if row["_repr_#{fieldName}"]?
+            displayVal = row["_repr_#{fieldName}"]
+
+          if typeof displayVal == 'string'
+            m = displayVal.match /^\[ERROR\|(.*?)\|(.*)\]$/
             if m
               safeShort = m[1].replace(/"/g, '&quot;').replace(/</g, '&lt;')
               safeFull = m[2].replace(/"/g, '&quot;').replace(/</g, '&lt;')
               isInternal = safeShort.indexOf('inconnue') > -1
               cls = if isInternal then 'formula-error internal-error' else 'formula-error'
               return "<span class=\"#{cls}\" title=\"#{safeFull}\">⚠ #{safeShort}</span>"
-            else if val.indexOf('[Erreur de formule:') == 0
-              return "<span class=\"formula-error\" title=\"#{val.replace(/"/g, '&quot;')}\">⚠ Erreur</span>"
-          String(val ? '')
+            else if displayVal.indexOf('[Erreur de formule:') == 0
+              return "<span class=\"formula-error\" title=\"#{displayVal.replace(/"/g, '&quot;')}\">⚠ Erreur</span>"
+          String(displayVal ? '')
       col
 
     @_grid = new tui.Grid
@@ -296,11 +302,18 @@ window.DataView = class DataView
 
     fields       = @space.fields or []
     formulaNames = new Set (f.name for f in fields when f.formula and f.formula != '' and not f.triggerFields)
+    reprNames    = new Set (f.name for f in fields when f.reprFormula and f.reprFormula != '')
 
-    if formulaNames.size > 0 and not @_formulaFilter
+    if (formulaNames.size > 0 or reprNames.size > 0) and not @_formulaFilter
       # Use the space-specific dynamic resolver so formula fields are evaluated.
       tname      = gqlName @space.name
-      fieldList  = (gqlName f.name for f in fields).join(' ')
+      fieldList  = for f in fields
+        nm = gqlName f.name
+        if f.reprFormula and f.reprFormula != ''
+          nm + " _repr_#{nm}"
+        else
+          nm
+      fieldList = fieldList.join(' ')
       spaceQuery = "query { #{tname}(limit: 2000) { items { _id #{fieldList} } } }"
       try
         data = await GQL.query spaceQuery, {}

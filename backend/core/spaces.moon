@@ -5,7 +5,7 @@
 log = require 'log'
 
 -- Field type constants (mirrors GraphQL scalar names)
-FIELD_TYPES = { 'String', 'Int', 'Float', 'Boolean', 'ID', 'UUID', 'Sequence', 'Any', 'Map', 'Array' }
+FIELD_TYPES = { 'String', 'Int', 'Float', 'Boolean', 'ID', 'UUID', 'Sequence', 'Any', 'Map', 'Array', 'Datetime' }
 FIELD_TYPES_SET = { v, true for v in *FIELD_TYPES }
 
 -- ────────────────────────────────────────────────────────────────────────────
@@ -243,7 +243,7 @@ create_user_space = (name, description) ->
   { id: sid, name: name, description: description or '', createdAt: now, updatedAt: now }
 
 -- Add a field definition to a space.
-add_field = (space_id, field_name, field_type, not_null, description, formula, trigger_fields, language) ->
+add_field = (space_id, field_name, field_type, not_null, description, formula, trigger_fields, language, repr_formula) ->
   uuid = require 'uuid'
   json = require 'json'
   error "Type de champ invalide : #{field_type}" unless FIELD_TYPES_SET[field_type]
@@ -259,6 +259,13 @@ add_field = (space_id, field_name, field_type, not_null, description, formula, t
     table.insert tuple, formula
     table.insert tuple, json.encode(trigger_fields)  -- "null" si trigger_fields est nil
     table.insert tuple, language or 'lua'
+    table.insert tuple, repr_formula or ''
+  elseif repr_formula and repr_formula != ''
+    -- Pas de formula mais une reprFormula : on doit quand même remplir t[8..10] pour maintenir les positions
+    table.insert tuple, ''          -- formula vide
+    table.insert tuple, json.encode(nil)  -- trigger_fields null
+    table.insert tuple, 'lua'        -- language défaut
+    table.insert tuple, repr_formula
   box.space._tdb_fields\insert tuple
   -- Create a Tarantool sequence for auto-increment fields and backfill existing records
   if field_type == 'Sequence'
@@ -275,7 +282,8 @@ add_field = (space_id, field_name, field_type, not_null, description, formula, t
   {
     id: fid, spaceId: space_id, name: field_name, fieldType: field_type,
     notNull: not_null or false, position: pos, description: description or '',
-    formula: formula or '', triggerFields: trigger_fields, language: language or 'lua'
+    formula: formula or '', triggerFields: trigger_fields, language: language or 'lua',
+    reprFormula: repr_formula or ''
   }
 
 remove_field = (field_id) ->
@@ -318,6 +326,7 @@ list_fields = (space_id) ->
   for t in *box.space._tdb_fields.index.by_space_pos\select { space_id }
     -- Index 9 peut être : nil (ancien tuple sans formula), "null" (formula sans trigger),
     -- ou un JSON array (trigger formula). L'index 10 est le langage (nouveaux tuples).
+    -- L'index 11 est la reprFormula (encore plus récent).
     trigger_raw = t[9]
     trigger_fields = if trigger_raw and trigger_raw != 'null'
       json.decode trigger_raw
@@ -334,11 +343,12 @@ list_fields = (space_id) ->
       formula:       t[8] or ''
       triggerFields: trigger_fields
       language:      t[10] or 'lua'
+      reprFormula:   t[11] or ''
     }
   result
 
--- Update a field definition (name, notNull, description, formula, triggerFields, language).
--- fieldType cannot be changed (would require data migration).
+-- Update a field definition (name, notNull, description, formula, triggerFields, language, reprFormula).
+-- fieldType cannot be changed here (use change_field_type for that).
 update_field = (field_id, opts) ->
   json = require 'json'
   t = box.space._tdb_fields\get field_id
@@ -349,12 +359,26 @@ update_field = (field_id, opts) ->
   formula  = opts.formula
   trigger_fields = opts.triggerFields
   language = opts.language or t[10] or 'lua'
+  repr_formula = if opts.reprFormula != nil then opts.reprFormula else (t[11] or '')
   -- Preserve immutable columns: id, spaceId, fieldType, position
   tuple = { t[1], t[2], name, t[4], not_null, t[6], desc }
-  if formula and formula != ''
-    table.insert tuple, formula
-    table.insert tuple, json.encode(trigger_fields)
+  if (formula and formula != '') or (repr_formula and repr_formula != '')
+    actual_formula = if formula != nil then formula else (t[8] or '')
+    actual_trigger = if opts.formula != nil then trigger_fields else
+      -- preserve existing trigger_fields
+      do
+        raw = t[9]
+        if raw and raw != 'null' then json.decode(raw) else nil
+    table.insert tuple, actual_formula
+    table.insert tuple, json.encode(actual_trigger)
     table.insert tuple, language
+    table.insert tuple, repr_formula
+  elseif formula == ''
+    -- Formula explicitly cleared; also clear reprFormula unless it was provided
+    table.insert tuple, ''
+    table.insert tuple, json.encode(nil)
+    table.insert tuple, language
+    table.insert tuple, repr_formula
   box.space._tdb_fields\replace tuple
   -- Return updated field
   trigger_raw = if #tuple >= 9 then tuple[9] else nil
@@ -362,7 +386,8 @@ update_field = (field_id, opts) ->
   {
     id: t[1], spaceId: t[2], name: name, fieldType: t[4],
     notNull: not_null, position: t[6], description: desc,
-    formula: formula or '', triggerFields: tf, language: language
+    formula: (if #tuple >= 8 then tuple[8] else '') or '', triggerFields: tf, language: language,
+    reprFormula: repr_formula
   }
 
 -- Reorder fields by assigning new positions based on given id order.
@@ -378,6 +403,58 @@ reorder_fields = (space_id, field_ids) ->
     continue unless t and t[2] == space_id
     box.space._tdb_fields\update fid, { { '=', 6, pos } }
   list_fields space_id
+
+-- Change the type of a field, optionally converting existing data with a formula.
+-- conversion_formula: MoonScript/Lua formula receiving self (the record data table),
+--   must return the new value for the field.
+-- language: 'lua' or 'moonscript'
+change_field_type = (field_id, new_type, conversion_formula, language) ->
+  json    = require 'json'
+  t = box.space._tdb_fields\get field_id
+  error "Field not found: #{field_id}" unless t
+  error "Type de champ invalide : #{new_type}" unless FIELD_TYPES_SET[new_type]
+  field_name = t[3]
+  space_id   = t[2]
+  space_meta = box.space._tdb_spaces\get space_id
+  error "Space not found" unless space_meta
+  space_name = space_meta[2]
+
+  -- Migrate existing data if a conversion formula is provided
+  if conversion_formula and conversion_formula != ''
+    triggers_mod = require 'core.triggers'
+    lang = language or 'lua'
+    ok_c, conv_fn = pcall triggers_mod.compile_formula, conversion_formula, 'convert', lang
+    if ok_c and type(conv_fn) == 'function'
+      data_sp = box.space["data_#{space_name}"]
+      if data_sp
+        for raw_t in *data_sp\select {}
+          d = if type(raw_t[2]) == 'string' then json.decode(raw_t[2]) else raw_t[2]
+          ok_r, new_val = pcall conv_fn, d, nil
+          if ok_r
+            d[field_name] = new_val
+          data_sp\replace { raw_t[1], json.encode(d) }
+    else
+      error "Formule de conversion invalide : #{conv_fn}"
+
+  -- Update field type in metadata (preserve all other columns)
+  -- Build updated tuple: replace t[4] (field_type) with new_type
+  new_tuple = { t[1], t[2], t[3], new_type, t[5], t[6], t[7] }
+  if t[8] != nil
+    table.insert new_tuple, t[8]   -- formula
+    table.insert new_tuple, t[9]   -- trigger_fields
+    table.insert new_tuple, t[10]  -- language
+    table.insert new_tuple, t[11]  -- repr_formula
+  box.space._tdb_fields\replace new_tuple
+
+  -- Return updated field
+  trigger_raw = t[9]
+  tf = if trigger_raw and trigger_raw != 'null' then json.decode(trigger_raw) else nil
+  {
+    id: t[1], spaceId: t[2], name: t[3], fieldType: new_type,
+    notNull: t[5], position: t[6], description: t[7],
+    formula: t[8] or '', triggerFields: tf, language: t[10] or 'lua',
+    reprFormula: t[11] or ''
+  }
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- Migrations (run on every startup, idempotent)
@@ -419,4 +496,4 @@ delete_user_space = (name) ->
   -- Remove metadata
   box.space._tdb_spaces\delete sid
 
-{ :bootstrap, :migrate, :create_user_space, :delete_user_space, :add_field, :remove_field, :update_field, :reorder_fields, :list_spaces, :list_fields, :get_space, :FIELD_TYPES }
+{ :bootstrap, :migrate, :create_user_space, :delete_user_space, :add_field, :remove_field, :update_field, :reorder_fields, :change_field_type, :list_spaces, :list_fields, :get_space, :get_space_by_name, :FIELD_TYPES }

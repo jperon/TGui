@@ -2,7 +2,7 @@
 # Space and field management.
 
 LIST_SPACES = """
-  query { spaces { id name description fields { id name fieldType notNull position description formula triggerFields language } } }
+  query { spaces { id name description fields { id name fieldType notNull position description formula triggerFields language reprFormula } } }
 """
 
 CREATE_SPACE = """
@@ -21,7 +21,7 @@ SPACE_FIELDS = """
   query SpaceFields($id: ID!) {
     space(id: $id) {
       id name description
-      fields { id name fieldType notNull position description formula triggerFields language }
+      fields { id name fieldType notNull position description formula triggerFields language reprFormula }
     }
   }
 """
@@ -29,7 +29,7 @@ SPACE_FIELDS = """
 ADD_FIELD = """
   mutation AddField($spaceId: ID!, $input: FieldInput!) {
     addField(spaceId: $spaceId, input: $input) {
-      id name fieldType notNull position
+      id name fieldType notNull position reprFormula
     }
   }
 """
@@ -43,7 +43,15 @@ UPDATE_SPACE = """
 UPDATE_FIELD = """
   mutation UpdateField($fieldId: ID!, $input: UpdateFieldInput!) {
     updateField(fieldId: $fieldId, input: $input) {
-      id name fieldType notNull position description formula triggerFields language
+      id name fieldType notNull position description formula triggerFields language reprFormula
+    }
+  }
+"""
+
+CHANGE_FIELD_TYPE = """
+  mutation ChangeFieldType($fieldId: ID!, $input: ChangeFieldTypeInput!) {
+    changeFieldType(fieldId: $fieldId, input: $input) {
+      id name fieldType notNull position description formula triggerFields language reprFormula
     }
   }
 """
@@ -98,11 +106,12 @@ window.Spaces =
   getWithFields: (id) ->
     GQL.query(SPACE_FIELDS, { id }).then (d) -> d.space
 
-  addField: (spaceId, name, fieldType, notNull = false, description = '', formula = null, triggerFields = null, language = 'lua') ->
+  addField: (spaceId, name, fieldType, notNull = false, description = '', formula = null, triggerFields = null, language = 'lua', reprFormula = null) ->
     input = { name, fieldType, notNull, description }
     input.formula       = formula       if formula
     input.triggerFields = triggerFields if triggerFields
     input.language      = language      if language and language != 'lua'
+    input.reprFormula   = reprFormula   if reprFormula
     GQL.mutate(ADD_FIELD, { spaceId, input })
       .then (d) -> d.addField
 
@@ -114,7 +123,14 @@ window.Spaces =
     input.formula       = opts.formula       if opts.formula?
     input.triggerFields = opts.triggerFields if opts.triggerFields?
     input.language      = opts.language      if opts.language?
+    input.reprFormula   = opts.reprFormula   if opts.reprFormula?
     GQL.mutate(UPDATE_FIELD, { fieldId, input }).then (d) -> d.updateField
+
+  changeFieldType: (fieldId, fieldType, conversionFormula = null, language = 'lua') ->
+    input = { fieldType }
+    input.conversionFormula = conversionFormula if conversionFormula
+    input.language          = language          if language and language != 'lua'
+    GQL.mutate(CHANGE_FIELD_TYPE, { fieldId, input }).then (d) -> d.changeFieldType
 
   listRelations: (spaceId) ->
     GQL.query(LIST_RELATIONS, { spaceId }).then (d) -> d.relations

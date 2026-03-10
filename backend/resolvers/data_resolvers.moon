@@ -187,25 +187,51 @@ Query =
     -- Reuse a per-request FK cache
     ctx._fk_cache = ctx._fk_cache or {}
     
-    -- Pre-compile reprFormula if provided
+    -- Compile the global explicit reprFormula if provided (used by relations dropdown)
     repr_fn = nil
     if args.reprFormula and args.reprFormula != ''
       lang = args.reprLanguage or 'moonscript'
       ok_c, fn = pcall triggers_mod.compile_formula, args.reprFormula, 'repr', lang
       repr_fn = if ok_c and type(fn) == 'function' then fn else nil
-    -- Collect all records, injecting _repr when formula is available
+
+    -- Compile per-field reprFormulas
+    field_reprs = {}
+    if sp_meta
+      fields = box.space._tdb_fields.index.by_space_pos\select { args.spaceId }
+      for f in *fields
+        if f[11] and f[11] != ''
+          lang = f[10] or 'lua'
+          ok_c, fn = pcall triggers_mod.compile_formula, f[11], "repr_#{f[3]}", lang
+          if ok_c and type(fn) == 'function'
+            field_reprs[f[3]] = fn
+
+    -- Collect all records, injecting _repr and per-field repr when available
     all = {}
-    for t in *sp\select {}
-      if repr_fn
+    has_field_reprs = next(field_reprs) != nil
+    if repr_fn or has_field_reprs
+      for t in *sp\select {}
         parsed = json.decode t[2]
         parsed._id = tostring t[1]
         self_proxy = triggers_mod.make_self_proxy parsed, fk_def_map, ctx._fk_cache, space_name
-        ok_r, val = pcall repr_fn, self_proxy, nil
-        if ok_r and val != nil
-          parsed._repr = tostring val
+        
+        -- Global repr
+        if repr_fn
+          ok_r, val = pcall repr_fn, self_proxy, nil
+          if ok_r and val != nil
+            parsed._repr = tostring val
+            
+        -- Per-field reprs
+        for fname, fn in pairs field_reprs
+          ok_r, val = pcall fn, self_proxy, nil
+          if ok_r and val != nil
+            -- Store field representations under a reserved prefix or alongside
+            -- But we can just use _repr_fname convention so the frontend can access it easily
+            parsed["_repr_#{fname}"] = tostring val
+            
         parsed._id = nil
         table.insert all, { id: t[1], spaceId: args.spaceId, data: json.encode(parsed) }
-      else
+    else
+      for t in *sp\select {}
         table.insert all, { id: t[1], spaceId: args.spaceId, data: t[2] }
     -- Filter (fk_def_map enables FK traversal in formula filters)
     filtered = apply_filter all, args.filter, fk_def_map, ctx._fk_cache, space_name

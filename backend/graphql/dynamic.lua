@@ -20,6 +20,8 @@ gql_scalar = function(ft)
     return 'ID'
   elseif 'Any' == _exp_0 or 'Map' == _exp_0 or 'Array' == _exp_0 then
     return 'Any'
+  elseif 'Datetime' == _exp_0 then
+    return 'String'
   else
     return 'String'
   end
@@ -197,6 +199,9 @@ generate = function()
         table.insert(fields_sdl, "  " .. tostring(fn) .. ": " .. tostring(gql_name(space_by_id[rel.toSpaceId].name)) .. "_record")
       else
         table.insert(fields_sdl, "  " .. tostring(fn) .. ": " .. tostring(gql_scalar(f.fieldType)))
+      end
+      if f.reprFormula and f.reprFormula ~= '' then
+        table.insert(fields_sdl, "  _repr_" .. tostring(fn) .. ": String")
       end
     end
     for _index_1 = 1, #backrefs do
@@ -397,6 +402,22 @@ generate = function()
               end
             end
           end)(formula_fn, fk_name_map, f.name, sp.name)
+        end
+      end
+      if f.reprFormula and f.reprFormula ~= '' then
+        local repr_fn = triggers.compile_formula(f.reprFormula, "repr_" .. tostring(f.name), (f.language or 'lua'))
+        if repr_fn then
+          tr["_repr_" .. tostring(gql_name(f.name))] = (function(fn_cap, fk_nm_cap, raw_name_cap, sp_name_cap)
+            return function(obj, a, ctx)
+              ctx._fk_cache = ctx._fk_cache or { }
+              local proxy = triggers.make_self_proxy(obj, fk_nm_cap, ctx._fk_cache, sp_name_cap)
+              local r_ok, val = pcall(fn_cap, proxy, nil)
+              if r_ok and val ~= nil then
+                return tostring(val)
+              end
+              return nil
+            end
+          end)(repr_fn, fk_name_map, f.name, sp.name)
         end
       end
     end

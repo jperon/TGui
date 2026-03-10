@@ -333,17 +333,42 @@ local Query = {
         repr_fn = nil
       end
     end
+    local field_reprs = { }
+    if sp_meta then
+      local fields = box.space._tdb_fields.index.by_space_pos:select({
+        args.spaceId
+      })
+      for _index_0 = 1, #fields do
+        local f = fields[_index_0]
+        if f[11] and f[11] ~= '' then
+          local lang = f[10] or 'lua'
+          local ok_c, fn = pcall(triggers_mod.compile_formula, f[11], "repr_" .. tostring(f[3]), lang)
+          if ok_c and type(fn) == 'function' then
+            field_reprs[f[3]] = fn
+          end
+        end
+      end
+    end
     local all = { }
-    local _list_0 = sp:select({ })
-    for _index_0 = 1, #_list_0 do
-      local t = _list_0[_index_0]
-      if repr_fn then
+    local has_field_reprs = next(field_reprs) ~= nil
+    if repr_fn or has_field_reprs then
+      local _list_0 = sp:select({ })
+      for _index_0 = 1, #_list_0 do
+        local t = _list_0[_index_0]
         local parsed = json.decode(t[2])
         parsed._id = tostring(t[1])
         local self_proxy = triggers_mod.make_self_proxy(parsed, fk_def_map, ctx._fk_cache, space_name)
-        local ok_r, val = pcall(repr_fn, self_proxy, nil)
-        if ok_r and val ~= nil then
-          parsed._repr = tostring(val)
+        if repr_fn then
+          local ok_r, val = pcall(repr_fn, self_proxy, nil)
+          if ok_r and val ~= nil then
+            parsed._repr = tostring(val)
+          end
+        end
+        for fname, fn in pairs(field_reprs) do
+          local ok_r, val = pcall(fn, self_proxy, nil)
+          if ok_r and val ~= nil then
+            parsed["_repr_" .. tostring(fname)] = tostring(val)
+          end
         end
         parsed._id = nil
         table.insert(all, {
@@ -351,7 +376,11 @@ local Query = {
           spaceId = args.spaceId,
           data = json.encode(parsed)
         })
-      else
+      end
+    else
+      local _list_0 = sp:select({ })
+      for _index_0 = 1, #_list_0 do
+        local t = _list_0[_index_0]
         table.insert(all, {
           id = t[1],
           spaceId = args.spaceId,

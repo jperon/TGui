@@ -1,9 +1,9 @@
 (function() {
   // spaces.coffee
   // Space and field management.
-  var ADD_FIELD, CREATE_RELATION, CREATE_SPACE, DELETE_RECORDS, DELETE_RELATION, DELETE_SPACE, LIST_RELATIONS, LIST_SPACES, SPACE_FIELDS, UPDATE_FIELD, UPDATE_RELATION, UPDATE_SPACE;
+  var ADD_FIELD, CHANGE_FIELD_TYPE, CREATE_RELATION, CREATE_SPACE, DELETE_RECORDS, DELETE_RELATION, DELETE_SPACE, LIST_RELATIONS, LIST_SPACES, SPACE_FIELDS, UPDATE_FIELD, UPDATE_RELATION, UPDATE_SPACE;
 
-  LIST_SPACES = `query { spaces { id name description fields { id name fieldType notNull position description formula triggerFields language } } }`;
+  LIST_SPACES = `query { spaces { id name description fields { id name fieldType notNull position description formula triggerFields language reprFormula } } }`;
 
   CREATE_SPACE = `mutation CreateSpace($input: CreateSpaceInput!) {
   createSpace(input: $input) { id name description }
@@ -16,13 +16,13 @@
   SPACE_FIELDS = `query SpaceFields($id: ID!) {
   space(id: $id) {
     id name description
-    fields { id name fieldType notNull position description formula triggerFields language }
+    fields { id name fieldType notNull position description formula triggerFields language reprFormula }
   }
 }`;
 
   ADD_FIELD = `mutation AddField($spaceId: ID!, $input: FieldInput!) {
   addField(spaceId: $spaceId, input: $input) {
-    id name fieldType notNull position
+    id name fieldType notNull position reprFormula
   }
 }`;
 
@@ -32,7 +32,13 @@
 
   UPDATE_FIELD = `mutation UpdateField($fieldId: ID!, $input: UpdateFieldInput!) {
   updateField(fieldId: $fieldId, input: $input) {
-    id name fieldType notNull position description formula triggerFields language
+    id name fieldType notNull position description formula triggerFields language reprFormula
+  }
+}`;
+
+  CHANGE_FIELD_TYPE = `mutation ChangeFieldType($fieldId: ID!, $input: ChangeFieldTypeInput!) {
+  changeFieldType(fieldId: $fieldId, input: $input) {
+    id name fieldType notNull position description formula triggerFields language reprFormula
   }
 }`;
 
@@ -92,7 +98,7 @@
         return d.space;
       });
     },
-    addField: function(spaceId, name, fieldType, notNull = false, description = '', formula = null, triggerFields = null, language = 'lua') {
+    addField: function(spaceId, name, fieldType, notNull = false, description = '', formula = null, triggerFields = null, language = 'lua', reprFormula = null) {
       var input;
       input = {name, fieldType, notNull, description};
       if (formula) {
@@ -103,6 +109,9 @@
       }
       if (language && language !== 'lua') {
         input.language = language;
+      }
+      if (reprFormula) {
+        input.reprFormula = reprFormula;
       }
       return GQL.mutate(ADD_FIELD, {spaceId, input}).then(function(d) {
         return d.addField;
@@ -129,8 +138,24 @@
       if (opts.language != null) {
         input.language = opts.language;
       }
+      if (opts.reprFormula != null) {
+        input.reprFormula = opts.reprFormula;
+      }
       return GQL.mutate(UPDATE_FIELD, {fieldId, input}).then(function(d) {
         return d.updateField;
+      });
+    },
+    changeFieldType: function(fieldId, fieldType, conversionFormula = null, language = 'lua') {
+      var input;
+      input = {fieldType};
+      if (conversionFormula) {
+        input.conversionFormula = conversionFormula;
+      }
+      if (language && language !== 'lua') {
+        input.language = language;
+      }
+      return GQL.mutate(CHANGE_FIELD_TYPE, {fieldId, input}).then(function(d) {
+        return d.changeFieldType;
       });
     },
     listRelations: function(spaceId) {

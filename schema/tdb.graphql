@@ -64,6 +64,7 @@ type Mutation {
   removeField(fieldId: ID!):               Boolean!
   reorderFields(spaceId: ID!, fieldIds: [ID!]!): [Field!]!
   updateField(fieldId: ID!, input: UpdateFieldInput!): Field!
+  changeFieldType(fieldId: ID!, input: ChangeFieldTypeInput!): Field!
 
   # Views
   createView(spaceId: ID!, input: CreateViewInput!):   View!
@@ -135,6 +136,7 @@ type Field {
   formula:       String
   triggerFields: [String!]
   language:      String
+  reprFormula:   String
 }
 
 enum FieldType {
@@ -148,6 +150,7 @@ enum FieldType {
   Any
   Map
   Array
+  Datetime
 }
 
 type View {
@@ -278,6 +281,7 @@ input UpdateFieldInput {
   formula:       String
   triggerFields: [String!]
   language:      String
+  reprFormula:   String
 }
 
 input CreateSpaceInput {
@@ -298,6 +302,13 @@ input FieldInput {
   formula:       String
   triggerFields: [String!]
   language:      String
+  reprFormula:   String
+}
+
+input ChangeFieldTypeInput {
+  fieldType:        FieldType!
+  conversionFormula: String
+  language:          String
 }
 
 input CreateViewInput {
@@ -361,6 +372,8 @@ input PermissionInput {
 scalar JSON
 
 scalar Any
+
+scalar Datetime
 
 # ────────────────────────────────────────────────────────────────────────────
 # Aggregation

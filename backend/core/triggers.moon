@@ -10,6 +10,9 @@ json       = require 'json'
 log        = require 'log'
 spaces_mod = require 'core.spaces'
 
+-- Debug flag for FK proxy troubleshooting
+DEBUG_FK_PROXY = false
+
 -- Maps space_name -> currently registered before_replace function (for later removal).
 active_triggers = {}
 
@@ -125,10 +128,10 @@ format_formula_error = (err) ->
   else
     -- Erreur générique potentiellement liée à TGui ou non prévue
     short = "Erreur (inconnue)"
-    
+
   -- Nettoyer le prefixe '[string "..."]:ligne: ' généré par Lua
   clean_msg = s\gsub '^%[string ".-"%]:%d+: ', ''
-  
+
   -- Format attendu par le frontend: [Erreur|Type court|Message complet]
   "[ERROR|#{short}|#{clean_msg}]"
 
@@ -171,15 +174,46 @@ make_self_proxy = (record, fk_def_map, fk_cache, space_name) ->
       sc = { records: {}, by_field: {} }
       tb = box.space["data_#{s_name}"]
       if tb
+        if DEBUG_FK_PROXY
+          print("DEBUG ensure_space: loading #{#tb} records from #{s_name}")
         for tup in *tb\select {}
           d = decode_tuple tup
+          if DEBUG_FK_PROXY
+            print("DEBUG ensure_space: record _id=#{d._id}, #{to_field_name}=#{tostring(d[to_field_name])}")
           sc.records[d._id] = d
       fk_cache.spaces[s_name] = sc
-    unless sc.by_field[to_field_name]
+
+    -- Always build _id index for primary lookup
+    unless sc.by_field['_id']
       idx = {}
+      if DEBUG_FK_PROXY
+        print("DEBUG ensure_space: building index for _id")
       for _, d in pairs sc.records
-        idx[tostring(d[to_field_name] or '')] = d
+        if d._id ~= nil
+          key = tostring(d._id)
+          if DEBUG_FK_PROXY
+            print("DEBUG ensure_space: indexing _id key='#{key}'")
+          idx[key] = d
+      sc.by_field['_id'] = idx
+      if DEBUG_FK_PROXY
+        print("DEBUG ensure_space: _id index built with #{#idx} keys")
+
+    -- Build specific field index if needed and different from _id
+    if to_field_name != '_id' and not sc.by_field[to_field_name]
+      idx = {}
+      if DEBUG_FK_PROXY
+        print("DEBUG ensure_space: building index for #{to_field_name}")
+      for _, d in pairs sc.records
+        if d[to_field_name] ~= nil
+          key = tostring(d[to_field_name])
+          if DEBUG_FK_PROXY
+            print("DEBUG ensure_space: indexing key='#{key}' for _id=#{d._id}")
+          idx[key] = d
       sc.by_field[to_field_name] = idx
+      if DEBUG_FK_PROXY
+        if next(idx) == nil
+          print("WARNING: No records indexed for field '#{to_field_name}' in space '#{s_name}'")
+        print("DEBUG ensure_space: index built with #{next(idx) and #idx or '0'} keys")
     sc
 
   -- Get or build nested fk_def_map (cached, avoids repeated metadata scans).
@@ -200,7 +234,7 @@ make_self_proxy = (record, fk_def_map, fk_cache, space_name) ->
         for t in *box.space._tdb_fields.index.by_space\select { sp_meta[1] }
           formula = t[8]
           language = t[10] or 'lua'
-          -- pre-compile all formula fields to allow dynamic fallback evaluation 
+          -- pre-compile all formula fields to allow dynamic fallback evaluation
           -- if the stored trigger value is missing (nil) from the database record.
           if formula and formula != ''
             fn = compile_formula formula, t[3], language
@@ -214,7 +248,7 @@ make_self_proxy = (record, fk_def_map, fk_cache, space_name) ->
       cached = rawget t, k
       return cached if cached != nil
       v = record[k]
-      
+
       -- If the field is missing (or empty string) from raw data, check if it's a computed formula
       if (v == nil or v == '') and space_name
         fns = ensure_formulas space_name
@@ -229,14 +263,29 @@ make_self_proxy = (record, fk_def_map, fk_cache, space_name) ->
               err_msg = format_formula_error val
               log.error "tdb proxy: error evaluating formula for '#{space_name}.#{k}': #{val}"
               return err_msg
-      
+
       return nil if v == nil or v == ''
-      
+
       fk = fk_def_map and fk_def_map[k]
       if fk
-        sc = ensure_space fk.toSpaceName, fk.toFieldName
-        d = sc.by_field[fk.toFieldName] and sc.by_field[fk.toFieldName][tostring v]
+        sc = ensure_space fk.toSpaceName, '_id'  -- Always index on _id for primary lookup
+        d = sc.by_field['_id'] and sc.by_field['_id'][tostring v]
+
+        -- Debug logs only when needed (debug mode or failure)
+        if DEBUG_FK_PROXY or not d
+          print("DEBUG FK lookup:")
+          print("  - space: #{fk.toSpaceName}")
+          print("  - toField: #{fk.toFieldName}")
+          print("  - searching for value: #{tostring(v)}")
+          print("  - found: #{tostring(d)}")
+          if sc.by_field['_id']
+            keys = [key for key, _ in pairs(sc.by_field['_id'])]
+            print("  - available _id keys: #{table.concat(keys, ', ')}")
+          else
+            print("  - no _id index built")
+
         if d
+          -- Always return a nested proxy for consistent behavior
           nested_fk_map = ensure_fk_def_map fk.toSpaceName
           nested = make_self_proxy d, nested_fk_map, fk_cache, fk.toSpaceName
           rawset t, k, nested

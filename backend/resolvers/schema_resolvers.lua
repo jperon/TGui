@@ -137,7 +137,7 @@ local Mutation = {
   addField = function(_, args, ctx)
     require_auth(ctx)
     local i = args.input
-    local result = spaces_mod.add_field(args.spaceId, i.name, i.fieldType, i.notNull, i.description, i.formula, i.triggerFields, i.language)
+    local result = spaces_mod.add_field(args.spaceId, i.name, i.fieldType, i.notNull, i.description, i.formula, i.triggerFields, i.language, i.reprFormula)
     executor.reinit_schema()
     local sp_meta = box.space._tdb_spaces:get(args.spaceId)
     if sp_meta then
@@ -171,8 +171,20 @@ local Mutation = {
       description = i.description,
       formula = i.formula,
       triggerFields = i.triggerFields,
-      language = i.language
+      language = i.language,
+      reprFormula = i.reprFormula
     })
+    executor.reinit_schema()
+    local sp_meta = box.space._tdb_spaces:get(result.spaceId)
+    if sp_meta then
+      triggers.register_space_trigger(sp_meta[2])
+    end
+    return result
+  end,
+  changeFieldType = function(_, args, ctx)
+    require_auth(ctx)
+    local i = args.input
+    local result = spaces_mod.change_field_type(args.fieldId, i.fieldType, i.conversionFormula, i.language)
     executor.reinit_schema()
     local sp_meta = box.space._tdb_spaces:get(result.spaceId)
     if sp_meta then
