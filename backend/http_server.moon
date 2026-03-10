@@ -9,8 +9,7 @@ log = require 'log'
 
 graphql = require 'graphql.executor'
 index  = require 'index'
-
-FRONTEND_DIR = '/app/frontend'
+{ :FRONTEND_DIR } = require 'core.config'
 
 mime_types =
   html: 'text/html; charset=utf-8'

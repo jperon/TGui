@@ -297,4 +297,21 @@ Tu ne dois JAMAIS écrire de syntaxe Lua quand l'utilisateur demande du MoonScri
 7. Les arrays sont la même chose que les tables en Lua comme en MoonScript : `[]` est utilisé seulement pour les compréhensions, un array se définit avec `{}`.
 
 Si tu n'es pas sûr d'une fonctionnalité MoonScript, dis-le explicitement
+
+## Principes directeurs du projet
+
+### 🌙 MoonScript-first
+- **Privilégier** : Solutions MoonScript natives vs dépendances externes
+- **Éviter** : Libs Lua externes quand MoonScript suffit
+- **Maintenir** : Compatibilité avec MoonScript existant
+
+### 📦 Faible dépendances
+- **Refuser** : Nouvelles dépendances sauf nécessité absolue
+- **Préférer** : Solutions built-in Tarantool/Lua
+- **Auditer** : Uniquement dépendances existantes critiques
+
+### 🎯 KISS (Keep It Simple, Stupid)
+- **Simplifier** : Avant de complexifier
+- **Factoriser** : Uniquement si bénéfice évident
+- **Maintenir** : Lisibilité du code MoonScript
 plutôt que de revenir à la syntaxe Lua.

@@ -3,6 +3,7 @@
 -- User-data spaces are created dynamically at runtime.
 
 log = require 'log'
+{ :validate_input } = require 'core.config'
 
 -- Field type constants (mirrors GraphQL scalar names)
 FIELD_TYPES = { 'String', 'Int', 'Float', 'Boolean', 'ID', 'UUID', 'Sequence', 'Any', 'Map', 'Array', 'Datetime' }
@@ -247,6 +248,17 @@ add_field = (space_id, field_name, field_type, not_null, description, formula, t
   uuid = require 'uuid'
   json = require 'json'
   error "Type de champ invalide : #{field_type}" unless FIELD_TYPES_SET[field_type]
+
+  -- Validate inputs
+  unless validate_input 'field_name', field_name, "add_field"
+    error "Field name too long: #{#field_name} chars"
+
+  if formula and not validate_input 'formula', formula, "add_field"
+    error "Formula too long: #{#formula} chars"
+
+  if repr_formula and not validate_input 'formula', repr_formula, "add_field"
+    error "Representation formula too long: #{#repr_formula} chars"
+
   -- compute next position
   pos = 1
   for _ in *box.space._tdb_fields.index.by_space\select { space_id }
@@ -353,6 +365,16 @@ update_field = (field_id, opts) ->
   json = require 'json'
   t = box.space._tdb_fields\get field_id
   error "Field not found: #{field_id}" unless t
+
+  -- Validate inputs
+  if opts.name and not validate_input 'field_name', opts.name, "update_field"
+    error "Field name too long: #{#opts.name} chars"
+
+  if opts.formula and not validate_input 'formula', opts.formula, "update_field"
+    error "Formula too long: #{#opts.formula} chars"
+
+  if opts.reprFormula and not validate_input 'formula', opts.reprFormula, "update_field"
+    error "Representation formula too long: #{#opts.reprFormula} chars"
   name     = opts.name     or t[3]
   not_null = if opts.notNull != nil then opts.notNull else t[5]
   desc     = opts.description or t[7]

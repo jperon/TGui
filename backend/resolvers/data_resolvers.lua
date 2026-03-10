@@ -2,8 +2,12 @@ local json = require('json')
 local log = require('log')
 local uuid_mod = require('uuid')
 local spaces_mod = require('core.spaces')
-local require_auth
-require_auth = require('resolvers.utils').require_auth
+local require_auth, safe_call
+do
+  local _obj_0 = require('resolvers.utils')
+  require_auth, safe_call = _obj_0.require_auth, _obj_0.safe_call
+end
+local config_mod = require('core.config')
 local data_space
 data_space = function(space_id)
   local meta = box.space._tdb_spaces:get(space_id)
@@ -38,7 +42,9 @@ matches_filter = function(self_val, flt)
   local ok
   if flt.formula and flt.formula ~= '' then
     if type(flt._formula_fn) == 'function' then
-      local r_ok, r_val = pcall(flt._formula_fn, self_val)
+      local r_ok, r_val = config_mod.safe_formula_call((function()
+        return flt._formula_fn(self_val)
+      end), "filter formula evaluation")
       ok = r_ok and r_val and r_val ~= false
     else
       ok = false

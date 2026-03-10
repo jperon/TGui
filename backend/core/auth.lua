@@ -1,7 +1,11 @@
 local digest = require('digest')
 local uuid_mod = require('uuid')
 local log = require('log')
-local SESSION_TTL = 24 * 3600
+local SESSION_TTL, TOKEN_LENGTH
+do
+  local _obj_0 = require('core.config')
+  SESSION_TTL, TOKEN_LENGTH = _obj_0.SESSION_TTL, _obj_0.TOKEN_LENGTH
+end
 local gen_salt
 gen_salt = function()
   return digest.base64_encode(digest.urandom(32))
@@ -68,7 +72,7 @@ get_user_by_id = function(id)
 end
 local gen_token
 gen_token = function()
-  return digest.base64_encode((digest.urandom(32)), {
+  return digest.base64_encode((digest.urandom(TOKEN_LENGTH)), {
     nowrap = true
   })
 end
