@@ -89,10 +89,21 @@ window.App =
     triggerFieldsRow:  -> document.getElementById 'trigger-fields-row'
     fieldAddBtn:       -> document.getElementById 'field-add-btn'
     fieldCancelBtn:    -> document.getElementById 'field-cancel-btn'
+    fieldChangeTypeBtn: -> document.getElementById 'field-change-type-btn'
+    fieldReprFormula:  -> document.getElementById 'field-repr-formula'
     relTargetRow:      -> document.getElementById 'rel-target-row'
     relToSpace:        -> document.getElementById 'rel-to-space'
     relReprRow:        -> document.getElementById 'rel-repr-row'
     relReprFormula:    -> document.getElementById 'rel-repr-formula'
+    # Change type dialog
+    changeTypeDialog:       -> document.getElementById 'change-type-dialog'
+    changeTypeFieldName:    -> document.getElementById 'change-type-field-name'
+    changeTypeSelect:       -> document.getElementById 'change-type-select'
+    changeTypeLang:         -> document.getElementById 'change-type-lang'
+    changeTypeFormula:      -> document.getElementById 'change-type-formula'
+    changeTypeError:        -> document.getElementById 'change-type-error'
+    changeTypeConfirmBtn:   -> document.getElementById 'change-type-confirm-btn'
+    changeTypeCancelBtn:    -> document.getElementById 'change-type-cancel-btn'
     yamlEditorPanel:   -> document.getElementById 'yaml-editor-panel'
     yamlViewName:      -> document.getElementById 'yaml-view-name'
     yamlEditBtn:       -> document.getElementById 'yaml-edit-btn'
@@ -1015,6 +1026,46 @@ window.App =
     @el.fieldCancelBtn().addEventListener 'click', =>
       @_resetFieldForm()
 
+    # Change field type button
+    @el.fieldChangeTypeBtn().addEventListener 'click', =>
+      return unless @_editingFieldId
+      field = (@_currentSpace?.fields or []).find (f) => f.id == @_editingFieldId
+      return unless field
+      @el.changeTypeFieldName().textContent = "Champ : #{field.name} (type actuel : #{field.fieldType})"
+      @el.changeTypeSelect().value = field.fieldType
+      @el.changeTypeFormula().value = ''
+      @el.changeTypeLang().value = 'lua'
+      err = @el.changeTypeError()
+      err.textContent = ''
+      err.classList.add 'hidden'
+      @el.changeTypeDialog().classList.remove 'hidden'
+
+    @el.changeTypeCancelBtn().addEventListener 'click', =>
+      @el.changeTypeDialog().classList.add 'hidden'
+
+    @el.changeTypeConfirmBtn().addEventListener 'click', =>
+      return unless @_editingFieldId
+      newType   = @el.changeTypeSelect().value
+      formula   = @el.changeTypeFormula().value.trim() or null
+      lang      = @el.changeTypeLang().value
+      errEl     = @el.changeTypeError()
+      errEl.classList.add 'hidden'
+      Spaces.changeFieldType(@_editingFieldId, newType, formula, lang)
+        .then =>
+          @el.changeTypeDialog().classList.add 'hidden'
+          Spaces.getWithFields(@_currentSpace.id).then (full) =>
+            @_currentSpace = full
+            @_syncSpaceFields full
+            @renderFieldsList()
+            @_mountDataView full
+            # Update the type selector in edit form to reflect change
+            field = (full.fields or []).find (f) => f.id == @_editingFieldId
+            if field
+              @el.fieldType().value = field.fieldType
+        .catch (err) =>
+          errEl.textContent = @_err err
+          errEl.classList.remove 'hidden'
+
     @el.fieldAddBtn().addEventListener 'click', =>
       return unless @_currentSpace
       name    = @el.fieldName().value.trim()
@@ -1047,12 +1098,13 @@ window.App =
           opts.formula       = ''
           opts.triggerFields = null
           opts.language      = 'lua'
+        opts.reprFormula = @el.fieldReprFormula()?.value.trim() or ''
         editRelation = @_editingRelation
-        reprFormula  = @el.relReprFormula().value.trim()
+        relReprFormula  = @el.relReprFormula().value.trim()
         updatePromise = Spaces.updateField(@_editingFieldId, opts)
         if editRelation
           updatePromise = updatePromise.then =>
-            Spaces.updateRelation(editRelation.id, reprFormula)
+            Spaces.updateRelation(editRelation.id, relReprFormula)
         updatePromise
           .then =>
             Spaces.getWithFields(@_currentSpace.id).then (full) =>
@@ -1102,7 +1154,8 @@ window.App =
               triggerFields = []
             else
               triggerFields = (s.trim() for s in raw.split(',') when s.trim())
-        Spaces.addField(@_currentSpace.id, name, type, notNull, '', formula, triggerFields, language)
+        reprFormula = @el.fieldReprFormula()?.value.trim() or null
+        Spaces.addField(@_currentSpace.id, name, type, notNull, '', formula, triggerFields, language, reprFormula)
           .then =>
             Spaces.getWithFields(@_currentSpace.id).then (full) =>
               @_currentSpace = full
@@ -1120,6 +1173,7 @@ window.App =
     @el.fieldNotNull().closest('label')?.classList.toggle 'hidden', isRelation
     formulaSection = @el.formulaBody().closest('.formula-section')
     formulaSection?.classList.toggle 'hidden', isRelation
+    document.getElementById('field-repr-section')?.classList.toggle 'hidden', isRelation
     if isRelation
       # Populate target space selector
       sel = @el.relToSpace()
@@ -1145,12 +1199,14 @@ window.App =
     @el.relTargetRow().classList.add 'hidden'
     @el.relReprRow().classList.add 'hidden'
     @el.relReprFormula().value = ''
+    @el.fieldReprFormula().value = '' if @el.fieldReprFormula()
     @el.fieldNotNull().closest('label')?.classList.remove 'hidden'
     formulaSection = @el.formulaBody().closest('.formula-section')
     formulaSection?.classList.remove 'hidden'
     @el.formulaModal().classList.add 'hidden'
     @el.fieldAddBtn().textContent = @_t('ui.fields.add')
     @el.fieldCancelBtn().classList.add 'hidden'
+    @el.fieldChangeTypeBtn().classList.add 'hidden'
 
   renderFieldsList: ->
     return unless @_currentSpace
@@ -1234,6 +1290,7 @@ window.App =
             @_editingRelation = relation or null
             @el.fieldAddBtn().textContent = @_t('ui.fields.update')
             @el.fieldCancelBtn().classList.remove 'hidden'
+            @el.fieldChangeTypeBtn().classList.remove 'hidden'
             @el.fieldName().value = field.name
             if relation
               # Editing a relation field: show Cible and repr formula
@@ -1241,10 +1298,12 @@ window.App =
               @_onFieldTypeChange()
               @el.relToSpace().value = relation.toSpaceId
               @el.relReprFormula().value = relation.reprFormula or ''
+              @el.fieldReprFormula().value = '' if @el.fieldReprFormula()
             else
               @el.fieldType().value = field.fieldType
               @_onFieldTypeChange()
               @el.fieldNotNull().checked = field.notNull
+              @el.fieldReprFormula().value = field.reprFormula or '' if @el.fieldReprFormula()
               if field.formula and field.formula != ''
                 if field.triggerFields
                   document.querySelector('input[name="formula-type"][value="trigger"]').checked = true

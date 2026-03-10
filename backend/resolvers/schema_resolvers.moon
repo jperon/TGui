@@ -88,7 +88,7 @@ Mutation =
   addField: (_, args, ctx) ->
     require_auth ctx
     i = args.input
-    result = spaces_mod.add_field args.spaceId, i.name, i.fieldType, i.notNull, i.description, i.formula, i.triggerFields, i.language
+    result = spaces_mod.add_field args.spaceId, i.name, i.fieldType, i.notNull, i.description, i.formula, i.triggerFields, i.language, i.reprFormula
     executor.reinit_schema!
     sp_meta = box.space._tdb_spaces\get args.spaceId
     triggers.register_space_trigger sp_meta[2] if sp_meta
@@ -120,7 +120,17 @@ Mutation =
       formula:       i.formula
       triggerFields: i.triggerFields
       language:      i.language
+      reprFormula:   i.reprFormula
     }
+    executor.reinit_schema!
+    sp_meta = box.space._tdb_spaces\get result.spaceId
+    triggers.register_space_trigger sp_meta[2] if sp_meta
+    result
+
+  changeFieldType: (_, args, ctx) ->
+    require_auth ctx
+    i = args.input
+    result = spaces_mod.change_field_type args.fieldId, i.fieldType, i.conversionFormula, i.language
     executor.reinit_schema!
     sp_meta = box.space._tdb_spaces\get result.spaceId
     triggers.register_space_trigger sp_meta[2] if sp_meta

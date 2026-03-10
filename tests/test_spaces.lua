@@ -218,7 +218,7 @@ R.describe("Spaces — FIELD_TYPES", function()
       R.ok(found, "FIELD_TYPES doit contenir " .. tostring(t))
     end
   end)
-  return R.it("contient Sequence", function()
+  R.it("contient Sequence", function()
     local found = false
     for _, ft in ipairs(spaces_mod.FIELD_TYPES) do
       if ft == 'Sequence' then
@@ -226,6 +226,45 @@ R.describe("Spaces — FIELD_TYPES", function()
       end
     end
     return R.ok(found)
+  end)
+  return R.it("contient Datetime", function()
+    local found = false
+    for _, ft in ipairs(spaces_mod.FIELD_TYPES) do
+      if ft == 'Datetime' then
+        found = true
+      end
+    end
+    return R.ok(found)
+  end)
+end)
+R.describe("Spaces — reprFormula et conversion", function()
+  R.it("peut creer un champ avec reprFormula et Datetime", function()
+    local sp = spaces_mod.create_user_space('test_repr_space', 'space for repr tests')
+    local dt_field = spaces_mod.add_field(sp.id, 'created_at', 'Datetime', false, '', '', nil, 'lua', '')
+    R.eq('Datetime', dt_field.fieldType)
+    local repr_field = spaces_mod.add_field(sp.id, 'status', 'String', false, '', '', nil, 'lua', "return string.upper(self.status or '')")
+    R.eq("return string.upper(self.status or '')", repr_field.reprFormula)
+    local fields = spaces_mod.list_fields(sp.id)
+    R.eq(2, #fields)
+    R.eq('Datetime', fields[1].fieldType)
+    R.eq("return string.upper(self.status or '')", fields[2].reprFormula)
+    return spaces_mod.delete_user_space('test_repr_space')
+  end)
+  return R.it("peut changer le type d'un champ avec conversion", function()
+    local sp = spaces_mod.create_user_space('test_conv_space', 'space for conversion tests')
+    local str_field = spaces_mod.add_field(sp.id, 'amount', 'String', false, '')
+    box.space["data_" .. tostring(sp.name)]:insert({
+      "1",
+      require('json').encode({
+        amount = "42"
+      })
+    })
+    local changed = spaces_mod.change_field_type(str_field.id, 'Int', 'tonumber(self.amount)', 'lua')
+    R.eq('Int', changed.fieldType)
+    local data = box.space["data_" .. tostring(sp.name)]:get("1")
+    local parsed = require('json').decode(data[2])
+    R.eq(42, parsed.amount)
+    return spaces_mod.delete_user_space('test_conv_space')
   end)
 end)
 return spaces_mod.delete_user_space(SP_NAME)

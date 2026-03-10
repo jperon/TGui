@@ -167,5 +167,48 @@ R.describe "Spaces — FIELD_TYPES", ->
       if ft == 'Sequence' then found = true
     R.ok found
 
+  R.it "contient Datetime", ->
+    found = false
+    for _, ft in ipairs spaces_mod.FIELD_TYPES do
+      if ft == 'Datetime' then found = true
+    R.ok found
+
+R.describe "Spaces — reprFormula et conversion", ->
+  R.it "peut creer un champ avec reprFormula et Datetime", ->
+    sp = spaces_mod.create_user_space 'test_repr_space', 'space for repr tests'
+    
+    -- Datetime field
+    dt_field = spaces_mod.add_field sp.id, 'created_at', 'Datetime', false, '', '', nil, 'lua', ''
+    R.eq 'Datetime', dt_field.fieldType
+
+    -- String field with reprFormula
+    repr_field = spaces_mod.add_field sp.id, 'status', 'String', false, '', '', nil, 'lua', "return string.upper(self.status or '')"
+    R.eq "return string.upper(self.status or '')", repr_field.reprFormula
+
+    fields = spaces_mod.list_fields sp.id
+    R.eq 2, #fields  -- created_at, status
+    R.eq 'Datetime', fields[1].fieldType
+    R.eq "return string.upper(self.status or '')", fields[2].reprFormula
+    
+    spaces_mod.delete_user_space 'test_repr_space'
+    
+  R.it "peut changer le type d'un champ avec conversion", ->
+    sp = spaces_mod.create_user_space 'test_conv_space', 'space for conversion tests'
+    str_field = spaces_mod.add_field sp.id, 'amount', 'String', false, ''
+    
+    -- Insert some string data
+    box.space["data_#{sp.name}"]\insert { "1", require('json').encode({amount: "42"}) }
+    
+    -- Change type to Int with conversion formula
+    changed = spaces_mod.change_field_type str_field.id, 'Int', 'tonumber(self.amount)', 'lua'
+    R.eq 'Int', changed.fieldType
+    
+    -- Verify data was converted
+    data = box.space["data_#{sp.name}"]\get "1"
+    parsed = require('json').decode data[2]
+    R.eq 42, parsed.amount
+    
+    spaces_mod.delete_user_space 'test_conv_space'
+
 -- Nettoyage : suppression de l'espace créé pour ces tests
 spaces_mod.delete_user_space SP_NAME

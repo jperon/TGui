@@ -20,6 +20,7 @@ gql_scalar = (ft) ->
     when 'Boolean'         then 'Boolean'
     when 'ID', 'UUID'      then 'ID'
     when 'Any', 'Map', 'Array' then 'Any'
+    when 'Datetime'        then 'String'
     else                        'String'
 
 -- Build a record object from a raw Tarantool tuple
@@ -126,6 +127,8 @@ generate = ->
         table.insert fields_sdl, "  #{fn}: #{gql_name space_by_id[rel.toSpaceId].name}_record"
       else
         table.insert fields_sdl, "  #{fn}: #{gql_scalar f.fieldType}"
+      if f.reprFormula and f.reprFormula != ''
+        table.insert fields_sdl, "  _repr_#{fn}: String"
     for ref in *backrefs
       table.insert fields_sdl, "  #{gql_name ref.rel.name}(limit: Int, offset: Int, filter: RecordFilter): #{gql_name ref.fromSpace.name}_page!"
 
@@ -262,6 +265,20 @@ generate = ->
                 log.error "tdb proxy: error evaluating formula for '#{sp_name_cap}.#{f.name}': #{val}"
                 return triggers.format_formula_error val
           )(formula_fn, fk_name_map, f.name, sp.name)
+      
+      -- Add reprFormula resolvers
+      if f.reprFormula and f.reprFormula != ''
+        repr_fn = triggers.compile_formula f.reprFormula, "repr_#{f.name}", (f.language or 'lua')
+        if repr_fn
+          tr["_repr_#{gql_name f.name}"] = ((fn_cap, fk_nm_cap, raw_name_cap, sp_name_cap) ->
+            (obj, a, ctx) ->
+              ctx._fk_cache = ctx._fk_cache or {}
+              proxy = triggers.make_self_proxy obj, fk_nm_cap, ctx._fk_cache, sp_name_cap
+              r_ok, val = pcall fn_cap, proxy, nil
+              if r_ok and val != nil
+                return tostring val
+              return nil
+          )(repr_fn, fk_name_map, f.name, sp.name)
 
     type_resolvers["#{tname}_record"] = tr
 

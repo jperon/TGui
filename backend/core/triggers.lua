@@ -1,6 +1,7 @@
 local json = require('json')
 local log = require('log')
 local spaces_mod = require('core.spaces')
+local DEBUG_FK_PROXY = false
 local active_triggers = { }
 local FORMULA_ENV = {
   math = math,
@@ -190,21 +191,61 @@ make_self_proxy = function(record, fk_def_map, fk_cache, space_name)
       }
       local tb = box.space["data_" .. tostring(s_name)]
       if tb then
+        if DEBUG_FK_PROXY then
+          print("DEBUG ensure_space: loading " .. tostring(#tb) .. " records from " .. tostring(s_name))
+        end
         local _list_0 = tb:select({ })
         for _index_0 = 1, #_list_0 do
           local tup = _list_0[_index_0]
           local d = decode_tuple(tup)
+          if DEBUG_FK_PROXY then
+            print("DEBUG ensure_space: record _id=" .. tostring(d._id) .. ", " .. tostring(to_field_name) .. "=" .. tostring(tostring(d[to_field_name])))
+          end
           sc.records[d._id] = d
         end
       end
       fk_cache.spaces[s_name] = sc
     end
-    if not (sc.by_field[to_field_name]) then
+    if not (sc.by_field['_id']) then
       local idx = { }
+      if DEBUG_FK_PROXY then
+        print("DEBUG ensure_space: building index for _id")
+      end
       for _, d in pairs(sc.records) do
-        idx[tostring(d[to_field_name] or '')] = d
+        if d._id ~= nil then
+          local key = tostring(d._id)
+          if DEBUG_FK_PROXY then
+            print("DEBUG ensure_space: indexing _id key='" .. tostring(key) .. "'")
+          end
+          idx[key] = d
+        end
+      end
+      sc.by_field['_id'] = idx
+      if DEBUG_FK_PROXY then
+        print("DEBUG ensure_space: _id index built with " .. tostring(#idx) .. " keys")
+      end
+    end
+    if to_field_name ~= '_id' and not sc.by_field[to_field_name] then
+      local idx = { }
+      if DEBUG_FK_PROXY then
+        print("DEBUG ensure_space: building index for " .. tostring(to_field_name))
+      end
+      for _, d in pairs(sc.records) do
+        if d[to_field_name] ~= nil then
+          local key = tostring(d[to_field_name])
+          if DEBUG_FK_PROXY then
+            print("DEBUG ensure_space: indexing key='" .. tostring(key) .. "' for _id=" .. tostring(d._id))
+          end
+          idx[key] = d
+        end
       end
       sc.by_field[to_field_name] = idx
+      if DEBUG_FK_PROXY then
+        if next(idx) == nil then
+          print("WARNING: No records indexed for field '" .. tostring(to_field_name) .. "' in space '" .. tostring(s_name) .. "'")
+        end
+        print("DEBUG ensure_space: index built with " .. tostring(next(idx) and #idx or '0') .. " keys")
+      end
     end
     return sc
   end
@@ -279,8 +320,30 @@ make_self_proxy = function(record, fk_def_map, fk_cache, space_name)
       end
       local fk = fk_def_map and fk_def_map[k]
       if fk then
-        local sc = ensure_space(fk.toSpaceName, fk.toFieldName)
-        local d = sc.by_field[fk.toFieldName] and sc.by_field[fk.toFieldName][tostring(v)]
+        local sc = ensure_space(fk.toSpaceName, '_id')
+        local d = sc.by_field['_id'] and sc.by_field['_id'][tostring(v)]
+        if DEBUG_FK_PROXY or not d then
+          print("DEBUG FK lookup:")
+          print("  - space: " .. tostring(fk.toSpaceName))
+          print("  - toField: " .. tostring(fk.toFieldName))
+          print("  - searching for value: " .. tostring(tostring(v)))
+          print("  - found: " .. tostring(tostring(d)))
+          if sc.by_field['_id'] then
+            local keys
+            do
+              local _accum_0 = { }
+              local _len_0 = 1
+              for key, _ in pairs(sc.by_field['_id']) do
+                _accum_0[_len_0] = key
+                _len_0 = _len_0 + 1
+              end
+              keys = _accum_0
+            end
+            print("  - available _id keys: " .. tostring(table.concat(keys, ', ')))
+          else
+            print("  - no _id index built")
+          end
+        end
         if d then
           local nested_fk_map = ensure_fk_def_map(fk.toSpaceName)
           local nested = make_self_proxy(d, nested_fk_map, fk_cache, fk.toSpaceName)

@@ -186,23 +186,31 @@
               col.editor = 'text';
             }
             // Highlight formula errors in normal text columns
-            col.formatter = function(props) {
-              var cls, isInternal, m, safeFull, safeShort, val;
-              val = props.value;
-              if (typeof val === 'string') {
-                m = val.match(/^\[ERROR\|(.*?)\|(.*)\]$/);
-                if (m) {
-                  safeShort = m[1].replace(/"/g, '&quot;').replace(/</g, '&lt;');
-                  safeFull = m[2].replace(/"/g, '&quot;').replace(/</g, '&lt;');
-                  isInternal = safeShort.indexOf('inconnue') > -1;
-                  cls = isInternal ? 'formula-error internal-error' : 'formula-error';
-                  return `<span class=\"${cls}\" title=\"${safeFull}\">⚠ ${safeShort}</span>`;
-                } else if (val.indexOf('[Erreur de formule:') === 0) {
-                  return `<span class=\"formula-error\" title=\"${val.replace(/"/g, '&quot;')}\">⚠ Erreur</span>`;
+            col.formatter = (function(fieldName) {
+              return function(props) {
+                var cls, displayVal, isInternal, m, row, safeFull, safeShort, val;
+                row = props.row;
+                val = props.value;
+                displayVal = val;
+                // Use per-field representation if available from backend
+                if (row[`_repr_${fieldName}`] != null) {
+                  displayVal = row[`_repr_${fieldName}`];
                 }
-              }
-              return String(val != null ? val : '');
-            };
+                if (typeof displayVal === 'string') {
+                  m = displayVal.match(/^\[ERROR\|(.*?)\|(.*)\]$/);
+                  if (m) {
+                    safeShort = m[1].replace(/"/g, '&quot;').replace(/</g, '&lt;');
+                    safeFull = m[2].replace(/"/g, '&quot;').replace(/</g, '&lt;');
+                    isInternal = safeShort.indexOf('inconnue') > -1;
+                    cls = isInternal ? 'formula-error internal-error' : 'formula-error';
+                    return `<span class=\"${cls}\" title=\"${safeFull}\">⚠ ${safeShort}</span>`;
+                  } else if (displayVal.indexOf('[Erreur de formule:') === 0) {
+                    return `<span class=\"formula-error\" title=\"${displayVal.replace(/"/g, '&quot;')}\">⚠ Erreur</span>`;
+                  }
+                }
+                return String(displayVal != null ? displayVal : '');
+              };
+            })(f.name);
           }
           results.push(col);
         }
@@ -446,7 +454,7 @@
     }
 
     async load() {
-      var data, e, f, fieldList, fields, focus, focusedRow, formulaNames, gqlFilter, msg, ref, ref1, ref2, spaceQuery, tname;
+      var data, e, f, fieldList, fields, focus, focusedRow, formulaNames, gqlFilter, msg, nm, ref, ref1, ref2, reprNames, spaceQuery, tname;
       if (!this._mounted) {
         return;
       }
@@ -474,18 +482,35 @@
         }
         return results;
       })());
-      if (formulaNames.size > 0 && !this._formulaFilter) {
+      reprNames = new Set((function() {
+        var j, len, results;
+        results = [];
+        for (j = 0, len = fields.length; j < len; j++) {
+          f = fields[j];
+          if (f.reprFormula && f.reprFormula !== '') {
+            results.push(f.name);
+          }
+        }
+        return results;
+      })());
+      if ((formulaNames.size > 0 || reprNames.size > 0) && !this._formulaFilter) {
         // Use the space-specific dynamic resolver so formula fields are evaluated.
         tname = gqlName(this.space.name);
-        fieldList = ((function() {
+        fieldList = (function() {
           var j, len, results;
           results = [];
           for (j = 0, len = fields.length; j < len; j++) {
             f = fields[j];
-            results.push(gqlName(f.name));
+            nm = gqlName(f.name);
+            if (f.reprFormula && f.reprFormula !== '') {
+              results.push(nm + ` _repr_${nm}`);
+            } else {
+              results.push(nm);
+            }
           }
           return results;
-        })()).join(' ');
+        })();
+        fieldList = fieldList.join(' ');
         spaceQuery = `query { ${tname}(limit: 2000) { items { _id ${fieldList} } } }`;
         try {
           data = (await GQL.query(spaceQuery, {}));

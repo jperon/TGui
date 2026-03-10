@@ -167,6 +167,12 @@
       fieldCancelBtn: function() {
         return document.getElementById('field-cancel-btn');
       },
+      fieldChangeTypeBtn: function() {
+        return document.getElementById('field-change-type-btn');
+      },
+      fieldReprFormula: function() {
+        return document.getElementById('field-repr-formula');
+      },
       relTargetRow: function() {
         return document.getElementById('rel-target-row');
       },
@@ -178,6 +184,31 @@
       },
       relReprFormula: function() {
         return document.getElementById('rel-repr-formula');
+      },
+      // Change type dialog
+      changeTypeDialog: function() {
+        return document.getElementById('change-type-dialog');
+      },
+      changeTypeFieldName: function() {
+        return document.getElementById('change-type-field-name');
+      },
+      changeTypeSelect: function() {
+        return document.getElementById('change-type-select');
+      },
+      changeTypeLang: function() {
+        return document.getElementById('change-type-lang');
+      },
+      changeTypeFormula: function() {
+        return document.getElementById('change-type-formula');
+      },
+      changeTypeError: function() {
+        return document.getElementById('change-type-error');
+      },
+      changeTypeConfirmBtn: function() {
+        return document.getElementById('change-type-confirm-btn');
+      },
+      changeTypeCancelBtn: function() {
+        return document.getElementById('change-type-cancel-btn');
       },
       yamlEditorPanel: function() {
         return document.getElementById('yaml-editor-panel');
@@ -1545,8 +1576,63 @@
       this.el.fieldCancelBtn().addEventListener('click', () => {
         return this._resetFieldForm();
       });
+      // Change field type button
+      this.el.fieldChangeTypeBtn().addEventListener('click', () => {
+        var err, field, ref1;
+        if (!this._editingFieldId) {
+          return;
+        }
+        field = (((ref1 = this._currentSpace) != null ? ref1.fields : void 0) || []).find((f) => {
+          return f.id === this._editingFieldId;
+        });
+        if (!field) {
+          return;
+        }
+        this.el.changeTypeFieldName().textContent = `Champ : ${field.name} (type actuel : ${field.fieldType})`;
+        this.el.changeTypeSelect().value = field.fieldType;
+        this.el.changeTypeFormula().value = '';
+        this.el.changeTypeLang().value = 'lua';
+        err = this.el.changeTypeError();
+        err.textContent = '';
+        err.classList.add('hidden');
+        return this.el.changeTypeDialog().classList.remove('hidden');
+      });
+      this.el.changeTypeCancelBtn().addEventListener('click', () => {
+        return this.el.changeTypeDialog().classList.add('hidden');
+      });
+      this.el.changeTypeConfirmBtn().addEventListener('click', () => {
+        var errEl, formula, lang, newType;
+        if (!this._editingFieldId) {
+          return;
+        }
+        newType = this.el.changeTypeSelect().value;
+        formula = this.el.changeTypeFormula().value.trim() || null;
+        lang = this.el.changeTypeLang().value;
+        errEl = this.el.changeTypeError();
+        errEl.classList.add('hidden');
+        return Spaces.changeFieldType(this._editingFieldId, newType, formula, lang).then(() => {
+          this.el.changeTypeDialog().classList.add('hidden');
+          return Spaces.getWithFields(this._currentSpace.id).then((full) => {
+            var field;
+            this._currentSpace = full;
+            this._syncSpaceFields(full);
+            this.renderFieldsList();
+            this._mountDataView(full);
+            // Update the type selector in edit form to reflect change
+            field = (full.fields || []).find((f) => {
+              return f.id === this._editingFieldId;
+            });
+            if (field) {
+              return this.el.fieldType().value = field.fieldType;
+            }
+          });
+        }).catch((err) => {
+          errEl.textContent = this._err(err);
+          return errEl.classList.remove('hidden');
+        });
+      });
       return this.el.fieldAddBtn().addEventListener('click', () => {
-        var editRelation, formula, formulaType, language, name, notNull, opts, raw, ref1, ref2, reprFormula, s, toSpaceId, triggerFields, type, updatePromise;
+        var editRelation, formula, formulaType, language, name, notNull, opts, raw, ref1, ref2, ref3, ref4, relReprFormula, reprFormula, s, toSpaceId, triggerFields, type, updatePromise;
         if (!this._currentSpace) {
           return;
         }
@@ -1594,12 +1680,13 @@
             opts.triggerFields = null;
             opts.language = 'lua';
           }
+          opts.reprFormula = ((ref2 = this.el.fieldReprFormula()) != null ? ref2.value.trim() : void 0) || '';
           editRelation = this._editingRelation;
-          reprFormula = this.el.relReprFormula().value.trim();
+          relReprFormula = this.el.relReprFormula().value.trim();
           updatePromise = Spaces.updateField(this._editingFieldId, opts);
           if (editRelation) {
             updatePromise = updatePromise.then(() => {
-              return Spaces.updateRelation(editRelation.id, reprFormula);
+              return Spaces.updateRelation(editRelation.id, relReprFormula);
             });
           }
           updatePromise.then(() => {
@@ -1650,7 +1737,7 @@
           formulaType = document.querySelector('input[name="formula-type"]:checked').value;
           formula = null;
           triggerFields = null;
-          language = ((ref2 = this.el.formulaLanguage()) != null ? ref2.value : void 0) || 'lua';
+          language = ((ref3 = this.el.formulaLanguage()) != null ? ref3.value : void 0) || 'lua';
           if (formulaType !== 'none') {
             formula = this.el.fieldFormula().value.trim() || null;
             if (formulaType === 'trigger' && formula) {
@@ -1661,11 +1748,11 @@
                 triggerFields = [];
               } else {
                 triggerFields = (function() {
-                  var i, len, ref3, results1;
-                  ref3 = raw.split(',');
+                  var i, len, ref4, results1;
+                  ref4 = raw.split(',');
                   results1 = [];
-                  for (i = 0, len = ref3.length; i < len; i++) {
-                    s = ref3[i];
+                  for (i = 0, len = ref4.length; i < len; i++) {
+                    s = ref4[i];
                     if (s.trim()) {
                       results1.push(s.trim());
                     }
@@ -1675,7 +1762,8 @@
               }
             }
           }
-          Spaces.addField(this._currentSpace.id, name, type, notNull, '', formula, triggerFields, language).then(() => {
+          reprFormula = ((ref4 = this.el.fieldReprFormula()) != null ? ref4.value.trim() : void 0) || null;
+          Spaces.addField(this._currentSpace.id, name, type, notNull, '', formula, triggerFields, language, reprFormula).then(() => {
             return Spaces.getWithFields(this._currentSpace.id).then((full) => {
               this._currentSpace = full;
               this._syncSpaceFields(full);
@@ -1690,7 +1778,7 @@
       });
     },
     _onFieldTypeChange: function() {
-      var formulaSection, i, isRelation, len, opt, ref, ref1, results1, sel, sp, type;
+      var formulaSection, i, isRelation, len, opt, ref, ref1, ref2, results1, sel, sp, type;
       type = this.el.fieldType().value;
       isRelation = type === 'Relation';
       this.el.relTargetRow().classList.toggle('hidden', !isRelation);
@@ -1702,14 +1790,17 @@
       if (formulaSection != null) {
         formulaSection.classList.toggle('hidden', isRelation);
       }
+      if ((ref1 = document.getElementById('field-repr-section')) != null) {
+        ref1.classList.toggle('hidden', isRelation);
+      }
       if (isRelation) {
         // Populate target space selector
         sel = this.el.relToSpace();
         sel.innerHTML = '<option value="">Cible…</option>';
-        ref1 = this._allSpaces || [];
+        ref2 = this._allSpaces || [];
         results1 = [];
-        for (i = 0, len = ref1.length; i < len; i++) {
-          sp = ref1[i];
+        for (i = 0, len = ref2.length; i < len; i++) {
+          sp = ref2[i];
           opt = document.createElement('option');
           opt.value = sp.id;
           opt.textContent = sp.name;
@@ -1736,6 +1827,9 @@
       this.el.relTargetRow().classList.add('hidden');
       this.el.relReprRow().classList.add('hidden');
       this.el.relReprFormula().value = '';
+      if (this.el.fieldReprFormula()) {
+        this.el.fieldReprFormula().value = '';
+      }
       if ((ref = this.el.fieldNotNull().closest('label')) != null) {
         ref.classList.remove('hidden');
       }
@@ -1745,7 +1839,8 @@
       }
       this.el.formulaModal().classList.add('hidden');
       this.el.fieldAddBtn().textContent = this._t('ui.fields.add');
-      return this.el.fieldCancelBtn().classList.add('hidden');
+      this.el.fieldCancelBtn().classList.add('hidden');
+      return this.el.fieldChangeTypeBtn().classList.add('hidden');
     },
     renderFieldsList: function() {
       var fields, ul;
@@ -1838,6 +1933,7 @@
               this._editingRelation = relation || null;
               this.el.fieldAddBtn().textContent = this._t('ui.fields.update');
               this.el.fieldCancelBtn().classList.remove('hidden');
+              this.el.fieldChangeTypeBtn().classList.remove('hidden');
               this.el.fieldName().value = field.name;
               if (relation) {
                 // Editing a relation field: show Cible and repr formula
@@ -1845,10 +1941,16 @@
                 this._onFieldTypeChange();
                 this.el.relToSpace().value = relation.toSpaceId;
                 this.el.relReprFormula().value = relation.reprFormula || '';
+                if (this.el.fieldReprFormula()) {
+                  this.el.fieldReprFormula().value = '';
+                }
               } else {
                 this.el.fieldType().value = field.fieldType;
                 this._onFieldTypeChange();
                 this.el.fieldNotNull().checked = field.notNull;
+                if (this.el.fieldReprFormula()) {
+                  this.el.fieldReprFormula().value = field.reprFormula || '';
+                }
                 if (field.formula && field.formula !== '') {
                   if (field.triggerFields) {
                     document.querySelector('input[name="formula-type"][value="trigger"]').checked = true;

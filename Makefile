@@ -24,7 +24,9 @@ test: build
 	sleep 8; \
 	new_output=$$(docker logs tgui-tarantool-test 2>&1 | tail -n +$$((nlines + 1))); \
 	echo "$$new_output" | grep -E 'assertions|RÉSULTAT'; \
-	echo "$$new_output" | grep -q "RÉSULTAT: SUCCÈS" && exit 0 || exit 1; echo "$$new_output" ; exit 1
+	if echo "$$new_output" | grep -q "RÉSULTAT: SUCCÈS"; then exit 0; fi; \
+	echo "===== ÉCHEC - sortie complète des tests ====="; \
+	echo "$$new_output"; exit 1
 
 test-up: build
 	docker compose -f docker-compose.test.yml up -d --build
