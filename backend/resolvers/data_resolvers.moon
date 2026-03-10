@@ -31,7 +31,9 @@ matches_filter = (self_val, flt) ->
   ok = if flt.formula and flt.formula != ''
     if type(flt._formula_fn) == 'function'
       r_ok, r_val = config_mod.safe_formula_call (-> flt._formula_fn self_val), "filter formula evaluation"
-      r_ok and r_val and r_val != false
+      -- For filter formulas, success means include, failure means exclude
+      -- The actual return value doesn't matter for boolean comparisons
+      r_ok == true
     else false  -- formula failed to compile or not yet cached
   else if flt.field
     -- For field comparisons use the raw value (proxy passes through scalars)
@@ -72,11 +74,15 @@ apply_filter = (tuples, filter, fk_def_map, fk_cache, space_name) ->
   triggers_mod = require 'core.triggers'
   filtered = {}
   for rec in *tuples
-    parsed = if type(rec.data) == 'string' then json.decode(rec.data) else rec.data
-    self_val = if fk_def_map
+    -- Use proxy if available for formula filters, otherwise create one
+    self_val = if filter.formula and filter.formula != '' and rec.proxy
+      rec.proxy
+    else if filter.formula and filter.formula != '' and fk_def_map
+      parsed = rec.raw or (type(rec.data) == 'string' and json.decode(rec.data) or rec.data)
       parsed._id = tostring rec.id
       triggers_mod.make_self_proxy parsed, fk_def_map, fk_cache, space_name
-    else parsed
+    else
+      rec.raw or (type(rec.data) == 'string' and json.decode(rec.data) or rec.data)
     if matches_filter self_val, filter
       table.insert filtered, rec
   filtered
@@ -209,31 +215,34 @@ Query =
     -- Collect all records, injecting _repr and per-field repr when available
     all = {}
     has_field_reprs = next(field_reprs) != nil
-    if repr_fn or has_field_reprs
-      for t in *sp\select {}
-        parsed = json.decode t[2]
-        parsed._id = tostring t[1]
-        self_proxy = triggers_mod.make_self_proxy parsed, fk_def_map, ctx._fk_cache, space_name
+    for t in *sp\select {}
+      parsed = json.decode t[2]
+      parsed._id = tostring t[1]
 
-        -- Global repr
-        if repr_fn
-          ok_r, val = pcall repr_fn, self_proxy, nil
-          if ok_r and val != nil
-            parsed._repr = tostring val
+      -- Create proxy for FK resolution (needed for repr)
+      self_proxy = triggers_mod.make_self_proxy parsed, fk_def_map, ctx._fk_cache, space_name
 
-        -- Per-field reprs
-        for fname, fn in pairs field_reprs
-          ok_r, val = pcall fn, self_proxy, nil
-          if ok_r and val != nil
-            -- Store field representations under a reserved prefix or alongside
-            -- But we can just use _repr_fname convention so the frontend can access it easily
-            parsed["_repr_#{fname}"] = tostring val
+      -- Global repr
+      if repr_fn
+        ok_r, val = pcall repr_fn, self_proxy, nil
+        if ok_r and val != nil
+          parsed._repr = tostring val
 
-        parsed._id = nil
-        table.insert all, { id: t[1], spaceId: args.spaceId, data: json.encode(parsed) }
-    else
-      for t in *sp\select {}
-        table.insert all, { id: t[1], spaceId: args.spaceId, data: t[2] }
+      -- Per-field reprs
+      for fname, fn in pairs field_reprs
+        ok_r, val = pcall fn, self_proxy, nil
+        if ok_r and val != nil
+          parsed["_repr_#{fname}"] = tostring val
+
+      parsed._id = nil
+      -- Store both JSON data and raw data with proxy for filtering
+      table.insert all, {
+        id: t[1],
+        spaceId: args.spaceId,
+        data: json.encode(parsed),
+        raw: parsed,
+        proxy: self_proxy
+      }
     -- Filter (fk_def_map enables FK traversal in formula filters)
     filtered = apply_filter all, args.filter, fk_def_map, ctx._fk_cache, space_name
     -- Paginate

@@ -49,6 +49,7 @@ FORMULA_ENV._ENV = FORMULA_ENV  -- self-reference for inner closures
 -- language: 'lua' (défaut) ou 'moonscript'.
 -- Pour MoonScript, la formule est une expression MoonScript ; elle est transpilée
 -- en Lua via moonscript.base.to_lua avant le load() habituel.
+-- Pour les filtres, @ fait référence à l'enregistrement courant (self)
 -- Returns the compiled function, or nil + logs an error on failure.
 compile_formula = (formula, field_name, language) ->
   -- Construire la chaîne Lua du chunk qui retourne la fonction
@@ -57,6 +58,12 @@ compile_formula = (formula, field_name, language) ->
     unless ok_ms
       log.error "tdb triggers: moonscript.base non disponible pour '#{field_name}': #{moon}"
       return nil
+
+    -- Pour les filtres, transformer @xxx en self.xxx pour la compatibilité
+    if field_name == 'filter'
+      -- Remplacer @xxx par self.xxx dans les formules de filtre
+      formula = formula\gsub '@([%w_]+)', 'self.%1'
+
     -- Encapsuler l'expression dans une lambda MoonScript : (self, space) -> <expr>
     moon_src = "return (self, space) -> " .. formula
     ok_c, lua_or_err = pcall moon.to_lua, moon_src
