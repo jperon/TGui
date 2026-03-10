@@ -696,3 +696,21 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   background-color: #f38ba8;
 }
 
+
+.tui-grid-cell.cell-formula-error {
+  background-color: rgba(243, 139, 168, 0.15) !important;
+}
+.tui-grid-cell.cell-formula-error.cell-formula-error-internal {
+  background-color: rgba(243, 139, 168, 0.4) !important;
+}
+
+.tui-grid-cell.cell-formula-error .formula-error {
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: #d32f2f;
+}
+.tui-grid-cell.cell-formula-error.cell-formula-error-internal .formula-error {
+  color: #b71c1c;
+}
+

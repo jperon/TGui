@@ -62,12 +62,12 @@
           continue;
         }
         try {
-          formula = ((ref1 = rel.reprFormula) != null ? ref1.trim() : void 0) || null;
+          formula = ((ref1 = rel.reprFormula) != null ? ref1.trim() : void 0) || '@_repr';
           data = (await GQL.query(RECORDS_QUERY, {
             spaceId: rel.toSpaceId,
             limit: 5000,
             reprFormula: formula,
-            reprLanguage: formula ? 'moonscript' : null
+            reprLanguage: 'moonscript'
           }));
           records = data.records.items.map(function(r) {
             var parsed;
@@ -80,7 +80,7 @@
           options = [];
           for (l = 0, len1 = records.length; l < len1; l++) {
             rec = records[l];
-            display = rec._repr != null ? String(rec._repr) : String((ref2 = (ref3 = rec.id) != null ? ref3 : rec[Object.keys(rec).find(function(k) {
+            display = (rec._repr != null) && String(rec._repr).trim() !== '' ? String(rec._repr) : String((ref2 = (ref3 = rec.id) != null ? ref3 : rec[Object.keys(rec).find(function(k) {
               return k !== '__rowId';
             })]) != null ? ref2 : '');
             fkId = (ref4 = rec.id) != null ? ref4 : rec[Object.keys(rec).find(function(k) {
@@ -544,7 +544,7 @@
     }
 
     _applyData() {
-      var columnName, isNew, lastIdx, rowId, rows, sentinel, sentinelRow, targetRow;
+      var base, base1, base2, columnName, displayVal, f, isError, isNew, j, l, lastIdx, len, len1, name1, ref, ref1, row, rowId, rows, sentinel, sentinelRow, targetRow, val;
       if (!this._grid) {
         return;
       }
@@ -556,6 +556,39 @@
       }
       sentinel = this._sentinel();
       this._currentData = rows.concat([sentinel]);
+      ref = this._currentData;
+      
+      // Pre-calculate cell classes for formula errors
+      for (j = 0, len = ref.length; j < len; j++) {
+        row = ref[j];
+        if (row._attributes == null) {
+          row._attributes = {};
+        }
+        if ((base = row._attributes).className == null) {
+          base.className = {};
+        }
+        if ((base1 = row._attributes.className).column == null) {
+          base1.column = {};
+        }
+        ref1 = this.space.fields || [];
+        for (l = 0, len1 = ref1.length; l < len1; l++) {
+          f = ref1[l];
+          val = row[f.name];
+          displayVal = this._fkMaps[f.name] != null ? this._fkMaps[f.name][String(val)] : val;
+          if (typeof displayVal === 'string') {
+            isError = displayVal.indexOf('[ERROR|') === 0 || displayVal.indexOf('[Erreur de formule:') === 0;
+            if (isError) {
+              if ((base2 = row._attributes.className.column)[name1 = f.name] == null) {
+                base2[name1] = [];
+              }
+              row._attributes.className.column[f.name].push('cell-formula-error');
+              if (displayVal.indexOf('inconnue') > -1) {
+                row._attributes.className.column[f.name].push('cell-formula-error-internal');
+              }
+            }
+          }
+        }
+      }
       this._grid.resetData(this._currentData);
       // Restore focus if we have saved it
       if (this._lastFocus) {

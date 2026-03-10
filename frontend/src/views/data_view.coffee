@@ -46,12 +46,12 @@ window.DataView = class DataView
       field = (@space.fields or []).find (f) -> f.id == rel.fromFieldId
       continue unless field
       try
-        formula = rel.reprFormula?.trim() or null
+        formula = rel.reprFormula?.trim() or '@_repr'
         data    = await GQL.query RECORDS_QUERY, {
           spaceId:     rel.toSpaceId
           limit:       5000
           reprFormula: formula
-          reprLanguage: if formula then 'moonscript' else null
+          reprLanguage: 'moonscript'
         }
         records = data.records.items.map (r) ->
           parsed = if typeof r.data == 'string' then JSON.parse(r.data) else r.data
@@ -60,7 +60,7 @@ window.DataView = class DataView
         map     = {}
         options = []
         for rec in records
-          display = if rec._repr?
+          display = if rec._repr? and String(rec._repr).trim() != ''
             String rec._repr
           else
             String(rec.id ? rec[Object.keys(rec).find((k) -> k != '__rowId')] ? '')
@@ -340,6 +340,23 @@ window.DataView = class DataView
     
     sentinel = @_sentinel()
     @_currentData = rows.concat [sentinel]
+    
+    # Pre-calculate cell classes for formula errors
+    for row in @_currentData
+      row._attributes ?= {}
+      row._attributes.className ?= {}
+      row._attributes.className.column ?= {}
+      for f in (@space.fields or [])
+        val = row[f.name]
+        displayVal = if @_fkMaps[f.name]? then @_fkMaps[f.name][String val] else val
+        if typeof displayVal == 'string'
+          isError = displayVal.indexOf('[ERROR|') == 0 or displayVal.indexOf('[Erreur de formule:') == 0
+          if isError
+            row._attributes.className.column[f.name] ?= []
+            row._attributes.className.column[f.name].push 'cell-formula-error'
+            if displayVal.indexOf('inconnue') > -1
+              row._attributes.className.column[f.name].push 'cell-formula-error-internal'
+
     @_grid.resetData @_currentData
 
     # Restore focus if we have saved it
