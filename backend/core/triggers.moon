@@ -75,7 +75,7 @@ compile_formula = (formula, field_name, language) ->
   ok_env, _ = pcall setfenv, chunk_fn, FORMULA_ENV
   log.warn "tdb triggers: setfenv not available, formula '#{field_name}' runs unsandboxed" unless ok_env
   -- Execute chunk to get the formula function
-  ok2, fn = safe_formula_call chunk_fn, "formula compilation for '#{field_name}'", nil  -- nil default for compilation errors
+  ok2, fn = pcall chunk_fn
   if not ok2 or type(fn) != 'function'
     log.error "tdb triggers: init error for field '#{field_name}': #{fn}"
     return nil
