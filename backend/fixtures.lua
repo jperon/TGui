@@ -1,6 +1,17 @@
 local log = require('log')
 local spaces = require('core.spaces')
 local auth = require('core.auth')
+local insert_data
+insert_data = function(space_name, data)
+  local json_data = require('json').encode(data)
+  local space = box.space[space_name]
+  local new_id = space.sequence["_tdb_seq_id"]:next()
+  space:insert({
+    new_id,
+    json_data
+  })
+  return log.info("Inserted data with auto-generated id " .. tostring(new_id) .. " into " .. tostring(space_name))
+end
 local setup_demo_data
 setup_demo_data = function()
   local existing_spaces = spaces.list_spaces()
@@ -40,7 +51,6 @@ setup_demo_data = function()
   spaces.add_field(categories_space.id, 'ordre', 'Int', false, 'Ordre d\'affichage')
   local authors_data = {
     {
-      id = "1",
       particule = "",
       nom = "Hugo",
       prenom = "Victor",
@@ -48,7 +58,6 @@ setup_demo_data = function()
       nationalite = "Française"
     },
     {
-      id = "2",
       particule = "de",
       nom = "Maupassant",
       prenom = "Guy",
@@ -56,7 +65,6 @@ setup_demo_data = function()
       nationalite = "Française"
     },
     {
-      id = "3",
       particule = "",
       nom = "Camus",
       prenom = "Albert",
@@ -64,7 +72,6 @@ setup_demo_data = function()
       nationalite = "Française"
     },
     {
-      id = "4",
       particule = "",
       nom = "Proust",
       prenom = "Marcel",
@@ -72,7 +79,6 @@ setup_demo_data = function()
       nationalite = "Française"
     },
     {
-      id = "5",
       particule = "de",
       nom = "La Fontaine",
       prenom = "Jean",
@@ -80,7 +86,6 @@ setup_demo_data = function()
       nationalite = "Française"
     },
     {
-      id = "6",
       particule = "",
       nom = "Sartre",
       prenom = "Jean-Paul",
@@ -88,7 +93,6 @@ setup_demo_data = function()
       nationalite = "Française"
     },
     {
-      id = "7",
       particule = "",
       nom = "Simenon",
       prenom = "Georges",
@@ -96,7 +100,6 @@ setup_demo_data = function()
       nationalite = "Belge"
     },
     {
-      id = "8",
       particule = "",
       nom = "Colette",
       prenom = "Sidonie Gabrielle",
@@ -104,7 +107,6 @@ setup_demo_data = function()
       nationalite = "Française"
     },
     {
-      id = "9",
       particule = "d'Annunzio",
       nom = "Gabriele",
       prenom = "",
@@ -112,7 +114,6 @@ setup_demo_data = function()
       nationalite = "Italienne"
     },
     {
-      id = "10",
       particule = "",
       nom = "Kafka",
       prenom = "Franz",
@@ -122,15 +123,10 @@ setup_demo_data = function()
   }
   for _index_0 = 1, #authors_data do
     local author = authors_data[_index_0]
-    local json_data = require('json').encode(author)
-    box.space["data_" .. tostring(authors_space.name)]:insert({
-      author.id,
-      json_data
-    })
+    insert_data("data_" .. tostring(authors_space.name), author)
   end
   local books_data = {
     {
-      id = "1",
       titre = "Les Misérables",
       isbn = "978-2-253-05407-5",
       annee_publication = 1862,
@@ -140,7 +136,6 @@ setup_demo_data = function()
       prix = 12.99
     },
     {
-      id = "2",
       titre = "Bel-Ami",
       isbn = "978-2-07-036418-8",
       annee_publication = 1885,
@@ -150,7 +145,6 @@ setup_demo_data = function()
       prix = 9.99
     },
     {
-      id = "3",
       titre = "L'Étranger",
       isbn = "978-2-07-040200-7",
       annee_publication = 1942,
@@ -160,7 +154,6 @@ setup_demo_data = function()
       prix = 7.50
     },
     {
-      id = "4",
       titre = "Du côté de chez Swann",
       isbn = "978-2-07-041424-7",
       annee_publication = 1913,
@@ -170,7 +163,6 @@ setup_demo_data = function()
       prix = 11.99
     },
     {
-      id = "5",
       titre = "Fables",
       isbn = "978-2-07-038934-7",
       annee_publication = 1668,
@@ -180,7 +172,6 @@ setup_demo_data = function()
       prix = 8.50
     },
     {
-      id = "6",
       titre = "La Nausée",
       isbn = "978-2-07-036003-4",
       annee_publication = 1938,
@@ -190,7 +181,6 @@ setup_demo_data = function()
       prix = 9.25
     },
     {
-      id = "7",
       titre = "Pierre et Jean",
       isbn = "978-2-07-041112-7",
       annee_publication = 1888,
@@ -200,7 +190,6 @@ setup_demo_data = function()
       prix = 8.99
     },
     {
-      id = "8",
       titre = "La Condition humaine",
       isbn = "978-2-07-036939-7",
       annee_publication = 1933,
@@ -210,7 +199,6 @@ setup_demo_data = function()
       prix = 13.50
     },
     {
-      id = "9",
       titre = "Le Procès",
       isbn = "978-2-07-041631-3",
       annee_publication = 1925,
@@ -220,7 +208,6 @@ setup_demo_data = function()
       prix = 10.25
     },
     {
-      id = "10",
       titre = "Germinal",
       isbn = "978-2-253-05416-9",
       annee_publication = 1885,
@@ -230,7 +217,6 @@ setup_demo_data = function()
       prix = 11.75
     },
     {
-      id = "11",
       titre = "Madame Bovary",
       isbn = "978-2-07-040821-6",
       annee_publication = 1857,
@@ -240,7 +226,6 @@ setup_demo_data = function()
       prix = 9.99
     },
     {
-      id = "12",
       titre = "Le Grand Meaulnes",
       isbn = "978-2-07-040962-6",
       annee_publication = 1913,
@@ -252,15 +237,10 @@ setup_demo_data = function()
   }
   for _index_0 = 1, #books_data do
     local book = books_data[_index_0]
-    local json_data = require('json').encode(book)
-    box.space["data_" .. tostring(books_space.name)]:insert({
-      book.id,
-      json_data
-    })
+    insert_data("data_" .. tostring(books_space.name), book)
   end
   local categories_data = {
     {
-      id = "1",
       nom = "Littérature française",
       description = "Œuvres d'auteurs français",
       couleur = "#FF6B6B",
@@ -268,7 +248,6 @@ setup_demo_data = function()
       ordre = 1
     },
     {
-      id = "2",
       nom = "Littérature étrangère",
       description = "Œuvres traduites",
       couleur = "#4ECDC4",
@@ -276,7 +255,6 @@ setup_demo_data = function()
       ordre = 2
     },
     {
-      id = "3",
       nom = "Classiques",
       description = "Œuvres classiques",
       couleur = "#45B7D1",
@@ -284,7 +262,6 @@ setup_demo_data = function()
       ordre = 1
     },
     {
-      id = "4",
       nom = "XXe siècle",
       description = "Littérature moderne",
       couleur = "#96CEB4",
@@ -292,7 +269,6 @@ setup_demo_data = function()
       ordre = 2
     },
     {
-      id = "5",
       nom = "Philosophie",
       description = "Essais philosophiques",
       couleur = "#FFEAA7",
@@ -300,7 +276,6 @@ setup_demo_data = function()
       ordre = 3
     },
     {
-      id = "6",
       nom = "Science-fiction",
       description = "Romans de science-fiction",
       couleur = "#DDA0DD",
@@ -308,7 +283,6 @@ setup_demo_data = function()
       ordre = 1
     },
     {
-      id = "7",
       nom = "Polar",
       description = "Romans policiers",
       couleur = "#F4A460",
@@ -318,16 +292,11 @@ setup_demo_data = function()
   }
   for _index_0 = 1, #categories_data do
     local category = categories_data[_index_0]
-    local json_data = require('json').encode(category)
-    box.space["data_" .. tostring(categories_space.name)]:insert({
-      category.id,
-      json_data
-    })
+    insert_data("data_" .. tostring(categories_space.name), category)
   end
   local current_time = os.time()
   local loans_data = {
     {
-      id = "1",
       livre_id = "1",
       emprunteur_nom = "Alice Martin",
       date_emprunt = current_time - 86400 * 7,
@@ -335,7 +304,6 @@ setup_demo_data = function()
       date_retour_effective = nil
     },
     {
-      id = "2",
       livre_id = "3",
       emprunteur_nom = "Bob Dubois",
       date_emprunt = current_time - 86400 * 14,
@@ -343,7 +311,6 @@ setup_demo_data = function()
       date_retour_effective = current_time - 86400
     },
     {
-      id = "3",
       livre_id = "5",
       emprunteur_nom = "Claire Petit",
       date_emprunt = current_time - 86400 * 3,
@@ -351,7 +318,6 @@ setup_demo_data = function()
       date_retour_effective = nil
     },
     {
-      id = "4",
       livre_id = "8",
       emprunteur_nom = "David Leroy",
       date_emprunt = current_time - 86400 * 21,
@@ -359,7 +325,6 @@ setup_demo_data = function()
       date_retour_effective = nil
     },
     {
-      id = "5",
       livre_id = "10",
       emprunteur_nom = "Emma Bernard",
       date_emprunt = current_time - 86400 * 1,
@@ -369,11 +334,7 @@ setup_demo_data = function()
   }
   for _index_0 = 1, #loans_data do
     local loan = loans_data[_index_0]
-    local json_data = require('json').encode(loan)
-    box.space["data_" .. tostring(loans_space.name)]:insert({
-      loan.id,
-      json_data
-    })
+    insert_data("data_" .. tostring(loans_space.name), loan)
   end
   return log.info("Demo data setup complete. Created 4 spaces with sample data.")
 end
