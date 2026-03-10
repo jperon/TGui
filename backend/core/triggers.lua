@@ -140,6 +140,38 @@ format_formula_error = function(err)
   local clean_msg = s:gsub('^%[string ".-"%]:%d+: ', '')
   return "[ERROR|" .. tostring(short) .. "|" .. tostring(clean_msg) .. "]"
 end
+local formula_cache = { }
+local ensure_formulas
+ensure_formulas = function(space_name)
+  if formula_cache[space_name] then
+    return formula_cache[space_name]
+  end
+  local space_meta = box.space._tdb_spaces.index.by_name:get({
+    space_name
+  })
+  if not (space_meta) then
+    return { }
+  end
+  local space_id = space_meta[1]
+  local formulas = { }
+  local _list_0 = box.space._tdb_fields.index.by_space:select({
+    space_id
+  })
+  for _index_0 = 1, #_list_0 do
+    local field = _list_0[_index_0]
+    if field[8] and field[8] ~= '' then
+      local field_name = field[3]
+      local formula = field[8]
+      local language = field[10] or 'lua'
+      local compiled = compile_formula(formula, field_name, language)
+      if compiled then
+        formulas[field_name] = compiled
+      end
+    end
+  end
+  formula_cache[space_name] = formulas
+  return formulas
+end
 local make_space_helper
 make_space_helper = function()
   local decode_tuple

@@ -136,6 +136,34 @@ format_formula_error = (err) ->
   -- Format attendu par le frontend: [Erreur|Type court|Message complet]
   "[ERROR|#{short}|#{clean_msg}]"
 
+-- ── Formula compilation and caching ────────────────────────────────────────────
+
+-- Cache for compiled formulas: space_name -> { field_name -> function }
+formula_cache = {}
+
+-- Get or compile formulas for a space
+ensure_formulas = (space_name) ->
+  return formula_cache[space_name] if formula_cache[space_name]
+
+  space_meta = box.space._tdb_spaces.index.by_name\get { space_name }
+  return {} unless space_meta
+
+  space_id = space_meta[1]
+  formulas = {}
+
+  for field in *box.space._tdb_fields.index.by_space\select { space_id }
+    if field[8] and field[8] != ''  -- formula column
+      field_name = field[3]
+      formula = field[8]
+      language = field[10] or 'lua'
+
+      compiled = compile_formula formula, field_name, language
+      if compiled
+        formulas[field_name] = compiled
+
+  formula_cache[space_name] = formulas
+  formulas
+
 -- ── Space helper for formulas ─────────────────────────────────────────────────
 
 make_space_helper = ->
