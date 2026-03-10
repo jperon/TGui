@@ -250,7 +250,7 @@ R.describe("Spaces — reprFormula et conversion", function()
     R.eq("return string.upper(self.status or '')", fields[2].reprFormula)
     return spaces_mod.delete_user_space('test_repr_space')
   end)
-  return R.it("peut changer le type d'un champ avec conversion", function()
+  R.it("peut changer le type d'un champ avec conversion", function()
     local sp = spaces_mod.create_user_space('test_conv_space', 'space for conversion tests')
     local str_field = spaces_mod.add_field(sp.id, 'amount', 'String', false, '')
     box.space["data_" .. tostring(sp.name)]:insert({
@@ -266,5 +266,129 @@ R.describe("Spaces — reprFormula et conversion", function()
     R.eq(42, parsed.amount)
     return spaces_mod.delete_user_space('test_conv_space')
   end)
+  R.it("conversion Int vers Sequence préserve les IDs existants", function()
+    local sp = spaces_mod.create_user_space('test_seq_conv', 'Test sequence conversion')
+    local id_field = spaces_mod.add_field(sp.id, 'id', 'Int', false, 'ID existant')
+    local name_field = spaces_mod.add_field(sp.id, 'name', 'String', false, 'Nom')
+    box.space["data_" .. tostring(sp.name)]:insert({
+      "1",
+      require('json').encode({
+        id = 100,
+        name = "A"
+      })
+    })
+    box.space["data_" .. tostring(sp.name)]:insert({
+      "2",
+      require('json').encode({
+        id = 250,
+        name = "B"
+      })
+    })
+    box.space["data_" .. tostring(sp.name)]:insert({
+      "3",
+      require('json').encode({
+        id = 75,
+        name = "C"
+      })
+    })
+    local changed = spaces_mod.change_field_type(id_field.id, 'Sequence', nil, 'lua')
+    R.eq('Sequence', changed.fieldType)
+    local data1 = box.space["data_" .. tostring(sp.name)]:get("1")
+    local data2 = box.space["data_" .. tostring(sp.name)]:get("2")
+    local data3 = box.space["data_" .. tostring(sp.name)]:get("3")
+    local parsed1 = require('json').decode(data1[2])
+    local parsed2 = require('json').decode(data2[2])
+    local parsed3 = require('json').decode(data3[2])
+    R.eq(100, parsed1.id)
+    R.eq(250, parsed2.id)
+    R.eq(75, parsed3.id)
+    return spaces_mod.delete_user_space('test_seq_conv')
+  end)
+  return R.it("ajout champ Sequence sur espace non-vide préserve les valeurs", function()
+    local sp = spaces_mod.create_user_space('test_seq_add', 'Test add sequence to non-empty')
+    local name_field = spaces_mod.add_field(sp.id, 'name', 'String', false, 'Nom')
+    box.space["data_" .. tostring(sp.name)]:insert({
+      "1",
+      require('json').encode({
+        name = "A"
+      })
+    })
+    box.space["data_" .. tostring(sp.name)]:insert({
+      "2",
+      require('json').encode({
+        name = "B"
+      })
+    })
+    local id_field = spaces_mod.add_field(sp.id, 'id', 'Sequence', false, 'ID auto')
+    local data1 = box.space["data_" .. tostring(sp.name)]:get("1")
+    local data2 = box.space["data_" .. tostring(sp.name)]:get("2")
+    local parsed1 = require('json').decode(data1[2])
+    local parsed2 = require('json').decode(data2[2])
+    R.eq(1, parsed1.id)
+    R.eq(2, parsed2.id)
+    return spaces_mod.delete_user_space('test_seq_add')
+  end)
 end)
-return spaces_mod.delete_user_space(SP_NAME)
+spaces_mod.delete_user_space(SP_NAME)
+return R.describe("Spaces — conversion Int vers Sequence", function()
+  R.it("conversion Int vers Sequence préserve les IDs existants", function()
+    local sp = spaces_mod.create_user_space('test_seq_conv', 'Test sequence conversion')
+    local id_field = spaces_mod.add_field(sp.id, 'id', 'Int', false, 'ID existant')
+    local name_field = spaces_mod.add_field(sp.id, 'name', 'String', false, 'Nom')
+    box.space["data_" .. tostring(sp.name)]:insert({
+      "1",
+      require('json').encode({
+        id = 100,
+        name = "A"
+      })
+    })
+    box.space["data_" .. tostring(sp.name)]:insert({
+      "2",
+      require('json').encode({
+        id = 250,
+        name = "B"
+      })
+    })
+    box.space["data_" .. tostring(sp.name)]:insert({
+      "3",
+      require('json').encode({
+        id = 75,
+        name = "C"
+      })
+    })
+    local changed = spaces_mod.change_field_type(id_field.id, 'Sequence', nil, 'lua')
+    R.eq('Sequence', changed.fieldType)
+    local data1 = box.space["data_" .. tostring(sp.name)]:get("1")
+    local data2 = box.space["data_" .. tostring(sp.name)]:get("2")
+    local data3 = box.space["data_" .. tostring(sp.name)]:get("3")
+    local parsed1 = require('json').decode(data1[2])
+    local parsed2 = require('json').decode(data2[2])
+    local parsed3 = require('json').decode(data3[2])
+    R.eq(100, parsed1.id)
+    R.eq(250, parsed2.id)
+    R.eq(75, parsed3.id)
+    return spaces_mod.delete_user_space('test_seq_conv')
+  end)
+  return R.it("conversion Int vers Sequence avec enregistrements sans valeur", function()
+    local sp = spaces_mod.create_user_space('test_seq_empty', 'Test sequence empty values')
+    local id_field = spaces_mod.add_field(sp.id, 'test_id', 'Int', false, 'Test ID')
+    local name_field = spaces_mod.add_field(sp.id, 'name', 'String', false, 'Nom')
+    box.space["data_" .. tostring(sp.name)]:insert({
+      "1",
+      require('json').encode({
+        name = "No ID"
+      })
+    })
+    local changed = spaces_mod.change_field_type(id_field.id, 'Sequence', nil, 'lua')
+    R.eq('Sequence', changed.fieldType)
+    local data = box.space["data_" .. tostring(sp.name)]:get("1")
+    local parsed = require('json').decode(data[2])
+    if not (parsed.test_id ~= nil) then
+      error("L'enregistrement sans ID devrait avoir reçu une valeur")
+    end
+    if not (type(parsed.test_id) == 'number') then
+      error("La valeur devrait être un nombre")
+    end
+    return spaces_mod.delete_user_space('test_seq_empty')
+  end)
+end)
