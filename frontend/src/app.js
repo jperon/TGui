@@ -167,9 +167,6 @@
       fieldCancelBtn: function() {
         return document.getElementById('field-cancel-btn');
       },
-      fieldChangeTypeBtn: function() {
-        return document.getElementById('field-change-type-btn');
-      },
       fieldReprFormula: function() {
         return document.getElementById('field-repr-formula');
       },
@@ -184,31 +181,6 @@
       },
       relReprFormula: function() {
         return document.getElementById('rel-repr-formula');
-      },
-      // Change type dialog
-      changeTypeDialog: function() {
-        return document.getElementById('change-type-dialog');
-      },
-      changeTypeFieldName: function() {
-        return document.getElementById('change-type-field-name');
-      },
-      changeTypeSelect: function() {
-        return document.getElementById('change-type-select');
-      },
-      changeTypeLang: function() {
-        return document.getElementById('change-type-lang');
-      },
-      changeTypeFormula: function() {
-        return document.getElementById('change-type-formula');
-      },
-      changeTypeError: function() {
-        return document.getElementById('change-type-error');
-      },
-      changeTypeConfirmBtn: function() {
-        return document.getElementById('change-type-confirm-btn');
-      },
-      changeTypeCancelBtn: function() {
-        return document.getElementById('change-type-cancel-btn');
       },
       yamlEditorPanel: function() {
         return document.getElementById('yaml-editor-panel');
@@ -1130,7 +1102,6 @@
       var base, curr, cv, dictName, i, j, len, len1, parts, ref, ref1, renderTree, tree, ul;
       ul = this.el.customViewList();
       ul.innerHTML = '';
-      
       // 1. Grouper en arbre
       tree = {
         items: [],
@@ -1172,7 +1143,6 @@
           fullPath = pathStr ? `${pathStr}/${fName}` : fName;
           folderLi = document.createElement('li');
           folderLi.className = 'folder-item';
-          
           // Header du dossier
           header = document.createElement('div');
           header.className = 'folder-header';
@@ -1182,12 +1152,10 @@
           header.appendChild(icon);
           header.appendChild(document.createTextNode(` ${fName}`));
           folderLi.appendChild(header);
-          
           // Liste déroulante
           subUl = document.createElement('ul');
           subUl.className = 'folder-children';
           folderLi.appendChild(subUl);
-          
           // État du dossier dans le localStorage
           lsKey = `tdb_folder_view_${fullPath}`;
           if (localStorage.getItem(lsKey) === 'true') {
@@ -1576,63 +1544,8 @@
       this.el.fieldCancelBtn().addEventListener('click', () => {
         return this._resetFieldForm();
       });
-      // Change field type button
-      this.el.fieldChangeTypeBtn().addEventListener('click', () => {
-        var err, field, ref1;
-        if (!this._editingFieldId) {
-          return;
-        }
-        field = (((ref1 = this._currentSpace) != null ? ref1.fields : void 0) || []).find((f) => {
-          return f.id === this._editingFieldId;
-        });
-        if (!field) {
-          return;
-        }
-        this.el.changeTypeFieldName().textContent = `Champ : ${field.name} (type actuel : ${field.fieldType})`;
-        this.el.changeTypeSelect().value = field.fieldType;
-        this.el.changeTypeFormula().value = '';
-        this.el.changeTypeLang().value = 'lua';
-        err = this.el.changeTypeError();
-        err.textContent = '';
-        err.classList.add('hidden');
-        return this.el.changeTypeDialog().classList.remove('hidden');
-      });
-      this.el.changeTypeCancelBtn().addEventListener('click', () => {
-        return this.el.changeTypeDialog().classList.add('hidden');
-      });
-      this.el.changeTypeConfirmBtn().addEventListener('click', () => {
-        var errEl, formula, lang, newType;
-        if (!this._editingFieldId) {
-          return;
-        }
-        newType = this.el.changeTypeSelect().value;
-        formula = this.el.changeTypeFormula().value.trim() || null;
-        lang = this.el.changeTypeLang().value;
-        errEl = this.el.changeTypeError();
-        errEl.classList.add('hidden');
-        return Spaces.changeFieldType(this._editingFieldId, newType, formula, lang).then(() => {
-          this.el.changeTypeDialog().classList.add('hidden');
-          return Spaces.getWithFields(this._currentSpace.id).then((full) => {
-            var field;
-            this._currentSpace = full;
-            this._syncSpaceFields(full);
-            this.renderFieldsList();
-            this._mountDataView(full);
-            // Update the type selector in edit form to reflect change
-            field = (full.fields || []).find((f) => {
-              return f.id === this._editingFieldId;
-            });
-            if (field) {
-              return this.el.fieldType().value = field.fieldType;
-            }
-          });
-        }).catch((err) => {
-          errEl.textContent = this._err(err);
-          return errEl.classList.remove('hidden');
-        });
-      });
       return this.el.fieldAddBtn().addEventListener('click', () => {
-        var editRelation, formula, formulaType, language, name, notNull, opts, raw, ref1, ref2, ref3, ref4, relReprFormula, reprFormula, s, toSpaceId, triggerFields, type, updatePromise;
+        var conversionFormula, conversionLang, formula, formulaType, language, name, notNull, opts, originalField, originalType, raw, ref1, ref2, ref3, ref4, reprFormula, s, toSpaceId, triggerFields, type;
         if (!this._currentSpace) {
           return;
         }
@@ -1648,58 +1561,33 @@
         this.el.fieldName().classList.remove('input-error');
         this.el.fieldName().placeholder = this._t('ui.fields.namePlaceholder');
         if (this._editingFieldId) {
-          // ── Update existing field ──────────────────────────────────────────
+          // ── Update existing field (including type change) ────────────────────────
+          originalField = (((ref1 = this._currentSpace) != null ? ref1.fields : void 0) || []).find((f) => {
+            return f.id === this._editingFieldId;
+          });
+          originalType = originalField != null ? originalField.fieldType : void 0;
           formulaType = document.querySelector('input[name="formula-type"]:checked').value;
           opts = {name, notNull};
-          if (formulaType !== 'none') {
-            opts.formula = this.el.fieldFormula().value.trim() || null;
-            opts.language = ((ref1 = this.el.formulaLanguage()) != null ? ref1.value : void 0) || 'lua';
-            if (formulaType === 'trigger' && opts.formula) {
-              raw = this.el.fieldTriggerFields().value.trim();
-              if (raw === '*') {
-                opts.triggerFields = ['*'];
-              } else if (raw === '') {
-                opts.triggerFields = [];
-              } else {
-                opts.triggerFields = (function() {
-                  var i, len, ref2, results1;
-                  ref2 = raw.split(',');
-                  results1 = [];
-                  for (i = 0, len = ref2.length; i < len; i++) {
-                    s = ref2[i];
-                    if (s.trim()) {
-                      results1.push(s.trim());
-                    }
-                  }
-                  return results1;
-                })();
-              }
+          // Handle type change
+          if (type !== originalType) {
+            // Type is changing - use the changeFieldType API
+            conversionFormula = null;
+            conversionLang = 'lua';
+            // If changing to/from formula types, preserve existing formula
+            if (formulaType !== 'none') {
+              conversionFormula = this.el.fieldFormula().value.trim() || null;
+              conversionLang = ((ref2 = this.el.formulaLanguage()) != null ? ref2.value : void 0) || 'lua';
             }
+            return Spaces.changeFieldType(this._editingFieldId, type, conversionFormula, conversionLang).then(() => {
+              // After type change, update other field properties
+              return this.updateFieldProperties(this._editingFieldId, opts, formulaType);
+            }).catch((err) => {
+              return tdbAlert(this._err(err), 'error');
+            });
           } else {
-            opts.formula = '';
-            opts.triggerFields = null;
-            opts.language = 'lua';
+            // Same type - just update properties
+            return this.updateFieldProperties(this._editingFieldId, opts, formulaType);
           }
-          opts.reprFormula = ((ref2 = this.el.fieldReprFormula()) != null ? ref2.value.trim() : void 0) || '';
-          editRelation = this._editingRelation;
-          relReprFormula = this.el.relReprFormula().value.trim();
-          updatePromise = Spaces.updateField(this._editingFieldId, opts);
-          if (editRelation) {
-            updatePromise = updatePromise.then(() => {
-              return Spaces.updateRelation(editRelation.id, relReprFormula);
-            });
-          }
-          updatePromise.then(() => {
-            return Spaces.getWithFields(this._currentSpace.id).then((full) => {
-              this._currentSpace = full;
-              this._syncSpaceFields(full);
-              this.renderFieldsList();
-              return this._mountDataView(full);
-            });
-          }).catch((err) => {
-            return tdbAlert(this._err(err), 'error');
-          });
-          return this._resetFieldForm();
         } else if (type === 'Relation') {
           // ── Create relation field ──────────────────────────────────────────
           toSpaceId = this.el.relToSpace().value;
@@ -1815,6 +1703,7 @@
       this._editingRelation = null;
       this.el.fieldName().value = '';
       this.el.fieldType().value = 'String';
+      this.el.fieldType().disabled = false; // Always enable type selector
       this.el.fieldNotNull().checked = false;
       this.el.fieldFormula().value = '';
       this.el.fieldTriggerFields().value = '';
@@ -1839,8 +1728,60 @@
       }
       this.el.formulaModal().classList.add('hidden');
       this.el.fieldAddBtn().textContent = this._t('ui.fields.add');
-      this.el.fieldCancelBtn().classList.add('hidden');
-      return this.el.fieldChangeTypeBtn().classList.add('hidden');
+      return this.el.fieldCancelBtn().classList.add('hidden');
+    },
+    updateFieldProperties: function(fieldId, opts, formulaType) {
+      var editRelation, raw, ref, ref1, relReprFormula, s, updatePromise;
+      // Update formula-related properties
+      if (formulaType !== 'none') {
+        opts.formula = this.el.fieldFormula().value.trim() || null;
+        opts.language = ((ref = this.el.formulaLanguage()) != null ? ref.value : void 0) || 'lua';
+        if (formulaType === 'trigger' && opts.formula) {
+          raw = this.el.fieldTriggerFields().value.trim();
+          if (raw === '*') {
+            opts.triggerFields = ['*'];
+          } else if (raw === '') {
+            opts.triggerFields = [];
+          } else {
+            opts.triggerFields = (function() {
+              var i, len, ref1, results1;
+              ref1 = raw.split(',');
+              results1 = [];
+              for (i = 0, len = ref1.length; i < len; i++) {
+                s = ref1[i];
+                if (s.trim()) {
+                  results1.push(s.trim());
+                }
+              }
+              return results1;
+            })();
+          }
+        }
+      } else {
+        opts.formula = '';
+        opts.triggerFields = null;
+        opts.language = 'lua';
+      }
+      opts.reprFormula = ((ref1 = this.el.fieldReprFormula()) != null ? ref1.value.trim() : void 0) || '';
+      editRelation = this._editingRelation;
+      relReprFormula = this.el.relReprFormula().value.trim();
+      updatePromise = Spaces.updateField(fieldId, opts);
+      if (editRelation) {
+        updatePromise = updatePromise.then(() => {
+          return Spaces.updateRelation(editRelation.id, relReprFormula);
+        });
+      }
+      return updatePromise.then(() => {
+        return Spaces.getWithFields(this._currentSpace.id).then((full) => {
+          this._currentSpace = full;
+          this._syncSpaceFields(full);
+          this.renderFieldsList();
+          this._mountDataView(full);
+          return this._resetFieldForm();
+        });
+      }).catch((err) => {
+        return tdbAlert(this._err(err), 'error');
+      });
     },
     renderFieldsList: function() {
       var fields, ul;
@@ -1933,13 +1874,13 @@
               this._editingRelation = relation || null;
               this.el.fieldAddBtn().textContent = this._t('ui.fields.update');
               this.el.fieldCancelBtn().classList.remove('hidden');
-              this.el.fieldChangeTypeBtn().classList.remove('hidden');
+              // Ensure type selector is enabled for direct editing
+              this.el.fieldType().disabled = false;
               this.el.fieldName().value = field.name;
               if (relation) {
                 // Editing a relation field: show Cible and repr formula
                 this.el.fieldType().value = 'Relation';
                 this._onFieldTypeChange();
-                this.el.relToSpace().value = relation.toSpaceId;
                 this.el.relReprFormula().value = relation.reprFormula || '';
                 if (this.el.fieldReprFormula()) {
                   this.el.fieldReprFormula().value = '';
