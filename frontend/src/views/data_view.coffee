@@ -104,8 +104,16 @@ window.DataView = class DataView
         fkOptions = @_fkOptions[f.name] or []
         col.formatter = do (fkMap) -> (props) ->
           val = props.value
-          if typeof val == 'string' and val.indexOf('[Erreur de formule:') == 0
-            return "<span class=\"formula-error\" title=\"#{val}\">⚠ Erreur</span>"
+          if typeof val == 'string'
+            m = val.match /^\[ERROR\|(.*?)\|(.*)\]$/
+            if m
+              safeShort = m[1].replace(/"/g, '&quot;').replace(/</g, '&lt;')
+              safeFull = m[2].replace(/"/g, '&quot;').replace(/</g, '&lt;')
+              isInternal = safeShort.indexOf('inconnue') > -1
+              cls = if isInternal then 'formula-error internal-error' else 'formula-error'
+              return "<span class=\"#{cls}\" title=\"#{safeFull}\">⚠ #{safeShort}</span>"
+            else if val.indexOf('[Erreur de formule:') == 0
+              return "<span class=\"formula-error\" title=\"#{val.replace(/"/g, '&quot;')}\">⚠ Erreur</span>"
           fkMap[String val] ? String(val ? '')
         col.editor =
           type: 'select'
@@ -116,8 +124,16 @@ window.DataView = class DataView
         # Highlight formula errors in normal text columns
         col.formatter = (props) ->
           val = props.value
-          if typeof val == 'string' and val.indexOf('[Erreur de formule:') == 0
-            return "<span class=\"formula-error\" title=\"#{val}\">⚠ Erreur</span>"
+          if typeof val == 'string'
+            m = val.match /^\[ERROR\|(.*?)\|(.*)\]$/
+            if m
+              safeShort = m[1].replace(/"/g, '&quot;').replace(/</g, '&lt;')
+              safeFull = m[2].replace(/"/g, '&quot;').replace(/</g, '&lt;')
+              isInternal = safeShort.indexOf('inconnue') > -1
+              cls = if isInternal then 'formula-error internal-error' else 'formula-error'
+              return "<span class=\"#{cls}\" title=\"#{safeFull}\">⚠ #{safeShort}</span>"
+            else if val.indexOf('[Erreur de formule:') == 0
+              return "<span class=\"formula-error\" title=\"#{val.replace(/"/g, '&quot;')}\">⚠ Erreur</span>"
           String(val ? '')
       col
 

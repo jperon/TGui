@@ -106,6 +106,32 @@ build_fk_def_map = (space_id) ->
         toFieldName: (field_by_id[rel.toFieldId] and field_by_id[rel.toFieldId].name) or 'id'
   fk_def_map
 
+-- Helper to format and categorize formula execution errors for the frontend
+format_formula_error = (err) ->
+  s = tostring err
+  short = "Erreur de formule"
+  if s\find "attempt to index"
+    short = "Champ inconnu (nil)"
+  elseif s\find "attempt to call"
+    short = "Fonction inconnue (nil)"
+  elseif s\find "attempt to perform arithmetic"
+    short = "Opération sur nil"
+  elseif s\find "attempt to concatenate"
+    short = "Concaténation invalide"
+  elseif s\find "unexpected symbol" or s\find "malformed number" or s\find "parse error"
+    short = "Erreur de syntaxe"
+  elseif s\find "stack overflow"
+    short = "Boucle infinie (récursion)"
+  else
+    -- Erreur générique potentiellement liée à TGui ou non prévue
+    short = "Erreur (inconnue)"
+    
+  -- Nettoyer le prefixe '[string "..."]:ligne: ' généré par Lua
+  clean_msg = s\gsub '^%[string ".-"%]:%d+: ', ''
+  
+  -- Format attendu par le frontend: [Erreur|Type court|Message complet]
+  "[ERROR|#{short}|#{clean_msg}]"
+
 -- ── Space helper for formulas ─────────────────────────────────────────────────
 
 make_space_helper = ->
@@ -200,7 +226,7 @@ make_self_proxy = (record, fk_def_map, fk_cache, space_name) ->
             rawset t, k, v -- cache computed value for next time
           else
             if not r_ok
-              err_msg = "[Erreur de formule: #{val}]"
+              err_msg = format_formula_error val
               log.error "tdb proxy: error evaluating formula for '#{space_name}.#{k}': #{val}"
               return err_msg
       
@@ -331,4 +357,4 @@ deregister_space_trigger = (space_name) ->
     pcall -> data_sp\before_replace nil, old_fn
   active_triggers[space_name] = nil
 
-{ :compile_formula, :make_self_proxy, :build_fk_def_map, :register_space_trigger, :deregister_space_trigger, :init_all_triggers }
+{ :compile_formula, :make_self_proxy, :build_fk_def_map, :register_space_trigger, :deregister_space_trigger, :init_all_triggers, :format_formula_error }
