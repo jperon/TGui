@@ -19,14 +19,29 @@ _state =
 -- Formatage de valeur pour l'affichage des échecs
 fmt = (v) ->
   t = type v
-  if t == 'string'  then string.format('%q', v)
-  elseif t == 'nil' then 'nil'
+  if t == 'string'
+    string.format('%q', v)
+  elseif t == 'nil'
+    'nil'
+  elseif t == 'boolean'
+    tostring v
+  elseif t == 'number'
+    tostring v
+  elseif t == 'function'
+    'function()'
   elseif t == 'table'
-    pairs_str = {}
-    for k, val in pairs v
-      table.insert pairs_str, "#{tostring k}=#{fmt val}"
-    "{#{table.concat pairs_str, ', '}}"
-  else tostring v
+    if #v > 0  -- array
+      items = {}
+      for i, val in ipairs v
+        table.insert items, fmt val
+      "[#{table.concat items, ', '}]"
+    else  -- object/dict
+      pairs_str = {}
+      for k, val in pairs v
+        table.insert pairs_str, "#{tostring k}=#{fmt val}"
+      "{#{table.concat pairs_str, ', '}}"
+  else
+    "<#{t}>#{tostring v}"
 
 -- Source location helper (2 levels up from assert)
 loc = (depth) ->
@@ -38,7 +53,19 @@ loc = (depth) ->
 
 _fail = (msg, depth) ->
   _state.failed += 1
-  print "  ✗ [#{loc (depth or 3) + 1}] #{msg}"
+  location = loc (depth or 3) + 1
+  print "  ✗ [#{location}] #{msg}"
+
+  -- Ajouter une trace d'appel pour aider au débogage
+  print "    Trace d'appel :"
+  level = (depth or 3) + 2
+  while true
+    info = debug.getinfo level, 'Sl'
+    if not info or info.currentline <= 0
+      break
+    src = info.short_src\gsub '.+/', ''
+    print "      #{src}:#{info.currentline}"
+    level += 1
 
 _pass = ->
   _state.passed += 1
@@ -100,17 +127,17 @@ describe = (name, fn) ->
   old_before = _state.before_all_fn
   old_after  = _state.after_all_fn
   old_done   = _state.before_all_done
-  
+
   _state.current = name
   _state.before_all_fn = nil
   _state.after_all_fn  = nil
   _state.before_all_done = false
-  
+
   print "\n#{name}"
   fn!
-  
+
   _state.after_all_fn! if _state.after_all_fn
-  
+
   _state.before_all_fn = old_before
   _state.after_all_fn  = old_after
   _state.before_all_done = old_done
@@ -127,8 +154,20 @@ it = (desc, fn) ->
   success, err = pcall fn
   if not success
     _state.errors += 1
+    location = loc 2
     print "  ✗ ERREUR #{desc}"
-    print "    #{err}"
+    print "    [#{location}] #{err}"
+
+    -- Afficher la trace complète pour les erreurs
+    print "    Trace complète :"
+    level = 3
+    while true
+      info = debug.getinfo level, 'Sl'
+      if not info or info.currentline <= 0
+        break
+      src = info.short_src\gsub '.+/', ''
+      print "      #{src}:#{info.currentline}"
+      level += 1
   elseif _state.failed + _state.errors == before
     -- all assertions in this 'it' passed
     print "  ✓ #{desc}"

@@ -65,7 +65,7 @@ R.describe "GraphQL — Requêtes imbriquées (Nesting)", ->
     R.ok res[tname], "doit avoir le champ #{tname}"
     items = res[tname].items
     R.eq #items, 3
-    
+
     table.sort items, (a, b) -> a.title < b.title
     R.eq items[1].title, "Task 1"
     R.eq items[1].user_id.name, "Alice"
