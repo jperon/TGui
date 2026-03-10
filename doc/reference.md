@@ -135,6 +135,7 @@ une formule.
 | `Any` | Type libre (JSON) |
 | `Map` | Objet JSON |
 | `Array` | Tableau JSON |
+| `Datetime` | Date et heure |
 | `Relation` | Référence vers un enregistrement d'un autre espace (affichage personnalisable via `reprFormula`) |
 
 ### Champ calculé (colonne calculée)
@@ -208,6 +209,44 @@ données. Retourne `{}` si l'espace n'existe pas.
 
 Les champs peuvent être réordonnés par glisser-déposer (::) dans le panel Champs.
 
+### Représentation personnalisée des relations (`reprFormula`)
+
+Pour les champs de type `Relation`, `reprFormula` permet de contrôler comment la relation
+est affichée dans l'interface (grille, formulaires, etc.). La formule reçoit l'enregistrement
+lié en paramètre (`self`) et doit retourner une chaîne de caractères.
+
+**Exemple :** Pour un champ `auteur_id` qui pointe vers l'espace `auteurs` :
+
+```moonscript
+# Afficher "Nom Prénom" au lieu de l'UUID
+"#{@nom} #{@prenom}"
+```
+
+```lua
+-- Version Lua équivalente
+return self.nom .. " " .. self.prenom
+```
+
+### Conversion de type de champ
+
+La mutation `changeFieldType` permet de convertir un champ d'un type vers un autre,
+avec une formule de conversion optionnelle pour transformer les données existantes.
+
+**Exemple :** Convertir un champ `String` en `Int` :
+
+```graphql
+mutation {
+  changeFieldType(fieldId: "...", input: {
+    fieldType: Int,
+    conversionFormula: "tonumber(self.amount)",
+    language: "lua"
+  }) { id name fieldType }
+}
+```
+
+Si `conversionFormula` est omise, les valeurs sont converties automatiquement quand
+c'est possible, ou mises à `null` sinon.
+
 ### API GraphQL
 
 ```graphql
@@ -255,6 +294,15 @@ mutation {
     spaceId: "...",
     fieldIds: ["id1", "id2", "id3"]
   ) { id position }
+}
+
+# Changer le type d'un champ
+mutation {
+  changeFieldType(fieldId: "...", input: {
+    fieldType: Int,
+    conversionFormula: "tonumber(self.amount)",
+    language: "lua"
+  }) { id name fieldType }
 }
 ```
 
