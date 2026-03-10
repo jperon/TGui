@@ -89,21 +89,11 @@ window.App =
     triggerFieldsRow:  -> document.getElementById 'trigger-fields-row'
     fieldAddBtn:       -> document.getElementById 'field-add-btn'
     fieldCancelBtn:    -> document.getElementById 'field-cancel-btn'
-    fieldChangeTypeBtn: -> document.getElementById 'field-change-type-btn'
     fieldReprFormula:  -> document.getElementById 'field-repr-formula'
     relTargetRow:      -> document.getElementById 'rel-target-row'
     relToSpace:        -> document.getElementById 'rel-to-space'
     relReprRow:        -> document.getElementById 'rel-repr-row'
     relReprFormula:    -> document.getElementById 'rel-repr-formula'
-    # Change type dialog
-    changeTypeDialog:       -> document.getElementById 'change-type-dialog'
-    changeTypeFieldName:    -> document.getElementById 'change-type-field-name'
-    changeTypeSelect:       -> document.getElementById 'change-type-select'
-    changeTypeLang:         -> document.getElementById 'change-type-lang'
-    changeTypeFormula:      -> document.getElementById 'change-type-formula'
-    changeTypeError:        -> document.getElementById 'change-type-error'
-    changeTypeConfirmBtn:   -> document.getElementById 'change-type-confirm-btn'
-    changeTypeCancelBtn:    -> document.getElementById 'change-type-cancel-btn'
     yamlEditorPanel:   -> document.getElementById 'yaml-editor-panel'
     yamlViewName:      -> document.getElementById 'yaml-view-name'
     yamlEditBtn:       -> document.getElementById 'yaml-edit-btn'
@@ -641,7 +631,7 @@ window.App =
     # Tri alphabétique insensible à la casse
     sortedSpaces = [spaces...].sort (a, b) ->
       a.name.toLowerCase().localeCompare b.name.toLowerCase()
-      
+
     for sp in sortedSpaces
       li = document.createElement 'li'
       li.textContent = sp.name
@@ -717,7 +707,7 @@ window.App =
   renderCustomViewList: (views) ->
     ul = @el.customViewList()
     ul.innerHTML = ''
-    
+
     # 1. Grouper en arbre
     tree = { items: [], folders: {} }
     for cv in (views or [])
@@ -737,10 +727,10 @@ window.App =
       for fName in folderNames
         fNode = node.folders[fName]
         fullPath = if pathStr then "#{pathStr}/#{fName}" else fName
-        
+
         folderLi = document.createElement 'li'
         folderLi.className = 'folder-item'
-        
+
         # Header du dossier
         header = document.createElement 'div'
         header.className = 'folder-header'
@@ -750,22 +740,22 @@ window.App =
         header.appendChild icon
         header.appendChild document.createTextNode(" #{fName}")
         folderLi.appendChild header
-        
+
         # Liste déroulante
         subUl = document.createElement 'ul'
         subUl.className = 'folder-children'
         folderLi.appendChild subUl
-        
+
         # État du dossier dans le localStorage
         lsKey = "tdb_folder_view_#{fullPath}"
         if localStorage.getItem(lsKey) == 'true'
           folderLi.classList.add 'collapsed'
-          
+
         header.addEventListener 'click', (e) ->
           e.stopPropagation()
           isCollapsed = folderLi.classList.toggle 'collapsed'
           localStorage.setItem lsKey, if isCollapsed then 'true' else 'false'
-          
+
         renderTree fNode, subUl, fullPath
         containerEl.appendChild folderLi
 
@@ -1026,45 +1016,6 @@ window.App =
     @el.fieldCancelBtn().addEventListener 'click', =>
       @_resetFieldForm()
 
-    # Change field type button
-    @el.fieldChangeTypeBtn().addEventListener 'click', =>
-      return unless @_editingFieldId
-      field = (@_currentSpace?.fields or []).find (f) => f.id == @_editingFieldId
-      return unless field
-      @el.changeTypeFieldName().textContent = "Champ : #{field.name} (type actuel : #{field.fieldType})"
-      @el.changeTypeSelect().value = field.fieldType
-      @el.changeTypeFormula().value = ''
-      @el.changeTypeLang().value = 'lua'
-      err = @el.changeTypeError()
-      err.textContent = ''
-      err.classList.add 'hidden'
-      @el.changeTypeDialog().classList.remove 'hidden'
-
-    @el.changeTypeCancelBtn().addEventListener 'click', =>
-      @el.changeTypeDialog().classList.add 'hidden'
-
-    @el.changeTypeConfirmBtn().addEventListener 'click', =>
-      return unless @_editingFieldId
-      newType   = @el.changeTypeSelect().value
-      formula   = @el.changeTypeFormula().value.trim() or null
-      lang      = @el.changeTypeLang().value
-      errEl     = @el.changeTypeError()
-      errEl.classList.add 'hidden'
-      Spaces.changeFieldType(@_editingFieldId, newType, formula, lang)
-        .then =>
-          @el.changeTypeDialog().classList.add 'hidden'
-          Spaces.getWithFields(@_currentSpace.id).then (full) =>
-            @_currentSpace = full
-            @_syncSpaceFields full
-            @renderFieldsList()
-            @_mountDataView full
-            # Update the type selector in edit form to reflect change
-            field = (full.fields or []).find (f) => f.id == @_editingFieldId
-            if field
-              @el.fieldType().value = field.fieldType
-        .catch (err) =>
-          errEl.textContent = @_err err
-          errEl.classList.remove 'hidden'
 
     @el.fieldAddBtn().addEventListener 'click', =>
       return unless @_currentSpace
@@ -1080,40 +1031,32 @@ window.App =
       @el.fieldName().placeholder = @_t('ui.fields.namePlaceholder')
 
       if @_editingFieldId
-        # ── Update existing field ──────────────────────────────────────────
+        # ── Update existing field (including type change) ────────────────────────
+        originalField = (@_currentSpace?.fields or []).find (f) => f.id == @_editingFieldId
+        originalType = originalField?.fieldType
+
         formulaType = document.querySelector('input[name="formula-type"]:checked').value
         opts = { name, notNull }
-        if formulaType != 'none'
-          opts.formula  = @el.fieldFormula().value.trim() or null
-          opts.language = @el.formulaLanguage()?.value or 'lua'
-          if formulaType == 'trigger' and opts.formula
-            raw = @el.fieldTriggerFields().value.trim()
-            if raw == '*'
-              opts.triggerFields = ['*']
-            else if raw == ''
-              opts.triggerFields = []
-            else
-              opts.triggerFields = (s.trim() for s in raw.split(',') when s.trim())
+
+        # Handle type change
+        if type != originalType
+          # Type is changing - use the changeFieldType API
+          conversionFormula = null
+          conversionLang = 'lua'
+
+          # If changing to/from formula types, preserve existing formula
+          if formulaType != 'none'
+            conversionFormula = @el.fieldFormula().value.trim() or null
+            conversionLang = @el.formulaLanguage()?.value or 'lua'
+
+          Spaces.changeFieldType(@_editingFieldId, type, conversionFormula, conversionLang)
+            .then =>
+              # After type change, update other field properties
+              @updateFieldProperties(@_editingFieldId, opts, formulaType)
+            .catch (err) => tdbAlert @_err(err), 'error'
         else
-          opts.formula       = ''
-          opts.triggerFields = null
-          opts.language      = 'lua'
-        opts.reprFormula = @el.fieldReprFormula()?.value.trim() or ''
-        editRelation = @_editingRelation
-        relReprFormula  = @el.relReprFormula().value.trim()
-        updatePromise = Spaces.updateField(@_editingFieldId, opts)
-        if editRelation
-          updatePromise = updatePromise.then =>
-            Spaces.updateRelation(editRelation.id, relReprFormula)
-        updatePromise
-          .then =>
-            Spaces.getWithFields(@_currentSpace.id).then (full) =>
-              @_currentSpace = full
-              @_syncSpaceFields full
-              @renderFieldsList()
-              @_mountDataView full
-          .catch (err) => tdbAlert @_err(err), 'error'
-        @_resetFieldForm()
+          # Same type - just update properties
+          @updateFieldProperties(@_editingFieldId, opts, formulaType)
 
       else if type == 'Relation'
         # ── Create relation field ──────────────────────────────────────────
@@ -1189,6 +1132,7 @@ window.App =
     @_editingRelation = null
     @el.fieldName().value = ''
     @el.fieldType().value = 'String'
+    @el.fieldType().disabled = false  # Always enable type selector
     @el.fieldNotNull().checked = false
     @el.fieldFormula().value = ''
     @el.fieldTriggerFields().value = ''
@@ -1206,7 +1150,41 @@ window.App =
     @el.formulaModal().classList.add 'hidden'
     @el.fieldAddBtn().textContent = @_t('ui.fields.add')
     @el.fieldCancelBtn().classList.add 'hidden'
-    @el.fieldChangeTypeBtn().classList.add 'hidden'
+
+  updateFieldProperties: (fieldId, opts, formulaType) ->
+    # Update formula-related properties
+    if formulaType != 'none'
+      opts.formula  = @el.fieldFormula().value.trim() or null
+      opts.language = @el.formulaLanguage()?.value or 'lua'
+      if formulaType == 'trigger' and opts.formula
+        raw = @el.fieldTriggerFields().value.trim()
+        if raw == '*'
+          opts.triggerFields = ['*']
+        else if raw == ''
+          opts.triggerFields = []
+        else
+          opts.triggerFields = (s.trim() for s in raw.split(',') when s.trim())
+    else
+      opts.formula       = ''
+      opts.triggerFields = null
+      opts.language      = 'lua'
+    opts.reprFormula = @el.fieldReprFormula()?.value.trim() or ''
+
+    editRelation = @_editingRelation
+    relReprFormula  = @el.relReprFormula().value.trim()
+    updatePromise = Spaces.updateField(fieldId, opts)
+    if editRelation
+      updatePromise = updatePromise.then =>
+        Spaces.updateRelation(editRelation.id, relReprFormula)
+    updatePromise
+      .then =>
+        Spaces.getWithFields(@_currentSpace.id).then (full) =>
+          @_currentSpace = full
+          @_syncSpaceFields full
+          @renderFieldsList()
+          @_mountDataView full
+          @_resetFieldForm()
+      .catch (err) => tdbAlert @_err(err), 'error'
 
   renderFieldsList: ->
     return unless @_currentSpace
@@ -1290,13 +1268,13 @@ window.App =
             @_editingRelation = relation or null
             @el.fieldAddBtn().textContent = @_t('ui.fields.update')
             @el.fieldCancelBtn().classList.remove 'hidden'
-            @el.fieldChangeTypeBtn().classList.remove 'hidden'
+            # Ensure type selector is enabled for direct editing
+            @el.fieldType().disabled = false
             @el.fieldName().value = field.name
             if relation
               # Editing a relation field: show Cible and repr formula
               @el.fieldType().value = 'Relation'
               @_onFieldTypeChange()
-              @el.relToSpace().value = relation.toSpaceId
               @el.relReprFormula().value = relation.reprFormula or ''
               @el.fieldReprFormula().value = '' if @el.fieldReprFormula()
             else
