@@ -246,7 +246,7 @@ generate = ->
             (obj, a, ctx) ->
               -- Prefer raw stored value if it's a trigger formula that was saved
               raw_val = obj[raw_name_cap]
-              return raw_val if raw_val != nil
+              return raw_val if raw_val != nil and raw_val != ''
               -- Reuse a per-request FK cache stored in ctx to avoid rescanning
               -- FK target tables for every record in a batch query.
               ctx._fk_cache = ctx._fk_cache or {}

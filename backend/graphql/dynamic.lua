@@ -367,7 +367,7 @@ generate = function()
           tr[gql_name(f.name)] = (function(fn_cap, fk_nm_cap, raw_name_cap, sp_name_cap)
             return function(obj, a, ctx)
               local raw_val = obj[raw_name_cap]
-              if raw_val ~= nil then
+              if raw_val ~= nil and raw_val ~= '' then
                 return raw_val
               end
               ctx._fk_cache = ctx._fk_cache or { }
