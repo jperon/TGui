@@ -14,6 +14,11 @@ local system = require('core.spaces')
 system.bootstrap()
 system.migrate()
 
+-- Load demo data for test environment
+if os.getenv("TGUI_TEST_ENV") == "true" then
+    require('fixtures').setup_demo_data()
+end
+
 -- Build and initialize the GraphQL schema with all resolvers
 local resolvers = require('resolvers')
 resolvers.init()
