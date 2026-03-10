@@ -621,6 +621,33 @@ create_user_space = function(name, description)
     updatedAt = now
   }
 end
+local get_max_field_value
+get_max_field_value = function(space_id, field_name)
+  local space_meta = box.space._tdb_spaces:get(space_id)
+  if not (space_meta) then
+    return 0
+  end
+  local data_sp = box.space["data_" .. tostring(space_meta[2])]
+  if not (data_sp) then
+    return 0
+  end
+  local max_val = 0
+  local _list_0 = data_sp:select({ })
+  for _index_0 = 1, #_list_0 do
+    local t = _list_0[_index_0]
+    local d
+    if type(t[2]) == 'string' then
+      d = require('json').decode(t[2])
+    else
+      d = t[2]
+    end
+    local val = d[field_name]
+    if type(val) == 'number' and val > max_val then
+      max_val = val
+    end
+  end
+  return max_val
+end
 local add_field
 add_field = function(space_id, field_name, field_type, not_null, description, formula, trigger_fields, language, repr_formula)
   local uuid = require('uuid')
@@ -668,8 +695,10 @@ add_field = function(space_id, field_name, field_type, not_null, description, fo
   end
   box.space._tdb_fields:insert(tuple)
   if field_type == 'Sequence' then
+    local max_val = get_max_field_value(space_id, field_name)
+    local start_val = max_val + 1
     box.schema.sequence.create("_tdb_seq_" .. tostring(fid), {
-      start = 1,
+      start = start_val,
       min = 1,
       step = 1,
       if_not_exists = true
@@ -688,7 +717,9 @@ add_field = function(space_id, field_name, field_type, not_null, description, fo
           else
             d = t[2]
           end
-          d[field_name] = seq:next()
+          if d[field_name] == nil or type(d[field_name]) ~= 'number' then
+            d[field_name] = seq:next()
+          end
           data_sp:replace({
             t[1],
             require('json').encode(d)
@@ -1011,6 +1042,40 @@ change_field_type = function(field_id, new_type, conversion_formula, language)
           raw_t[1],
           json.encode(d)
         })
+      end
+    end
+  end
+  if new_type == 'Sequence' then
+    local max_val = get_max_field_value(space_id, field_name)
+    local start_val = max_val + 1
+    local seq_name = "_tdb_seq_" .. tostring(field_id)
+    box.schema.sequence.create(seq_name, {
+      start = start_val,
+      min = 1,
+      step = 1,
+      if_not_exists = true
+    })
+    local seq = box.sequence[seq_name]
+    if seq then
+      local data_sp = box.space["data_" .. tostring(space_name)]
+      if data_sp then
+        local _list_0 = data_sp:select({ })
+        for _index_0 = 1, #_list_0 do
+          local raw_t = _list_0[_index_0]
+          local d
+          if type(raw_t[2]) == 'string' then
+            d = json.decode(raw_t[2])
+          else
+            d = raw_t[2]
+          end
+          if d[field_name] == nil or type(d[field_name]) ~= 'number' then
+            d[field_name] = seq:next()
+          end
+          data_sp:replace({
+            raw_t[1],
+            json.encode(d)
+          })
+        end
       end
     end
   end

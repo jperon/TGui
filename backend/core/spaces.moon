@@ -244,6 +244,23 @@ create_user_space = (name, description) ->
   { id: sid, name: name, description: description or '', createdAt: now, updatedAt: now }
 
 -- Add a field definition to a space.
+-- Get maximum value for a field in a space (for sequence initialization)
+get_max_field_value = (space_id, field_name) ->
+  space_meta = box.space._tdb_spaces\get space_id
+  return 0 unless space_meta
+
+  data_sp = box.space["data_#{space_meta[2]}"]
+  return 0 unless data_sp
+
+  max_val = 0
+  for t in *data_sp\select {}
+    d = if type(t[2]) == 'string' then require('json').decode(t[2]) else t[2]
+    val = d[field_name]
+    if type(val) == 'number' and val > max_val
+      max_val = val
+
+  max_val
+
 add_field = (space_id, field_name, field_type, not_null, description, formula, trigger_fields, language, repr_formula) ->
   uuid = require 'uuid'
   json = require 'json'
@@ -281,7 +298,11 @@ add_field = (space_id, field_name, field_type, not_null, description, formula, t
   box.space._tdb_fields\insert tuple
   -- Create a Tarantool sequence for auto-increment fields and backfill existing records
   if field_type == 'Sequence'
-    box.schema.sequence.create "_tdb_seq_#{fid}", { start: 1, min: 1, step: 1, if_not_exists: true }
+    -- Get max existing value to preserve existing IDs
+    max_val = get_max_field_value(space_id, field_name)
+    start_val = max_val + 1
+
+    box.schema.sequence.create "_tdb_seq_#{fid}", { start: start_val, min: 1, step: 1, if_not_exists: true }
     seq = box.sequence["_tdb_seq_#{fid}"]
     space_meta = box.space._tdb_spaces\get space_id
     if space_meta and seq
@@ -289,7 +310,9 @@ add_field = (space_id, field_name, field_type, not_null, description, formula, t
       if data_sp
         for t in *data_sp\select {}
           d = if type(t[2]) == 'string' then require('json').decode(t[2]) else t[2]
-          d[field_name] = seq\next!
+          -- Only backfill if the field is nil or not a number
+          if d[field_name] == nil or type(d[field_name]) != 'number'
+            d[field_name] = seq\next!
           data_sp\replace { t[1], require('json').encode(d) }
   {
     id: fid, spaceId: space_id, name: field_name, fieldType: field_type,
@@ -473,6 +496,28 @@ change_field_type = (field_id, new_type, conversion_formula, language) ->
         if ok_r
           d[field_name] = new_val
         data_sp\replace { raw_t[1], json.encode(d) }
+
+  -- Special handling for Sequence type conversion
+  if new_type == 'Sequence'
+    -- Get max existing value to preserve existing IDs
+    max_val = get_max_field_value(space_id, field_name)
+    start_val = max_val + 1
+
+    -- Create the sequence with proper start value
+    seq_name = "_tdb_seq_#{field_id}"
+    box.schema.sequence.create seq_name, { start: start_val, min: 1, step: 1, if_not_exists: true }
+    seq = box.sequence[seq_name]
+
+    -- Backfill only records without valid numeric values
+    if seq
+      data_sp = box.space["data_#{space_name}"]
+      if data_sp
+        for raw_t in *data_sp\select {}
+          d = if type(raw_t[2]) == 'string' then json.decode(raw_t[2]) else raw_t[2]
+          -- Only backfill if the field is nil or not a number
+          if d[field_name] == nil or type(d[field_name]) != 'number'
+            d[field_name] = seq\next!
+          data_sp\replace { raw_t[1], json.encode(d) }
 
   -- Update field type in metadata (preserve all other columns)
   -- Build updated tuple: replace t[4] (field_type) with new_type
