@@ -18,10 +18,11 @@ SOCKET   := /run/tarantool/sys_env/default/instance-001/tarantool.control
 TESTFILE := /tmp/.tgui_test_runner.lua
 
 test: build
-	@printf "package.path='/app/?.lua;/app/backend/?.lua;'..package.path\nfor k,_ in pairs(package.loaded) do if k:match('^tests') or k:match('^resolvers') then package.loaded[k]=nil end end\nrequire('tests.run')\n" > $(TESTFILE)
+	@printf "package.path='/app/?.lua;/app/backend/?.lua;'..package.path\nfor k,_ in pairs(package.loaded) do if k:match('^tests') or k:match('^resolvers') then package.loaded[k]=nil end end\nrequire('resolvers.init').reinit()\nrequire('tests.run')\n" > $(TESTFILE)
 	@nlines=$$(docker logs tgui-tarantool-test 2>&1 | wc -l); \
+	sleep 5; \
 	docker exec -i tgui-tarantool-test tt connect $(SOCKET) -f - < $(TESTFILE) 2>&1; \
-	sleep 8; \
+	sleep 16; \
 	new_output=$$(docker logs tgui-tarantool-test 2>&1 | tail -n +$$((nlines + 1))); \
 	echo "$$new_output" | grep -E 'assertions|RÉSULTAT'; \
 	if echo "$$new_output" | grep -q "RÉSULTAT: SUCCÈS"; then exit 0; fi; \

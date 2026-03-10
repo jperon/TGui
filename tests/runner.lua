@@ -14,14 +14,28 @@ fmt = function(v)
     return string.format('%q', v)
   elseif t == 'nil' then
     return 'nil'
-  elseif t == 'table' then
-    local pairs_str = { }
-    for k, val in pairs(v) do
-      table.insert(pairs_str, tostring(tostring(k)) .. "=" .. tostring(fmt(val)))
-    end
-    return "{" .. tostring(table.concat(pairs_str, ', ')) .. "}"
-  else
+  elseif t == 'boolean' then
     return tostring(v)
+  elseif t == 'number' then
+    return tostring(v)
+  elseif t == 'function' then
+    return 'function()'
+  elseif t == 'table' then
+    if #v > 0 then
+      local items = { }
+      for i, val in ipairs(v) do
+        table.insert(items, fmt(val))
+      end
+      return "[" .. tostring(table.concat(items, ', ')) .. "]"
+    else
+      local pairs_str = { }
+      for k, val in pairs(v) do
+        table.insert(pairs_str, tostring(tostring(k)) .. "=" .. tostring(fmt(val)))
+      end
+      return "{" .. tostring(table.concat(pairs_str, ', ')) .. "}"
+    end
+  else
+    return "<" .. tostring(t) .. ">" .. tostring(tostring(v))
   end
 end
 local loc
@@ -37,7 +51,19 @@ end
 local _fail
 _fail = function(msg, depth)
   _state.failed = _state.failed + 1
-  return print("  ✗ [" .. tostring(loc((depth or 3) + 1)) .. "] " .. tostring(msg))
+  local location = loc((depth or 3) + 1)
+  print("  ✗ [" .. tostring(location) .. "] " .. tostring(msg))
+  print("    Trace d'appel :")
+  local level = (depth or 3) + 2
+  while true do
+    local info = debug.getinfo(level, 'Sl')
+    if not info or info.currentline <= 0 then
+      break
+    end
+    local src = info.short_src:gsub('.+/', '')
+    print("      " .. tostring(src) .. ":" .. tostring(info.currentline))
+    level = level + 1
+  end
 end
 local _pass
 _pass = function()
@@ -134,8 +160,20 @@ it = function(desc, fn)
   local success, err = pcall(fn)
   if not success then
     _state.errors = _state.errors + 1
+    local location = loc(2)
     print("  ✗ ERREUR " .. tostring(desc))
-    return print("    " .. tostring(err))
+    print("    [" .. tostring(location) .. "] " .. tostring(err))
+    print("    Trace complète :")
+    local level = 3
+    while true do
+      local info = debug.getinfo(level, 'Sl')
+      if not info or info.currentline <= 0 then
+        break
+      end
+      local src = info.short_src:gsub('.+/', '')
+      print("      " .. tostring(src) .. ":" .. tostring(info.currentline))
+      level = level + 1
+    end
   elseif _state.failed + _state.errors == before then
     return print("  ✓ " .. tostring(desc))
   end

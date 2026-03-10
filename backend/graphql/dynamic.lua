@@ -255,6 +255,7 @@ generate = function()
           end
           items = _accum_0
         end
+        log.info("tdb dynamic: for " .. tostring(tname) .. ", returning " .. tostring(#items) .. " items, total: " .. tostring(total) .. ", offset: " .. tostring(offset) .. ", limit: " .. tostring(limit))
         return {
           items = items,
           total = total,

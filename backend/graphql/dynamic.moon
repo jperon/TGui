@@ -158,7 +158,8 @@ generate = ->
         all    = apply_filter all, args.filter, fk_def_map, ctx._fk_cache, sp_cap.name
         total  = #all
         items  = [all[i] for i = offset + 1, math.min(offset + limit, total)]
-        { items: items, total: total, offset: offset, limit: limit }
+        log.info "tdb dynamic: for #{tname}, returning #{#items} items, total: #{total}, offset: #{offset}, limit: #{limit}"
+        { :items, :total, :offset, :limit }
     )(sp, tname, fk_sp, backrefs)
 
     -- Type resolvers for this space's _record type
@@ -178,7 +179,7 @@ generate = ->
             if to_fn_cap == '_id'
               t = tb\get tostring(raw)
               return t and decode_tuple(t)
-            
+
             -- Otherwise, we must scan the space to find the record where d[to_fn_cap] == raw
             -- This is slow but necessary for non-indexed fields (like 'id' sequence)
             for t in *tb\select {}
@@ -201,17 +202,17 @@ generate = ->
           tb = box.space["data_#{from_sp_name_cap}"]
           unless tb
             return { items: {}, total: 0, offset: 0, limit: 0 }
-          
+
           limit  = (args and args.limit)  or 100
           offset = (args and args.offset) or 0
-          
+
           -- Find all matching records
           all = {}
           for t in *tb\select {}
             d = decode_tuple t
             if from_fn_cap and tostring(d[from_fn_cap]) == filter_val
               table.insert all, d
-          
+
           -- Apply additional filters if provided
           if args and args.filter
             ok_fk, fk_def_map = pcall triggers.build_fk_def_map, from_sp_id_cap
@@ -259,13 +260,13 @@ generate = ->
                 return {} unless sp_box
                 [decode_tuple t for t in *sp_box\select {}]
               r_ok, val = pcall fn_cap, proxy, space_helper
-              if r_ok 
+              if r_ok
                 return val
               else
                 log.error "tdb proxy: error evaluating formula for '#{sp_name_cap}.#{f.name}': #{val}"
                 return triggers.format_formula_error val
           )(formula_fn, fk_name_map, f.name, sp.name)
-      
+
       -- Add reprFormula resolvers
       if f.reprFormula and f.reprFormula != ''
         repr_fn = triggers.compile_formula f.reprFormula, "repr_#{f.name}", (f.language or 'lua')
