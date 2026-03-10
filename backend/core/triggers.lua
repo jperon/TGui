@@ -1,6 +1,11 @@
 local json = require('json')
 local log = require('log')
 local spaces_mod = require('core.spaces')
+local safe_call, safe_formula_call
+do
+  local _obj_0 = require('core.config')
+  safe_call, safe_formula_call = _obj_0.safe_call, _obj_0.safe_formula_call
+end
 local DEBUG_FK_PROXY = false
 local active_triggers = { }
 local FORMULA_ENV = {
@@ -56,7 +61,7 @@ compile_formula = function(formula, field_name, language)
   if not (ok_env) then
     log.warn("tdb triggers: setfenv not available, formula '" .. tostring(field_name) .. "' runs unsandboxed")
   end
-  local ok2, fn = pcall(chunk_fn)
+  local ok2, fn = safe_formula_call(chunk_fn, "formula compilation for '" .. tostring(field_name) .. "'", nil)
   if not ok2 or type(fn) ~= 'function' then
     log.error("tdb triggers: init error for field '" .. tostring(field_name) .. "': " .. tostring(fn))
     return nil
@@ -191,16 +196,10 @@ make_self_proxy = function(record, fk_def_map, fk_cache, space_name)
       }
       local tb = box.space["data_" .. tostring(s_name)]
       if tb then
-        if DEBUG_FK_PROXY then
-          print("DEBUG ensure_space: loading " .. tostring(#tb) .. " records from " .. tostring(s_name))
-        end
         local _list_0 = tb:select({ })
         for _index_0 = 1, #_list_0 do
           local tup = _list_0[_index_0]
           local d = decode_tuple(tup)
-          if DEBUG_FK_PROXY then
-            print("DEBUG ensure_space: record _id=" .. tostring(d._id) .. ", " .. tostring(to_field_name) .. "=" .. tostring(tostring(d[to_field_name])))
-          end
           sc.records[d._id] = d
         end
       end
@@ -208,90 +207,86 @@ make_self_proxy = function(record, fk_def_map, fk_cache, space_name)
     end
     if not (sc.by_field['_id']) then
       local idx = { }
-      if DEBUG_FK_PROXY then
-        print("DEBUG ensure_space: building index for _id")
-      end
       for _, d in pairs(sc.records) do
         if d._id ~= nil then
           local key = tostring(d._id)
-          if DEBUG_FK_PROXY then
-            print("DEBUG ensure_space: indexing _id key='" .. tostring(key) .. "'")
-          end
           idx[key] = d
         end
       end
       sc.by_field['_id'] = idx
-      if DEBUG_FK_PROXY then
-        print("DEBUG ensure_space: _id index built with " .. tostring(#idx) .. " keys")
-      end
     end
     if to_field_name ~= '_id' and not sc.by_field[to_field_name] then
       local idx = { }
-      if DEBUG_FK_PROXY then
-        print("DEBUG ensure_space: building index for " .. tostring(to_field_name))
-      end
       for _, d in pairs(sc.records) do
         if d[to_field_name] ~= nil then
           local key = tostring(d[to_field_name])
-          if DEBUG_FK_PROXY then
-            print("DEBUG ensure_space: indexing key='" .. tostring(key) .. "' for _id=" .. tostring(d._id))
-          end
           idx[key] = d
         end
       end
       sc.by_field[to_field_name] = idx
-      if DEBUG_FK_PROXY then
-        if next(idx) == nil then
-          print("WARNING: No records indexed for field '" .. tostring(to_field_name) .. "' in space '" .. tostring(s_name) .. "'")
-        end
-        print("DEBUG ensure_space: index built with " .. tostring(next(idx) and #idx or '0') .. " keys")
-      end
     end
     return sc
   end
   local ensure_fk_def_map
-  ensure_fk_def_map = function(s_name)
-    if not (fk_cache.fk_def_maps[s_name]) then
-      local target_sp_meta = box.space._tdb_spaces.index.by_name:get({
-        s_name
-      })
-      if target_sp_meta then
-        fk_cache.fk_def_maps[s_name] = build_fk_def_map(target_sp_meta[1])
-      else
-        fk_cache.fk_def_maps[s_name] = { }
+  ensure_fk_def_map = function(space_id)
+    if fk_cache.fk_def_maps[space_id] then
+      return fk_cache.fk_def_maps[space_id]
+    end
+    local rels = { }
+    local _list_0 = box.space._tdb_relations:select({ })
+    for _index_0 = 1, #_list_0 do
+      local t = _list_0[_index_0]
+      if t[2] == space_id then
+        rels[t[3]] = {
+          toSpaceId = t[4],
+          toFieldId = t[5]
+        }
       end
     end
-    return fk_cache.fk_def_maps[s_name]
-  end
-  local ensure_formulas
-  ensure_formulas = function(s_name)
-    if not (fk_cache.formulas[s_name]) then
-      local fns = { }
-      local sp_meta = box.space._tdb_spaces.index.by_name:get({
-        s_name
-      })
-      if sp_meta then
-        local _list_0 = box.space._tdb_fields.index.by_space:select({
-          sp_meta[1]
-        })
-        for _index_0 = 1, #_list_0 do
-          local t = _list_0[_index_0]
-          local formula = t[8]
-          local language = t[10] or 'lua'
-          if formula and formula ~= '' then
-            local fn = compile_formula(formula, t[3], language)
-            if fn then
-              fns[t[3]] = fn
-            end
-          end
-        end
-      end
-      fk_cache.formulas[s_name] = fns
+    fk_def_map = { }
+    local space_by_id = { }
+    local _list_1 = box.space._tdb_spaces:select({ })
+    for _index_0 = 1, #_list_1 do
+      local t = _list_1[_index_0]
+      space_by_id[t[1]] = {
+        name = t[2]
+      }
     end
-    return fk_cache.formulas[s_name]
+    local field_by_id = { }
+    local _list_2 = box.space._tdb_fields.index.by_space:select({
+      space_id
+    })
+    for _index_0 = 1, #_list_2 do
+      local t = _list_2[_index_0]
+      field_by_id[t[1]] = {
+        name = t[3]
+      }
+    end
+    for _, rel in pairs(rels) do
+      local _list_3 = box.space._tdb_fields.index.by_space:select({
+        rel.toSpaceId
+      })
+      for _index_0 = 1, #_list_3 do
+        local t = _list_3[_index_0]
+        field_by_id[t[1]] = {
+          name = t[3]
+        }
+      end
+    end
+    for field_name, rel in pairs(rels) do
+      local to_space = space_by_id[rel.toSpaceId]
+      local to_field = field_by_id[rel.toFieldId]
+      if to_space and to_field then
+        fk_def_map[field_name] = {
+          toSpaceName = to_space.name,
+          toFieldName = to_field.name
+        }
+      end
+    end
+    fk_cache.fk_def_maps[space_id] = fk_def_map
+    return fk_def_map
   end
-  local proxy = { }
-  setmetatable(proxy, {
+  local proxy = setmetatable({ }, {
     __index = function(t, k)
       local cached = rawget(t, k)
       if cached ~= nil then
@@ -302,7 +297,9 @@ make_self_proxy = function(record, fk_def_map, fk_cache, space_name)
         local fns = ensure_formulas(space_name)
         if fns[k] then
           fk_cache.space_helper = fk_cache.space_helper or make_space_helper()
-          local r_ok, val = pcall(fns[k], t, fk_cache.space_helper)
+          local r_ok, val = safe_formula_call((function()
+            return fns[k](t, fk_cache.space_helper)
+          end), "formula evaluation for '" .. tostring(space_name) .. "." .. tostring(k) .. "'", nil, t._id)
           if r_ok and val ~= nil and val ~= '' then
             v = val
             rawset(t, k, v)
@@ -322,28 +319,6 @@ make_self_proxy = function(record, fk_def_map, fk_cache, space_name)
       if fk then
         local sc = ensure_space(fk.toSpaceName, '_id')
         local d = sc.by_field['_id'] and sc.by_field['_id'][tostring(v)]
-        if DEBUG_FK_PROXY or not d then
-          print("DEBUG FK lookup:")
-          print("  - space: " .. tostring(fk.toSpaceName))
-          print("  - toField: " .. tostring(fk.toFieldName))
-          print("  - searching for value: " .. tostring(tostring(v)))
-          print("  - found: " .. tostring(tostring(d)))
-          if sc.by_field['_id'] then
-            local keys
-            do
-              local _accum_0 = { }
-              local _len_0 = 1
-              for key, _ in pairs(sc.by_field['_id']) do
-                _accum_0[_len_0] = key
-                _len_0 = _len_0 + 1
-              end
-              keys = _accum_0
-            end
-            print("  - available _id keys: " .. tostring(table.concat(keys, ', ')))
-          else
-            print("  - no _id index built")
-          end
-        end
         if d then
           local nested_fk_map = ensure_fk_def_map(fk.toSpaceName)
           local nested = make_self_proxy(d, nested_fk_map, fk_cache, fk.toSpaceName)

@@ -4,8 +4,7 @@
 digest   = require 'digest'
 uuid_mod = require 'uuid'
 log      = require 'log'
-
-SESSION_TTL = 24 * 3600  -- 24 hours in seconds
+{ :SESSION_TTL, :TOKEN_LENGTH } = require 'core.config'
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- Password hashing (SHA-256 + random salt, hex encoded)
@@ -47,7 +46,7 @@ get_user_by_id = (id) ->
 -- ────────────────────────────────────────────────────────────────────────────
 
 gen_token = ->
-  digest.base64_encode (digest.urandom 32), { nowrap: true }
+  digest.base64_encode (digest.urandom TOKEN_LENGTH), { nowrap: true }
 
 create_session = (user_id) ->
   now     = os.time!

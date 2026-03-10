@@ -5,7 +5,8 @@ json      = require 'json'
 log       = require 'log'
 uuid_mod  = require 'uuid'
 spaces_mod = require 'core.spaces'
-{ :require_auth } = require 'resolvers.utils'
+{ :require_auth, :safe_call } = require 'resolvers.utils'
+config_mod = require 'core.config'
 
 -- Retrieve the Tarantool space for user data
 data_space = (space_id) ->
@@ -29,7 +30,7 @@ matches_filter = (self_val, flt) ->
   return true unless flt
   ok = if flt.formula and flt.formula != ''
     if type(flt._formula_fn) == 'function'
-      r_ok, r_val = pcall flt._formula_fn, self_val
+      r_ok, r_val = config_mod.safe_formula_call (-> flt._formula_fn self_val), "filter formula evaluation"
       r_ok and r_val and r_val != false
     else false  -- formula failed to compile or not yet cached
   else if flt.field
@@ -127,7 +128,7 @@ Mutation =
     sp, meta = data_space args.spaceId
     seq_fields = sequence_fields args.spaceId
     triggers_mod = require 'core.triggers'
-    
+
     results = {}
     box.atomic ->
       for d in *args.data
@@ -145,7 +146,7 @@ Mutation =
     require_auth ctx
     sp, meta = data_space args.spaceId
     seq_fields = sequence_fields args.spaceId
-    
+
     results = {}
     box.atomic ->
       for rec in *args.records
@@ -154,17 +155,17 @@ Mutation =
         unless existing
           log.error "Record not found: #{id}"
           continue
-        
+
         ok_d, old_data = pcall json.decode, existing[2]
         unless ok_d
           log.error "Corrupted record data for #{id}: #{old_data}"
           continue
-          
+
         new_data = if type(rec.data) == 'string' then json.decode(rec.data) else rec.data
         -- Skip Sequence fields (immutable)
         for k, v in pairs new_data
           old_data[k] = v unless seq_fields[k]
-        
+
         sp\replace { id, json.encode old_data }
         table.insert results, { id: id, spaceId: args.spaceId, data: json.encode(old_data) }
     results
@@ -179,14 +180,14 @@ Query =
     -- Build FK map once for this space (used by both reprFormula and filter formulas)
     ok_fk, fk_def_map = pcall triggers_mod.build_fk_def_map, args.spaceId
     fk_def_map = if ok_fk then fk_def_map else {}
-    
+
     -- Get space name to enable computed columns resolution
     sp_meta = box.space._tdb_spaces\get args.spaceId
     space_name = sp_meta and sp_meta[2]
-    
+
     -- Reuse a per-request FK cache
     ctx._fk_cache = ctx._fk_cache or {}
-    
+
     -- Compile the global explicit reprFormula if provided (used by relations dropdown)
     repr_fn = nil
     if args.reprFormula and args.reprFormula != ''
@@ -213,13 +214,13 @@ Query =
         parsed = json.decode t[2]
         parsed._id = tostring t[1]
         self_proxy = triggers_mod.make_self_proxy parsed, fk_def_map, ctx._fk_cache, space_name
-        
+
         -- Global repr
         if repr_fn
           ok_r, val = pcall repr_fn, self_proxy, nil
           if ok_r and val != nil
             parsed._repr = tostring val
-            
+
         -- Per-field reprs
         for fname, fn in pairs field_reprs
           ok_r, val = pcall fn, self_proxy, nil
@@ -227,7 +228,7 @@ Query =
             -- Store field representations under a reserved prefix or alongside
             -- But we can just use _repr_fname convention so the frontend can access it easily
             parsed["_repr_#{fname}"] = tostring val
-            
+
         parsed._id = nil
         table.insert all, { id: t[1], spaceId: args.spaceId, data: json.encode(parsed) }
     else

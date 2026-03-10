@@ -5,7 +5,8 @@ local fio = require('fio')
 local log = require('log')
 local graphql = require('graphql.executor')
 local index = require('index')
-local FRONTEND_DIR = '/app/frontend'
+local FRONTEND_DIR
+FRONTEND_DIR = require('core.config').FRONTEND_DIR
 local mime_types = {
   html = 'text/html; charset=utf-8',
   css = 'text/css; charset=utf-8',

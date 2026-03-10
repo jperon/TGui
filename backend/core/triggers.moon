@@ -9,6 +9,7 @@
 json       = require 'json'
 log        = require 'log'
 spaces_mod = require 'core.spaces'
+{ :safe_call, :safe_formula_call } = require 'core.config'
 
 -- Debug flag for FK proxy troubleshooting
 DEBUG_FK_PROXY = false
@@ -74,7 +75,7 @@ compile_formula = (formula, field_name, language) ->
   ok_env, _ = pcall setfenv, chunk_fn, FORMULA_ENV
   log.warn "tdb triggers: setfenv not available, formula '#{field_name}' runs unsandboxed" unless ok_env
   -- Execute chunk to get the formula function
-  ok2, fn = pcall chunk_fn
+  ok2, fn = safe_formula_call chunk_fn, "formula compilation for '#{field_name}'", nil  -- nil default for compilation errors
   if not ok2 or type(fn) != 'function'
     log.error "tdb triggers: init error for field '#{field_name}': #{fn}"
     return nil
@@ -152,10 +153,6 @@ make_space_helper = ->
 -- Build a self proxy that resolves FK fields lazily, with recursive chaining.
 -- fk_def_map: { field_name => { toSpaceName, toFieldName } }
 -- fk_cache: optional shared cache (passed across all records of a single request)
---   { spaces: { name -> { records: {_id->rec}, by_field: {fname->{val->rec}} } },
---     fk_def_maps: { name -> fk_def_map },
---     formulas: { space_name -> { field_name -> fn } } }
--- Avoids reloading FK target tables for each record in a batch query.
 make_self_proxy = (record, fk_def_map, fk_cache, space_name) ->
   fk_cache          = fk_cache or {}
   fk_cache.spaces   = fk_cache.spaces   or {}
@@ -174,76 +171,63 @@ make_self_proxy = (record, fk_def_map, fk_cache, space_name) ->
       sc = { records: {}, by_field: {} }
       tb = box.space["data_#{s_name}"]
       if tb
-        if DEBUG_FK_PROXY
-          print("DEBUG ensure_space: loading #{#tb} records from #{s_name}")
         for tup in *tb\select {}
           d = decode_tuple tup
-          if DEBUG_FK_PROXY
-            print("DEBUG ensure_space: record _id=#{d._id}, #{to_field_name}=#{tostring(d[to_field_name])}")
           sc.records[d._id] = d
       fk_cache.spaces[s_name] = sc
 
     -- Always build _id index for primary lookup
     unless sc.by_field['_id']
       idx = {}
-      if DEBUG_FK_PROXY
-        print("DEBUG ensure_space: building index for _id")
       for _, d in pairs sc.records
         if d._id ~= nil
           key = tostring(d._id)
-          if DEBUG_FK_PROXY
-            print("DEBUG ensure_space: indexing _id key='#{key}'")
           idx[key] = d
       sc.by_field['_id'] = idx
-      if DEBUG_FK_PROXY
-        print("DEBUG ensure_space: _id index built with #{#idx} keys")
 
     -- Build specific field index if needed and different from _id
     if to_field_name != '_id' and not sc.by_field[to_field_name]
       idx = {}
-      if DEBUG_FK_PROXY
-        print("DEBUG ensure_space: building index for #{to_field_name}")
       for _, d in pairs sc.records
         if d[to_field_name] ~= nil
           key = tostring(d[to_field_name])
-          if DEBUG_FK_PROXY
-            print("DEBUG ensure_space: indexing key='#{key}' for _id=#{d._id}")
           idx[key] = d
       sc.by_field[to_field_name] = idx
-      if DEBUG_FK_PROXY
-        if next(idx) == nil
-          print("WARNING: No records indexed for field '#{to_field_name}' in space '#{s_name}'")
-        print("DEBUG ensure_space: index built with #{next(idx) and #idx or '0'} keys")
+
     sc
 
   -- Get or build nested fk_def_map (cached, avoids repeated metadata scans).
-  ensure_fk_def_map = (s_name) ->
-    unless fk_cache.fk_def_maps[s_name]
-      target_sp_meta = box.space._tdb_spaces.index.by_name\get { s_name }
-      fk_cache.fk_def_maps[s_name] = if target_sp_meta
-        build_fk_def_map target_sp_meta[1]
-      else {}
-    fk_cache.fk_def_maps[s_name]
+  ensure_fk_def_map = (space_id) ->
+    return fk_cache.fk_def_maps[space_id] if fk_cache.fk_def_maps[space_id]
+    rels = {}
+    for t in *box.space._tdb_relations\select {}
+      if t[2] == space_id
+        rels[t[3]] = { toSpaceId: t[4], toFieldId: t[5] }
+    -- Resolve space names and field names
+    fk_def_map = {}
+    space_by_id = {}
+    for t in *box.space._tdb_spaces\select {}
+      space_by_id[t[1]] = { name: t[2] }
+    field_by_id = {}
+    for t in *box.space._tdb_fields.index.by_space\select { space_id }
+      field_by_id[t[1]] = { name: t[3] }
+    -- Also need field names from other spaces for toFieldId
+    for _, rel in pairs rels
+      for t in *box.space._tdb_fields.index.by_space\select { rel.toSpaceId }
+        field_by_id[t[1]] = { name: t[3] }
+    -- Build final map
+    for field_name, rel in pairs rels
+      to_space = space_by_id[rel.toSpaceId]
+      to_field = field_by_id[rel.toFieldId]
+      if to_space and to_field
+        fk_def_map[field_name] = {
+          toSpaceName: to_space.name
+          toFieldName: to_field.name
+        }
+    fk_cache.fk_def_maps[space_id] = fk_def_map
+    fk_def_map
 
-  -- Load formulas for a space
-  ensure_formulas = (s_name) ->
-    unless fk_cache.formulas[s_name]
-      fns = {}
-      sp_meta = box.space._tdb_spaces.index.by_name\get { s_name }
-      if sp_meta
-        for t in *box.space._tdb_fields.index.by_space\select { sp_meta[1] }
-          formula = t[8]
-          language = t[10] or 'lua'
-          -- pre-compile all formula fields to allow dynamic fallback evaluation
-          -- if the stored trigger value is missing (nil) from the database record.
-          if formula and formula != ''
-            fn = compile_formula formula, t[3], language
-            fns[t[3]] = fn if fn
-      fk_cache.formulas[s_name] = fns
-    fk_cache.formulas[s_name]
-
-  proxy = {}
-  setmetatable proxy,
+  proxy = setmetatable {}, {
     __index: (t, k) ->
       cached = rawget t, k
       return cached if cached != nil
@@ -254,7 +238,7 @@ make_self_proxy = (record, fk_def_map, fk_cache, space_name) ->
         fns = ensure_formulas space_name
         if fns[k]
           fk_cache.space_helper = fk_cache.space_helper or make_space_helper!
-          r_ok, val = pcall fns[k], t, fk_cache.space_helper
+          r_ok, val = safe_formula_call (-> fns[k] t, fk_cache.space_helper), "formula evaluation for '#{space_name}.#{k}'", nil, t._id
           if r_ok and val != nil and val != ''
             v = val
             rawset t, k, v -- cache computed value for next time
@@ -271,19 +255,6 @@ make_self_proxy = (record, fk_def_map, fk_cache, space_name) ->
         sc = ensure_space fk.toSpaceName, '_id'  -- Always index on _id for primary lookup
         d = sc.by_field['_id'] and sc.by_field['_id'][tostring v]
 
-        -- Debug logs only when needed (debug mode or failure)
-        if DEBUG_FK_PROXY or not d
-          print("DEBUG FK lookup:")
-          print("  - space: #{fk.toSpaceName}")
-          print("  - toField: #{fk.toFieldName}")
-          print("  - searching for value: #{tostring(v)}")
-          print("  - found: #{tostring(d)}")
-          if sc.by_field['_id']
-            keys = [key for key, _ in pairs(sc.by_field['_id'])]
-            print("  - available _id keys: #{table.concat(keys, ', ')}")
-          else
-            print("  - no _id index built")
-
         if d
           -- Always return a nested proxy for consistent behavior
           nested_fk_map = ensure_fk_def_map fk.toSpaceName
@@ -292,6 +263,7 @@ make_self_proxy = (record, fk_def_map, fk_cache, space_name) ->
           return nested
         return nil
       v
+  }
   proxy
 
 

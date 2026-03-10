@@ -1,4 +1,6 @@
 local log = require('log')
+local validate_input
+validate_input = require('core.config').validate_input
 local FIELD_TYPES = {
   'String',
   'Int',
@@ -626,6 +628,15 @@ add_field = function(space_id, field_name, field_type, not_null, description, fo
   if not (FIELD_TYPES_SET[field_type]) then
     error("Type de champ invalide : " .. tostring(field_type))
   end
+  if not (validate_input('field_name', field_name, "add_field")) then
+    error("Field name too long: " .. tostring(#field_name) .. " chars")
+  end
+  if formula and not validate_input('formula', formula, "add_field") then
+    error("Formula too long: " .. tostring(#formula) .. " chars")
+  end
+  if repr_formula and not validate_input('formula', repr_formula, "add_field") then
+    error("Representation formula too long: " .. tostring(#repr_formula) .. " chars")
+  end
   local pos = 1
   local _list_0 = box.space._tdb_fields.index.by_space:select({
     space_id
@@ -794,6 +805,15 @@ update_field = function(field_id, opts)
   local t = box.space._tdb_fields:get(field_id)
   if not (t) then
     error("Field not found: " .. tostring(field_id))
+  end
+  if opts.name and not validate_input('field_name', opts.name, "update_field") then
+    error("Field name too long: " .. tostring(#opts.name) .. " chars")
+  end
+  if opts.formula and not validate_input('formula', opts.formula, "update_field") then
+    error("Formula too long: " .. tostring(#opts.formula) .. " chars")
+  end
+  if opts.reprFormula and not validate_input('formula', opts.reprFormula, "update_field") then
+    error("Representation formula too long: " .. tostring(#opts.reprFormula) .. " chars")
   end
   local name = opts.name or t[3]
   local not_null
