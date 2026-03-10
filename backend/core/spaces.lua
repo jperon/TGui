@@ -968,33 +968,50 @@ change_field_type = function(field_id, new_type, conversion_formula, language)
   end
   local space_name = space_meta[2]
   if conversion_formula and conversion_formula ~= '' then
-    local triggers_mod = require('core.triggers')
     local lang = language or 'lua'
-    local ok_c, conv_fn = pcall(triggers_mod.compile_formula, conversion_formula, 'convert', lang)
-    if ok_c and type(conv_fn) == 'function' then
-      local data_sp = box.space["data_" .. tostring(space_name)]
-      if data_sp then
-        local _list_0 = data_sp:select({ })
-        for _index_0 = 1, #_list_0 do
-          local raw_t = _list_0[_index_0]
-          local d
-          if type(raw_t[2]) == 'string' then
-            d = json.decode(raw_t[2])
-          else
-            d = raw_t[2]
-          end
-          local ok_r, new_val = pcall(conv_fn, d, nil)
-          if ok_r then
-            d[field_name] = new_val
-          end
-          data_sp:replace({
-            raw_t[1],
-            json.encode(d)
-          })
-        end
+    local lua_chunk
+    if lang == 'moonscript' then
+      local ok_ms, moon = pcall(require, 'moonscript.base')
+      if not (ok_ms) then
+        error("MoonScript non disponible: " .. tostring(moon))
       end
+      local moon_src = "return (self, space) -> " .. conversion_formula
+      local ok_c, lua_or_err = pcall(moon.to_lua, moon_src)
+      if not (ok_c) then
+        error("MoonScript parse error: " .. tostring(lua_or_err))
+      end
+      lua_chunk = lua_or_err
     else
-      error("Formule de conversion invalide : " .. tostring(conv_fn))
+      lua_chunk = "return function(self, space) return " .. conversion_formula .. " end"
+    end
+    local chunk_fn, load_err = load(lua_chunk)
+    if not (chunk_fn) then
+      error("Parse error: " .. tostring(load_err))
+    end
+    local ok2, conv_fn = pcall(chunk_fn)
+    if not (ok2 and type(conv_fn) == 'function') then
+      error("Compilation error: " .. tostring(conv_fn))
+    end
+    local data_sp = box.space["data_" .. tostring(space_name)]
+    if data_sp then
+      local _list_0 = data_sp:select({ })
+      for _index_0 = 1, #_list_0 do
+        local raw_t = _list_0[_index_0]
+        local d
+        if type(raw_t[2]) == 'string' then
+          d = json.decode(raw_t[2])
+        else
+          d = raw_t[2]
+        end
+        local ok_r, new_val = pcall(conv_fn, d, nil)
+        if ok_r then
+          d[field_name] = new_val
+        end
+        data_sp:replace({
+          raw_t[1],
+          json.encode(d)
+        })
+      end
     end
   end
   local new_tuple = {

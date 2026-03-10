@@ -443,20 +443,36 @@ change_field_type = (field_id, new_type, conversion_formula, language) ->
 
   -- Migrate existing data if a conversion formula is provided
   if conversion_formula and conversion_formula != ''
-    triggers_mod = require 'core.triggers'
+    -- Direct compilation for conversion formulas (avoid triggers.compile_formula issues)
     lang = language or 'lua'
-    ok_c, conv_fn = pcall triggers_mod.compile_formula, conversion_formula, 'convert', lang
-    if ok_c and type(conv_fn) == 'function'
-      data_sp = box.space["data_#{space_name}"]
-      if data_sp
-        for raw_t in *data_sp\select {}
-          d = if type(raw_t[2]) == 'string' then json.decode(raw_t[2]) else raw_t[2]
-          ok_r, new_val = pcall conv_fn, d, nil
-          if ok_r
-            d[field_name] = new_val
-          data_sp\replace { raw_t[1], json.encode(d) }
+    lua_chunk = if lang == 'moonscript'
+      ok_ms, moon = pcall require, 'moonscript.base'
+      unless ok_ms
+        error "MoonScript non disponible: #{moon}"
+      moon_src = "return (self, space) -> " .. conversion_formula
+      ok_c, lua_or_err = pcall moon.to_lua, moon_src
+      unless ok_c
+        error "MoonScript parse error: #{lua_or_err}"
+      lua_or_err
     else
-      error "Formule de conversion invalide : #{conv_fn}"
+      "return function(self, space) return " .. conversion_formula .. " end"
+
+    chunk_fn, load_err = load lua_chunk
+    unless chunk_fn
+      error "Parse error: #{load_err}"
+
+    ok2, conv_fn = pcall chunk_fn
+    unless ok2 and type(conv_fn) == 'function'
+      error "Compilation error: #{conv_fn}"
+
+    data_sp = box.space["data_#{space_name}"]
+    if data_sp
+      for raw_t in *data_sp\select {}
+        d = if type(raw_t[2]) == 'string' then json.decode(raw_t[2]) else raw_t[2]
+        ok_r, new_val = pcall conv_fn, d, nil
+        if ok_r
+          d[field_name] = new_val
+        data_sp\replace { raw_t[1], json.encode(d) }
 
   -- Update field type in metadata (preserve all other columns)
   -- Build updated tuple: replace t[4] (field_type) with new_type

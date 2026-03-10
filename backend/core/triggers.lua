@@ -61,7 +61,7 @@ compile_formula = function(formula, field_name, language)
   if not (ok_env) then
     log.warn("tdb triggers: setfenv not available, formula '" .. tostring(field_name) .. "' runs unsandboxed")
   end
-  local ok2, fn = safe_formula_call(chunk_fn, "formula compilation for '" .. tostring(field_name) .. "'", nil)
+  local ok2, fn = pcall(chunk_fn)
   if not ok2 or type(fn) ~= 'function' then
     log.error("tdb triggers: init error for field '" .. tostring(field_name) .. "': " .. tostring(fn))
     return nil
