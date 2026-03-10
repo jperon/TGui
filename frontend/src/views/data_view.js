@@ -158,10 +158,19 @@
             fkOptions = this._fkOptions[f.name] || [];
             col.formatter = (function(fkMap) {
               return function(props) {
-                var ref1, val;
+                var cls, isInternal, m, ref1, safeFull, safeShort, val;
                 val = props.value;
-                if (typeof val === 'string' && val.indexOf('[Erreur de formule:') === 0) {
-                  return `<span class=\"formula-error\" title=\"${val}\">⚠ Erreur</span>`;
+                if (typeof val === 'string') {
+                  m = val.match(/^\[ERROR\|(.*?)\|(.*)\]$/);
+                  if (m) {
+                    safeShort = m[1].replace(/"/g, '&quot;').replace(/</g, '&lt;');
+                    safeFull = m[2].replace(/"/g, '&quot;').replace(/</g, '&lt;');
+                    isInternal = safeShort.indexOf('inconnue') > -1;
+                    cls = isInternal ? 'formula-error internal-error' : 'formula-error';
+                    return `<span class=\"${cls}\" title=\"${safeFull}\">⚠ ${safeShort}</span>`;
+                  } else if (val.indexOf('[Erreur de formule:') === 0) {
+                    return `<span class=\"formula-error\" title=\"${val.replace(/"/g, '&quot;')}\">⚠ Erreur</span>`;
+                  }
                 }
                 return (ref1 = fkMap[String(val)]) != null ? ref1 : String(val != null ? val : '');
               };
@@ -178,10 +187,19 @@
             }
             // Highlight formula errors in normal text columns
             col.formatter = function(props) {
-              var val;
+              var cls, isInternal, m, safeFull, safeShort, val;
               val = props.value;
-              if (typeof val === 'string' && val.indexOf('[Erreur de formule:') === 0) {
-                return `<span class=\"formula-error\" title=\"${val}\">⚠ Erreur</span>`;
+              if (typeof val === 'string') {
+                m = val.match(/^\[ERROR\|(.*?)\|(.*)\]$/);
+                if (m) {
+                  safeShort = m[1].replace(/"/g, '&quot;').replace(/</g, '&lt;');
+                  safeFull = m[2].replace(/"/g, '&quot;').replace(/</g, '&lt;');
+                  isInternal = safeShort.indexOf('inconnue') > -1;
+                  cls = isInternal ? 'formula-error internal-error' : 'formula-error';
+                  return `<span class=\"${cls}\" title=\"${safeFull}\">⚠ ${safeShort}</span>`;
+                } else if (val.indexOf('[Erreur de formule:') === 0) {
+                  return `<span class=\"formula-error\" title=\"${val.replace(/"/g, '&quot;')}\">⚠ Erreur</span>`;
+                }
               }
               return String(val != null ? val : '');
             };
@@ -300,7 +318,7 @@
       document.addEventListener('keydown', this._tabListener, true);
       // Handle cell edits (single edit and paste)
       this._grid.on('afterChange', async(ev) => {
-        var byRow, c, changes, clipErr, clipRow, clipRows, clipText, colNames, data, i, j, l, len, len1, len2, len3, len4, m, n, name, name1, o, ops, p, patch, ref1, ref2, ref3, ref4, ref5, ref6, rk, row, sentinelPatch, val;
+        var byRow, c, changes, clipErr, clipRow, clipRows, clipText, colNames, data, i, j, l, len, len1, len2, len3, len4, n, name, name1, o, ops, p, patch, q, ref1, ref2, ref3, ref4, ref5, ref6, rk, row, sentinelPatch, val;
         changes = (ev.changes || []).filter(function(c) {
           return String(c.value) !== String(c.prevValue);
         });
@@ -367,7 +385,7 @@
               for (l = 0, len1 = clipRows.length; l < len1; l++) {
                 clipRow = clipRows[l];
                 data = {};
-                for (i = m = 0, len2 = colNames.length; m < len2; i = ++m) {
+                for (i = o = 0, len2 = colNames.length; o < len2; i = ++o) {
                   name = colNames[i];
                   data[name] = (ref1 = (ref2 = clipRow[i]) != null ? ref2 : this._defaultValues[name]) != null ? ref1 : '';
                 }
@@ -380,8 +398,8 @@
               clipErr = error;
               console.warn('clipboard unavailable, single insert fallback', clipErr);
               data = {};
-              for (o = 0, len3 = colNames.length; o < len3; o++) {
-                n = colNames[o];
+              for (p = 0, len3 = colNames.length; p < len3; p++) {
+                n = colNames[p];
                 data[n] = (ref3 = (ref4 = sentinelPatch[n]) != null ? ref4 : this._defaultValues[n]) != null ? ref3 : '';
               }
               ops.push(GQL.mutate(INSERT_RECORD, {
@@ -392,8 +410,8 @@
           } else {
             // Manual edit: insert from sentinel values + defaults
             data = {};
-            for (p = 0, len4 = colNames.length; p < len4; p++) {
-              n = colNames[p];
+            for (q = 0, len4 = colNames.length; q < len4; q++) {
+              n = colNames[q];
               data[n] = (ref5 = (ref6 = sentinelPatch[n]) != null ? ref6 : this._defaultValues[n]) != null ? ref5 : '';
             }
             ops.push(GQL.mutate(INSERT_RECORD, {

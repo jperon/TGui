@@ -260,7 +260,7 @@ generate = ->
                 return val
               else
                 log.error "tdb proxy: error evaluating formula for '#{sp_name_cap}.#{f.name}': #{val}"
-                return "[Erreur de formule: #{val}]"
+                return triggers.format_formula_error val
           )(formula_fn, fk_name_map, f.name, sp.name)
 
     type_resolvers["#{tname}_record"] = tr

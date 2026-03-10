@@ -112,6 +112,28 @@ build_fk_def_map = function(space_id)
   end
   return fk_def_map
 end
+local format_formula_error
+format_formula_error = function(err)
+  local s = tostring(err)
+  local short = "Erreur de formule"
+  if s:find("attempt to index") then
+    short = "Champ inconnu (nil)"
+  elseif s:find("attempt to call") then
+    short = "Fonction inconnue (nil)"
+  elseif s:find("attempt to perform arithmetic") then
+    short = "Opération sur nil"
+  elseif s:find("attempt to concatenate") then
+    short = "Concaténation invalide"
+  elseif s:find("unexpected symbol" or s:find("malformed number" or s:find("parse error"))) then
+    short = "Erreur de syntaxe"
+  elseif s:find("stack overflow") then
+    short = "Boucle infinie (récursion)"
+  else
+    short = "Erreur (inconnue)"
+  end
+  local clean_msg = s:gsub('^%[string ".-"%]:%d+: ', '')
+  return "[ERROR|" .. tostring(short) .. "|" .. tostring(clean_msg) .. "]"
+end
 local make_space_helper
 make_space_helper = function()
   local decode_tuple
@@ -245,7 +267,7 @@ make_self_proxy = function(record, fk_def_map, fk_cache, space_name)
             rawset(t, k, v)
           else
             if not r_ok then
-              local err_msg = "[Erreur de formule: " .. tostring(val) .. "]"
+              local err_msg = format_formula_error(val)
               log.error("tdb proxy: error evaluating formula for '" .. tostring(space_name) .. "." .. tostring(k) .. "': " .. tostring(val))
               return err_msg
             end
@@ -440,5 +462,6 @@ return {
   build_fk_def_map = build_fk_def_map,
   register_space_trigger = register_space_trigger,
   deregister_space_trigger = deregister_space_trigger,
-  init_all_triggers = init_all_triggers
+  init_all_triggers = init_all_triggers,
+  format_formula_error = format_formula_error
 }

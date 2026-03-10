@@ -393,7 +393,7 @@ generate = function()
                 return val
               else
                 log.error("tdb proxy: error evaluating formula for '" .. tostring(sp_name_cap) .. "." .. tostring(f.name) .. "': " .. tostring(val))
-                return "[Erreur de formule: " .. tostring(val) .. "]"
+                return triggers.format_formula_error(val)
               end
             end
           end)(formula_fn, fk_name_map, f.name, sp.name)

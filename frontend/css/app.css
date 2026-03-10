@@ -690,3 +690,9 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   white-space: nowrap;
 }
 
+
+.formula-error.internal-error {
+  color: #fff;
+  background-color: #f38ba8;
+}
+
