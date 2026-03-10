@@ -42,6 +42,9 @@ compile_formula = function(formula, field_name, language)
       log.error("tdb triggers: moonscript.base non disponible pour '" .. tostring(field_name) .. "': " .. tostring(moon))
       return nil
     end
+    if field_name == 'filter' then
+      formula = formula:gsub('@([%w_]+)', 'self.%1')
+    end
     local moon_src = "return (self, space) -> " .. formula
     local ok_c, lua_or_err = pcall(moon.to_lua, moon_src)
     if not (ok_c) then

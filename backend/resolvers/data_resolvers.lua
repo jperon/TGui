@@ -45,7 +45,7 @@ matches_filter = function(self_val, flt)
       local r_ok, r_val = config_mod.safe_formula_call((function()
         return flt._formula_fn(self_val)
       end), "filter formula evaluation")
-      ok = r_ok and r_val and r_val ~= false
+      ok = r_ok == true
     else
       ok = false
     end
@@ -119,18 +119,17 @@ apply_filter = function(tuples, filter, fk_def_map, fk_cache, space_name)
   local filtered = { }
   for _index_0 = 1, #tuples do
     local rec = tuples[_index_0]
-    local parsed
-    if type(rec.data) == 'string' then
-      parsed = json.decode(rec.data)
-    else
-      parsed = rec.data
-    end
     local self_val
-    if fk_def_map then
-      parsed._id = tostring(rec.id)
-      self_val = triggers_mod.make_self_proxy(parsed, fk_def_map, fk_cache, space_name)
+    if filter.formula and filter.formula ~= '' and rec.proxy then
+      self_val = rec.proxy
     else
-      self_val = parsed
+      if filter.formula and filter.formula ~= '' and fk_def_map then
+        local parsed = rec.raw or (type(rec.data) == 'string' and json.decode(rec.data) or rec.data)
+        parsed._id = tostring(rec.id)
+        self_val = triggers_mod.make_self_proxy(parsed, fk_def_map, fk_cache, space_name)
+      else
+        self_val = rec.raw or (type(rec.data) == 'string' and json.decode(rec.data) or rec.data)
+      end
     end
     if matches_filter(self_val, filter) then
       table.insert(filtered, rec)
@@ -357,42 +356,32 @@ local Query = {
     end
     local all = { }
     local has_field_reprs = next(field_reprs) ~= nil
-    if repr_fn or has_field_reprs then
-      local _list_0 = sp:select({ })
-      for _index_0 = 1, #_list_0 do
-        local t = _list_0[_index_0]
-        local parsed = json.decode(t[2])
-        parsed._id = tostring(t[1])
-        local self_proxy = triggers_mod.make_self_proxy(parsed, fk_def_map, ctx._fk_cache, space_name)
-        if repr_fn then
-          local ok_r, val = pcall(repr_fn, self_proxy, nil)
-          if ok_r and val ~= nil then
-            parsed._repr = tostring(val)
-          end
+    local _list_0 = sp:select({ })
+    for _index_0 = 1, #_list_0 do
+      local t = _list_0[_index_0]
+      local parsed = json.decode(t[2])
+      parsed._id = tostring(t[1])
+      local self_proxy = triggers_mod.make_self_proxy(parsed, fk_def_map, ctx._fk_cache, space_name)
+      if repr_fn then
+        local ok_r, val = pcall(repr_fn, self_proxy, nil)
+        if ok_r and val ~= nil then
+          parsed._repr = tostring(val)
         end
-        for fname, fn in pairs(field_reprs) do
-          local ok_r, val = pcall(fn, self_proxy, nil)
-          if ok_r and val ~= nil then
-            parsed["_repr_" .. tostring(fname)] = tostring(val)
-          end
+      end
+      for fname, fn in pairs(field_reprs) do
+        local ok_r, val = pcall(fn, self_proxy, nil)
+        if ok_r and val ~= nil then
+          parsed["_repr_" .. tostring(fname)] = tostring(val)
         end
-        parsed._id = nil
-        table.insert(all, {
-          id = t[1],
-          spaceId = args.spaceId,
-          data = json.encode(parsed)
-        })
       end
-    else
-      local _list_0 = sp:select({ })
-      for _index_0 = 1, #_list_0 do
-        local t = _list_0[_index_0]
-        table.insert(all, {
-          id = t[1],
-          spaceId = args.spaceId,
-          data = t[2]
-        })
-      end
+      parsed._id = nil
+      table.insert(all, {
+        id = t[1],
+        spaceId = args.spaceId,
+        data = json.encode(parsed),
+        raw = parsed,
+        proxy = self_proxy
+      })
     end
     local filtered = apply_filter(all, args.filter, fk_def_map, ctx._fk_cache, space_name)
     local total = #filtered

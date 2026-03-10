@@ -126,3 +126,4 @@ Les permissions sont **génériques** : l'administrateur crée les groupes qu'il
 
 Un utilisateur peut appartenir à plusieurs groupes (style Unix).
 La vérification s'effectue dans chaque resolver via `core.permissions.can()`.
+test final
