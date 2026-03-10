@@ -130,6 +130,7 @@ A **field** is a column of a space. Each field has a type, a name, and may have 
 | `Any`     | Free type (JSON) |
 | `Map`     | JSON object |
 | `Array`   | JSON array |
+| `Datetime`| Date and time |
 | `Relation`| Reference to a record in another space (display customizable via `reprFormula`) |
 
 ### Computed Field (calculated column)
@@ -190,6 +191,44 @@ next(g for g in *space("genres") when g._id == @genre_id)?.libelle
 
 Fields can be reordered by drag-and-drop (::) in the Fields panel.
 
+### Custom Relation Display (`reprFormula`)
+
+For `Relation` type fields, `reprFormula` controls how the relationship is displayed
+in the interface (grids, forms, etc.). The formula receives the linked record
+as parameter (`self`) and must return a string.
+
+**Example:** For an `auteur_id` field pointing to the `auteurs` space:
+
+```moonscript
+# Display "First Last" instead of UUID
+"#{@nom} #{@prenom}"
+```
+
+```lua
+-- Equivalent Lua version
+return self.nom .. " " .. self.prenom
+```
+
+### Field Type Conversion
+
+The `changeFieldType` mutation allows converting a field from one type to another,
+with an optional conversion formula to transform existing data.
+
+**Example:** Convert a `String` field to `Int`:
+
+```graphql
+mutation {
+  changeFieldType(fieldId: "...", input: {
+    fieldType: Int,
+    conversionFormula: "tonumber(self.amount)",
+    language: "lua"
+  }) { id name fieldType }
+}
+```
+
+If `conversionFormula` is omitted, values are automatically converted when possible,
+or set to `null` otherwise.
+
 ### GraphQL API
 
 ```graphql
@@ -236,6 +275,15 @@ mutation {
     spaceId: "...",
     fieldIds: ["id1", "id2", "id3"]
   ) { id position }
+}
+
+# Change field type
+mutation {
+  changeFieldType(fieldId: "...", input: {
+    fieldType: Int,
+    conversionFormula: "tonumber(self.amount)",
+    language: "lua"
+  }) { id name fieldType }
 }
 ```
 
