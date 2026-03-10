@@ -176,7 +176,7 @@ R.describe "Spaces — FIELD_TYPES", ->
 R.describe "Spaces — reprFormula et conversion", ->
   R.it "peut creer un champ avec reprFormula et Datetime", ->
     sp = spaces_mod.create_user_space 'test_repr_space', 'space for repr tests'
-    
+
     -- Datetime field
     dt_field = spaces_mod.add_field sp.id, 'created_at', 'Datetime', false, '', '', nil, 'lua', ''
     R.eq 'Datetime', dt_field.fieldType
@@ -189,26 +189,139 @@ R.describe "Spaces — reprFormula et conversion", ->
     R.eq 2, #fields  -- created_at, status
     R.eq 'Datetime', fields[1].fieldType
     R.eq "return string.upper(self.status or '')", fields[2].reprFormula
-    
+
     spaces_mod.delete_user_space 'test_repr_space'
-    
+
   R.it "peut changer le type d'un champ avec conversion", ->
     sp = spaces_mod.create_user_space 'test_conv_space', 'space for conversion tests'
     str_field = spaces_mod.add_field sp.id, 'amount', 'String', false, ''
-    
+
     -- Insert some string data
     box.space["data_#{sp.name}"]\insert { "1", require('json').encode({amount: "42"}) }
-    
+
     -- Change type to Int with conversion formula
     changed = spaces_mod.change_field_type str_field.id, 'Int', 'tonumber(self.amount)', 'lua'
     R.eq 'Int', changed.fieldType
-    
+
     -- Verify data was converted
     data = box.space["data_#{sp.name}"]\get "1"
     parsed = require('json').decode data[2]
     R.eq 42, parsed.amount
-    
+
     spaces_mod.delete_user_space 'test_conv_space'
+
+  R.it "conversion Int vers Sequence préserve les IDs existants", ->
+    sp = spaces_mod.create_user_space 'test_seq_conv', 'Test sequence conversion'
+    id_field = spaces_mod.add_field sp.id, 'id', 'Int', false, 'ID existant'
+    name_field = spaces_mod.add_field sp.id, 'name', 'String', false, 'Nom'
+
+    -- Insérer des enregistrements avec des IDs spécifiques
+    box.space["data_#{sp.name}"]\insert { "1", require('json').encode({id: 100, name: "A"}) }
+    box.space["data_#{sp.name}"]\insert { "2", require('json').encode({id: 250, name: "B"}) }
+    box.space["data_#{sp.name}"]\insert { "3", require('json').encode({id: 75, name: "C"}) }
+
+    -- Convertir le champ id en Sequence
+    changed = spaces_mod.change_field_type id_field.id, 'Sequence', nil, 'lua'
+    R.eq 'Sequence', changed.fieldType
+
+    -- Vérifier que les IDs existants sont préservés
+    data1 = box.space["data_#{sp.name}"]\get "1"
+    data2 = box.space["data_#{sp.name}"]\get "2"
+    data3 = box.space["data_#{sp.name}"]\get "3"
+
+    parsed1 = require('json').decode data1[2]
+    parsed2 = require('json').decode data2[2]
+    parsed3 = require('json').decode data3[2]
+
+    R.eq 100, parsed1.id
+    R.eq 250, parsed2.id
+    R.eq 75, parsed3.id
+
+    -- Vérifier que la séquence démarre après la valeur max (250)
+    -- La séquence est créée mais on vérifie juste que les valeurs sont préservées
+    -- Le test de la séquence lui-même peut être fait séparément
+
+    spaces_mod.delete_user_space 'test_seq_conv'
+
+  R.it "ajout champ Sequence sur espace non-vide préserve les valeurs", ->
+    sp = spaces_mod.create_user_space 'test_seq_add', 'Test add sequence to non-empty'
+    name_field = spaces_mod.add_field sp.id, 'name', 'String', false, 'Nom'
+
+    -- Insérer des enregistrements
+    box.space["data_#{sp.name}"]\insert { "1", require('json').encode({name: "A"}) }
+    box.space["data_#{sp.name}"]\insert { "2", require('json').encode({name: "B"}) }
+
+    -- Ajouter un champ Sequence avec des valeurs existantes dans un autre champ
+    id_field = spaces_mod.add_field sp.id, 'id', 'Sequence', false, 'ID auto'
+
+    -- Vérifier que les nouveaux enregistrements ont des IDs de la séquence
+    data1 = box.space["data_#{sp.name}"]\get "1"
+    data2 = box.space["data_#{sp.name}"]\get "2"
+
+    parsed1 = require('json').decode data1[2]
+    parsed2 = require('json').decode data2[2]
+
+    -- Les IDs devraient être 1 et 2 (premières valeurs de la séquence)
+    R.eq 1, parsed1.id
+    R.eq 2, parsed2.id
+
+    spaces_mod.delete_user_space 'test_seq_add'
 
 -- Nettoyage : suppression de l'espace créé pour ces tests
 spaces_mod.delete_user_space SP_NAME
+
+R.describe "Spaces — conversion Int vers Sequence", ->
+  R.it "conversion Int vers Sequence préserve les IDs existants", ->
+    sp = spaces_mod.create_user_space 'test_seq_conv', 'Test sequence conversion'
+    id_field = spaces_mod.add_field sp.id, 'id', 'Int', false, 'ID existant'
+    name_field = spaces_mod.add_field sp.id, 'name', 'String', false, 'Nom'
+
+    -- Insérer des enregistrements avec des IDs spécifiques
+    box.space["data_#{sp.name}"]\insert { "1", require('json').encode({id: 100, name: "A"}) }
+    box.space["data_#{sp.name}"]\insert { "2", require('json').encode({id: 250, name: "B"}) }
+    box.space["data_#{sp.name}"]\insert { "3", require('json').encode({id: 75, name: "C"}) }
+
+    -- Convertir le champ id en Sequence
+    changed = spaces_mod.change_field_type id_field.id, 'Sequence', nil, 'lua'
+    R.eq 'Sequence', changed.fieldType
+
+    -- Vérifier que les IDs existants sont préservés
+    data1 = box.space["data_#{sp.name}"]\get "1"
+    data2 = box.space["data_#{sp.name}"]\get "2"
+    data3 = box.space["data_#{sp.name}"]\get "3"
+
+    parsed1 = require('json').decode data1[2]
+    parsed2 = require('json').decode data2[2]
+    parsed3 = require('json').decode data3[2]
+
+    R.eq 100, parsed1.id
+    R.eq 250, parsed2.id
+    R.eq 75, parsed3.id
+
+    -- Vérifier que la séquence démarre après la valeur max (250)
+    -- La séquence est créée mais on vérifie juste que les valeurs sont préservées
+    -- Le test de la séquence lui-même peut être fait séparément
+
+    spaces_mod.delete_user_space 'test_seq_conv'
+
+  R.it "conversion Int vers Sequence avec enregistrements sans valeur", ->
+    sp = spaces_mod.create_user_space 'test_seq_empty', 'Test sequence empty values'
+    id_field = spaces_mod.add_field sp.id, 'test_id', 'Int', false, 'Test ID'
+    name_field = spaces_mod.add_field sp.id, 'name', 'String', false, 'Nom'
+
+    -- Insérer un enregistrement sans valeur pour test_id
+    box.space["data_#{sp.name}"]\insert { "1", require('json').encode({name: "No ID"}) }
+
+    -- Convertir le champ en Sequence
+    changed = spaces_mod.change_field_type id_field.id, 'Sequence', nil, 'lua'
+    R.eq 'Sequence', changed.fieldType
+
+    -- Vérifier que l'enregistrement sans ID a reçu une valeur
+    data = box.space["data_#{sp.name}"]\get "1"
+    parsed = require('json').decode data[2]
+
+    -- Devrait avoir une valeur de séquence (commence à 1 car max_val = 0)
+    error "L'enregistrement sans ID devrait avoir reçu une valeur" unless parsed.test_id != nil
+    error "La valeur devrait être un nombre" unless type(parsed.test_id) == 'number'
+
+    spaces_mod.delete_user_space 'test_seq_empty'
