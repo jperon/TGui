@@ -50,7 +50,7 @@
     
       // Build FK display maps for all relation fields.
     async _buildFkMaps() {
-      var data, display, e, field, fkId, formula, j, l, len, len1, map, options, rec, records, ref, ref1, ref2, ref3, ref4, rel, results;
+      var data, display, e, field, fkId, formula, j, l, len, len1, map, options, rec, records, ref, ref1, ref2, ref3, ref4, ref5, ref6, rel, results;
       ref = this._relations;
       results = [];
       for (j = 0, len = ref.length; j < len; j++) {
@@ -80,10 +80,10 @@
           options = [];
           for (l = 0, len1 = records.length; l < len1; l++) {
             rec = records[l];
-            display = (rec._repr != null) && String(rec._repr).trim() !== '' ? String(rec._repr) : String((ref2 = (ref3 = rec.id) != null ? ref3 : rec[Object.keys(rec).find(function(k) {
+            display = (rec._repr != null) && String(rec._repr).trim() !== '' ? String(rec._repr) : String((ref2 = (ref3 = (ref4 = rec.id) != null ? ref4 : rec.__rowId) != null ? ref3 : rec[Object.keys(rec).find(function(k) {
               return k !== '__rowId';
             })]) != null ? ref2 : '');
-            fkId = (ref4 = rec.id) != null ? ref4 : rec[Object.keys(rec).find(function(k) {
+            fkId = (ref5 = (ref6 = rec.id) != null ? ref6 : rec.__rowId) != null ? ref5 : rec[Object.keys(rec).find(function(k) {
               return k !== '__rowId';
             })];
             map[String(fkId)] = display;
@@ -598,7 +598,12 @@
         for (l = 0, len1 = ref1.length; l < len1; l++) {
           f = ref1[l];
           val = row[f.name];
-          displayVal = this._fkMaps[f.name] != null ? this._fkMaps[f.name][String(val)] : val;
+          displayVal = val;
+          if (row[`_repr_${f.name}`] != null) {
+            displayVal = row[`_repr_${f.name}`];
+          } else if (this._fkMaps[f.name] != null) {
+            displayVal = this._fkMaps[f.name][String(val)];
+          }
           if (typeof displayVal === 'string') {
             isError = displayVal.indexOf('[ERROR|') === 0 || displayVal.indexOf('[Erreur de formule:') === 0;
             if (isError) {

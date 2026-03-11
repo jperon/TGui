@@ -148,6 +148,13 @@ format_formula_error = (err) ->
 -- Cache for compiled formulas: space_name -> { field_name -> function }
 formula_cache = {}
 
+invalidate_formula_cache = (space_name = nil) ->
+  if space_name
+    formula_cache[space_name] = nil
+  else
+    for k in pairs formula_cache
+      formula_cache[k] = nil
+
 -- Get or compile formulas for a space
 ensure_formulas = (space_name) ->
   return formula_cache[space_name] if formula_cache[space_name]
@@ -273,7 +280,7 @@ make_self_proxy = (record, fk_def_map, fk_cache, space_name) ->
         fns = ensure_formulas space_name
         if fns[k]
           fk_cache.space_helper = fk_cache.space_helper or make_space_helper!
-          r_ok, val = safe_formula_call (-> fns[k] t, fk_cache.space_helper), "formula evaluation for '#{space_name}.#{k}'", nil, t._id
+          r_ok, val = pcall fns[k], t, fk_cache.space_helper
           if r_ok and val != nil and val != ''
             v = val
             rawset t, k, v -- cache computed value for next time
@@ -413,4 +420,4 @@ deregister_space_trigger = (space_name) ->
     pcall -> data_sp\before_replace nil, old_fn
   active_triggers[space_name] = nil
 
-{ :compile_formula, :make_self_proxy, :build_fk_def_map, :register_space_trigger, :deregister_space_trigger, :init_all_triggers, :format_formula_error }
+{ :compile_formula, :make_self_proxy, :build_fk_def_map, :register_space_trigger, :deregister_space_trigger, :init_all_triggers, :format_formula_error, :invalidate_formula_cache }

@@ -6,6 +6,11 @@ local data_r
 data_r = require('resolvers.data_resolvers')
 local require_auth
 require_auth = require('resolvers.utils').require_auth
+local reinit_with_formula_cache_reset
+reinit_with_formula_cache_reset = function()
+  executor.reinit_schema()
+  return triggers.invalidate_formula_cache()
+end
 local list_relations
 list_relations = function(space_id)
   local result = { }
@@ -101,7 +106,7 @@ local Mutation = {
     local i = args.input
     local result = spaces_mod.create_user_space(i.name, i.description)
     spaces_mod.add_field(result.id, 'id', 'Sequence', true, 'Identifiant auto-incrémenté')
-    executor.reinit_schema()
+    reinit_with_formula_cache_reset()
     return spaces_mod.get_space(result.id)
   end,
   updateSpace = function(_, args, ctx)
@@ -121,7 +126,7 @@ local Mutation = {
       now
     })
     local result = spaces_mod.get_space(args.id)
-    executor.reinit_schema()
+    reinit_with_formula_cache_reset()
     return result
   end,
   deleteSpace = function(_, args, ctx)
@@ -131,14 +136,14 @@ local Mutation = {
       error("Space not found")
     end
     spaces_mod.delete_user_space(t[2])
-    executor.reinit_schema()
+    reinit_with_formula_cache_reset()
     return true
   end,
   addField = function(_, args, ctx)
     require_auth(ctx)
     local i = args.input
     local result = spaces_mod.add_field(args.spaceId, i.name, i.fieldType, i.notNull, i.description, i.formula, i.triggerFields, i.language, i.reprFormula)
-    executor.reinit_schema()
+    reinit_with_formula_cache_reset()
     local sp_meta = box.space._tdb_spaces:get(args.spaceId)
     if sp_meta then
       triggers.register_space_trigger(sp_meta[2])
@@ -154,7 +159,7 @@ local Mutation = {
       local result = spaces_mod.add_field(args.spaceId, input.name, input.fieldType, input.notNull, input.description, input.formula, input.triggerFields, input.language, input.reprFormula)
       table.insert(results, result)
     end
-    executor.reinit_schema()
+    reinit_with_formula_cache_reset()
     local sp_meta = box.space._tdb_spaces:get(args.spaceId)
     if sp_meta then
       triggers.register_space_trigger(sp_meta[2])
@@ -166,7 +171,7 @@ local Mutation = {
     local fld = box.space._tdb_fields:get(args.fieldId)
     local sp_meta = fld and box.space._tdb_spaces:get(fld[2])
     spaces_mod.remove_field(args.fieldId)
-    executor.reinit_schema()
+    reinit_with_formula_cache_reset()
     if sp_meta then
       triggers.register_space_trigger(sp_meta[2])
     end
@@ -175,7 +180,7 @@ local Mutation = {
   reorderFields = function(_, args, ctx)
     require_auth(ctx)
     local result = spaces_mod.reorder_fields(args.spaceId, args.fieldIds)
-    executor.reinit_schema()
+    reinit_with_formula_cache_reset()
     return result
   end,
   updateField = function(_, args, ctx)
@@ -190,7 +195,7 @@ local Mutation = {
       language = i.language,
       reprFormula = i.reprFormula
     })
-    executor.reinit_schema()
+    reinit_with_formula_cache_reset()
     local sp_meta = box.space._tdb_spaces:get(result.spaceId)
     if sp_meta then
       triggers.register_space_trigger(sp_meta[2])
@@ -201,7 +206,7 @@ local Mutation = {
     require_auth(ctx)
     local i = args.input
     local result = spaces_mod.change_field_type(args.fieldId, i.fieldType, i.conversionFormula, i.language)
-    executor.reinit_schema()
+    reinit_with_formula_cache_reset()
     local sp_meta = box.space._tdb_spaces:get(result.spaceId)
     if sp_meta then
       triggers.register_space_trigger(sp_meta[2])
@@ -227,18 +232,19 @@ local Mutation = {
     require_auth(ctx)
     local i = args.input
     local result = create_relation(i.name, i.fromSpaceId, i.fromFieldId, i.toSpaceId, i.toFieldId, i.reprFormula)
-    executor.reinit_schema()
+    reinit_with_formula_cache_reset()
     return result
   end,
   deleteRelation = function(_, args, ctx)
     require_auth(ctx)
     local result = delete_relation(args.id)
-    executor.reinit_schema()
+    reinit_with_formula_cache_reset()
     return result
   end,
   updateRelation = function(_, args, ctx)
     require_auth(ctx)
     local result = update_relation(args.id, args.input.reprFormula)
+    reinit_with_formula_cache_reset()
     return result
   end
 }

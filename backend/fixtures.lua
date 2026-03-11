@@ -51,6 +51,7 @@ setup_demo_data = function()
       f4: addField(spaceId: $spaceId, input: { name: "biographie", fieldType: String, description: "Courte biographie" }) { id }
       f5: addField(spaceId: $spaceId, input: { name: "date_naissance", fieldType: Datetime, description: "Date de naissance" }) { id }
       f6: addField(spaceId: $spaceId, input: { name: "nationalite", fieldType: String, description: "Nationalité" }) { id }
+      f7: addField(spaceId: $spaceId, input: { name: "_repr", fieldType: String, formula: "@nom .. (@particule and \" (#{@particule})\" or \"\") .. (@prenom and \" #{prenom}\" or \"\")", language: "moonscript", description: "Représentation calculée" }) { id }
     }
   ]], {
     spaceId = authors_space_id
@@ -66,7 +67,7 @@ setup_demo_data = function()
       f5: addField(spaceId: $spaceId, input: { name: "pages", fieldType: Int, description: "Nombre de pages" }) { id }
       f6: addField(spaceId: $spaceId, input: { name: "disponible", fieldType: Boolean, description: "Disponible à l'emprunt" }) { id }
       f7: addField(spaceId: $spaceId, input: { name: "prix", fieldType: Float, description: "Prix en euros" }) { id }
-      f8: addField(spaceId: $spaceId, input: { name: "auteur", fieldType: Int, description: "Auteur du livre" }) { id }
+      f8: addField(spaceId: $spaceId, input: { name: "auteur", fieldType: Relation, description: "Auteur du livre" }) { id }
     }
   ]], {
     spaceId = books_space_id
@@ -268,7 +269,7 @@ setup_demo_data = function()
     spaceId = loans_space_id,
     data = loans_data
   })
-  local books_fields = execute_mutation([[    mutation {
+  local books_fields = execute_mutation([[    query SpaceFields($spaceId: ID!) {
       space(id: $spaceId) {
         fields { id name }
       }
@@ -276,7 +277,7 @@ setup_demo_data = function()
   ]], {
     spaceId = books_space_id
   })
-  local authors_fields = execute_mutation([[    mutation {
+  local authors_fields = execute_mutation([[    query SpaceFields($spaceId: ID!) {
       space(id: $spaceId) {
         fields { id name }
       }
@@ -284,7 +285,7 @@ setup_demo_data = function()
   ]], {
     spaceId = authors_space_id
   })
-  local loans_fields = execute_mutation([[    mutation {
+  local loans_fields = execute_mutation([[    query SpaceFields($spaceId: ID!) {
       space(id: $spaceId) {
         fields { id name }
       }
@@ -292,7 +293,7 @@ setup_demo_data = function()
   ]], {
     spaceId = loans_space_id
   })
-  local categories_fields = execute_mutation([[    mutation {
+  local categories_fields = execute_mutation([[    query SpaceFields($spaceId: ID!) {
       space(id: $spaceId) {
         fields { id name }
       }
@@ -302,11 +303,13 @@ setup_demo_data = function()
   })
   local get_field_id
   get_field_id = function(fields, name)
-    if not fields or not fields.data or not fields.data.space or not fields.data.space.fields then
+    if not fields or not fields.space or not fields.space.fields then
       log.warn("Failed to get fields for space: " .. tostring(name))
       return nil
     end
-    for field in fields.data.space.fields do
+    local _list_0 = fields.space.fields
+    for _index_0 = 1, #_list_0 do
+      local field = _list_0[_index_0]
       if field.name == name then
         return field.id
       end
@@ -326,7 +329,7 @@ setup_demo_data = function()
         fromFieldId = auteur_field_id,
         toSpaceId = authors_space_id,
         toFieldId = authors_id_field,
-        reprFormula = tostring(self.nom) .. " " .. tostring(self.prenom)
+        reprFormula = '@_repr'
       }
     })
   end
@@ -343,7 +346,7 @@ setup_demo_data = function()
         fromFieldId = livre_field_id,
         toSpaceId = books_space_id,
         toFieldId = books_id_field,
-        reprFormula = tostring(self.titre)
+        reprFormula = '@titre'
       }
     })
   end
@@ -360,7 +363,7 @@ setup_demo_data = function()
         fromFieldId = parent_field_id,
         toSpaceId = categories_space_id,
         toFieldId = categories_id_field,
-        reprFormula = tostring(self.nom)
+        reprFormula = '@nom'
       }
     })
   end

@@ -144,6 +144,19 @@ format_formula_error = function(err)
   return "[ERROR|" .. tostring(short) .. "|" .. tostring(clean_msg) .. "]"
 end
 local formula_cache = { }
+local invalidate_formula_cache
+invalidate_formula_cache = function(space_name)
+  if space_name == nil then
+    space_name = nil
+  end
+  if space_name then
+    formula_cache[space_name] = nil
+  else
+    for k in pairs(formula_cache) do
+      formula_cache[k] = nil
+    end
+  end
+end
 local ensure_formulas
 ensure_formulas = function(space_name)
   if formula_cache[space_name] then
@@ -332,9 +345,7 @@ make_self_proxy = function(record, fk_def_map, fk_cache, space_name)
         local fns = ensure_formulas(space_name)
         if fns[k] then
           fk_cache.space_helper = fk_cache.space_helper or make_space_helper()
-          local r_ok, val = safe_formula_call((function()
-            return fns[k](t, fk_cache.space_helper)
-          end), "formula evaluation for '" .. tostring(space_name) .. "." .. tostring(k) .. "'", nil, t._id)
+          local r_ok, val = pcall(fns[k], t, fk_cache.space_helper)
           if r_ok and val ~= nil and val ~= '' then
             v = val
             rawset(t, k, v)
@@ -536,5 +547,6 @@ return {
   register_space_trigger = register_space_trigger,
   deregister_space_trigger = deregister_space_trigger,
   init_all_triggers = init_all_triggers,
-  format_formula_error = format_formula_error
+  format_formula_error = format_formula_error,
+  invalidate_formula_cache = invalidate_formula_cache
 }

@@ -329,16 +329,19 @@ local Query = {
     local space_name = sp_meta and sp_meta[2]
     ctx._fk_cache = ctx._fk_cache or { }
     local repr_fn = nil
+    local repr_compile_error = nil
     if args.reprFormula and args.reprFormula ~= '' then
       local lang = args.reprLanguage or 'moonscript'
       local ok_c, fn = pcall(triggers_mod.compile_formula, args.reprFormula, 'repr', lang)
       if ok_c and type(fn) == 'function' then
         repr_fn = fn
       else
-        repr_fn = nil
+        repr_compile_error = triggers_mod.format_formula_error("Compilation impossible: reprFormula")
       end
     end
+    local repr_uses_self_repr = args.reprFormula == '@_repr' or args.reprFormula == 'self._repr' or args.reprFormula == '_repr'
     local field_reprs = { }
+    local field_repr_errors = { }
     if sp_meta then
       local fields = box.space._tdb_fields.index.by_space_pos:select({
         args.spaceId
@@ -350,6 +353,8 @@ local Query = {
           local ok_c, fn = pcall(triggers_mod.compile_formula, f[11], "repr_" .. tostring(f[3]), lang)
           if ok_c and type(fn) == 'function' then
             field_reprs[f[3]] = fn
+          else
+            field_repr_errors[f[3]] = triggers_mod.format_formula_error("Compilation impossible: repr_" .. tostring(f[3]))
           end
         end
       end
@@ -362,16 +367,40 @@ local Query = {
       local parsed = json.decode(t[2])
       parsed._id = tostring(t[1])
       local self_proxy = triggers_mod.make_self_proxy(parsed, fk_def_map, ctx._fk_cache, space_name)
-      if repr_fn then
-        local ok_r, val = pcall(repr_fn, self_proxy, nil)
-        if ok_r and val ~= nil then
-          parsed._repr = tostring(val)
+      if repr_compile_error then
+        parsed._repr = repr_compile_error
+      else
+        if repr_fn then
+          local ok_r, val = pcall(repr_fn, self_proxy, nil)
+          if ok_r and val ~= nil then
+            parsed._repr = tostring(val)
+          else
+            if ok_r and val == nil and repr_uses_self_repr then
+              local fallback_repr = self_proxy._repr
+              if fallback_repr ~= nil then
+                parsed._repr = tostring(fallback_repr)
+              end
+            else
+              if not ok_r then
+                parsed._repr = triggers_mod.format_formula_error(val)
+              end
+            end
+          end
         end
       end
       for fname, fn in pairs(field_reprs) do
         local ok_r, val = pcall(fn, self_proxy, nil)
         if ok_r and val ~= nil then
           parsed["_repr_" .. tostring(fname)] = tostring(val)
+        else
+          if not ok_r then
+            parsed["_repr_" .. tostring(fname)] = triggers_mod.format_formula_error(val)
+          end
+        end
+      end
+      for fname, err_val in pairs(field_repr_errors) do
+        if parsed["_repr_" .. tostring(fname)] == nil then
+          parsed["_repr_" .. tostring(fname)] = err_val
         end
       end
       parsed._id = nil

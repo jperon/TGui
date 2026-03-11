@@ -264,6 +264,97 @@
     });
   });
 
+  describe('DataView formula error rendering state', function() {
+    return it('_applyData marque la cellule quand _repr_<field> contient une erreur', function() {
+      var classes, dv, gridData, ref, ref1, ref2, row, sp;
+      sp = makeSpace({
+        fields: [
+          {
+            id: 'f1',
+            name: 'nom',
+            fieldType: 'String',
+            formula: null,
+            triggerFields: null
+          }
+        ]
+      });
+      dv = new DV(container(), sp);
+      gridData = [];
+      dv._grid = {
+        resetData: function(d) {
+          return gridData = d;
+        },
+        getRowAt: function() {
+          return null;
+        },
+        addRowClassName: function() {}
+      };
+      dv._rows = [
+        {
+          __rowId: '1',
+          nom: 'Hugo',
+          _repr_nom: '[ERROR|Champ inconnu (nil)|attempt to index nil]'
+        }
+      ];
+      dv._applyData();
+      row = gridData[0];
+      classes = ((ref = row._attributes) != null ? (ref1 = ref.className) != null ? (ref2 = ref1.column) != null ? ref2.nom : void 0 : void 0 : void 0) || [];
+      return assert(classes.includes('cell-formula-error'), 'cell-formula-error absente');
+    });
+  });
+
+  describe('DataView FK maps use _repr', function() {
+    return it('_buildFkMaps privilégie _repr pour le display FK', async function() {
+      var dv, oldQuery, relations, sp;
+      oldQuery = global.GQL.query;
+      global.GQL.query = function(q, vars) {
+        return Promise.resolve({
+          records: {
+            items: [
+              {
+                id: '1',
+                data: JSON.stringify({
+                  id: 1,
+                  _repr: 'Hugo Victor'
+                })
+              },
+              {
+                id: '2',
+                data: JSON.stringify({
+                  id: 2,
+                  _repr: 'Maupassant Guy'
+                })
+              }
+            ]
+          }
+        });
+      };
+      sp = makeSpace({
+        fields: [
+          {
+            id: 'bf1',
+            name: 'auteur',
+            fieldType: 'Relation',
+            formula: null,
+            triggerFields: null
+          }
+        ]
+      });
+      relations = [
+        {
+          fromFieldId: 'bf1',
+          toSpaceId: 'authors-space',
+          reprFormula: '@_repr'
+        }
+      ];
+      dv = new DV(container(), sp, null, relations);
+      await dv._buildFkMaps();
+      eq(dv._fkMaps.auteur['1'], 'Hugo Victor');
+      eq(dv._fkMaps.auteur['2'], 'Maupassant Guy');
+      return global.GQL.query = oldQuery;
+    });
+  });
+
   describe('DataView.unmount', function() {
     return it('remet _mounted à false et vide les tableaux', function() {
       var dv;

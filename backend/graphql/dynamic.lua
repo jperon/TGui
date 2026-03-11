@@ -403,6 +403,13 @@ generate = function()
               end
             end
           end)(formula_fn, fk_name_map, f.name, sp.name)
+        else
+          local err_val = "[ERROR|Erreur de syntaxe|Compilation impossible pour " .. tostring(sp.name) .. "." .. tostring(f.name) .. "]"
+          tr[gql_name(f.name)] = (function(err_cap)
+            return function(obj, a, ctx)
+              return err_cap
+            end
+          end)(err_val)
         end
       end
       if f.reprFormula and f.reprFormula ~= '' then
@@ -416,9 +423,19 @@ generate = function()
               if r_ok and val ~= nil then
                 return tostring(val)
               end
+              if not r_ok then
+                return triggers.format_formula_error(val)
+              end
               return nil
             end
           end)(repr_fn, fk_name_map, f.name, sp.name)
+        else
+          local err_val = "[ERROR|Erreur de syntaxe|Compilation impossible pour " .. tostring(sp.name) .. "._repr_" .. tostring(f.name) .. "]"
+          tr["_repr_" .. tostring(gql_name(f.name))] = (function(err_cap)
+            return function(obj, a, ctx)
+              return err_cap
+            end
+          end)(err_val)
         end
       end
     end

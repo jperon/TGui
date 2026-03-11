@@ -266,6 +266,11 @@ generate = ->
                 log.error "tdb proxy: error evaluating formula for '#{sp_name_cap}.#{f.name}': #{val}"
                 return triggers.format_formula_error val
           )(formula_fn, fk_name_map, f.name, sp.name)
+        else
+          err_val = "[ERROR|Erreur de syntaxe|Compilation impossible pour #{sp.name}.#{f.name}]"
+          tr[gql_name f.name] = ((err_cap) ->
+            (obj, a, ctx) -> err_cap
+          )(err_val)
 
       -- Add reprFormula resolvers
       if f.reprFormula and f.reprFormula != ''
@@ -278,8 +283,15 @@ generate = ->
               r_ok, val = pcall fn_cap, proxy, nil
               if r_ok and val != nil
                 return tostring val
+              if not r_ok
+                return triggers.format_formula_error val
               return nil
           )(repr_fn, fk_name_map, f.name, sp.name)
+        else
+          err_val = "[ERROR|Erreur de syntaxe|Compilation impossible pour #{sp.name}._repr_#{f.name}]"
+          tr["_repr_#{gql_name f.name}"] = ((err_cap) ->
+            (obj, a, ctx) -> err_cap
+          )(err_val)
 
     type_resolvers["#{tname}_record"] = tr
 
