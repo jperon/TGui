@@ -44,6 +44,7 @@ setup_demo_data = ->
       f4: addField(spaceId: $spaceId, input: { name: "biographie", fieldType: String, description: "Courte biographie" }) { id }
       f5: addField(spaceId: $spaceId, input: { name: "date_naissance", fieldType: Datetime, description: "Date de naissance" }) { id }
       f6: addField(spaceId: $spaceId, input: { name: "nationalite", fieldType: String, description: "Nationalité" }) { id }
+      f7: addField(spaceId: $spaceId, input: { name: "_repr", fieldType: String, formula: "@nom .. (@particule and \" (#{@particule})\" or \"\") .. (@prenom and \" #{prenom}\" or \"\")", language: "moonscript", description: "Représentation calculée" }) { id }
     }
   ]], { spaceId: authors_space_id }
 
@@ -63,7 +64,7 @@ setup_demo_data = ->
       f5: addField(spaceId: $spaceId, input: { name: "pages", fieldType: Int, description: "Nombre de pages" }) { id }
       f6: addField(spaceId: $spaceId, input: { name: "disponible", fieldType: Boolean, description: "Disponible à l'emprunt" }) { id }
       f7: addField(spaceId: $spaceId, input: { name: "prix", fieldType: Float, description: "Prix en euros" }) { id }
-      f8: addField(spaceId: $spaceId, input: { name: "auteur", fieldType: Int, description: "Auteur du livre" }) { id }
+      f8: addField(spaceId: $spaceId, input: { name: "auteur", fieldType: Relation, description: "Auteur du livre" }) { id }
     }
   ]], { spaceId: books_space_id }
 
@@ -165,7 +166,7 @@ setup_demo_data = ->
 
   -- Récupérer les IDs des champs créés pour les relations
   books_fields = execute_mutation [[
-    mutation {
+    query SpaceFields($spaceId: ID!) {
       space(id: $spaceId) {
         fields { id name }
       }
@@ -173,7 +174,7 @@ setup_demo_data = ->
   ]], { spaceId: books_space_id }
 
   authors_fields = execute_mutation [[
-    mutation {
+    query SpaceFields($spaceId: ID!) {
       space(id: $spaceId) {
         fields { id name }
       }
@@ -181,7 +182,7 @@ setup_demo_data = ->
   ]], { spaceId: authors_space_id }
 
   loans_fields = execute_mutation [[
-    mutation {
+    query SpaceFields($spaceId: ID!) {
       space(id: $spaceId) {
         fields { id name }
       }
@@ -189,7 +190,7 @@ setup_demo_data = ->
   ]], { spaceId: loans_space_id }
 
   categories_fields = execute_mutation [[
-    mutation {
+    query SpaceFields($spaceId: ID!) {
       space(id: $spaceId) {
         fields { id name }
       }
@@ -198,10 +199,10 @@ setup_demo_data = ->
 
   -- Extraire les IDs des champs
   get_field_id = (fields, name) ->
-    if not fields or not fields.data or not fields.data.space or not fields.data.space.fields
+    if not fields or not fields.space or not fields.space.fields
       log.warn "Failed to get fields for space: #{name}"
       return nil
-    for field in fields.data.space.fields
+    for field in *fields.space.fields
       return field.id if field.name == name
     nil
 
@@ -221,7 +222,7 @@ setup_demo_data = ->
         fromFieldId: auteur_field_id,
         toSpaceId: authors_space_id,
         toFieldId: authors_id_field,
-        reprFormula: "#{@nom} #{@prenom}"
+        reprFormula: '@_repr'
       }
     }
 
@@ -241,7 +242,7 @@ setup_demo_data = ->
         fromFieldId: livre_field_id,
         toSpaceId: books_space_id,
         toFieldId: books_id_field,
-        reprFormula: "#{@titre}"
+        reprFormula: '@titre'
       }
     }
 
@@ -261,7 +262,7 @@ setup_demo_data = ->
         fromFieldId: parent_field_id,
         toSpaceId: categories_space_id,
         toFieldId: categories_id_field,
-        reprFormula: "#{@nom}"
+        reprFormula: '@nom'
       }
     }
 

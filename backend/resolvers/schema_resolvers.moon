@@ -9,6 +9,10 @@ local data_r
 data_r      = require 'resolvers.data_resolvers'
 { :require_auth } = require 'resolvers.utils'
 
+reinit_with_formula_cache_reset = ->
+  executor.reinit_schema!
+  triggers.invalidate_formula_cache!
+
 -- ────────────────────────────────────────────────────────────────────────────
 -- Relation helpers (stored in _tdb_relations)
 -- ────────────────────────────────────────────────────────────────────────────
@@ -62,7 +66,7 @@ Mutation =
     i = args.input
     result = spaces_mod.create_user_space i.name, i.description
     spaces_mod.add_field result.id, 'id', 'Sequence', true, 'Identifiant auto-incrémenté'
-    executor.reinit_schema!
+    reinit_with_formula_cache_reset!
     spaces_mod.get_space result.id
 
   updateSpace: (_, args, ctx) ->
@@ -74,7 +78,7 @@ Mutation =
     desc = args.input.description or t[3]
     box.space._tdb_spaces\replace { args.id, name, desc, t[4], now }
     result = spaces_mod.get_space args.id
-    executor.reinit_schema!
+    reinit_with_formula_cache_reset!
     result
 
   deleteSpace: (_, args, ctx) ->
@@ -82,14 +86,14 @@ Mutation =
     t = box.space._tdb_spaces\get args.id
     error "Space not found" unless t
     spaces_mod.delete_user_space t[2]
-    executor.reinit_schema!
+    reinit_with_formula_cache_reset!
     true
 
   addField: (_, args, ctx) ->
     require_auth ctx
     i = args.input
     result = spaces_mod.add_field args.spaceId, i.name, i.fieldType, i.notNull, i.description, i.formula, i.triggerFields, i.language, i.reprFormula
-    executor.reinit_schema!
+    reinit_with_formula_cache_reset!
     sp_meta = box.space._tdb_spaces\get args.spaceId
     triggers.register_space_trigger sp_meta[2] if sp_meta
     result
@@ -100,7 +104,7 @@ Mutation =
     for input in *args.inputs
       result = spaces_mod.add_field args.spaceId, input.name, input.fieldType, input.notNull, input.description, input.formula, input.triggerFields, input.language, input.reprFormula
       table.insert results, result
-    executor.reinit_schema!
+    reinit_with_formula_cache_reset!
     sp_meta = box.space._tdb_spaces\get args.spaceId
     triggers.register_space_trigger sp_meta[2] if sp_meta
     results
@@ -111,14 +115,14 @@ Mutation =
     fld     = box.space._tdb_fields\get args.fieldId
     sp_meta = fld and box.space._tdb_spaces\get fld[2]
     spaces_mod.remove_field args.fieldId
-    executor.reinit_schema!
+    reinit_with_formula_cache_reset!
     triggers.register_space_trigger sp_meta[2] if sp_meta
     true
 
   reorderFields: (_, args, ctx) ->
     require_auth ctx
     result = spaces_mod.reorder_fields args.spaceId, args.fieldIds
-    executor.reinit_schema!
+    reinit_with_formula_cache_reset!
     result
 
   updateField: (_, args, ctx) ->
@@ -133,7 +137,7 @@ Mutation =
       language:      i.language
       reprFormula:   i.reprFormula
     }
-    executor.reinit_schema!
+    reinit_with_formula_cache_reset!
     sp_meta = box.space._tdb_spaces\get result.spaceId
     triggers.register_space_trigger sp_meta[2] if sp_meta
     result
@@ -142,7 +146,7 @@ Mutation =
     require_auth ctx
     i = args.input
     result = spaces_mod.change_field_type args.fieldId, i.fieldType, i.conversionFormula, i.language
-    executor.reinit_schema!
+    reinit_with_formula_cache_reset!
     sp_meta = box.space._tdb_spaces\get result.spaceId
     triggers.register_space_trigger sp_meta[2] if sp_meta
     result
@@ -166,18 +170,19 @@ Mutation =
     require_auth ctx
     i = args.input
     result = create_relation i.name, i.fromSpaceId, i.fromFieldId, i.toSpaceId, i.toFieldId, i.reprFormula
-    executor.reinit_schema!
+    reinit_with_formula_cache_reset!
     result
 
   deleteRelation: (_, args, ctx) ->
     require_auth ctx
     result = delete_relation args.id
-    executor.reinit_schema!
+    reinit_with_formula_cache_reset!
     result
 
   updateRelation: (_, args, ctx) ->
     require_auth ctx
     result = update_relation args.id, args.input.reprFormula
+    reinit_with_formula_cache_reset!
     result
 
 -- Field-level resolvers for nested objects

@@ -63,8 +63,8 @@ window.DataView = class DataView
           display = if rec._repr? and String(rec._repr).trim() != ''
             String rec._repr
           else
-            String(rec.id ? rec[Object.keys(rec).find((k) -> k != '__rowId')] ? '')
-          fkId = rec.id ? rec[Object.keys(rec).find (k) -> k != '__rowId']
+            String(rec.id ? rec.__rowId ? rec[Object.keys(rec).find((k) -> k != '__rowId')] ? '')
+          fkId = rec.id ? rec.__rowId ? rec[Object.keys(rec).find (k) -> k != '__rowId']
           map[String fkId] = display
           options.push { text: display, value: String(fkId) }
 
@@ -361,7 +361,11 @@ window.DataView = class DataView
       row._attributes.className.column ?= {}
       for f in (@space.fields or [])
         val = row[f.name]
-        displayVal = if @_fkMaps[f.name]? then @_fkMaps[f.name][String val] else val
+        displayVal = val
+        if row["_repr_#{f.name}"]?
+          displayVal = row["_repr_#{f.name}"]
+        else if @_fkMaps[f.name]?
+          displayVal = @_fkMaps[f.name][String val]
         if typeof displayVal == 'string'
           isError = displayVal.indexOf('[ERROR|') == 0 or displayVal.indexOf('[Erreur de formule:') == 0
           if isError

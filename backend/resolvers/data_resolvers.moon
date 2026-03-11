@@ -196,13 +196,19 @@ Query =
 
     -- Compile the global explicit reprFormula if provided (used by relations dropdown)
     repr_fn = nil
+    repr_compile_error = nil
     if args.reprFormula and args.reprFormula != ''
       lang = args.reprLanguage or 'moonscript'
       ok_c, fn = pcall triggers_mod.compile_formula, args.reprFormula, 'repr', lang
-      repr_fn = if ok_c and type(fn) == 'function' then fn else nil
+      if ok_c and type(fn) == 'function'
+        repr_fn = fn
+      else
+        repr_compile_error = triggers_mod.format_formula_error "Compilation impossible: reprFormula"
+    repr_uses_self_repr = args.reprFormula == '@_repr' or args.reprFormula == 'self._repr' or args.reprFormula == '_repr'
 
     -- Compile per-field reprFormulas
     field_reprs = {}
+    field_repr_errors = {}
     if sp_meta
       fields = box.space._tdb_fields.index.by_space_pos\select { args.spaceId }
       for f in *fields
@@ -211,6 +217,8 @@ Query =
           ok_c, fn = pcall triggers_mod.compile_formula, f[11], "repr_#{f[3]}", lang
           if ok_c and type(fn) == 'function'
             field_reprs[f[3]] = fn
+          else
+            field_repr_errors[f[3]] = triggers_mod.format_formula_error "Compilation impossible: repr_#{f[3]}"
 
     -- Collect all records, injecting _repr and per-field repr when available
     all = {}
@@ -223,16 +231,27 @@ Query =
       self_proxy = triggers_mod.make_self_proxy parsed, fk_def_map, ctx._fk_cache, space_name
 
       -- Global repr
-      if repr_fn
+      if repr_compile_error
+        parsed._repr = repr_compile_error
+      else if repr_fn
         ok_r, val = pcall repr_fn, self_proxy, nil
         if ok_r and val != nil
           parsed._repr = tostring val
+        else if ok_r and val == nil and repr_uses_self_repr
+          fallback_repr = self_proxy._repr
+          parsed._repr = tostring(fallback_repr) if fallback_repr != nil
+        else if not ok_r
+          parsed._repr = triggers_mod.format_formula_error val
 
       -- Per-field reprs
       for fname, fn in pairs field_reprs
         ok_r, val = pcall fn, self_proxy, nil
         if ok_r and val != nil
           parsed["_repr_#{fname}"] = tostring val
+        else if not ok_r
+          parsed["_repr_#{fname}"] = triggers_mod.format_formula_error val
+      for fname, err_val in pairs field_repr_errors
+        parsed["_repr_#{fname}"] = err_val if parsed["_repr_#{fname}"] == nil
 
       parsed._id = nil
       -- Store both JSON data and raw data with proxy for filtering
