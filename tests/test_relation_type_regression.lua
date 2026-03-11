@@ -1,65 +1,82 @@
-local execute_mutation
-execute_mutation = require('tests.runner').execute_mutation
-return describe("Regression: Relation type should not exist", function()
-  it("should reject Relation field type in addField", function()
-    local space_result = execute_mutation([[      mutation {
-        createSpace(input: { name: "test_relation_regression", description: "Test space" }) { id name }
+local R = require('tests.runner')
+local auth = require('core.auth')
+local spaces_mod = require('core.spaces')
+local schema_r = require('resolvers.schema_resolvers')
+local SUFFIX = tostring(math.random(100000, 999999))
+local CTX
+do
+  local admin = auth.get_user_by_username('admin')
+  CTX = {
+    user_id = admin.id
+  }
+end
+return R.describe("Regression: Relation type mapping", function()
+  R.it("addField avec fieldType=Relation est mappé vers Int", function()
+    local sp_name = "test_relation_regression_" .. tostring(SUFFIX)
+    local sp = schema_r.Mutation.createSpace(nil, {
+      input = {
+        name = sp_name,
+        description = 'Type mapping test'
       }
-    ]], { })
-    local space_id = space_result.createSpace.id
-    local result = execute_mutation([[      mutation {
-        addField(spaceId: $spaceId, input: { name: "bad_field", fieldType: "Relation", description: "Should fail" }) { id }
+    }, CTX)
+    local f = schema_r.Mutation.addField(nil, {
+      spaceId = sp.id,
+      input = {
+        name = 'bad_field',
+        fieldType = 'Relation',
+        description = 'Should map to Int'
       }
-    ]], {
-      spaceId = space_id
-    })
-    assert(result.errors, "Should have errors")
-    return assert(result.errors[1].message:match("Type de champ invalide"), "Should mention invalid type")
+    }, CTX)
+    R.ok(f)
+    R.eq(f.fieldType, 'Int')
+    return spaces_mod.delete_user_space(sp_name)
   end)
-  it("should work with Int field type + createRelation", function()
-    local source_result = execute_mutation([[      mutation {
-        createSpace(input: { name: "test_source", description: "Source" }) { id name }
+  return R.it("createRelation fonctionne avec un champ Int source", function()
+    local source_name = "test_source_" .. tostring(SUFFIX)
+    local target_name = "test_target_" .. tostring(SUFFIX)
+    local source = schema_r.Mutation.createSpace(nil, {
+      input = {
+        name = source_name,
+        description = 'Source'
       }
-    ]], { })
-    local source_id = source_result.createSpace.id
-    local target_result = execute_mutation([[      mutation {
-        createSpace(input: { name: "test_target", description: "Target" }) { id name }
+    }, CTX)
+    local target = schema_r.Mutation.createSpace(nil, {
+      input = {
+        name = target_name,
+        description = 'Target'
       }
-    ]], { })
-    local target_id = target_result.createSpace.id
-    local field_result = execute_mutation([[      mutation {
-        addField(spaceId: $spaceId, input: { name: "relation_field", fieldType: Int, description: "Relation field" }) { id name }
+    }, CTX)
+    local int_field = schema_r.Mutation.addField(nil, {
+      spaceId = source.id,
+      input = {
+        name = 'relation_field',
+        fieldType = 'Int',
+        description = 'Relation field'
       }
-    ]], {
-      spaceId = source_id
-    })
-    assert(field_result.data.addField, "Should create Int field")
-    local field_id = field_result.data.addField.id
-    local relation_result = execute_mutation([[      mutation {
-        createRelation(input: {
-          name: "test_relation"
-          fromSpaceId: $sourceId
-          fromFieldId: $fieldId
-          toSpaceId: $targetId
-          toFieldId: "id"
-          reprFormula: "#{@name}"
-        }) { id name }
-      }
-    ]], {
-      sourceId = source_id,
-      fieldId = field_id,
-      targetId = target_id
-    })
-    return assert(relation_result.data.createRelation, "Should create relation")
-  end)
-  return after_each(function()
-    local spaces = require('core.spaces')
-    local all_spaces = spaces.list_spaces()
-    for _index_0 = 1, #all_spaces do
-      local space = all_spaces[_index_0]
-      if space.name:match('^test_relation_regression' or space.name:match('^test_source' or space.name:match('^test_target'))) then
-        spaces.delete_user_space(space.id)
+    }, CTX)
+    local target_fields = spaces_mod.list_fields(target.id)
+    local target_id_field = nil
+    for _index_0 = 1, #target_fields do
+      local f = target_fields[_index_0]
+      if f.name == 'id' then
+        target_id_field = f.id
+        break
       end
     end
+    R.ok(target_id_field)
+    local relation = schema_r.Mutation.createRelation(nil, {
+      input = {
+        name = 'test_relation',
+        fromSpaceId = source.id,
+        fromFieldId = int_field.id,
+        toSpaceId = target.id,
+        toFieldId = target_id_field,
+        reprFormula = '@id'
+      }
+    }, CTX)
+    R.ok(relation)
+    R.eq(relation.name, 'test_relation')
+    spaces_mod.delete_user_space(source_name)
+    return spaces_mod.delete_user_space(target_name)
   end)
 end)

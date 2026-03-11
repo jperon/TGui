@@ -1,75 +1,66 @@
--- tests/test_relation_type_regression.moon
--- Test spécifique pour empêcher la régression du type Relation
+R = require 'tests.runner'
+auth = require 'core.auth'
+spaces_mod = require 'core.spaces'
+schema_r = require 'resolvers.schema_resolvers'
 
-import execute_mutation from require 'tests.runner'
+SUFFIX = tostring math.random 100000, 999999
+CTX = do
+  admin = auth.get_user_by_username 'admin'
+  { user_id: admin.id }
 
-describe "Regression: Relation type should not exist", ->
-  it "should reject Relation field type in addField", ->
-    -- Créer un espace de test
-    space_result = execute_mutation [[
-      mutation {
-        createSpace(input: { name: "test_relation_regression", description: "Test space" }) { id name }
+R.describe "Regression: Relation type mapping", ->
+  R.it "addField avec fieldType=Relation est mappé vers Int", ->
+    sp_name = "test_relation_regression_#{SUFFIX}"
+    sp = schema_r.Mutation.createSpace nil, { input: { name: sp_name, description: 'Type mapping test' } }, CTX
+    f = schema_r.Mutation.addField nil, {
+      spaceId: sp.id
+      input: {
+        name: 'bad_field'
+        fieldType: 'Relation'
+        description: 'Should map to Int'
       }
-    ]], {}
-    space_id = space_result.createSpace.id
+    }, CTX
+    R.ok f
+    R.eq f.fieldType, 'Int'
+    spaces_mod.delete_user_space sp_name
 
-    -- Essayer de créer un champ avec le type "Relation"
-    result = execute_mutation [[
-      mutation {
-        addField(spaceId: $spaceId, input: { name: "bad_field", fieldType: "Relation", description: "Should fail" }) { id }
+  R.it "createRelation fonctionne avec un champ Int source", ->
+    source_name = "test_source_#{SUFFIX}"
+    target_name = "test_target_#{SUFFIX}"
+
+    source = schema_r.Mutation.createSpace nil, { input: { name: source_name, description: 'Source' } }, CTX
+    target = schema_r.Mutation.createSpace nil, { input: { name: target_name, description: 'Target' } }, CTX
+
+    int_field = schema_r.Mutation.addField nil, {
+      spaceId: source.id
+      input: {
+        name: 'relation_field'
+        fieldType: 'Int'
+        description: 'Relation field'
       }
-    ]], { spaceId: space_id }
+    }, CTX
 
-    -- Doit échouer
-    assert result.errors, "Should have errors"
-    assert result.errors[1].message\match("Type de champ invalide"), "Should mention invalid type"
+    target_fields = spaces_mod.list_fields target.id
+    target_id_field = nil
+    for f in *target_fields
+      if f.name == 'id'
+        target_id_field = f.id
+        break
+    R.ok target_id_field
 
-  it "should work with Int field type + createRelation", ->
-    -- Créer deux espaces
-    source_result = execute_mutation [[
-      mutation {
-        createSpace(input: { name: "test_source", description: "Source" }) { id name }
+    relation = schema_r.Mutation.createRelation nil, {
+      input: {
+        name: 'test_relation'
+        fromSpaceId: source.id
+        fromFieldId: int_field.id
+        toSpaceId: target.id
+        toFieldId: target_id_field
+        reprFormula: '@id'
       }
-    ]], {}
-    source_id = source_result.createSpace.id
+    }, CTX
 
-    target_result = execute_mutation [[
-      mutation {
-        createSpace(input: { name: "test_target", description: "Target" }) { id name }
-      }
-    ]], {}
-    target_id = target_result.createSpace.id
+    R.ok relation
+    R.eq relation.name, 'test_relation'
 
-    -- 1. Créer un champ Int (correct)
-    field_result = execute_mutation [[
-      mutation {
-        addField(spaceId: $spaceId, input: { name: "relation_field", fieldType: Int, description: "Relation field" }) { id name }
-      }
-    ]], { spaceId: source_id }
-    
-    assert field_result.data.addField, "Should create Int field"
-    field_id = field_result.data.addField.id
-
-    -- 2. Créer la relation (correct)
-    relation_result = execute_mutation [[
-      mutation {
-        createRelation(input: {
-          name: "test_relation"
-          fromSpaceId: $sourceId
-          fromFieldId: $fieldId
-          toSpaceId: $targetId
-          toFieldId: "id"
-          reprFormula: "#{@name}"
-        }) { id name }
-      }
-    ]], { sourceId: source_id, fieldId: field_id, targetId: target_id }
-
-    assert relation_result.data.createRelation, "Should create relation"
-
-  after_each ->
-    -- Nettoyer
-    spaces = require 'core.spaces'
-    all_spaces = spaces.list_spaces!
-    for space in *all_spaces
-      if space.name\match '^test_relation_regression' or space.name\match '^test_source' or space.name\match '^test_target'
-        spaces.delete_user_space space.id
+    spaces_mod.delete_user_space source_name
+    spaces_mod.delete_user_space target_name
