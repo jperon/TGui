@@ -1,5 +1,6 @@
 local R = require('tests.runner')
 local cvr = require('resolvers.custom_view_resolvers')
+local auth = require('core.auth')
 local SUFFIX = tostring(math.random(100000, 999999))
 local CV_NAME = "test_cv_" .. tostring(SUFFIX)
 local YAML_SIMPLE = [[layout:
@@ -23,6 +24,10 @@ local YAML_FACTOR = [[layout:
         columns: [nom, prenom]
 ]]
 local cv_id
+local admin = auth.get_user_by_username('admin')
+local CTX = {
+  user_id = admin and admin.id
+}
 R.describe("CustomViews — création", function()
   R.it("createCustomView retourne les métadonnées", function()
     local res = cvr.Mutation.createCustomView({ }, {
@@ -31,7 +36,7 @@ R.describe("CustomViews — création", function()
         description = 'test',
         yaml = YAML_SIMPLE
       }
-    }, { })
+    }, CTX)
     R.ok(res)
     R.ok(res.id)
     R.eq(res.name, CV_NAME)
@@ -41,7 +46,7 @@ R.describe("CustomViews — création", function()
   end)
   R.it("customViews liste inclut la vue créée", function()
     local found = false
-    local _list_0 = cvr.Query.customViews({ }, { }, { })
+    local _list_0 = cvr.Query.customViews({ }, { }, CTX)
     for _index_0 = 1, #_list_0 do
       local v = _list_0[_index_0]
       if v.id == cv_id then
@@ -53,7 +58,7 @@ R.describe("CustomViews — création", function()
   return R.it("customView retourne la vue par id", function()
     local v = cvr.Query.customView({ }, {
       id = cv_id
-    }, { })
+    }, CTX)
     R.ok(v)
     R.eq(v.id, cv_id)
     return R.eq(v.name, CV_NAME)
@@ -67,7 +72,7 @@ R.describe("CustomViews — mise à jour", function()
         name = CV_NAME .. '_v2',
         yaml = YAML_FACTOR
       }
-    }, { })
+    }, CTX)
     R.ok(res)
     R.eq(res.name, CV_NAME .. '_v2')
     return R.eq(res.yaml, YAML_FACTOR)
@@ -78,7 +83,7 @@ R.describe("CustomViews — mise à jour", function()
       input = {
         name = CV_NAME .. '_v2'
       }
-    }, { })
+    }, CTX)
     R.ok(res)
     return R.eq(res.yaml, YAML_FACTOR)
   end)
@@ -89,7 +94,7 @@ R.describe("CustomViews — mise à jour", function()
         input = {
           name = 'x'
         }
-      }, { })
+      }, CTX)
     end), 'not found')
   end)
 end)
@@ -97,12 +102,12 @@ return R.describe("CustomViews — suppression", function()
   R.it("deleteCustomView retourne true", function()
     local ok = cvr.Mutation.deleteCustomView({ }, {
       id = cv_id
-    }, { })
+    }, CTX)
     return R.ok(ok)
   end)
   R.it("la vue supprimée n'apparaît plus dans la liste", function()
     local found = false
-    local _list_0 = cvr.Query.customViews({ }, { }, { })
+    local _list_0 = cvr.Query.customViews({ }, { }, CTX)
     for _index_0 = 1, #_list_0 do
       local v = _list_0[_index_0]
       if v.id == cv_id then
@@ -114,7 +119,7 @@ return R.describe("CustomViews — suppression", function()
   return R.it("customView sur id supprimé retourne nil", function()
     local v = cvr.Query.customView({ }, {
       id = cv_id
-    }, { })
+    }, CTX)
     return R.is_nil(v)
   end)
 end)

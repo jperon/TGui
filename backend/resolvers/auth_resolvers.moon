@@ -11,22 +11,22 @@ Query =
     auth_mod.get_user_by_id ctx.user_id
 
   users: (_, args, ctx) ->
-    require_auth ctx
+    require_admin ctx
     result = {}
     for t in *box.space._tdb_users\select {}
       table.insert result, { id: t[1], username: t[2], email: t[3], createdAt: t[6] }
     result
 
   user: (_, args, ctx) ->
-    require_auth ctx
+    require_admin ctx
     auth_mod.get_user_by_id args.id
 
   groups: (_, args, ctx) ->
-    require_auth ctx
+    require_admin ctx
     perms_mod.list_groups!
 
   group: (_, args, ctx) ->
-    require_auth ctx
+    require_admin ctx
     perms_mod.get_group args.id
 
 Mutation =

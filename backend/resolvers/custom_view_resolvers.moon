@@ -2,6 +2,7 @@
 -- CRUD resolvers for custom YAML views (dashboard layouts).
 
 uuid_mod = require 'uuid'
+{ :require_auth } = require 'resolvers.utils'
 
 list_custom_views = ->
   result = {}
@@ -45,17 +46,24 @@ delete_custom_view = (id) ->
   true
 
 Query =
-  customViews: (_, args, ctx) -> list_custom_views!
-  customView:  (_, args, ctx) -> get_custom_view args.id
+  customViews: (_, args, ctx) ->
+    require_auth ctx
+    list_custom_views!
+  customView:  (_, args, ctx) ->
+    require_auth ctx
+    get_custom_view args.id
 
 Mutation =
   createCustomView: (_, args, ctx) ->
+    require_auth ctx
     i = args.input
     create_custom_view i.name, i.description, i.yaml
   updateCustomView: (_, args, ctx) ->
+    require_auth ctx
     i = args.input
     update_custom_view args.id, i.name, i.description, i.yaml
   deleteCustomView: (_, args, ctx) ->
+    require_auth ctx
     delete_custom_view args.id
 
 { :Query, :Mutation }
