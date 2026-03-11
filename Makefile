@@ -8,7 +8,7 @@ JS_OUTS         := $(COFFEE_SRCS:.coffee=.js)
 TEST_COFFEE_SRCS := $(shell find tests/js -name '*.coffee')
 TEST_JS_OUTS     := $(TEST_COFFEE_SRCS:.coffee=.js)
 
-.PHONY: all build test test-js test-up test-down test-logs up down logs clean vendor audit-deps doc sdl-gen sdl-check
+.PHONY: all build test test-js test-up test-down test-logs up down logs clean vendor audit-deps doc sdl-gen sdl-check ci
 
 all: build
 
@@ -88,5 +88,7 @@ sdl-check: build
 	diff -u schema/tdb.generated.graphql $$tmp >/dev/null || (echo "SDL drift detected: run 'make sdl-gen' and commit schema/tdb.generated.graphql"; rm -f $$tmp; exit 1); \
 	rm -f $$tmp; \
 	echo "SDL check OK"
+
+ci: sdl-check test test-js
 
 .PHONY: doc
