@@ -369,7 +369,7 @@
 
   describe('DataView editable columns formatter regression', function() {
     return it('FK et Boolean formatters ne renvoient pas de HTML brut', async function() {
-      var boolCol, boolRenderedFalse, boolRenderedTrue, cols, dv, fkCol, fkRendered, ref, ref1, rels, sp;
+      var boolCol, boolRenderedFalse, boolRenderedTrue, cols, dv, fkCol, fkRendered, ref, ref1, ref2, ref3, rels, sp;
       sp = makeSpace({
         fields: [
           {
@@ -424,8 +424,9 @@
       });
       assert(fkCol, 'colonne FK absente');
       assert(boolCol, 'colonne Boolean absente');
-      eq((ref = fkCol.editor) != null ? ref.type : void 0, 'select');
-      eq((ref1 = boolCol.editor) != null ? ref1.type : void 0, 'checkbox');
+      assert(typeof ((ref = fkCol.editor) != null ? ref.type : void 0) === 'function', 'éditeur FK custom absent');
+      eq((ref1 = fkCol.editor) != null ? (ref2 = ref1.type) != null ? ref2.name : void 0 : void 0, 'FkSearchEditor');
+      eq((ref3 = boolCol.editor) != null ? ref3.type : void 0, 'checkbox');
       fkRendered = fkCol.formatter({
         value: 1,
         row: {
@@ -450,6 +451,80 @@
       eq(boolRenderedFalse, '☐');
       assert(!String(boolRenderedTrue).includes('<'), 'le formatter Boolean ne doit pas renvoyer de HTML');
       assert(!String(boolRenderedFalse).includes('<'), 'le formatter Boolean ne doit pas renvoyer de HTML');
+      return dv.unmount();
+    });
+  });
+
+  describe('DataView FK fuzzy autocomplete editor', function() {
+    return it('supporte la recherche fuzzy et mappe label -> id', async function() {
+      var Editor, dv, editor, el, fkCol, matches, ref, rels, sp;
+      sp = makeSpace({
+        fields: [
+          {
+            id: 'f1',
+            name: 'auteur',
+            fieldType: 'Relation',
+            formula: null,
+            triggerFields: null
+          }
+        ]
+      });
+      rels = [
+        {
+          fromFieldId: 'f1',
+          toSpaceId: 'authors-space',
+          reprFormula: '@_repr'
+        }
+      ];
+      dv = new DV(container(), sp, null, rels);
+      dv._buildFkMaps = function() {
+        this._fkMaps.auteur = {
+          '1': 'Hugo Victor',
+          '2': 'Camus Albert'
+        };
+        this._fkOptions.auteur = [
+          {
+            text: 'Hugo Victor',
+            value: '1'
+          },
+          {
+            text: 'Camus Albert',
+            value: '2'
+          }
+        ];
+        return Promise.resolve();
+      };
+      dv._loadColWidths = function() {
+        return Promise.resolve({});
+      };
+      dv.load = function() {
+        return Promise.resolve([]);
+      };
+      await dv.mount();
+      fkCol = dv._grid.getColumns().find(function(c) {
+        return c.name === 'auteur';
+      });
+      Editor = (ref = fkCol.editor) != null ? ref.type : void 0;
+      assert(typeof Editor === 'function', 'classe éditeur FK absente');
+      editor = new Editor({
+        value: '',
+        columnInfo: {
+          editor: {
+            options: {
+              items: dv._fkOptions.auteur
+            }
+          }
+        }
+      });
+      el = editor.getElement();
+      assert(!('list' in el), 'l’éditeur FK ne doit pas utiliser un datalist natif');
+      matches = editor._filterItems('hgo');
+      assert(matches.length > 0, 'aucun résultat fuzzy');
+      eq(matches[0].label, 'Hugo Victor');
+      editor._renderMenu('hgo');
+      eq(editor.visibleItems[0].label, 'Hugo Victor');
+      editor._applySelection(0);
+      eq(editor.getValue(), '1');
       return dv.unmount();
     });
   });

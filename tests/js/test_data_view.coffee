@@ -217,7 +217,8 @@ describe 'DataView editable columns formatter regression', ->
 
     assert fkCol, 'colonne FK absente'
     assert boolCol, 'colonne Boolean absente'
-    eq fkCol.editor?.type, 'select'
+    assert typeof fkCol.editor?.type is 'function', 'éditeur FK custom absent'
+    eq fkCol.editor?.type?.name, 'FkSearchEditor'
     eq boolCol.editor?.type, 'checkbox'
 
     fkRendered = fkCol.formatter { value: 1, row: { auteur: 1 } }
@@ -230,6 +231,53 @@ describe 'DataView editable columns formatter regression', ->
     eq boolRenderedFalse, '☐'
     assert not String(boolRenderedTrue).includes('<'), 'le formatter Boolean ne doit pas renvoyer de HTML'
     assert not String(boolRenderedFalse).includes('<'), 'le formatter Boolean ne doit pas renvoyer de HTML'
+
+    dv.unmount()
+
+describe 'DataView FK fuzzy autocomplete editor', ->
+  it 'supporte la recherche fuzzy et mappe label -> id', ->
+    sp = makeSpace
+      fields: [
+        { id: 'f1', name: 'auteur', fieldType: 'Relation', formula: null, triggerFields: null }
+      ]
+    rels = [
+      { fromFieldId: 'f1', toSpaceId: 'authors-space', reprFormula: '@_repr' }
+    ]
+
+    dv = new DV container(), sp, null, rels
+    dv._buildFkMaps = ->
+      @_fkMaps.auteur = { '1': 'Hugo Victor', '2': 'Camus Albert' }
+      @_fkOptions.auteur = [
+        { text: 'Hugo Victor', value: '1' }
+        { text: 'Camus Albert', value: '2' }
+      ]
+      Promise.resolve()
+    dv._loadColWidths = -> Promise.resolve {}
+    dv.load = -> Promise.resolve []
+    await dv.mount()
+
+    fkCol = dv._grid.getColumns().find (c) -> c.name == 'auteur'
+    Editor = fkCol.editor?.type
+    assert typeof Editor is 'function', 'classe éditeur FK absente'
+
+    editor = new Editor
+      value: ''
+      columnInfo:
+        editor:
+          options:
+            items: dv._fkOptions.auteur
+
+    el = editor.getElement()
+    assert not ('list' of el), 'l’éditeur FK ne doit pas utiliser un datalist natif'
+
+    matches = editor._filterItems 'hgo'
+    assert matches.length > 0, 'aucun résultat fuzzy'
+    eq matches[0].label, 'Hugo Victor'
+
+    editor._renderMenu 'hgo'
+    eq editor.visibleItems[0].label, 'Hugo Victor'
+    editor._applySelection 0
+    eq editor.getValue(), '1'
 
     dv.unmount()
 
