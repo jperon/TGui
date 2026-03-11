@@ -5,6 +5,11 @@ do
   local _obj_0 = require('resolvers.utils')
   require_auth, require_admin = _obj_0.require_auth, _obj_0.require_admin
 end
+local spaces_mod = require('core.spaces')
+local auth_r = require('resolvers.auth_resolvers')
+local data_r = require('resolvers.data_resolvers')
+local custom_view_r = require('resolvers.custom_view_resolvers')
+local json = require('json')
 local SUFFIX = tostring(math.random(100000, 999999))
 R.describe("require_auth — blocage sans authentification", function()
   R.it("ctx nil → erreur Unauthorized", function()
@@ -80,7 +85,7 @@ R.describe("Sessions — création, validation, expiration", function()
     return R.eq(sess, nil)
   end)
 end)
-return R.describe("Sessions — purge des expirées", function()
+R.describe("Sessions — purge des expirées", function()
   R.it("purge_expired_sessions retourne le nombre de sessions supprimées", function()
     local fake_token = "expired_test_" .. tostring(SUFFIX)
     box.space._tdb_sessions:insert({
@@ -101,5 +106,60 @@ return R.describe("Sessions — purge des expirées", function()
     local still_valid = auth.validate_session(sess.token)
     R.ok(still_valid)
     return auth.delete_session(sess.token)
+  end)
+end)
+R.describe("GraphQL resolver auth policy — admin queries", function()
+  R.it("Query.users refuse un utilisateur non-admin", function()
+    local ok_u, user = pcall(auth.create_user, "policy_nonadmin_" .. tostring(SUFFIX), "policy_nonadmin_" .. tostring(SUFFIX) .. "@test.local", "pass123")
+    R.ok(ok_u)
+    local ctx = {
+      user_id = user.id
+    }
+    local ok_q, err_q = pcall(auth_r.Query.users, nil, { }, ctx)
+    R.eq(ok_q, false)
+    R.ok(tostring(err_q):find('Forbidden'))
+    return box.space._tdb_users:delete(user.id)
+  end)
+  return R.it("Query.users accepte un admin", function()
+    local admin_user = auth.get_user_by_username('admin')
+    local res = auth_r.Query.users(nil, { }, {
+      user_id = admin_user.id
+    })
+    return R.ok(type(res) == 'table')
+  end)
+end)
+return R.describe("GraphQL resolver auth policy — data/custom views", function()
+  R.it("Query.record refuse ctx nil", function()
+    local ok_q, err_q = pcall(data_r.Query.record, nil, {
+      spaceId = 'any',
+      id = 'any'
+    }, nil)
+    R.eq(ok_q, false)
+    return R.ok(tostring(err_q):find('Unauthorized'))
+  end)
+  R.it("Query.record accepte un utilisateur authentifié", function()
+    local admin_user = auth.get_user_by_username('admin')
+    local sp_name = "policy_record_" .. tostring(SUFFIX)
+    local sp = spaces_mod.create_user_space(sp_name, "policy record test")
+    box.space["data_" .. tostring(sp_name)]:insert({
+      "row1",
+      json.encode({
+        nom = "ok"
+      })
+    })
+    local rec = data_r.Query.record(nil, {
+      spaceId = sp.id,
+      id = 'row1'
+    }, {
+      user_id = admin_user.id
+    })
+    R.ok(rec)
+    R.eq(rec.id, 'row1')
+    return spaces_mod.delete_user_space(sp_name)
+  end)
+  return R.it("customViews refuse ctx nil", function()
+    local ok_q, err_q = pcall(custom_view_r.Query.customViews, nil, { }, nil)
+    R.eq(ok_q, false)
+    return R.ok(tostring(err_q):find('Unauthorized'))
   end)
 end)

@@ -5,6 +5,11 @@
 R    = require 'tests.runner'
 auth = require 'core.auth'
 { :require_auth, :require_admin } = require 'resolvers.utils'
+spaces_mod = require 'core.spaces'
+auth_r = require 'resolvers.auth_resolvers'
+data_r = require 'resolvers.data_resolvers'
+custom_view_r = require 'resolvers.custom_view_resolvers'
+json = require 'json'
 
 SUFFIX = tostring math.random 100000, 999999
 
@@ -104,3 +109,39 @@ R.describe "Sessions — purge des expirées", ->
     still_valid = auth.validate_session sess.token
     R.ok still_valid
     auth.delete_session sess.token
+
+R.describe "GraphQL resolver auth policy — admin queries", ->
+  R.it "Query.users refuse un utilisateur non-admin", ->
+    ok_u, user = pcall auth.create_user, "policy_nonadmin_#{SUFFIX}", "policy_nonadmin_#{SUFFIX}@test.local", "pass123"
+    R.ok ok_u
+    ctx = { user_id: user.id }
+    ok_q, err_q = pcall auth_r.Query.users, nil, {}, ctx
+    R.eq ok_q, false
+    R.ok tostring(err_q)\find 'Forbidden'
+    box.space._tdb_users\delete user.id
+
+  R.it "Query.users accepte un admin", ->
+    admin_user = auth.get_user_by_username 'admin'
+    res = auth_r.Query.users nil, {}, { user_id: admin_user.id }
+    R.ok type(res) == 'table'
+
+R.describe "GraphQL resolver auth policy — data/custom views", ->
+  R.it "Query.record refuse ctx nil", ->
+    ok_q, err_q = pcall data_r.Query.record, nil, { spaceId: 'any', id: 'any' }, nil
+    R.eq ok_q, false
+    R.ok tostring(err_q)\find 'Unauthorized'
+
+  R.it "Query.record accepte un utilisateur authentifié", ->
+    admin_user = auth.get_user_by_username 'admin'
+    sp_name = "policy_record_#{SUFFIX}"
+    sp = spaces_mod.create_user_space sp_name, "policy record test"
+    box.space["data_#{sp_name}"]\insert { "row1", json.encode { nom: "ok" } }
+    rec = data_r.Query.record nil, { spaceId: sp.id, id: 'row1' }, { user_id: admin_user.id }
+    R.ok rec
+    R.eq rec.id, 'row1'
+    spaces_mod.delete_user_space sp_name
+
+  R.it "customViews refuse ctx nil", ->
+    ok_q, err_q = pcall custom_view_r.Query.customViews, nil, {}, nil
+    R.eq ok_q, false
+    R.ok tostring(err_q)\find 'Unauthorized'
