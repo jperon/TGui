@@ -374,6 +374,11 @@ make_body = ->
     H.script {src: '/src/graphql_client.js', ''}
     H.script {src: '/src/auth.js', ''}
     H.script {src: '/src/spaces.js', ''}
+    H.script {src: '/src/app_fields_helpers.js', ''}
+    H.script {src: '/src/app_sidebar_helpers.js', ''}
+    H.script {src: '/src/app_data_helpers.js', ''}
+    H.script {src: '/src/app_view_helpers.js', ''}
+    H.script {src: '/src/app_snapshot_helpers.js', ''}
     H.script {src: '/src/views/data_view.js', ''}
     H.script {src: '/src/views/custom_view.js', ''}
     H.script {src: '/src/yaml_builder.js', ''}

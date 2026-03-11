@@ -38,10 +38,16 @@ test-js: $(TEST_JS_OUTS)
 %.js: %.coffee
 	coffee --no-header -c $<
 
-# Build vendor bundles (tui-grid, js-yaml)
-vendor: frontend/vendor/tui-grid.bundle.js
+# Build vendor bundles (tui-grid, js-yaml, codemirror)
+VENDOR_OUTS := frontend/vendor/tui-grid.bundle.js \
+	frontend/vendor/tui-grid.bundle.css \
+	frontend/vendor/jsyaml.bundle.js \
+	frontend/vendor/codemirror.bundle.js \
+	frontend/vendor/codemirror.bundle.css
 
-frontend/vendor/tui-grid.bundle.js:
+vendor: $(VENDOR_OUTS)
+
+$(VENDOR_OUTS):
 	@bash scripts/build-vendor.sh
 
 up: build
