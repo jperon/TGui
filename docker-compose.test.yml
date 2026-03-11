@@ -2,7 +2,7 @@ services:
   tarantool-test:
     container_name: tgui-tarantool-test
     build: .
-    command: tarantool /app/backend/test_runner.lua
+    command: tarantool /app/backend/init.lua
     volumes:
       - ./backend:/app/backend:ro
       - ./frontend:/app/frontend:ro
