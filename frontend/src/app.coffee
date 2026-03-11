@@ -1051,8 +1051,28 @@ window.App =
 
           Spaces.changeFieldType(@_editingFieldId, type, conversionFormula, conversionLang)
             .then =>
-              # After type change, update other field properties
-              @updateFieldProperties(@_editingFieldId, opts, formulaType)
+              # If changing to Relation, create the relation
+              if type == 'Relation'
+                toSpaceId   = @el.relToSpace().value
+                reprFormula = @el.relReprFormula().value.trim()
+                return unless toSpaceId
+                Spaces.getWithFields(toSpaceId).then (targetSpace) =>
+                  idField = (targetSpace.fields or []).find (f) -> f.fieldType == 'Sequence'
+                  unless idField
+                    tdbAlert @_t('ui.alerts.targetNoSequence'), 'warn'
+                    return
+
+                  Spaces.createRelation(
+                    "#{@_currentSpace.name}_#{@el.fieldName().value}_rel",
+                    @_currentSpace.id,
+                    @_editingFieldId,
+                    toSpaceId,
+                    idField.id,
+                    reprFormula
+                  )
+              else
+                # After type change, update other field properties
+                @updateFieldProperties(@_editingFieldId, opts, formulaType)
             .catch (err) => tdbAlert @_err(err), 'error'
         else
           # Same type - just update properties
@@ -1195,12 +1215,14 @@ window.App =
     Spaces.listRelations(@_currentSpace.id).then (relations) =>
       # Build a map: fromFieldId → relation (with target space name resolved)
       relMap = {}
+      spaceMap = {}
+
+      # Build space name map
+      for sp in @_allSpaces
+        spaceMap[sp.id] = sp.name
+
       for r in (relations or [])
         relMap[r.fromFieldId] = r
-      # Resolve target space names from _allSpaces
-      spaceMap = {}
-      for sp in (@_allSpaces or [])
-        spaceMap[sp.id] = sp.name
 
       if fields.length == 0
         li = document.createElement 'li'
@@ -1276,6 +1298,7 @@ window.App =
               @el.fieldType().value = 'Relation'
               @_onFieldTypeChange()
               @el.relReprFormula().value = relation.reprFormula or ''
+              @el.relToSpace().value = relation.toSpaceId or ''
               @el.fieldReprFormula().value = '' if @el.fieldReprFormula()
             else
               @el.fieldType().value = field.fieldType
