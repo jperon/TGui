@@ -86,13 +86,11 @@ Les champs de back-reference générés dynamiquement (basés sur les relations 
 # Récupérer les utilisateurs et leurs tâches, en filtrant les tâches par titre
 query {
   users {
-    items {
+    id
+    username
+    groups {
       id
       name
-      tasks(limit: 5, offset: 0, filter: { field: "title", op: CONTAINS, value: "important" }) {
-        items { id title status }
-        total
-      }
     }
   }
 }
@@ -994,18 +992,28 @@ Le résultat de l'opération indique le nombre d'éléments créés, ignorés et
 
 ```graphql
 # Export
-query {
-  exportSnapshot(includeData: Boolean!): String!
+query Export($includeData: Boolean!) {
+  exportSnapshot(includeData: $includeData)
 }
 
 # Prévisualisation du diff
-query {
-  diffSnapshot(yaml: String!): SnapshotDiff!
+query Diff($yaml: String!) {
+  diffSnapshot(yaml: $yaml) {
+    spacesToCreate
+    spacesToDelete
+    customViewsToCreate
+    customViewsToUpdate
+  }
 }
 
 # Import
-mutation {
-  importSnapshot(yaml: String!, mode: merge|replace): ImportResult!
+mutation Import($yaml: String!, $mode: ImportMode!) {
+  importSnapshot(yaml: $yaml, mode: $mode) {
+    ok
+    created
+    skipped
+    errors
+  }
 }
 ```
 
@@ -1042,9 +1050,11 @@ mutation {
 | `createSpace` / `updateSpace` / `deleteSpace` | CRUD espaces |
 | `addField` / `updateField` / `removeField` / `reorderFields` | CRUD champs |
 | `createView` / `updateView` / `deleteView` | CRUD vues classiques |
-| `createRelation` / `deleteRelation` | CRUD relations |
+| `createRelation` / `updateRelation` / `deleteRelation` | CRUD relations |
 | `createCustomView` / `updateCustomView` / `deleteCustomView` | CRUD vues YAML |
-| `insertRecord` / `updateRecord` / `deleteRecord` | CRUD enregistrements |
+| `insertRecord` / `updateRecord` / `deleteRecord` | CRUD enregistrement unitaire |
+| `insertRecords` / `updateRecords` / `deleteRecords` | Opérations batch sur enregistrements |
+| `addFields` | Ajout multiple de champs |
 | `login` / `logout` | Authentification |
 | `createUser` | Créer un utilisateur (admin) |
 | `changePassword` | Changer son propre mot de passe |

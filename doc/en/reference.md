@@ -82,13 +82,11 @@ Dynamically generated back-reference fields (based on inverse relations) support
 # Fetch users and their tasks, filtering tasks by title
 query {
   users {
-    items {
+    id
+    username
+    groups {
       id
       name
-      tasks(limit: 5, offset: 0, filter: { field: "title", op: CONTAINS, value: "important" }) {
-        items { id title status }
-        total
-      }
     }
   }
 }
@@ -939,18 +937,28 @@ The result indicates the number of items created, ignored, and any errors.
 
 ```graphql
 # Export
-query {
-  exportSnapshot(includeData: Boolean!): String!
+query Export($includeData: Boolean!) {
+  exportSnapshot(includeData: $includeData)
 }
 
 # Diff preview
-query {
-  diffSnapshot(yaml: String!): SnapshotDiff!
+query Diff($yaml: String!) {
+  diffSnapshot(yaml: $yaml) {
+    spacesToCreate
+    spacesToDelete
+    customViewsToCreate
+    customViewsToUpdate
+  }
 }
 
 # Import
-mutation {
-  importSnapshot(yaml: String!, mode: merge|replace): ImportResult!
+mutation Import($yaml: String!, $mode: ImportMode!) {
+  importSnapshot(yaml: $yaml, mode: $mode) {
+    ok
+    created
+    skipped
+    errors
+  }
 }
 ```
 
@@ -987,9 +995,11 @@ mutation {
 | `createSpace` / `updateSpace` / `deleteSpace` | CRUD spaces |
 | `addField` / `updateField` / `removeField` / `reorderFields` | CRUD fields |
 | `createView` / `updateView` / `deleteView` | CRUD classic views |
-| `createRelation` / `deleteRelation` | CRUD relations |
+| `createRelation` / `updateRelation` / `deleteRelation` | CRUD relations |
 | `createCustomView` / `updateCustomView` / `deleteCustomView` | CRUD YAML views |
-| `insertRecord` / `updateRecord` / `deleteRecord` | CRUD records |
+| `insertRecord` / `updateRecord` / `deleteRecord` | Single-record CRUD |
+| `insertRecords` / `updateRecords` / `deleteRecords` | Batch record operations |
+| `addFields` | Add multiple fields at once |
 | `login` / `logout` | Authentication |
 | `createUser` | Create a user (admin) |
 | `changePassword` | Change own password |
