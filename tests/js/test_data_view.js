@@ -19,12 +19,21 @@
 
   global.tui = {
     Grid: class {
-      constructor() {
+      constructor(opts = {}) {
         this._data = [];
+        this._columns = opts.columns || [];
       }
 
       resetData(d) {
         return this._data = d;
+      }
+
+      getData() {
+        return this._data;
+      }
+
+      getColumns() {
+        return this._columns;
       }
 
       getRowAt(i) {
@@ -355,6 +364,93 @@
       eq(dv._fkMaps.auteur['1'], 'Hugo Victor');
       eq(dv._fkMaps.auteur['2'], 'Maupassant Guy');
       return global.GQL.query = oldQuery;
+    });
+  });
+
+  describe('DataView editable columns formatter regression', function() {
+    return it('FK et Boolean formatters ne renvoient pas de HTML brut', async function() {
+      var boolCol, boolRenderedFalse, boolRenderedTrue, cols, dv, fkCol, fkRendered, ref, ref1, rels, sp;
+      sp = makeSpace({
+        fields: [
+          {
+            id: 'f1',
+            name: 'auteur',
+            fieldType: 'Relation',
+            formula: null,
+            triggerFields: null
+          },
+          {
+            id: 'f2',
+            name: 'disponible',
+            fieldType: 'Boolean',
+            formula: null,
+            triggerFields: null
+          }
+        ]
+      });
+      rels = [
+        {
+          fromFieldId: 'f1',
+          toSpaceId: 'authors-space',
+          reprFormula: '@_repr'
+        }
+      ];
+      dv = new DV(container(), sp, null, rels);
+      dv._buildFkMaps = function() {
+        this._fkMaps.auteur = {
+          '1': 'Hugo Victor'
+        };
+        this._fkOptions.auteur = [
+          {
+            text: 'Hugo Victor',
+            value: '1'
+          }
+        ];
+        return Promise.resolve();
+      };
+      dv._loadColWidths = function() {
+        return Promise.resolve({});
+      };
+      dv.load = function() {
+        return Promise.resolve([]);
+      };
+      await dv.mount();
+      cols = dv._grid.getColumns();
+      fkCol = cols.find(function(c) {
+        return c.name === 'auteur';
+      });
+      boolCol = cols.find(function(c) {
+        return c.name === 'disponible';
+      });
+      assert(fkCol, 'colonne FK absente');
+      assert(boolCol, 'colonne Boolean absente');
+      eq((ref = fkCol.editor) != null ? ref.type : void 0, 'select');
+      eq((ref1 = boolCol.editor) != null ? ref1.type : void 0, 'checkbox');
+      fkRendered = fkCol.formatter({
+        value: 1,
+        row: {
+          auteur: 1
+        }
+      });
+      boolRenderedTrue = boolCol.formatter({
+        value: true,
+        row: {
+          disponible: true
+        }
+      });
+      boolRenderedFalse = boolCol.formatter({
+        value: false,
+        row: {
+          disponible: false
+        }
+      });
+      assert(fkRendered === 'Hugo Victor', 'le formatter FK doit renvoyer du texte pur');
+      assert(!String(fkRendered).includes('<'), 'le formatter FK ne doit pas renvoyer de HTML');
+      eq(boolRenderedTrue, '☑');
+      eq(boolRenderedFalse, '☐');
+      assert(!String(boolRenderedTrue).includes('<'), 'le formatter Boolean ne doit pas renvoyer de HTML');
+      assert(!String(boolRenderedFalse).includes('<'), 'le formatter Boolean ne doit pas renvoyer de HTML');
+      return dv.unmount();
     });
   });
 

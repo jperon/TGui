@@ -11,8 +11,12 @@ global.GQL =
 
 global.tui =
   Grid: class
-    constructor: -> @_data = []
+    constructor: (opts = {}) ->
+      @_data = []
+      @_columns = opts.columns or []
     resetData: (d) -> @_data = d
+    getData: -> @_data
+    getColumns: -> @_columns
     getRowAt: (i) -> @_data[i] or null
     addRowClassName: ->
     on: ->
@@ -186,6 +190,48 @@ describe 'DataView FK maps use _repr', ->
     eq dv._fkMaps.auteur['1'], 'Hugo Victor'
     eq dv._fkMaps.auteur['2'], 'Maupassant Guy'
     global.GQL.query = oldQuery
+
+describe 'DataView editable columns formatter regression', ->
+  it 'FK et Boolean formatters ne renvoient pas de HTML brut', ->
+    sp = makeSpace
+      fields: [
+        { id: 'f1', name: 'auteur', fieldType: 'Relation', formula: null, triggerFields: null }
+        { id: 'f2', name: 'disponible', fieldType: 'Boolean', formula: null, triggerFields: null }
+      ]
+    rels = [
+      { fromFieldId: 'f1', toSpaceId: 'authors-space', reprFormula: '@_repr' }
+    ]
+
+    dv = new DV container(), sp, null, rels
+    dv._buildFkMaps = ->
+      @_fkMaps.auteur = { '1': 'Hugo Victor' }
+      @_fkOptions.auteur = [{ text: 'Hugo Victor', value: '1' }]
+      Promise.resolve()
+    dv._loadColWidths = -> Promise.resolve {}
+    dv.load = -> Promise.resolve []
+    await dv.mount()
+
+    cols = dv._grid.getColumns()
+    fkCol = cols.find (c) -> c.name == 'auteur'
+    boolCol = cols.find (c) -> c.name == 'disponible'
+
+    assert fkCol, 'colonne FK absente'
+    assert boolCol, 'colonne Boolean absente'
+    eq fkCol.editor?.type, 'select'
+    eq boolCol.editor?.type, 'checkbox'
+
+    fkRendered = fkCol.formatter { value: 1, row: { auteur: 1 } }
+    boolRenderedTrue = boolCol.formatter { value: true, row: { disponible: true } }
+    boolRenderedFalse = boolCol.formatter { value: false, row: { disponible: false } }
+
+    assert fkRendered == 'Hugo Victor', 'le formatter FK doit renvoyer du texte pur'
+    assert not String(fkRendered).includes('<'), 'le formatter FK ne doit pas renvoyer de HTML'
+    eq boolRenderedTrue, '☑'
+    eq boolRenderedFalse, '☐'
+    assert not String(boolRenderedTrue).includes('<'), 'le formatter Boolean ne doit pas renvoyer de HTML'
+    assert not String(boolRenderedFalse).includes('<'), 'le formatter Boolean ne doit pas renvoyer de HTML'
+
+    dv.unmount()
 
 describe 'DataView.unmount', ->
   it 'remet _mounted à false et vide les tableaux', ->
