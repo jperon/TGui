@@ -241,31 +241,7 @@ make_self_proxy = (record, fk_def_map, fk_cache, space_name) ->
   -- Get or build nested fk_def_map (cached, avoids repeated metadata scans).
   ensure_fk_def_map = (space_id) ->
     return fk_cache.fk_def_maps[space_id] if fk_cache.fk_def_maps[space_id]
-    rels = {}
-    for t in *box.space._tdb_relations\select {}
-      if t[2] == space_id
-        rels[t[3]] = { toSpaceId: t[4], toFieldId: t[5] }
-    -- Resolve space names and field names
-    fk_def_map = {}
-    space_by_id = {}
-    for t in *box.space._tdb_spaces\select {}
-      space_by_id[t[1]] = { name: t[2] }
-    field_by_id = {}
-    for t in *box.space._tdb_fields.index.by_space\select { space_id }
-      field_by_id[t[1]] = { name: t[3] }
-    -- Also need field names from other spaces for toFieldId
-    for _, rel in pairs rels
-      for t in *box.space._tdb_fields.index.by_space\select { rel.toSpaceId }
-        field_by_id[t[1]] = { name: t[3] }
-    -- Build final map
-    for field_name, rel in pairs rels
-      to_space = space_by_id[rel.toSpaceId]
-      to_field = field_by_id[rel.toFieldId]
-      if to_space and to_field
-        fk_def_map[field_name] = {
-          toSpaceName: to_space.name
-          toFieldName: to_field.name
-        }
+    fk_def_map = build_fk_def_map space_id
     fk_cache.fk_def_maps[space_id] = fk_def_map
     fk_def_map
 
@@ -294,12 +270,16 @@ make_self_proxy = (record, fk_def_map, fk_cache, space_name) ->
 
       fk = fk_def_map and fk_def_map[k]
       if fk
-        sc = ensure_space fk.toSpaceName, '_id'  -- Always index on _id for primary lookup
-        d = sc.by_field['_id'] and sc.by_field['_id'][tostring v]
+        lookup_field = fk.toFieldName or '_id'
+        sc = ensure_space fk.toSpaceName, lookup_field
+        d = sc.by_field[lookup_field] and sc.by_field[lookup_field][tostring v]
+        d = sc.by_field['_id'] and sc.by_field['_id'][tostring v] if not d and lookup_field != '_id'
 
         if d
           -- Always return a nested proxy for consistent behavior
-          nested_fk_map = ensure_fk_def_map fk.toSpaceName
+          nested_space = box.space._tdb_spaces.index.by_name\get { fk.toSpaceName }
+          nested_space_id = nested_space and nested_space[1]
+          nested_fk_map = if nested_space_id then ensure_fk_def_map nested_space_id else {}
           nested = make_self_proxy d, nested_fk_map, fk_cache, fk.toSpaceName
           rawset t, k, nested
           return nested

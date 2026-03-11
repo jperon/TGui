@@ -280,57 +280,7 @@ make_self_proxy = function(record, fk_def_map, fk_cache, space_name)
     if fk_cache.fk_def_maps[space_id] then
       return fk_cache.fk_def_maps[space_id]
     end
-    local rels = { }
-    local _list_0 = box.space._tdb_relations:select({ })
-    for _index_0 = 1, #_list_0 do
-      local t = _list_0[_index_0]
-      if t[2] == space_id then
-        rels[t[3]] = {
-          toSpaceId = t[4],
-          toFieldId = t[5]
-        }
-      end
-    end
-    fk_def_map = { }
-    local space_by_id = { }
-    local _list_1 = box.space._tdb_spaces:select({ })
-    for _index_0 = 1, #_list_1 do
-      local t = _list_1[_index_0]
-      space_by_id[t[1]] = {
-        name = t[2]
-      }
-    end
-    local field_by_id = { }
-    local _list_2 = box.space._tdb_fields.index.by_space:select({
-      space_id
-    })
-    for _index_0 = 1, #_list_2 do
-      local t = _list_2[_index_0]
-      field_by_id[t[1]] = {
-        name = t[3]
-      }
-    end
-    for _, rel in pairs(rels) do
-      local _list_3 = box.space._tdb_fields.index.by_space:select({
-        rel.toSpaceId
-      })
-      for _index_0 = 1, #_list_3 do
-        local t = _list_3[_index_0]
-        field_by_id[t[1]] = {
-          name = t[3]
-        }
-      end
-    end
-    for field_name, rel in pairs(rels) do
-      local to_space = space_by_id[rel.toSpaceId]
-      local to_field = field_by_id[rel.toFieldId]
-      if to_space and to_field then
-        fk_def_map[field_name] = {
-          toSpaceName = to_space.name,
-          toFieldName = to_field.name
-        }
-      end
-    end
+    fk_def_map = build_fk_def_map(space_id)
     fk_cache.fk_def_maps[space_id] = fk_def_map
     return fk_def_map
   end
@@ -363,10 +313,23 @@ make_self_proxy = function(record, fk_def_map, fk_cache, space_name)
       end
       local fk = fk_def_map and fk_def_map[k]
       if fk then
-        local sc = ensure_space(fk.toSpaceName, '_id')
-        local d = sc.by_field['_id'] and sc.by_field['_id'][tostring(v)]
+        local lookup_field = fk.toFieldName or '_id'
+        local sc = ensure_space(fk.toSpaceName, lookup_field)
+        local d = sc.by_field[lookup_field] and sc.by_field[lookup_field][tostring(v)]
+        if not d and lookup_field ~= '_id' then
+          d = sc.by_field['_id'] and sc.by_field['_id'][tostring(v)]
+        end
         if d then
-          local nested_fk_map = ensure_fk_def_map(fk.toSpaceName)
+          local nested_space = box.space._tdb_spaces.index.by_name:get({
+            fk.toSpaceName
+          })
+          local nested_space_id = nested_space and nested_space[1]
+          local nested_fk_map
+          if nested_space_id then
+            nested_fk_map = ensure_fk_def_map(nested_space_id)
+          else
+            nested_fk_map = { }
+          end
           local nested = make_self_proxy(d, nested_fk_map, fk_cache, fk.toSpaceName)
           rawset(t, k, nested)
           return nested
