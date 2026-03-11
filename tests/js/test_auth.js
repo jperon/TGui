@@ -177,7 +177,7 @@
         });
       };
       return A.changePassword('old', 'new').then(function(result) {
-        return assert(result === true, 'changePassword devrait retourner true');
+        return assert(result, 'changePassword devrait retourner true');
       });
     });
   });

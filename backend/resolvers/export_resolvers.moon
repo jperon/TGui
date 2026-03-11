@@ -284,7 +284,7 @@ do_import = (snap, mode) ->
     if existing_cv
       skipped += 1
     else
-      ok, err = pcall -> 
+      ok, err = pcall ->
         id  = tostring uuid_mod.new!
         now = clock.time!
         box.space._tdb_custom_views\insert { id, icv.name, icv.description or '', icv.yaml or '', now, now }
@@ -365,7 +365,7 @@ do_import = (snap, mode) ->
 Query =
   exportSnapshot: (_, args, ctx) ->
     require_admin ctx
-    snap = build_snapshot args.includeData == true
+    snap = build_snapshot args.includeData
     yaml.encode snap
 
   diffSnapshot: (_, args, ctx) ->

@@ -192,7 +192,7 @@ make_content = ->
         H.span {class: 'toolbar-filter-label', '⚗'}
         H.input {id: 'formula-filter-input', type: 'text',
           class: 'toolbar-filter-input',
-          placeholder: 'Filtre (ex: self.disponible == true)'}
+          placeholder: 'Filtre (ex: self.disponible)'}
       }
       H.button {id: 'delete-rows-btn', class: 'toolbar-btn toolbar-btn--icon toolbar-btn--danger', title: 'Supprimer les lignes sélectionnées', '🗑'}
       H.button {id: 'fields-btn', class: 'fields-btn', '⊞ Champs'}

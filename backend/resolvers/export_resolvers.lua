@@ -624,7 +624,7 @@ end
 local Query = {
   exportSnapshot = function(_, args, ctx)
     require_admin(ctx)
-    local snap = build_snapshot(args.includeData == true)
+    local snap = build_snapshot(args.includeData)
     return yaml.encode(snap)
   end,
   diffSnapshot = function(_, args, ctx)

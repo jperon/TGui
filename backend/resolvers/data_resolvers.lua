@@ -45,7 +45,7 @@ matches_filter = function(self_val, flt)
       local r_ok, r_val = config_mod.safe_formula_call((function()
         return flt._formula_fn(self_val)
       end), "filter formula evaluation")
-      ok = r_ok == true
+      ok = r_ok
     else
       ok = false
     end

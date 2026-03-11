@@ -75,7 +75,7 @@ describe 'Auth.changePassword', ->
     GQL.mutate = (q, v) ->
       Promise.resolve { changePassword: true }
     A.changePassword('old', 'new').then (result) ->
-      assert result == true, 'changePassword devrait retourner true'
+      assert result, 'changePassword devrait retourner true'
 
 describe 'Auth.isAdmin (sans groupes)', ->
   it 'retourne false si groups est undefined', ->

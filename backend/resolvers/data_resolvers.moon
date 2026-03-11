@@ -33,7 +33,7 @@ matches_filter = (self_val, flt) ->
       r_ok, r_val = config_mod.safe_formula_call (-> flt._formula_fn self_val), "filter formula evaluation"
       -- For filter formulas, success means include, failure means exclude
       -- The actual return value doesn't matter for boolean comparisons
-      r_ok == true
+      r_ok
     else false  -- formula failed to compile or not yet cached
   else if flt.field
     -- For field comparisons use the raw value (proxy passes through scalars)

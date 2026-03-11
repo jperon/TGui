@@ -478,7 +478,7 @@ make_content = function()
           id = 'formula-filter-input',
           type = 'text',
           class = 'toolbar-filter-input',
-          placeholder = 'Filtre (ex: self.disponible == true)'
+          placeholder = 'Filtre (ex: self.disponible)'
         })
       }),
       H.button({
