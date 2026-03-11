@@ -145,6 +145,22 @@ local Mutation = {
     end
     return result
   end,
+  addFields = function(_, args, ctx)
+    require_auth(ctx)
+    local results = { }
+    local _list_0 = args.inputs
+    for _index_0 = 1, #_list_0 do
+      local input = _list_0[_index_0]
+      local result = spaces_mod.add_field(args.spaceId, input.name, input.fieldType, input.notNull, input.description, input.formula, input.triggerFields, input.language, input.reprFormula)
+      table.insert(results, result)
+    end
+    executor.reinit_schema()
+    local sp_meta = box.space._tdb_spaces:get(args.spaceId)
+    if sp_meta then
+      triggers.register_space_trigger(sp_meta[2])
+    end
+    return results
+  end,
   removeField = function(_, args, ctx)
     require_auth(ctx)
     local fld = box.space._tdb_fields:get(args.fieldId)

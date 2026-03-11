@@ -12,7 +12,8 @@ local FIELD_TYPES = {
   'Any',
   'Map',
   'Array',
-  'Datetime'
+  'Datetime',
+  'Relation'
 }
 local FIELD_TYPES_SET
 do
@@ -652,6 +653,10 @@ local add_field
 add_field = function(space_id, field_name, field_type, not_null, description, formula, trigger_fields, language, repr_formula)
   local uuid = require('uuid')
   local json = require('json')
+  if field_type == 'Relation' then
+    field_type = 'Int'
+    log.info("Relation field type transformed to Int (relation will be created by frontend)")
+  end
   if not (FIELD_TYPES_SET[field_type]) then
     error("Type de champ invalide : " .. tostring(field_type))
   end

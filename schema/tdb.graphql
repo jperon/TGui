@@ -61,6 +61,7 @@ type Mutation {
 
   # Fields
   addField(spaceId: ID!, input: FieldInput!): Field!
+  addFields(spaceId: ID!, inputs: [FieldInput!]!): [Field!]!
   removeField(fieldId: ID!):               Boolean!
   reorderFields(spaceId: ID!, fieldIds: [ID!]!): [Field!]!
   updateField(fieldId: ID!, input: UpdateFieldInput!): Field!
@@ -151,6 +152,7 @@ enum FieldType {
   Map
   Array
   Datetime
+  Relation  # Alias: handled by frontend as Int + createRelation
 }
 
 type View {

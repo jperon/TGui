@@ -25,6 +25,9 @@ test: build
 test-up: build
 	docker compose -f docker-compose.test.yml --profile test up -d --build
 
+test-down: build
+	docker compose -f docker-compose.test.yml --profile test down
+
 test-legacy: build
 	@printf "package.path='/app/?.lua;/app/backend/?.lua;'..package.path\nfor k,_ in pairs(package.loaded) do if k:match('^tests') or k:match('^resolvers') then package.loaded[k]=nil end end\nrequire('resolvers.init').reinit()\nrequire('tests.run')\n" > $(TESTFILE)
 	@nlines=$$(docker logs tgui-tarantool-test 2>&1 | wc -l); \

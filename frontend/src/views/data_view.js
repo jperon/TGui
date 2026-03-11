@@ -582,7 +582,6 @@
       sentinel = this._sentinel();
       this._currentData = rows.concat([sentinel]);
       ref = this._currentData;
-      
       // Pre-calculate cell classes for formula errors
       for (j = 0, len = ref.length; j < len; j++) {
         row = ref[j];
@@ -619,7 +618,6 @@
       if (this._lastFocus) {
         ({rowId, isNew, columnName} = this._lastFocus);
         this._lastFocus = null;
-        
         // Find the new row object matching the old one
         targetRow = isNew ? this._grid.getData().find(function(r) {
           return r.__isNew;

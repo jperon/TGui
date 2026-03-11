@@ -94,6 +94,17 @@ Mutation =
     triggers.register_space_trigger sp_meta[2] if sp_meta
     result
 
+  addFields: (_, args, ctx) ->
+    require_auth ctx
+    results = {}
+    for input in *args.inputs
+      result = spaces_mod.add_field args.spaceId, input.name, input.fieldType, input.notNull, input.description, input.formula, input.triggerFields, input.language, input.reprFormula
+      table.insert results, result
+    executor.reinit_schema!
+    sp_meta = box.space._tdb_spaces\get args.spaceId
+    triggers.register_space_trigger sp_meta[2] if sp_meta
+    results
+
   removeField: (_, args, ctx) ->
     require_auth ctx
     -- capture space name before deletion (for trigger refresh)

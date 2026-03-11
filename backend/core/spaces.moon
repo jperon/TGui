@@ -6,7 +6,7 @@ log = require 'log'
 { :validate_input } = require 'core.config'
 
 -- Field type constants (mirrors GraphQL scalar names)
-FIELD_TYPES = { 'String', 'Int', 'Float', 'Boolean', 'ID', 'UUID', 'Sequence', 'Any', 'Map', 'Array', 'Datetime' }
+FIELD_TYPES = { 'String', 'Int', 'Float', 'Boolean', 'ID', 'UUID', 'Sequence', 'Any', 'Map', 'Array', 'Datetime', 'Relation' }
 FIELD_TYPES_SET = { v, true for v in *FIELD_TYPES }
 
 -- ────────────────────────────────────────────────────────────────────────────
@@ -264,6 +264,12 @@ get_max_field_value = (space_id, field_name) ->
 add_field = (space_id, field_name, field_type, not_null, description, formula, trigger_fields, language, repr_formula) ->
   uuid = require 'uuid'
   json = require 'json'
+
+  -- Transform Relation alias to Int (frontend handles the actual relation creation)
+  if field_type == 'Relation'
+    field_type = 'Int'
+    log.info "Relation field type transformed to Int (relation will be created by frontend)"
+
   error "Type de champ invalide : #{field_type}" unless FIELD_TYPES_SET[field_type]
 
   -- Validate inputs
