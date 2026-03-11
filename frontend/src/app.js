@@ -1483,12 +1483,14 @@
           return this.renderFieldsList();
         } else {
           panel.classList.add('hidden');
-          return btn.classList.remove('active');
+          btn.classList.remove('active');
+          return this._refreshActiveDataViewLayout();
         }
       });
       this.el.fieldsPanelClose().addEventListener('click', () => {
         this.el.fieldsPanel().classList.add('hidden');
-        return this.el.fieldsBtn().classList.remove('active');
+        this.el.fieldsBtn().classList.remove('active');
+        return this._refreshActiveDataViewLayout();
       });
       // Show/hide formula section and relation target based on type selection
       this.el.fieldType().addEventListener('change', () => {
@@ -1685,6 +1687,17 @@
           return this._resetFieldForm();
         }
       });
+    },
+    _refreshActiveDataViewLayout: function() {
+      var refresh;
+      refresh = () => {
+        var ref, ref1;
+        return (ref = this._activeDataView) != null ? (ref1 = ref._grid) != null ? typeof ref1.refreshLayout === "function" ? ref1.refreshLayout() : void 0 : void 0 : void 0;
+      };
+      requestAnimationFrame(function() {
+        return requestAnimationFrame(refresh);
+      });
+      return setTimeout(refresh, 220);
     },
     _onFieldTypeChange: function() {
       var formulaSection, i, isRelation, len, opt, ref, ref1, ref2, results1, sel, sp, type;
