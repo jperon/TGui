@@ -955,6 +955,26 @@ make_body = function()
       ''
     }),
     H.script({
+      src = '/src/app_fields_helpers.js',
+      ''
+    }),
+    H.script({
+      src = '/src/app_sidebar_helpers.js',
+      ''
+    }),
+    H.script({
+      src = '/src/app_data_helpers.js',
+      ''
+    }),
+    H.script({
+      src = '/src/app_view_helpers.js',
+      ''
+    }),
+    H.script({
+      src = '/src/app_snapshot_helpers.js',
+      ''
+    }),
+    H.script({
       src = '/src/views/data_view.js',
       ''
     }),
