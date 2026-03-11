@@ -1579,8 +1579,29 @@
               conversionLang = ((ref2 = this.el.formulaLanguage()) != null ? ref2.value : void 0) || 'lua';
             }
             return Spaces.changeFieldType(this._editingFieldId, type, conversionFormula, conversionLang).then(() => {
-              // After type change, update other field properties
-              return this.updateFieldProperties(this._editingFieldId, opts, formulaType);
+              var reprFormula, toSpaceId;
+              // If changing to Relation, create the relation
+              if (type === 'Relation') {
+                toSpaceId = this.el.relToSpace().value;
+                reprFormula = this.el.relReprFormula().value.trim();
+                if (!toSpaceId) {
+                  return;
+                }
+                return Spaces.getWithFields(toSpaceId).then((targetSpace) => {
+                  var idField;
+                  idField = (targetSpace.fields || []).find(function(f) {
+                    return f.fieldType === 'Sequence';
+                  });
+                  if (!idField) {
+                    tdbAlert(this._t('ui.alerts.targetNoSequence'), 'warn');
+                    return;
+                  }
+                  return Spaces.createRelation(`${this._currentSpace.name}_${this.el.fieldName().value}_rel`, this._currentSpace.id, this._editingFieldId, toSpaceId, idField.id, reprFormula);
+                });
+              } else {
+                // After type change, update other field properties
+                return this.updateFieldProperties(this._editingFieldId, opts, formulaType);
+              }
             }).catch((err) => {
               return tdbAlert(this._err(err), 'error');
             });
@@ -1796,17 +1817,17 @@
         var badge, del, dragSrc, editBtn, f, fb, handle, i, j, k, langLabel, len, len1, len2, li, name, r, ref, ref1, rel, relMap, req, results1, sp, spaceMap, targetName, triggerDesc;
         // Build a map: fromFieldId → relation (with target space name resolved)
         relMap = {};
-        ref = relations || [];
-        for (i = 0, len = ref.length; i < len; i++) {
-          r = ref[i];
-          relMap[r.fromFieldId] = r;
-        }
-        // Resolve target space names from _allSpaces
         spaceMap = {};
-        ref1 = this._allSpaces || [];
-        for (j = 0, len1 = ref1.length; j < len1; j++) {
-          sp = ref1[j];
+        ref = this._allSpaces;
+        // Build space name map
+        for (i = 0, len = ref.length; i < len; i++) {
+          sp = ref[i];
           spaceMap[sp.id] = sp.name;
+        }
+        ref1 = relations || [];
+        for (j = 0, len1 = ref1.length; j < len1; j++) {
+          r = ref1[j];
+          relMap[r.fromFieldId] = r;
         }
         if (fields.length === 0) {
           li = document.createElement('li');
@@ -1882,6 +1903,7 @@
                 this.el.fieldType().value = 'Relation';
                 this._onFieldTypeChange();
                 this.el.relReprFormula().value = relation.reprFormula || '';
+                this.el.relToSpace().value = relation.toSpaceId || '';
                 if (this.el.fieldReprFormula()) {
                   this.el.fieldReprFormula().value = '';
                 }
