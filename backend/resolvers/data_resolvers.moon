@@ -253,6 +253,7 @@ Query =
     { items: items, total: total, offset: offset, limit: limit }
 
   record: (_, args, ctx) ->
+    require_auth ctx
     sp = data_space args.spaceId
     t = sp\get args.id
     return nil unless t

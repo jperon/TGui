@@ -1,4 +1,6 @@
 local uuid_mod = require('uuid')
+local require_auth
+require_auth = require('resolvers.utils').require_auth
 local list_custom_views
 list_custom_views = function()
   local result = { }
@@ -96,22 +98,27 @@ delete_custom_view = function(id)
 end
 local Query = {
   customViews = function(_, args, ctx)
+    require_auth(ctx)
     return list_custom_views()
   end,
   customView = function(_, args, ctx)
+    require_auth(ctx)
     return get_custom_view(args.id)
   end
 }
 local Mutation = {
   createCustomView = function(_, args, ctx)
+    require_auth(ctx)
     local i = args.input
     return create_custom_view(i.name, i.description, i.yaml)
   end,
   updateCustomView = function(_, args, ctx)
+    require_auth(ctx)
     local i = args.input
     return update_custom_view(args.id, i.name, i.description, i.yaml)
   end,
   deleteCustomView = function(_, args, ctx)
+    require_auth(ctx)
     return delete_custom_view(args.id)
   end
 }

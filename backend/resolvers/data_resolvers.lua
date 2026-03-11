@@ -397,6 +397,7 @@ local Query = {
     }
   end,
   record = function(_, args, ctx)
+    require_auth(ctx)
     local sp = data_space(args.spaceId)
     local t = sp:get(args.id)
     if not (t) then

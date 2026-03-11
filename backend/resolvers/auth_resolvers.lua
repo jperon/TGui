@@ -13,7 +13,7 @@ local Query = {
     return auth_mod.get_user_by_id(ctx.user_id)
   end,
   users = function(_, args, ctx)
-    require_auth(ctx)
+    require_admin(ctx)
     local result = { }
     local _list_0 = box.space._tdb_users:select({ })
     for _index_0 = 1, #_list_0 do
@@ -28,15 +28,15 @@ local Query = {
     return result
   end,
   user = function(_, args, ctx)
-    require_auth(ctx)
+    require_admin(ctx)
     return auth_mod.get_user_by_id(args.id)
   end,
   groups = function(_, args, ctx)
-    require_auth(ctx)
+    require_admin(ctx)
     return perms_mod.list_groups()
   end,
   group = function(_, args, ctx)
-    require_auth(ctx)
+    require_admin(ctx)
     return perms_mod.get_group(args.id)
   end
 }
