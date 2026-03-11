@@ -195,7 +195,7 @@ window.DataView = class DataView
       return unless cell?.columnName
       colIdx = allCols.indexOf cell.columnName
       return if colIdx < 0
-      
+
       rowIdx = @_grid.getIndexOfRow cell.rowKey
       rowCount = @_grid.getRowCount()
 
@@ -207,7 +207,7 @@ window.DataView = class DataView
 
       e.preventDefault()
       e.stopImmediatePropagation()
-      
+
       if e.shiftKey
         if colIdx > 0
           moveTo cell.rowKey, allCols[colIdx - 1]
@@ -350,10 +350,10 @@ window.DataView = class DataView
     rows = @_rows
     if @filter
       rows = rows.filter (r) => String(r[@filter.field]) == String(@filter.value)
-    
+
     sentinel = @_sentinel()
     @_currentData = rows.concat [sentinel]
-    
+
     # Pre-calculate cell classes for formula errors
     for row in @_currentData
       row._attributes ?= {}
@@ -376,7 +376,7 @@ window.DataView = class DataView
     if @_lastFocus
       { rowId, isNew, columnName } = @_lastFocus
       @_lastFocus = null
-      
+
       # Find the new row object matching the old one
       targetRow = if isNew
         @_grid.getData().find (r) -> r.__isNew
