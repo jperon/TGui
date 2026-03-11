@@ -449,6 +449,79 @@ R.describe "FK proxy — intégration via Query.records avec filtre formule", ->
     res = data_Query.records {}, { spaceId: fk_livres_sp_id }, CTX_FK
     R.eq res.total, 2
 
+R.describe "FK proxy — chaîne imbriquée @livre.auteur.nom", ->
+  NESTSFX = tostring math.random(100000, 999999)
+
+  nested_authors_sp_id = nil
+  nested_books_sp_id = nil
+  nested_loans_sp_id = nil
+  nested_rel_book_author_id = nil
+  nested_rel_loan_book_id = nil
+
+  do
+    authors_sp = spaces_mod.create_user_space "fk_nested_authors_#{NESTSFX}", "nested FK authors"
+    books_sp   = spaces_mod.create_user_space "fk_nested_books_#{NESTSFX}", "nested FK books"
+    loans_sp   = spaces_mod.create_user_space "fk_nested_loans_#{NESTSFX}", "nested FK loans"
+
+    nested_authors_sp_id = authors_sp.id
+    nested_books_sp_id   = books_sp.id
+    nested_loans_sp_id   = loans_sp.id
+
+    spaces_mod.add_field nested_authors_sp_id, 'id', 'Sequence'
+    spaces_mod.add_field nested_books_sp_id, 'id', 'Sequence'
+    spaces_mod.add_field nested_loans_sp_id, 'id', 'Sequence'
+
+    author_name_f = spaces_mod.add_field nested_authors_sp_id, 'nom', 'String'
+    book_author_f = spaces_mod.add_field nested_books_sp_id, 'auteur', 'Int'
+    loan_book_f   = spaces_mod.add_field nested_loans_sp_id, 'livre',  'Int'
+
+    find_field_id = (space_id, field_name) ->
+      for f in *spaces_mod.list_fields space_id
+        return f.id if f.name == field_name
+      nil
+
+    author_id_field_id = find_field_id nested_authors_sp_id, 'id'
+    book_id_field_id   = find_field_id nested_books_sp_id, 'id'
+
+    rel_book_author = schema_Mutation.createRelation {}, {
+      input: {
+        name: "fk_nested_book_author_#{NESTSFX}"
+        fromSpaceId: nested_books_sp_id
+        fromFieldId: book_author_f.id
+        toSpaceId: nested_authors_sp_id
+        toFieldId: author_id_field_id
+      }
+    }, CTX_FK
+    nested_rel_book_author_id = rel_book_author.id
+
+    rel_loan_book = schema_Mutation.createRelation {}, {
+      input: {
+        name: "fk_nested_loan_book_#{NESTSFX}"
+        fromSpaceId: nested_loans_sp_id
+        fromFieldId: loan_book_f.id
+        toSpaceId: nested_books_sp_id
+        toFieldId: book_id_field_id
+      }
+    }, CTX_FK
+    nested_rel_loan_book_id = rel_loan_book.id
+
+    data_Mutation.insertRecord {}, { spaceId: nested_authors_sp_id, data: { nom: 'Hugo' } }, CTX_FK
+    data_Mutation.insertRecord {}, { spaceId: nested_books_sp_id, data: { auteur: 1 } }, CTX_FK
+
+  R.it "résout une FK imbriquée quand la relation cible un champ id (non _id)", ->
+    fk_map = triggers.build_fk_def_map nested_loans_sp_id
+    proxy = triggers.make_self_proxy { livre: 1 }, fk_map
+    R.ok proxy.livre != nil
+    R.ok proxy.livre.auteur != nil
+    R.eq proxy.livre.auteur.nom, 'Hugo'
+
+  R.it "nettoie les espaces et relations du test imbriqué", ->
+    schema_Mutation.deleteRelation {}, { id: nested_rel_loan_book_id }, CTX_FK if nested_rel_loan_book_id
+    schema_Mutation.deleteRelation {}, { id: nested_rel_book_author_id }, CTX_FK if nested_rel_book_author_id
+    spaces_mod.delete_user_space "fk_nested_loans_#{NESTSFX}"
+    spaces_mod.delete_user_space "fk_nested_books_#{NESTSFX}"
+    spaces_mod.delete_user_space "fk_nested_authors_#{NESTSFX}"
+
 -- ── Nettoyage ─────────────────────────────────────────────────────────────────
 
 schema_Mutation.deleteRelation {}, { id: fk_rel_id }, CTX_FK

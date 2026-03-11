@@ -1,20 +1,20 @@
 #!/bin/bash
-# Pre-commit hook to ensure ALL tests pass before committing
+# Pre-commit hook to ensure CI checks pass before committing
 
-echo "🧪 Running tests before commit..."
+echo "🧪 Running CI checks before commit..."
 
-# Run tests and capture exit code
-make test
-TEST_EXIT_CODE=$?
+# Run CI and capture exit code
+make ci
+CI_EXIT_CODE=$?
 
-if [ $TEST_EXIT_CODE -ne 0 ]; then
+if [ $CI_EXIT_CODE -ne 0 ]; then
     echo ""
-    echo "❌ COMMIT REJECTED: Tests failed!"
-    echo "ALL tests must pass before committing."
+    echo "❌ COMMIT REJECTED: CI checks failed!"
+    echo "All CI checks must pass before committing."
     echo ""
-    echo "Run 'make test' to see the full test output."
+    echo "Run 'make ci' to see the full output."
     exit 1
 fi
 
-echo "✅ All tests passed - commit allowed"
+echo "✅ CI checks passed - commit allowed"
 exit 0
