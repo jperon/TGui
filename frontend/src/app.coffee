@@ -969,10 +969,12 @@ window.App =
       else
         panel.classList.add 'hidden'
         btn.classList.remove 'active'
+        @_refreshActiveDataViewLayout()
 
     @el.fieldsPanelClose().addEventListener 'click', =>
       @el.fieldsPanel().classList.add 'hidden'
       @el.fieldsBtn().classList.remove 'active'
+      @_refreshActiveDataViewLayout()
 
     # Show/hide formula section and relation target based on type selection
     @el.fieldType().addEventListener 'change', =>
@@ -1127,6 +1129,12 @@ window.App =
               @_mountDataView full
           .catch (err) => tdbAlert @_err(err), 'error'
         @_resetFieldForm()
+
+  _refreshActiveDataViewLayout: ->
+    refresh = =>
+      @_activeDataView?._grid?.refreshLayout?()
+    requestAnimationFrame -> requestAnimationFrame refresh
+    setTimeout refresh, 220
 
   _onFieldTypeChange: ->
     type = @el.fieldType().value
