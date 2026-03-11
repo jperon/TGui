@@ -31,6 +31,7 @@ type Query {
 
   # Relations
   relations(spaceId: ID!): [Relation!]!
+  gridColumnPrefs(spaceId: ID!): JSON!
 
   # Aggregation query
   aggregateSpace(
@@ -76,6 +77,7 @@ type Mutation {
   createRelation(input: CreateRelationInput!): Relation!
   deleteRelation(id: ID!):                     Boolean!
   updateRelation(id: ID!, input: UpdateRelationInput!): Relation!
+  saveGridColumnPrefs(spaceId: ID!, prefs: JSON!, asDefault: Boolean): Boolean!
 
   # Custom views (YAML dashboard layouts)
   createCustomView(input: CreateCustomViewInput!): CustomView!

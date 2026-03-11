@@ -176,6 +176,43 @@ local SYSTEM_SPACES = {
       }
     }
   },
+  _tdb_ui_prefs = {
+    format = {
+      {
+        name = 'owner_key',
+        type = 'string'
+      },
+      {
+        name = 'space_id',
+        type = 'string'
+      },
+      {
+        name = 'prefs',
+        type = 'string'
+      },
+      {
+        name = 'updated_at',
+        type = 'number'
+      }
+    },
+    indexes = {
+      primary = {
+        parts = {
+          'owner_key',
+          'space_id'
+        },
+        unique = true,
+        type = 'TREE'
+      },
+      by_space = {
+        parts = {
+          'space_id'
+        },
+        unique = false,
+        type = 'TREE'
+      }
+    }
+  },
   _tdb_custom_views = {
     format = {
       {

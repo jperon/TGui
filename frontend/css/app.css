@@ -287,6 +287,7 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
 .fields-panel-header button { background: none; border: none; cursor: pointer; color: #888; font-size: 1rem; }
 #fields-list { list-style: none; padding: .4rem 0; }
 #fields-list li { padding: .35rem .75rem; font-size: .85rem; display: flex; align-items: center; gap: .4rem; }
+#fields-list li.selected { background: rgba(137, 180, 250, 0.18); }
 #fields-list li .field-type-badge {
   font-size: .7rem; background: #e8f0fe; color: #1a73e8;
   border-radius: 3px; padding: .1rem .35rem;
@@ -712,5 +713,22 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
 }
 .tui-grid-cell.cell-formula-error.cell-formula-error-internal .formula-error {
   color: #b71c1c;
+}
+
+.tdb-cell-text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tdb-bool-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tdb-bool-cell input[type="checkbox"] {
+  pointer-events: none;
 }
 

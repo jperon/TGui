@@ -135,29 +135,32 @@
   });
 
   describe('DataView._loadColWidths', function() {
-    it('retourne {} si rien en localStorage', function() {
-      var dv;
+    it('retourne {} si rien en localStorage', async function() {
+      var dv, prefs;
       global.localStorage.clear();
       dv = new DV(container(), makeSpace());
-      return deepEq(dv._loadColWidths(), {});
+      prefs = (await dv._loadColWidths());
+      return deepEq(prefs, {});
     });
-    it('parse le JSON depuis localStorage', function() {
-      var dv;
+    it('parse le JSON depuis localStorage', async function() {
+      var dv, prefs;
       global.localStorage.setItem('tdb_colwidths_sp1', JSON.stringify({
         nom: 200
       }));
       dv = new DV(container(), makeSpace({
         id: 'sp1'
       }));
-      return eq(dv._loadColWidths().nom, 200);
+      prefs = (await dv._loadColWidths());
+      return eq(prefs.nom, 200);
     });
-    return it('retourne {} si JSON invalide', function() {
-      var dv;
+    return it('retourne {} si JSON invalide', async function() {
+      var dv, prefs;
       global.localStorage.setItem('tdb_colwidths_sp1', 'not-json');
       dv = new DV(container(), makeSpace({
         id: 'sp1'
       }));
-      return deepEq(dv._loadColWidths(), {});
+      prefs = (await dv._loadColWidths());
+      return deepEq(prefs, {});
     });
   });
 
