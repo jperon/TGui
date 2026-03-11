@@ -1,0 +1,60 @@
+# GENERATED FILE - passive SDL projection from MoonScript registry
+# Source: backend/graphql/sdl_registry.moon
+
+type Query {
+  spaces: [Space!]!
+  space(id: ID!): Space
+  views(spaceId: ID!): [View!]!
+  view(id: ID!): View
+  customViews: [CustomView!]!
+  customView(id: ID!): CustomView
+  records(spaceId: ID!, filter: RecordFilter, limit: Int, offset: Int, reprFormula: String, reprLanguage: String): RecordPage!
+  record(spaceId: ID!, id: ID!): Record
+  relations(spaceId: ID!): [Relation!]!
+  me: User
+  users: [User!]!
+  user(id: ID!): User
+  groups: [Group!]!
+  group(id: ID!): Group
+  exportSnapshot(includeData: Boolean!): String!
+  diffSnapshot(yaml: String!): SnapshotDiff!
+  aggregateSpace(spaceName: String!, groupBy: [String!], aggregate: [AggregateSpec!]): [AggregateResult!]!
+}
+
+type Mutation {
+  createSpace(input: CreateSpaceInput!): Space!
+  updateSpace(id: ID!, input: UpdateSpaceInput!): Space!
+  deleteSpace(id: ID!): Boolean!
+  addField(spaceId: ID!, input: AddFieldInput!): Field!
+  addFields(spaceId: ID!, inputs: [AddFieldInput!]!): [Field!]!
+  reorderFields(spaceId: ID!, fieldIds: [ID!]!): [Field!]!
+  updateField(fieldId: ID!, input: UpdateFieldInput!): Field!
+  removeField(fieldId: ID!): Boolean!
+  createView(spaceId: ID!, input: CreateViewInput!): View!
+  updateView(id: ID!, input: UpdateViewInput!): View!
+  deleteView(id: ID!): Boolean!
+  createRelation(input: CreateRelationInput!): Relation!
+  updateRelation(id: ID!, input: UpdateRelationInput!): Relation
+  deleteRelation(id: ID!): Boolean!
+  createCustomView(input: CreateCustomViewInput!): CustomView!
+  updateCustomView(id: ID!, input: UpdateCustomViewInput!): CustomView!
+  deleteCustomView(id: ID!): Boolean!
+  insertRecord(spaceId: ID!, data: JSON!): Record!
+  updateRecord(spaceId: ID!, id: ID!, data: JSON!): Record!
+  deleteRecord(spaceId: ID!, id: ID!): Boolean!
+  deleteRecords(spaceId: ID!, ids: [ID!]!): [Boolean!]!
+  insertRecords(spaceId: ID!, data: [JSON!]!): [Record!]!
+  updateRecords(spaceId: ID!, records: [RecordUpdateInput!]!): [Record!]!
+  login(username: String!, password: String!): AuthPayload!
+  logout: Boolean!
+  createUser(input: CreateUserInput!): User!
+  changePassword(currentPassword: String!, newPassword: String!): Boolean!
+  adminSetPassword(userId: ID!, newPassword: String!): Boolean!
+  createGroup(input: CreateGroupInput!): Group!
+  deleteGroup(id: ID!): Boolean!
+  addMember(groupId: ID!, userId: ID!): Boolean!
+  removeMember(groupId: ID!, userId: ID!): Boolean!
+  grant(groupId: ID!, input: GrantInput!): Permission!
+  revoke(permissionId: ID!): Boolean!
+  importSnapshot(yaml: String!, mode: ImportMode!): ImportResult!
+}
