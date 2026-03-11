@@ -63,5 +63,6 @@ require('tests.test_snapshot')
 require('tests.test_permissions')
 require('tests.test_data_filters')
 require('tests.test_nesting')
-R.summary()
-return require('resolvers.init').reinit()
+local exit_code = R.summary()
+require('resolvers.init').reinit()
+return exit_code

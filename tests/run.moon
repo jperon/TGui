@@ -59,7 +59,9 @@ require 'tests.test_data_filters'
 require 'tests.test_nesting'
 
 -- Bilan (os.exit 1 si des tests échouent)
-R.summary!
+exit_code = R.summary!
 
 -- Restaurer le schéma de production (test_executor l'a remplacé par un schéma de test)
 require('resolvers.init').reinit!
+
+exit_code

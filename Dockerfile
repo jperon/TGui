@@ -10,3 +10,4 @@ RUN tt rocks install http
 RUN tt rocks install lpeglabel && \
     mkdir -p /usr/local/share/tarantool/ && \
     echo 'return require("lpeglabel")' > /usr/local/share/tarantool/lpeg.lua
+
