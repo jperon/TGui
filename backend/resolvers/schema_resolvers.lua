@@ -2,10 +2,14 @@ local spaces_mod = require('core.spaces')
 local views_mod = require('core.views')
 local triggers = require('core.triggers')
 local executor = require('graphql.executor')
+local json = require('json')
 local data_r
 data_r = require('resolvers.data_resolvers')
-local require_auth
-require_auth = require('resolvers.utils').require_auth
+local require_auth, require_admin
+do
+  local _obj_0 = require('resolvers.utils')
+  require_auth, require_admin = _obj_0.require_auth, _obj_0.require_admin
+end
 local reinit_with_formula_cache_reset
 reinit_with_formula_cache_reset = function()
   executor.reinit_schema()
@@ -98,6 +102,34 @@ local Query = {
   end,
   relations = function(_, args, ctx)
     return require_auth(ctx) and list_relations(args.spaceId)
+  end,
+  gridColumnPrefs = function(_, args, ctx)
+    local uid = require_auth(ctx)
+    local sp = box.space._tdb_ui_prefs
+    if not (sp) then
+      return { }
+    end
+    local user_t = sp:get({
+      uid,
+      args.spaceId
+    })
+    if user_t and user_t[3] and user_t[3] ~= '' then
+      local ok, decoded = pcall(json.decode, user_t[3])
+      if ok and type(decoded) == 'table' then
+        return decoded
+      end
+    end
+    local default_t = sp:get({
+      'default',
+      args.spaceId
+    })
+    if default_t and default_t[3] and default_t[3] ~= '' then
+      local ok, decoded = pcall(json.decode, default_t[3])
+      if ok and type(decoded) == 'table' then
+        return decoded
+      end
+    end
+    return { }
   end
 }
 local Mutation = {
@@ -246,6 +278,27 @@ local Mutation = {
     local result = update_relation(args.id, args.input.reprFormula)
     reinit_with_formula_cache_reset()
     return result
+  end,
+  saveGridColumnPrefs = function(_, args, ctx)
+    local uid = require_auth(ctx)
+    local owner_key = uid
+    if args.asDefault then
+      require_admin(ctx)
+      owner_key = 'default'
+    end
+    local sp = box.space._tdb_ui_prefs
+    if not (sp) then
+      error('UI preferences storage not available')
+    end
+    local now = os.time()
+    local encoded = json.encode(args.prefs or { })
+    sp:replace({
+      owner_key,
+      args.spaceId,
+      encoded,
+      now
+    })
+    return true
   end
 }
 local Space = {

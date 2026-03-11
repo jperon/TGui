@@ -68,17 +68,20 @@ describe 'DataView._loadColWidths', ->
   it 'retourne {} si rien en localStorage', ->
     global.localStorage.clear()
     dv = new DV container(), makeSpace()
-    deepEq dv._loadColWidths(), {}
+    prefs = await dv._loadColWidths()
+    deepEq prefs, {}
 
   it 'parse le JSON depuis localStorage', ->
     global.localStorage.setItem 'tdb_colwidths_sp1', JSON.stringify { nom: 200 }
     dv = new DV container(), makeSpace { id: 'sp1' }
-    eq dv._loadColWidths().nom, 200
+    prefs = await dv._loadColWidths()
+    eq prefs.nom, 200
 
   it 'retourne {} si JSON invalide', ->
     global.localStorage.setItem 'tdb_colwidths_sp1', 'not-json'
     dv = new DV container(), makeSpace { id: 'sp1' }
-    deepEq dv._loadColWidths(), {}
+    prefs = await dv._loadColWidths()
+    deepEq prefs, {}
 
 describe 'DataView.setDefaultValues', ->
   it 'stocke les valeurs et les reflète dans le sentinel', ->

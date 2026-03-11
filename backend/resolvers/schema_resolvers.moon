@@ -5,9 +5,10 @@ spaces_mod  = require 'core.spaces'
 views_mod   = require 'core.views'
 triggers    = require 'core.triggers'
 executor    = require 'graphql.executor'
+json        = require 'json'
 local data_r
 data_r      = require 'resolvers.data_resolvers'
-{ :require_auth } = require 'resolvers.utils'
+{ :require_auth, :require_admin } = require 'resolvers.utils'
 
 reinit_with_formula_cache_reset = ->
   executor.reinit_schema!
@@ -59,6 +60,22 @@ Query =
   views:     (_, args, ctx) -> require_auth(ctx) and views_mod.list_views args.spaceId
   view:      (_, args, ctx) -> require_auth(ctx) and views_mod.get_view args.id
   relations: (_, args, ctx) -> require_auth(ctx) and list_relations args.spaceId
+  gridColumnPrefs: (_, args, ctx) ->
+    uid = require_auth ctx
+    sp = box.space._tdb_ui_prefs
+    return {} unless sp
+
+    user_t = sp\get { uid, args.spaceId }
+    if user_t and user_t[3] and user_t[3] != ''
+      ok, decoded = pcall json.decode, user_t[3]
+      return decoded if ok and type(decoded) == 'table'
+
+    default_t = sp\get { 'default', args.spaceId }
+    if default_t and default_t[3] and default_t[3] != ''
+      ok, decoded = pcall json.decode, default_t[3]
+      return decoded if ok and type(decoded) == 'table'
+
+    {}
 
 Mutation =
   createSpace: (_, args, ctx) ->
@@ -184,6 +201,20 @@ Mutation =
     result = update_relation args.id, args.input.reprFormula
     reinit_with_formula_cache_reset!
     result
+
+  saveGridColumnPrefs: (_, args, ctx) ->
+    uid = require_auth ctx
+    owner_key = uid
+    if args.asDefault
+      require_admin ctx
+      owner_key = 'default'
+
+    sp = box.space._tdb_ui_prefs
+    error 'UI preferences storage not available' unless sp
+    now = os.time!
+    encoded = json.encode(args.prefs or {})
+    sp\replace { owner_key, args.spaceId, encoded, now }
+    true
 
 -- Field-level resolvers for nested objects
 Space =

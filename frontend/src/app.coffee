@@ -690,7 +690,8 @@ window.App =
     @_activeDataView?.unmount?()
     container = @el.gridContainer()
     relations = await Spaces.listRelations(space.id)
-    @_activeDataView = new DataView container, space, null, relations
+    @_activeDataView = new DataView container, space, null, relations,
+      onColumnFocus: (colName) => @_onGridColumnFocused colName
     @_activeDataView.mount()
     # Reset filter bar
     input = @el.formulaFilterInput()
@@ -965,7 +966,11 @@ window.App =
       if panel.classList.contains 'hidden'
         panel.classList.remove 'hidden'
         btn.classList.add 'active'
-        @renderFieldsList()
+        @renderFieldsList().then =>
+          selected = @_selectedColumnName or @_activeDataView?.getFocusedColumnName?()
+          return unless selected
+          @_highlightFieldInPanel selected
+          @_openFieldEditorByName selected
       else
         panel.classList.add 'hidden'
         btn.classList.remove 'active'
@@ -1136,6 +1141,66 @@ window.App =
     requestAnimationFrame -> requestAnimationFrame refresh
     setTimeout refresh, 220
 
+  _onGridColumnFocused: (columnName) ->
+    return unless columnName
+    @_selectedColumnName = columnName
+    return if @el.fieldsPanel().classList.contains 'hidden'
+    @_highlightFieldInPanel columnName
+    @_openFieldEditorByName columnName
+
+  _highlightFieldInPanel: (fieldName) ->
+    ul = @el.fieldsList()
+    return unless ul
+    ul.querySelectorAll('li').forEach (el) -> el.classList.remove 'selected'
+    li = ul.querySelector "li[data-field-name='#{fieldName}']"
+    return unless li
+    li.classList.add 'selected'
+    li.scrollIntoView { block: 'nearest' }
+
+  _openFieldEditorByName: (fieldName) ->
+    return unless @_currentSpace and fieldName
+    field = (@_currentSpace.fields or []).find (f) -> f.name == fieldName
+    return unless field
+    relation = @_fieldsRelMap?[field.id] or null
+    @_startEditField field, relation
+
+  _startEditField: (field, relation = null) ->
+    @_editingFieldId = field.id
+    @_editingRelation = relation or null
+    @el.fieldAddBtn().textContent = @_t('ui.fields.update')
+    @el.fieldCancelBtn().classList.remove 'hidden'
+    @el.fieldType().disabled = false
+    @el.fieldName().value = field.name
+    if relation
+      @el.fieldType().value = 'Relation'
+      @_onFieldTypeChange()
+      @el.relReprFormula().value = relation.reprFormula or ''
+      @el.relToSpace().value = relation.toSpaceId or ''
+      @el.fieldReprFormula().value = '' if @el.fieldReprFormula()
+    else
+      @el.fieldType().value = field.fieldType
+      @_onFieldTypeChange()
+      @el.fieldNotNull().checked = field.notNull
+      @el.fieldReprFormula().value = field.reprFormula or '' if @el.fieldReprFormula()
+      if field.formula and field.formula != ''
+        if field.triggerFields
+          document.querySelector('input[name="formula-type"][value="trigger"]').checked = true
+          @el.triggerFieldsRow().classList.remove 'hidden'
+          tf = field.triggerFields
+          @el.fieldTriggerFields().value =
+            if tf.length == 0 then ''
+            else if tf[0] == '*' then '*'
+            else tf.join(', ')
+        else
+          document.querySelector('input[name="formula-type"][value="formula"]').checked = true
+        @el.formulaBody().classList.remove 'hidden'
+        @el.fieldFormula().value = field.formula
+        if @el.formulaLanguage() then @el.formulaLanguage().value = field.language or 'lua'
+      else
+        document.querySelector('input[name="formula-type"][value="none"]').checked = true
+        @el.formulaBody().classList.add 'hidden'
+    @el.fieldName().focus()
+
   _onFieldTypeChange: ->
     type = @el.fieldType().value
     isRelation = type == 'Relation'
@@ -1231,6 +1296,7 @@ window.App =
 
       for r in (relations or [])
         relMap[r.fromFieldId] = r
+      @_fieldsRelMap = relMap
 
       if fields.length == 0
         li = document.createElement 'li'
@@ -1244,6 +1310,7 @@ window.App =
         li = document.createElement 'li'
         li.draggable = true
         li.dataset.fieldId = f.id
+        li.dataset.fieldName = f.name
         li.style.cursor = 'grab'
 
         handle = document.createElement 'span'
@@ -1294,43 +1361,8 @@ window.App =
         editBtn.style.cssText = 'background:none;border:none;cursor:pointer;color:#888;font-size:.9rem;margin-left:.2rem;'
         do (field = f, relation = rel) =>
           editBtn.addEventListener 'click', =>
-            @_editingFieldId = field.id
-            @_editingRelation = relation or null
-            @el.fieldAddBtn().textContent = @_t('ui.fields.update')
-            @el.fieldCancelBtn().classList.remove 'hidden'
-            # Ensure type selector is enabled for direct editing
-            @el.fieldType().disabled = false
-            @el.fieldName().value = field.name
-            if relation
-              # Editing a relation field: show Cible and repr formula
-              @el.fieldType().value = 'Relation'
-              @_onFieldTypeChange()
-              @el.relReprFormula().value = relation.reprFormula or ''
-              @el.relToSpace().value = relation.toSpaceId or ''
-              @el.fieldReprFormula().value = '' if @el.fieldReprFormula()
-            else
-              @el.fieldType().value = field.fieldType
-              @_onFieldTypeChange()
-              @el.fieldNotNull().checked = field.notNull
-              @el.fieldReprFormula().value = field.reprFormula or '' if @el.fieldReprFormula()
-              if field.formula and field.formula != ''
-                if field.triggerFields
-                  document.querySelector('input[name="formula-type"][value="trigger"]').checked = true
-                  @el.triggerFieldsRow().classList.remove 'hidden'
-                  tf = field.triggerFields
-                  @el.fieldTriggerFields().value =
-                    if tf.length == 0 then ''
-                    else if tf[0] == '*' then '*'
-                    else tf.join(', ')
-                else
-                  document.querySelector('input[name="formula-type"][value="formula"]').checked = true
-                @el.formulaBody().classList.remove 'hidden'
-                @el.fieldFormula().value = field.formula
-                if @el.formulaLanguage() then @el.formulaLanguage().value = field.language or 'lua'
-              else
-                document.querySelector('input[name="formula-type"][value="none"]').checked = true
-                @el.formulaBody().classList.add 'hidden'
-            @el.fieldName().focus()
+            @_highlightFieldInPanel field.name
+            @_startEditField field, relation
 
         del = document.createElement 'button'
         del.textContent = '✕'

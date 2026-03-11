@@ -1,7 +1,7 @@
 (function() {
   // data_view.coffee
   // Raw data grid view using Toast UI Grid (tui.Grid).
-  var DataView, INSERT_RECORD, RECORDS_QUERY, UPDATE_RECORD, gqlName,
+  var DataView, GRID_COL_PREFS_QUERY, INSERT_RECORD, RECORDS_QUERY, SAVE_GRID_COL_PREFS_MUTATION, UPDATE_RECORD, gqlName,
     hasProp = {}.hasOwnProperty;
 
   RECORDS_QUERY = `query Records($spaceId: ID!, $limit: Int, $offset: Int, $filter: RecordFilter, $reprFormula: String, $reprLanguage: String) {
@@ -30,8 +30,16 @@
   updateRecord(spaceId: $spaceId, id: $id, data: $data) { id data }
 }`;
 
+  GRID_COL_PREFS_QUERY = `query GridColumnPrefs($spaceId: ID!) {
+  gridColumnPrefs(spaceId: $spaceId)
+}`;
+
+  SAVE_GRID_COL_PREFS_MUTATION = `mutation SaveGridColumnPrefs($spaceId: ID!, $prefs: JSON!, $asDefault: Boolean) {
+  saveGridColumnPrefs(spaceId: $spaceId, prefs: $prefs, asDefault: $asDefault)
+}`;
+
   window.DataView = DataView = class DataView {
-    constructor(container, space, filter1 = null, relations = []) {
+    constructor(container, space, filter1 = null, relations = [], opts = {}) {
       this.container = container;
       this.space = space;
       this.filter = filter1;
@@ -41,14 +49,19 @@
       this._defaultValues = {}; // FK defaults for new records (set by depends_on)
       this._mounted = false; // true after mount() completes, false after unmount()
       this._relations = relations;
+      if (typeof opts.onColumnFocus === 'function') {
+        this.onColumnFocus = opts.onColumnFocus;
+      }
       this._fkMaps = {}; // field name → { id → display label }
       this._fkOptions = {}; // field name → [{ text, value }]
       this._formulaFilter = ''; // Lua/MoonScript formula for server-side row filtering
       this._formulaTimer = null; // debounce handle
+      this._focusedColumnName = null;
+      this._colWidthsCache = {};
+      this._saveWidthsTimer = null;
     }
 
-    
-      // Build FK display maps for all relation fields.
+    // Build FK display maps for all relation fields.
     async _buildFkMaps() {
       var data, display, e, field, fkId, formula, j, l, len, len1, map, options, rec, records, ref, ref1, ref2, ref3, ref4, ref5, ref6, rel, results;
       ref = this._relations;
@@ -106,7 +119,7 @@
     }
 
     async mount() {
-      var allCols, col, columns, editableCols, editableSet, f, fields, fkMap, fkOptions, formulaNames, moveTo, ref, saved, seqNames, wrapper;
+      var allCols, boolNames, col, columns, editableCols, editableSet, escapeHtml, f, fields, fkMap, fkOptions, formulaNames, moveTo, ref, saved, seqNames, setFocusedColumn, toBool, wrapper;
       this._mounted = true;
       this.container.innerHTML = '';
       wrapper = document.createElement('div');
@@ -125,6 +138,17 @@
         }
         return results;
       })());
+      boolNames = new Set((function() {
+        var j, len, results;
+        results = [];
+        for (j = 0, len = fields.length; j < len; j++) {
+          f = fields[j];
+          if (f.fieldType === 'Boolean') {
+            results.push(f.name);
+          }
+        }
+        return results;
+      })());
       formulaNames = new Set((function() {
         var j, len, results;
         results = [];
@@ -136,7 +160,13 @@
         }
         return results;
       })());
-      saved = this._loadColWidths();
+      escapeHtml = (s) => {
+        return this._escapeHtml(s);
+      };
+      toBool = (v) => {
+        return this._toBoolean(v);
+      };
+      saved = (await this._loadColWidths());
       if (((ref = this._relations) != null ? ref.length : void 0) > 0) {
         await this._buildFkMaps();
       }
@@ -148,7 +178,7 @@
           col = {
             name: f.name,
             header: f.name,
-            width: saved[f.name] || 160,
+            width: this._columnWidth(f, saved),
             minWidth: 40,
             resizable: true,
             sortable: true
@@ -156,9 +186,9 @@
           if (this._fkMaps[f.name] != null) {
             fkMap = this._fkMaps[f.name];
             fkOptions = this._fkOptions[f.name] || [];
-            col.formatter = (function(fkMap) {
-              return function(props) {
-                var cls, isInternal, m, ref1, safeFull, safeShort, val;
+            col.formatter = ((fkMap) => {
+              return (props) => {
+                var cls, display, isInternal, m, ref1, safeFull, safeShort, val;
                 val = props.value;
                 if (typeof val === 'string') {
                   m = val.match(/^\[ERROR\|(.*?)\|(.*)\]$/);
@@ -172,7 +202,8 @@
                     return `<span class=\"formula-error\" title=\"${val.replace(/"/g, '&quot;')}\">⚠ Erreur</span>`;
                   }
                 }
-                return (ref1 = fkMap[String(val)]) != null ? ref1 : String(val != null ? val : '');
+                display = (ref1 = fkMap[String(val)]) != null ? ref1 : String(val != null ? val : '');
+                return escapeHtml(display);
               };
             })(fkMap);
             col.editor = {
@@ -182,35 +213,77 @@
               }
             };
           } else {
-            if (!(seqNames.has(f.name) || formulaNames.has(f.name))) {
-              col.editor = 'text';
-            }
-            // Highlight formula errors in normal text columns
-            col.formatter = (function(fieldName) {
-              return function(props) {
-                var cls, displayVal, isInternal, m, row, safeFull, safeShort, val;
-                row = props.row;
-                val = props.value;
-                displayVal = val;
-                // Use per-field representation if available from backend
-                if (row[`_repr_${fieldName}`] != null) {
-                  displayVal = row[`_repr_${fieldName}`];
+            if (boolNames.has(f.name)) {
+              col.align = 'center';
+              col.editor = {
+                type: 'checkbox',
+                options: {
+                  listItems: [
+                    {
+                      text: '',
+                      value: 'true'
+                    }
+                  ]
                 }
-                if (typeof displayVal === 'string') {
-                  m = displayVal.match(/^\[ERROR\|(.*?)\|(.*)\]$/);
-                  if (m) {
-                    safeShort = m[1].replace(/"/g, '&quot;').replace(/</g, '&lt;');
-                    safeFull = m[2].replace(/"/g, '&quot;').replace(/</g, '&lt;');
-                    isInternal = safeShort.indexOf('inconnue') > -1;
-                    cls = isInternal ? 'formula-error internal-error' : 'formula-error';
-                    return `<span class=\"${cls}\" title=\"${safeFull}\">⚠ ${safeShort}</span>`;
-                  } else if (displayVal.indexOf('[Erreur de formule:') === 0) {
-                    return `<span class=\"formula-error\" title=\"${displayVal.replace(/"/g, '&quot;')}\">⚠ Erreur</span>`;
-                  }
-                }
-                return String(displayVal != null ? displayVal : '');
               };
-            })(f.name);
+              if (seqNames.has(f.name) || formulaNames.has(f.name)) {
+                col.editor = null;
+              }
+              col.formatter = ((fieldName) => {
+                return (props) => {
+                  var cls, displayVal, isInternal, m, row, safeFull, safeShort, val;
+                  row = props.row;
+                  val = props.value;
+                  displayVal = row[`_repr_${fieldName}`] != null ? row[`_repr_${fieldName}`] : val;
+                  if (typeof displayVal === 'string') {
+                    m = displayVal.match(/^\[ERROR\|(.*?)\|(.*)\]$/);
+                    if (m) {
+                      safeShort = m[1].replace(/"/g, '&quot;').replace(/</g, '&lt;');
+                      safeFull = m[2].replace(/"/g, '&quot;').replace(/</g, '&lt;');
+                      isInternal = safeShort.indexOf('inconnue') > -1;
+                      cls = isInternal ? 'formula-error internal-error' : 'formula-error';
+                      return `<span class=\"${cls}\" title=\"${safeFull}\">⚠ ${safeShort}</span>`;
+                    }
+                  }
+                  if (toBool(displayVal)) {
+                    return '☑';
+                  } else {
+                    return '☐';
+                  }
+                };
+              })(f.name);
+            } else {
+              if (!(seqNames.has(f.name) || formulaNames.has(f.name))) {
+                col.editor = 'text';
+              }
+              // Highlight formula errors in normal text columns
+              col.formatter = ((fieldName) => {
+                return (props) => {
+                  var cls, displayVal, isInternal, m, row, safe, safeFull, safeShort, val;
+                  row = props.row;
+                  val = props.value;
+                  displayVal = val;
+                  // Use per-field representation if available from backend
+                  if (row[`_repr_${fieldName}`] != null) {
+                    displayVal = row[`_repr_${fieldName}`];
+                  }
+                  if (typeof displayVal === 'string') {
+                    m = displayVal.match(/^\[ERROR\|(.*?)\|(.*)\]$/);
+                    if (m) {
+                      safeShort = m[1].replace(/"/g, '&quot;').replace(/</g, '&lt;');
+                      safeFull = m[2].replace(/"/g, '&quot;').replace(/</g, '&lt;');
+                      isInternal = safeShort.indexOf('inconnue') > -1;
+                      cls = isInternal ? 'formula-error internal-error' : 'formula-error';
+                      return `<span class=\"${cls}\" title=\"${safeFull}\">⚠ ${safeShort}</span>`;
+                    } else if (displayVal.indexOf('[Erreur de formule:') === 0) {
+                      return `<span class=\"formula-error\" title=\"${displayVal.replace(/"/g, '&quot;')}\">⚠ Erreur</span>`;
+                    }
+                  }
+                  safe = escapeHtml(String(displayVal != null ? displayVal : ''));
+                  return `<span class=\"tdb-cell-text\" data-full-text=\"${safe}\">${safe}</span>`;
+                };
+              })(f.name);
+            }
           }
           results.push(col);
         }
@@ -247,9 +320,48 @@
       // Persist column widths on resize
       this._grid.on('columnResized', ({columnName, width}) => {
         var saved2;
-        saved2 = this._loadColWidths();
+        saved2 = Object.assign({}, this._colWidthsCache);
         saved2[columnName] = width;
-        return localStorage.setItem(this._lsKey(), JSON.stringify(saved2));
+        this._colWidthsCache = saved2;
+        clearTimeout(this._saveWidthsTimer);
+        return this._saveWidthsTimer = setTimeout((() => {
+          return this._saveColWidths(saved2);
+        }), 150);
+      });
+      setFocusedColumn = (colName) => {
+        if (!colName) {
+          return;
+        }
+        this._focusedColumnName = colName;
+        return typeof this.onColumnFocus === "function" ? this.onColumnFocus(colName) : void 0;
+      };
+      this._grid.on('focusChange', (ev) => {
+        return setFocusedColumn(ev.columnName);
+      });
+      this._grid.on('click', (ev) => {
+        if (ev != null ? ev.columnName : void 0) {
+          return setFocusedColumn(ev.columnName);
+        }
+      });
+      this._grid.on('mouseover', (ev) => {
+        var cellEl, fullText, ref1, ref2, textEl;
+        if ((ev != null ? ev.targetType : void 0) !== 'cell') {
+          return;
+        }
+        cellEl = (ref1 = ev.nativeEvent) != null ? (ref2 = ref1.target) != null ? typeof ref2.closest === "function" ? ref2.closest('.tui-grid-cell') : void 0 : void 0 : void 0;
+        if (!cellEl) {
+          return;
+        }
+        textEl = cellEl.querySelector('.tdb-cell-text');
+        if (!textEl) {
+          return;
+        }
+        fullText = textEl.getAttribute('data-full-text') || textEl.textContent || '';
+        if (textEl.scrollWidth > textEl.clientWidth + 1) {
+          return cellEl.setAttribute('title', fullText);
+        } else {
+          return cellEl.removeAttribute('title');
+        }
       });
       // Tab / Shift+Tab: move to next/prev cell (all columns), wrapping at row
       // boundaries. Start editing only if the target cell is editable.
@@ -364,6 +476,9 @@
             if ((this._fkMaps[name] != null) && (val != null) && val !== '') {
               patch[name] = Number(val);
             }
+            if (boolNames.has(name)) {
+              patch[name] = this._toBoolean(val);
+            }
           }
           // Resolve actual row data from tui.Grid (rowKey ≠ array index after resetData)
           row = this._grid.getRow(Number(rk));
@@ -447,7 +562,7 @@
       for (j = 0, len = ref.length; j < len; j++) {
         f = ref[j];
         if (f.fieldType !== 'Sequence') {
-          row[f.name] = (ref1 = this._defaultValues[f.name]) != null ? ref1 : '';
+          row[f.name] = (ref1 = this._defaultValues[f.name]) != null ? ref1 : this._defaultCellValue(f);
         }
       }
       return row;
@@ -674,7 +789,7 @@
       for (j = 0, len = fields.length; j < len; j++) {
         f = fields[j];
         if (!seqNames.has(f.name) && !formulaNames.has(f.name)) {
-          data[f.name] = '';
+          data[f.name] = this._defaultCellValue(f);
         }
       }
       return GQL.mutate(INSERT_RECORD, {
@@ -766,12 +881,83 @@
       return `tdb_colwidths_${this.space.id}`;
     }
 
-    _loadColWidths() {
+    async _loadColWidths() {
+      var data, local, prefs, remote;
+      local = {};
       try {
-        return JSON.parse(localStorage.getItem(this._lsKey()) || '{}');
+        local = JSON.parse(localStorage.getItem(this._lsKey()) || '{}');
       } catch (error) {
-        return {};
+        local = {};
       }
+      try {
+        data = (await GQL.query(GRID_COL_PREFS_QUERY, {
+          spaceId: this.space.id
+        }));
+        remote = data.gridColumnPrefs || {};
+        prefs = Object.keys(remote).length > 0 ? remote : local;
+        this._colWidthsCache = prefs;
+        localStorage.setItem(this._lsKey(), JSON.stringify(prefs));
+        return prefs;
+      } catch (error) {
+        this._colWidthsCache = local;
+        return local;
+      }
+    }
+
+    async _saveColWidths(prefs) {
+      var e, isAdmin, ref;
+      isAdmin = !!(((ref = window.Auth) != null ? typeof ref.isAdmin === "function" ? ref.isAdmin() : void 0 : void 0) && window.Auth.isAdmin());
+      try {
+        await GQL.mutate(SAVE_GRID_COL_PREFS_MUTATION, {
+          spaceId: this.space.id,
+          prefs: prefs || {},
+          asDefault: isAdmin ? true : false
+        });
+      } catch (error) {
+        e = error;
+        console.warn('saveGridColumnPrefs failed, local fallback only:', e);
+      }
+      return localStorage.setItem(this._lsKey(), JSON.stringify(prefs || {}));
+    }
+
+    _columnWidth(field, saved) {
+      var v;
+      v = saved[field.name];
+      if ((v != null) && !Number.isNaN(Number(v))) {
+        return Number(v);
+      }
+      if (field.name === 'id') {
+        return 72;
+      }
+      if (field.fieldType === 'Boolean') {
+        return 72;
+      }
+      return 160;
+    }
+
+    _toBoolean(v) {
+      var s;
+      if (v === true) {
+        return true;
+      }
+      s = String(v != null ? v : '').toLowerCase();
+      return s === 'true' || s === '1' || s === 'yes' || s === 'on';
+    }
+
+    _defaultCellValue(field) {
+      if (field.fieldType === 'Boolean') {
+        return false;
+      } else {
+        return '';
+      }
+    }
+
+    _escapeHtml(s) {
+      return String(s != null ? s : '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    getFocusedColumnName() {
+      return this._focusedColumnName;
     }
 
     // ── Cleanup ───────────────────────────────────────────────────────────────────
@@ -779,6 +965,7 @@
       var ref;
       this._mounted = false;
       clearTimeout(this._formulaTimer);
+      clearTimeout(this._saveWidthsTimer);
       if (this._pasteListener) {
         document.removeEventListener('keydown', this._pasteListener);
       }

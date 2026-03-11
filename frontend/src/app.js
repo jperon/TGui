@@ -1081,7 +1081,11 @@
       }
       container = this.el.gridContainer();
       relations = (await Spaces.listRelations(space.id));
-      this._activeDataView = new DataView(container, space, null, relations);
+      this._activeDataView = new DataView(container, space, null, relations, {
+        onColumnFocus: (colName) => {
+          return this._onGridColumnFocused(colName);
+        }
+      });
       this._activeDataView.mount();
       // Reset filter bar
       input = this.el.formulaFilterInput();
@@ -1480,7 +1484,15 @@
         if (panel.classList.contains('hidden')) {
           panel.classList.remove('hidden');
           btn.classList.add('active');
-          return this.renderFieldsList();
+          return this.renderFieldsList().then(() => {
+            var ref, selected;
+            selected = this._selectedColumnName || ((ref = this._activeDataView) != null ? typeof ref.getFocusedColumnName === "function" ? ref.getFocusedColumnName() : void 0 : void 0);
+            if (!selected) {
+              return;
+            }
+            this._highlightFieldInPanel(selected);
+            return this._openFieldEditorByName(selected);
+          });
         } else {
           panel.classList.add('hidden');
           btn.classList.remove('active');
@@ -1699,6 +1711,93 @@
       });
       return setTimeout(refresh, 220);
     },
+    _onGridColumnFocused: function(columnName) {
+      if (!columnName) {
+        return;
+      }
+      this._selectedColumnName = columnName;
+      if (this.el.fieldsPanel().classList.contains('hidden')) {
+        return;
+      }
+      this._highlightFieldInPanel(columnName);
+      return this._openFieldEditorByName(columnName);
+    },
+    _highlightFieldInPanel: function(fieldName) {
+      var li, ul;
+      ul = this.el.fieldsList();
+      if (!ul) {
+        return;
+      }
+      ul.querySelectorAll('li').forEach(function(el) {
+        return el.classList.remove('selected');
+      });
+      li = ul.querySelector(`li[data-field-name='${fieldName}']`);
+      if (!li) {
+        return;
+      }
+      li.classList.add('selected');
+      return li.scrollIntoView({
+        block: 'nearest'
+      });
+    },
+    _openFieldEditorByName: function(fieldName) {
+      var field, ref, relation;
+      if (!(this._currentSpace && fieldName)) {
+        return;
+      }
+      field = (this._currentSpace.fields || []).find(function(f) {
+        return f.name === fieldName;
+      });
+      if (!field) {
+        return;
+      }
+      relation = ((ref = this._fieldsRelMap) != null ? ref[field.id] : void 0) || null;
+      return this._startEditField(field, relation);
+    },
+    _startEditField: function(field, relation = null) {
+      var tf;
+      this._editingFieldId = field.id;
+      this._editingRelation = relation || null;
+      this.el.fieldAddBtn().textContent = this._t('ui.fields.update');
+      this.el.fieldCancelBtn().classList.remove('hidden');
+      this.el.fieldType().disabled = false;
+      this.el.fieldName().value = field.name;
+      if (relation) {
+        this.el.fieldType().value = 'Relation';
+        this._onFieldTypeChange();
+        this.el.relReprFormula().value = relation.reprFormula || '';
+        this.el.relToSpace().value = relation.toSpaceId || '';
+        if (this.el.fieldReprFormula()) {
+          this.el.fieldReprFormula().value = '';
+        }
+      } else {
+        this.el.fieldType().value = field.fieldType;
+        this._onFieldTypeChange();
+        this.el.fieldNotNull().checked = field.notNull;
+        if (this.el.fieldReprFormula()) {
+          this.el.fieldReprFormula().value = field.reprFormula || '';
+        }
+        if (field.formula && field.formula !== '') {
+          if (field.triggerFields) {
+            document.querySelector('input[name="formula-type"][value="trigger"]').checked = true;
+            this.el.triggerFieldsRow().classList.remove('hidden');
+            tf = field.triggerFields;
+            this.el.fieldTriggerFields().value = tf.length === 0 ? '' : tf[0] === '*' ? '*' : tf.join(', ');
+          } else {
+            document.querySelector('input[name="formula-type"][value="formula"]').checked = true;
+          }
+          this.el.formulaBody().classList.remove('hidden');
+          this.el.fieldFormula().value = field.formula;
+          if (this.el.formulaLanguage()) {
+            this.el.formulaLanguage().value = field.language || 'lua';
+          }
+        } else {
+          document.querySelector('input[name="formula-type"][value="none"]').checked = true;
+          this.el.formulaBody().classList.add('hidden');
+        }
+      }
+      return this.el.fieldName().focus();
+    },
     _onFieldTypeChange: function() {
       var formulaSection, i, isRelation, len, opt, ref, ref1, ref2, results1, sel, sp, type;
       type = this.el.fieldType().value;
@@ -1842,6 +1941,7 @@
           r = ref1[j];
           relMap[r.fromFieldId] = r;
         }
+        this._fieldsRelMap = relMap;
         if (fields.length === 0) {
           li = document.createElement('li');
           li.textContent = this._t('ui.fields.noneDefined');
@@ -1856,6 +1956,7 @@
           li = document.createElement('li');
           li.draggable = true;
           li.dataset.fieldId = f.id;
+          li.dataset.fieldName = f.name;
           li.style.cursor = 'grab';
           handle = document.createElement('span');
           handle.textContent = '⠿';
@@ -1903,50 +2004,8 @@
           editBtn.style.cssText = 'background:none;border:none;cursor:pointer;color:#888;font-size:.9rem;margin-left:.2rem;';
           ((field, relation) => {
             return editBtn.addEventListener('click', () => {
-              var tf;
-              this._editingFieldId = field.id;
-              this._editingRelation = relation || null;
-              this.el.fieldAddBtn().textContent = this._t('ui.fields.update');
-              this.el.fieldCancelBtn().classList.remove('hidden');
-              // Ensure type selector is enabled for direct editing
-              this.el.fieldType().disabled = false;
-              this.el.fieldName().value = field.name;
-              if (relation) {
-                // Editing a relation field: show Cible and repr formula
-                this.el.fieldType().value = 'Relation';
-                this._onFieldTypeChange();
-                this.el.relReprFormula().value = relation.reprFormula || '';
-                this.el.relToSpace().value = relation.toSpaceId || '';
-                if (this.el.fieldReprFormula()) {
-                  this.el.fieldReprFormula().value = '';
-                }
-              } else {
-                this.el.fieldType().value = field.fieldType;
-                this._onFieldTypeChange();
-                this.el.fieldNotNull().checked = field.notNull;
-                if (this.el.fieldReprFormula()) {
-                  this.el.fieldReprFormula().value = field.reprFormula || '';
-                }
-                if (field.formula && field.formula !== '') {
-                  if (field.triggerFields) {
-                    document.querySelector('input[name="formula-type"][value="trigger"]').checked = true;
-                    this.el.triggerFieldsRow().classList.remove('hidden');
-                    tf = field.triggerFields;
-                    this.el.fieldTriggerFields().value = tf.length === 0 ? '' : tf[0] === '*' ? '*' : tf.join(', ');
-                  } else {
-                    document.querySelector('input[name="formula-type"][value="formula"]').checked = true;
-                  }
-                  this.el.formulaBody().classList.remove('hidden');
-                  this.el.fieldFormula().value = field.formula;
-                  if (this.el.formulaLanguage()) {
-                    this.el.formulaLanguage().value = field.language || 'lua';
-                  }
-                } else {
-                  document.querySelector('input[name="formula-type"][value="none"]').checked = true;
-                  this.el.formulaBody().classList.add('hidden');
-                }
-              }
-              return this.el.fieldName().focus();
+              this._highlightFieldInPanel(field.name);
+              return this._startEditField(field, relation);
             });
           })(f, rel);
           del = document.createElement('button');

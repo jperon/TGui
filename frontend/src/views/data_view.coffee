@@ -27,18 +27,34 @@ UPDATE_RECORD = """
   }
 """
 
+GRID_COL_PREFS_QUERY = """
+  query GridColumnPrefs($spaceId: ID!) {
+    gridColumnPrefs(spaceId: $spaceId)
+  }
+"""
+
+SAVE_GRID_COL_PREFS_MUTATION = """
+  mutation SaveGridColumnPrefs($spaceId: ID!, $prefs: JSON!, $asDefault: Boolean) {
+    saveGridColumnPrefs(spaceId: $spaceId, prefs: $prefs, asDefault: $asDefault)
+  }
+"""
+
 window.DataView = class DataView
-  constructor: (@container, @space, @filter = null, relations = []) ->
+  constructor: (@container, @space, @filter = null, relations = [], opts = {}) ->
     @_grid          = null   # tui.Grid instance
     @_rows          = []     # rows from server
     @_currentData   = []     # rows currently displayed (filtered + sentinel)
     @_defaultValues = {}     # FK defaults for new records (set by depends_on)
     @_mounted       = false  # true after mount() completes, false after unmount()
     @_relations     = relations
+    @onColumnFocus  = opts.onColumnFocus if typeof opts.onColumnFocus == 'function'
     @_fkMaps        = {}     # field name → { id → display label }
     @_fkOptions     = {}     # field name → [{ text, value }]
     @_formulaFilter = ''     # Lua/MoonScript formula for server-side row filtering
     @_formulaTimer  = null   # debounce handle
+    @_focusedColumnName = null
+    @_colWidthsCache = {}
+    @_saveWidthsTimer = null
 
    # Build FK display maps for all relation fields.
   _buildFkMaps: ->
@@ -86,8 +102,11 @@ window.DataView = class DataView
 
     fields   = @space.fields or []
     seqNames     = new Set (f.name for f in fields when f.fieldType == 'Sequence')
+    boolNames    = new Set (f.name for f in fields when f.fieldType == 'Boolean')
     formulaNames = new Set (f.name for f in fields when f.formula and f.formula != '' and not f.triggerFields)
-    saved    = @_loadColWidths()
+    escapeHtml = (s) => @_escapeHtml s
+    toBool = (v) => @_toBoolean v
+    saved    = await @_loadColWidths()
 
     await @_buildFkMaps() if @_relations?.length > 0
 
@@ -95,14 +114,14 @@ window.DataView = class DataView
       col =
         name:      f.name
         header:    f.name
-        width:     saved[f.name] or 160
+        width:     @_columnWidth f, saved
         minWidth:  40
         resizable: true
         sortable:  true
       if @_fkMaps[f.name]?
         fkMap     = @_fkMaps[f.name]
         fkOptions = @_fkOptions[f.name] or []
-        col.formatter = do (fkMap) -> (props) ->
+        col.formatter = do (fkMap) => (props) =>
           val = props.value
           if typeof val == 'string'
             m = val.match /^\[ERROR\|(.*?)\|(.*)\]$/
@@ -114,33 +133,56 @@ window.DataView = class DataView
               return "<span class=\"#{cls}\" title=\"#{safeFull}\">⚠ #{safeShort}</span>"
             else if val.indexOf('[Erreur de formule:') == 0
               return "<span class=\"formula-error\" title=\"#{val.replace(/"/g, '&quot;')}\">⚠ Erreur</span>"
-          fkMap[String val] ? String(val ? '')
+          display = fkMap[String val] ? String(val ? '')
+          escapeHtml display
         col.editor =
           type: 'select'
           options:
             listItems: fkOptions
       else
-        col.editor = 'text' unless seqNames.has(f.name) or formulaNames.has(f.name)
-        # Highlight formula errors in normal text columns
-        col.formatter = do (fieldName = f.name) -> (props) ->
-          row = props.row
-          val = props.value
-          displayVal = val
-          # Use per-field representation if available from backend
-          if row["_repr_#{fieldName}"]?
-            displayVal = row["_repr_#{fieldName}"]
+        if boolNames.has f.name
+          col.align = 'center'
+          col.editor =
+            type: 'checkbox'
+            options:
+              listItems: [{ text: '', value: 'true' }]
+          col.editor = null if seqNames.has(f.name) or formulaNames.has(f.name)
+          col.formatter = do (fieldName = f.name) => (props) =>
+            row = props.row
+            val = props.value
+            displayVal = if row["_repr_#{fieldName}"]? then row["_repr_#{fieldName}"] else val
+            if typeof displayVal == 'string'
+              m = displayVal.match /^\[ERROR\|(.*?)\|(.*)\]$/
+              if m
+                safeShort = m[1].replace(/"/g, '&quot;').replace(/</g, '&lt;')
+                safeFull = m[2].replace(/"/g, '&quot;').replace(/</g, '&lt;')
+                isInternal = safeShort.indexOf('inconnue') > -1
+                cls = if isInternal then 'formula-error internal-error' else 'formula-error'
+                return "<span class=\"#{cls}\" title=\"#{safeFull}\">⚠ #{safeShort}</span>"
+            if toBool(displayVal) then '☑' else '☐'
+        else
+          col.editor = 'text' unless seqNames.has(f.name) or formulaNames.has(f.name)
+          # Highlight formula errors in normal text columns
+          col.formatter = do (fieldName = f.name) => (props) =>
+            row = props.row
+            val = props.value
+            displayVal = val
+            # Use per-field representation if available from backend
+            if row["_repr_#{fieldName}"]?
+              displayVal = row["_repr_#{fieldName}"]
 
-          if typeof displayVal == 'string'
-            m = displayVal.match /^\[ERROR\|(.*?)\|(.*)\]$/
-            if m
-              safeShort = m[1].replace(/"/g, '&quot;').replace(/</g, '&lt;')
-              safeFull = m[2].replace(/"/g, '&quot;').replace(/</g, '&lt;')
-              isInternal = safeShort.indexOf('inconnue') > -1
-              cls = if isInternal then 'formula-error internal-error' else 'formula-error'
-              return "<span class=\"#{cls}\" title=\"#{safeFull}\">⚠ #{safeShort}</span>"
-            else if displayVal.indexOf('[Erreur de formule:') == 0
-              return "<span class=\"formula-error\" title=\"#{displayVal.replace(/"/g, '&quot;')}\">⚠ Erreur</span>"
-          String(displayVal ? '')
+            if typeof displayVal == 'string'
+              m = displayVal.match /^\[ERROR\|(.*?)\|(.*)\]$/
+              if m
+                safeShort = m[1].replace(/"/g, '&quot;').replace(/</g, '&lt;')
+                safeFull = m[2].replace(/"/g, '&quot;').replace(/</g, '&lt;')
+                isInternal = safeShort.indexOf('inconnue') > -1
+                cls = if isInternal then 'formula-error internal-error' else 'formula-error'
+                return "<span class=\"#{cls}\" title=\"#{safeFull}\">⚠ #{safeShort}</span>"
+              else if displayVal.indexOf('[Erreur de formule:') == 0
+                return "<span class=\"formula-error\" title=\"#{displayVal.replace(/"/g, '&quot;')}\">⚠ Erreur</span>"
+            safe = escapeHtml String(displayVal ? '')
+            "<span class=\"tdb-cell-text\" data-full-text=\"#{safe}\">#{safe}</span>"
       col
 
     @_grid = new tui.Grid
@@ -166,9 +208,34 @@ window.DataView = class DataView
 
     # Persist column widths on resize
     @_grid.on 'columnResized', ({ columnName, width }) =>
-      saved2 = @_loadColWidths()
+      saved2 = Object.assign {}, @_colWidthsCache
       saved2[columnName] = width
-      localStorage.setItem @_lsKey(), JSON.stringify(saved2)
+      @_colWidthsCache = saved2
+      clearTimeout @_saveWidthsTimer
+      @_saveWidthsTimer = setTimeout (=> @_saveColWidths saved2), 150
+
+    setFocusedColumn = (colName) =>
+      return unless colName
+      @_focusedColumnName = colName
+      @onColumnFocus? colName
+
+    @_grid.on 'focusChange', (ev) =>
+      setFocusedColumn ev.columnName
+
+    @_grid.on 'click', (ev) =>
+      setFocusedColumn ev.columnName if ev?.columnName
+
+    @_grid.on 'mouseover', (ev) =>
+      return unless ev?.targetType == 'cell'
+      cellEl = ev.nativeEvent?.target?.closest? '.tui-grid-cell'
+      return unless cellEl
+      textEl = cellEl.querySelector '.tdb-cell-text'
+      return unless textEl
+      fullText = textEl.getAttribute('data-full-text') or textEl.textContent or ''
+      if textEl.scrollWidth > textEl.clientWidth + 1
+        cellEl.setAttribute 'title', fullText
+      else
+        cellEl.removeAttribute 'title'
 
     # Tab / Shift+Tab: move to next/prev cell (all columns), wrapping at row
     # boundaries. Start editing only if the target cell is editable.
@@ -241,6 +308,8 @@ window.DataView = class DataView
         for own name, val of patch
           if @_fkMaps[name]? and val? and val != ''
             patch[name] = Number(val)
+          if boolNames.has(name)
+            patch[name] = @_toBoolean val
         # Resolve actual row data from tui.Grid (rowKey ≠ array index after resetData)
         row = @_grid.getRow Number(rk)
         if row?.__isNew
@@ -284,7 +353,7 @@ window.DataView = class DataView
     row = { __isNew: true }
     for f in (@space.fields or [])
       unless f.fieldType == 'Sequence'
-        row[f.name] = @_defaultValues[f.name] ? ''
+        row[f.name] = @_defaultValues[f.name] ? @_defaultCellValue(f)
     row
 
   load: ->
@@ -405,7 +474,7 @@ window.DataView = class DataView
     seqNames     = new Set (f.name for f in fields when f.fieldType == 'Sequence')
     formulaNames = new Set (f.name for f in fields when f.formula and f.formula != '' and not f.triggerFields)
     data         = {}
-    data[f.name] = '' for f in fields when not seqNames.has(f.name) and not formulaNames.has(f.name)
+    data[f.name] = @_defaultCellValue(f) for f in fields when not seqNames.has(f.name) and not formulaNames.has(f.name)
     GQL.mutate(INSERT_RECORD, { spaceId: @space.id, data: JSON.stringify(data) })
       .then(=> @load())
       .catch (err) => @_showError "Erreur insertion : #{err.message}"
@@ -458,12 +527,65 @@ window.DataView = class DataView
   _lsKey: -> "tdb_colwidths_#{@space.id}"
 
   _loadColWidths: ->
-    try JSON.parse(localStorage.getItem(@_lsKey()) or '{}') catch then {}
+    local = {}
+    try
+      local = JSON.parse(localStorage.getItem(@_lsKey()) or '{}')
+    catch
+      local = {}
+
+    try
+      data = await GQL.query GRID_COL_PREFS_QUERY, { spaceId: @space.id }
+      remote = data.gridColumnPrefs or {}
+      prefs = if Object.keys(remote).length > 0 then remote else local
+      @_colWidthsCache = prefs
+      localStorage.setItem @_lsKey(), JSON.stringify(prefs)
+      prefs
+    catch
+      @_colWidthsCache = local
+      local
+
+  _saveColWidths: (prefs) ->
+    isAdmin = !!(window.Auth?.isAdmin?() and window.Auth.isAdmin())
+    try
+      await GQL.mutate SAVE_GRID_COL_PREFS_MUTATION, {
+        spaceId: @space.id
+        prefs: prefs or {}
+        asDefault: if isAdmin then true else false
+      }
+    catch e
+      console.warn 'saveGridColumnPrefs failed, local fallback only:', e
+    localStorage.setItem @_lsKey(), JSON.stringify(prefs or {})
+
+  _columnWidth: (field, saved) ->
+    v = saved[field.name]
+    return Number(v) if v? and not Number.isNaN Number(v)
+    return 72 if field.name == 'id'
+    return 72 if field.fieldType == 'Boolean'
+    160
+
+  _toBoolean: (v) ->
+    return true if v == true
+    s = String(v ? '').toLowerCase()
+    s == 'true' or s == '1' or s == 'yes' or s == 'on'
+
+  _defaultCellValue: (field) ->
+    if field.fieldType == 'Boolean' then false else ''
+
+  _escapeHtml: (s) ->
+    String(s ? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+
+  getFocusedColumnName: ->
+    @_focusedColumnName
 
   # ── Cleanup ───────────────────────────────────────────────────────────────────
   unmount: ->
     @_mounted = false
     clearTimeout @_formulaTimer
+    clearTimeout @_saveWidthsTimer
     document.removeEventListener 'keydown', @_pasteListener if @_pasteListener
     document.removeEventListener 'keydown', @_tabListener,  true if @_tabListener
     @_grid?.destroy()
