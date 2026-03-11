@@ -8,7 +8,7 @@ JS_OUTS         := $(COFFEE_SRCS:.coffee=.js)
 TEST_COFFEE_SRCS := $(shell find tests/js -name '*.coffee')
 TEST_JS_OUTS     := $(TEST_COFFEE_SRCS:.coffee=.js)
 
-.PHONY: all build test test-js up down logs clean vendor audit-deps doc
+.PHONY: all build test test-legacy test-js test-up test-logs up down logs clean vendor audit-deps doc
 
 all: build
 
@@ -16,24 +16,29 @@ build: $(LUA_OUTS) $(JS_OUTS) $(TEST_JS_OUTS)
 
 SOCKET   := /run/tarantool/sys_env/default/instance-001/tarantool.control
 TESTFILE := /tmp/.tgui_test_runner.lua
+TEST_IMAGE := tdb-test:latest
 
 test: build
+	docker build -t $(TEST_IMAGE) .
+	docker run --rm -v ./backend:/app/backend:ro -v ./frontend:/app/frontend:ro -v ./schema:/app/schema:ro -v ./tests:/app/tests:ro -e TT_LOG_LEVEL=5 -e TGUI_TEST_ENV=true $(TEST_IMAGE) tarantool /app/backend/test_runner.lua
+
+test-up: build
+	docker compose -f docker-compose.test.yml --profile test up -d --build
+
+test-legacy: build
 	@printf "package.path='/app/?.lua;/app/backend/?.lua;'..package.path\nfor k,_ in pairs(package.loaded) do if k:match('^tests') or k:match('^resolvers') then package.loaded[k]=nil end end\nrequire('resolvers.init').reinit()\nrequire('tests.run')\n" > $(TESTFILE)
 	@nlines=$$(docker logs tgui-tarantool-test 2>&1 | wc -l); \
-	sleep 5; \
+	sleep 8; \
 	docker exec -i tgui-tarantool-test tt connect $(SOCKET) -f - < $(TESTFILE) 2>&1; \
-	sleep 16; \
+	sleep 8; \
 	new_output=$$(docker logs tgui-tarantool-test 2>&1 | tail -n +$$((nlines + 1))); \
 	echo "$$new_output" | grep -E 'assertions|RÉSULTAT'; \
 	if echo "$$new_output" | grep -q "RÉSULTAT: SUCCÈS"; then exit 0; fi; \
 	echo "===== ÉCHEC - sortie complète des tests ====="; \
 	echo "$$new_output"; exit 1
 
-test-up: build
-	docker compose -f docker-compose.test.yml up -d --build
-
-test-down:
-	docker compose -f docker-compose.test.yml down
+test-logs:
+	docker logs tgui-tarantool-test
 
 test-js: $(TEST_JS_OUTS)
 	coffee tests/js/run.coffee
