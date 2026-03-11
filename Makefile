@@ -8,7 +8,7 @@ JS_OUTS         := $(COFFEE_SRCS:.coffee=.js)
 TEST_COFFEE_SRCS := $(shell find tests/js -name '*.coffee')
 TEST_JS_OUTS     := $(TEST_COFFEE_SRCS:.coffee=.js)
 
-.PHONY: all build test test-js test-up test-down test-logs up down logs clean vendor audit-deps doc sdl-gen
+.PHONY: all build test test-js test-up test-down test-logs up down logs clean vendor audit-deps doc sdl-gen sdl-check
 
 all: build
 
@@ -80,5 +80,13 @@ audit-deps:
 sdl-gen: build
 	docker build -t $(TEST_IMAGE) .
 	docker run --rm -v ./backend:/app/backend:ro $(TEST_IMAGE) tarantool -e 'package.path="/app/backend/?.lua;/app/backend/?/init.lua;"..package.path; io.write(require("graphql.sdl_generator").generate()); os.exit(0)' > schema/tdb.generated.graphql
+
+sdl-check: build
+	@tmp=$$(mktemp); \
+	docker build -t $(TEST_IMAGE) . >/dev/null; \
+	docker run --rm -v ./backend:/app/backend:ro $(TEST_IMAGE) tarantool -e 'package.path="/app/backend/?.lua;/app/backend/?/init.lua;"..package.path; io.write(require("graphql.sdl_generator").generate()); os.exit(0)' > $$tmp; \
+	diff -u schema/tdb.generated.graphql $$tmp >/dev/null || (echo "SDL drift detected: run 'make sdl-gen' and commit schema/tdb.generated.graphql"; rm -f $$tmp; exit 1); \
+	rm -f $$tmp; \
+	echo "SDL check OK"
 
 .PHONY: doc
