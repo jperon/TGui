@@ -8,7 +8,7 @@ JS_OUTS         := $(COFFEE_SRCS:.coffee=.js)
 TEST_COFFEE_SRCS := $(shell find tests/js -name '*.coffee')
 TEST_JS_OUTS     := $(TEST_COFFEE_SRCS:.coffee=.js)
 
-.PHONY: all build test test-js test-up test-down test-logs up down logs clean vendor audit-deps doc
+.PHONY: all build test test-js test-up test-down test-logs up down logs clean vendor audit-deps doc sdl-gen
 
 all: build
 
@@ -76,5 +76,9 @@ audit-deps:
 	@echo "✓ Docker: deployment environment"
 	@echo "✓ No external runtime dependencies"
 	@echo "Audit complete - minimal dependency footprint"
+
+sdl-gen: build
+	docker build -t $(TEST_IMAGE) .
+	docker run --rm -v ./backend:/app/backend:ro $(TEST_IMAGE) tarantool -e 'package.path="/app/backend/?.lua;/app/backend/?/init.lua;"..package.path; io.write(require("graphql.sdl_generator").generate()); os.exit(0)' > schema/tdb.generated.graphql
 
 .PHONY: doc
