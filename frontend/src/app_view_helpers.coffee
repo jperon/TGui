@@ -102,6 +102,7 @@ window.AppViewHelpers =
       app._renderCustomViewPreview cv.yaml
     else
       app._openYamlModal()
+    window.AppUndoHelpers?.refreshUI? app
 
   renderCustomViewPreview: (app, yamlText) ->
     container = app.el.customViewContainer()

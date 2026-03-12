@@ -73,6 +73,7 @@ window.AppDataHelpers =
         app._currentSpace = full
         app.el.dataTitle().textContent = full.name
         app._mountDataView full
+        window.AppUndoHelpers?.refreshUI? app
       .catch (err) -> tdbAlert app._err(err), 'error'
 
   syncSpaceFields: (app, space) ->
@@ -91,10 +92,20 @@ window.AppDataHelpers =
     if input
       input.value = ''
       input.classList.remove 'active'
+    window.AppUndoHelpers?.refreshUI? app
 
   bindDataToolbar: (app) ->
+    window.AppUndoHelpers?.bindGlobalShortcuts? app
+
+    app.el.undoBtn()?.addEventListener 'click', ->
+      window.AppUndoHelpers?.undo? app
+
+    app.el.redoBtn()?.addEventListener 'click', ->
+      window.AppUndoHelpers?.redo? app
+
     app.el.deleteRowsBtn().addEventListener 'click', ->
       app._activeDataView?.deleteSelected()
+      window.AppUndoHelpers?.refreshUI? app
 
     window.AppFieldsHelpers.bindFormulaFilter app
 
@@ -112,6 +123,7 @@ window.AppDataHelpers =
           app.el.fieldsBtn().classList.remove 'active'
           app.el.welcome().classList.remove 'hidden'
           app._loadAll()
+          window.AppUndoHelpers?.refreshUI? app
         .catch (err) -> tdbAlert app._err(err), 'error'
 
     app.el.renameSpaceBtn().addEventListener 'click', ->
@@ -125,3 +137,5 @@ window.AppDataHelpers =
           li = app.el.spaceList().querySelector("li[data-id='#{updated.id}']")
           li.textContent = updated.name if li
         .catch (err) -> tdbAlert app._err(err), 'error'
+
+    window.AppUndoHelpers?.refreshUI? app

@@ -202,6 +202,11 @@ local Mutation = {
     returns = '[Record!]!'
   },
   {
+    name = 'restoreRecords',
+    args = 'spaceId: ID!, records: [RecordUpdateInput!]!',
+    returns = '[Record!]!'
+  },
+  {
     name = 'login',
     args = 'username: String!, password: String!',
     returns = 'AuthPayload!'

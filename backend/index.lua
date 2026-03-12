@@ -457,6 +457,18 @@ make_content = function()
         ''
       }),
       H.button({
+        id = 'undo-btn',
+        class = 'toolbar-btn toolbar-btn--icon',
+        title = 'Annuler (Ctrl/Cmd+Z)',
+        '↶'
+      }),
+      H.button({
+        id = 'redo-btn',
+        class = 'toolbar-btn toolbar-btn--icon',
+        title = 'Rétablir (Ctrl/Cmd+Shift+Z)',
+        '↷'
+      }),
+      H.button({
         id = 'rename-space-btn',
         class = 'toolbar-btn toolbar-btn--icon',
         title = 'Renommer',
@@ -960,6 +972,10 @@ make_body = function()
     }),
     H.script({
       src = '/src/app_sidebar_helpers.js',
+      ''
+    }),
+    H.script({
+      src = '/src/app_undo_helpers.js',
       ''
     }),
     H.script({

@@ -96,7 +96,7 @@
       return renderTree(tree, ul);
     },
     selectCustomView: function(app, cv) {
-      var i, j, len, len1, li, panel, parent, ref, ref1, ref2, ref3;
+      var i, j, len, len1, li, panel, parent, ref, ref1, ref2, ref3, ref4;
       history.replaceState(null, '', `#view/${cv.id}`);
       app._currentCustomView = cv;
       ref = app.el.spaceList().querySelectorAll('li');
@@ -135,10 +135,11 @@
       panel.classList.remove('hidden');
       app.el.yamlViewName().textContent = cv.name;
       if ((ref3 = cv.yaml) != null ? ref3.trim() : void 0) {
-        return app._renderCustomViewPreview(cv.yaml);
+        app._renderCustomViewPreview(cv.yaml);
       } else {
-        return app._openYamlModal();
+        app._openYamlModal();
       }
+      return (ref4 = window.AppUndoHelpers) != null ? typeof ref4.refreshUI === "function" ? ref4.refreshUI(app) : void 0 : void 0;
     },
     renderCustomViewPreview: function(app, yamlText) {
       var container, ref;

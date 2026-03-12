@@ -507,13 +507,22 @@ window.DataView = class DataView
       return unless changes.length
       # Group field changes by row
       byRow = {}
+      prevByRow = {}
       for c in changes
         byRow[c.rowKey] ?= {}
+        prevByRow[c.rowKey] ?= {}
         byRow[c.rowKey][c.columnName] = c.value
+        prevByRow[c.rowKey][c.columnName] = c.prevValue
 
       colNames      = (f.name for f in fields when not seqNames.has(f.name) and not formulaNames.has(f.name))
       ops           = []
       sentinelPatch = null
+      action =
+        spaceId: @space.id
+        context: @_actionContext()
+        updates: []
+        inserts: []
+        deletes: []
 
       for own rk, patch of byRow
         # Convert FK string values back to numeric IDs before sending to backend
@@ -527,6 +536,15 @@ window.DataView = class DataView
         if row?.__isNew
           sentinelPatch = patch
         else if row?.__rowId
+          beforeData = {}
+          afterData = {}
+          for own n, prevVal of (prevByRow[rk] or {})
+            beforeData[n] = @_coerceCellValue n, prevVal, boolNames
+            afterData[n] = @_coerceCellValue n, row?[n], boolNames
+          action.updates.push
+            id: String(row.__rowId)
+            before: beforeData
+            after: afterData
           ops.push GQL.mutate UPDATE_RECORD, { spaceId: @space.id, id: row.__rowId, data: JSON.stringify(patch) }
 
       # Insertion(s) from sentinel
@@ -555,7 +573,13 @@ window.DataView = class DataView
           data[n] = sentinelPatch[n] ? @_defaultValues[n] ? '' for n in colNames
           ops.push GQL.mutate INSERT_RECORD, { spaceId: @space.id, data: JSON.stringify(data) }
 
-      Promise.all(ops).then(=> @load()).catch (err) =>
+      Promise.all(ops).then((results) =>
+        action.inserts = @_extractInsertedRecords results
+        if action.updates.length > 0 or action.inserts.length > 0
+          window.AppUndoHelpers?.pushAction? action
+        window.AppUndoHelpers?.refreshUI? window.App
+        @load()
+      ).catch (err) =>
         @_showError "Erreur d'enregistrement : #{err.message}"
 
     await @load()
@@ -700,8 +724,21 @@ window.DataView = class DataView
       .filter (row) -> row and not row.__isNew and row.__rowId
     return unless toDelete.length
     ids = (row.__rowId for row in toDelete)
+    action =
+      spaceId: @space.id
+      context: @_actionContext()
+      updates: []
+      inserts: []
+      deletes: (for row in toDelete
+        id: String(row.__rowId)
+        before: @_serializeRowForMutation row
+      )
     Spaces.deleteRecords(@space.id, ids)
-      .then(=> @load())
+      .then(=>
+        window.AppUndoHelpers?.pushAction? action if action.deletes.length > 0
+        window.AppUndoHelpers?.refreshUI? window.App
+        @load()
+      )
       .catch (err) => @_showError "Erreur suppression : #{err.message}"
 
   setDefaultValues: (values) ->
@@ -779,6 +816,41 @@ window.DataView = class DataView
     return true if v == true
     s = String(v ? '').toLowerCase()
     s == 'true' or s == '1' or s == 'yes' or s == 'on'
+
+  _coerceCellValue: (fieldName, value, boolNames = null) ->
+    if @_fkMaps[fieldName]? and value? and value != ''
+      return Number(value)
+    boolSet = boolNames or new Set (f.name for f in (@space.fields or []) when f.fieldType == 'Boolean')
+    if boolSet.has(fieldName)
+      return @_toBoolean value
+    value
+
+  _serializeRowForMutation: (row, colNames = null, boolNames = null) ->
+    names = colNames or (f.name for f in (@space.fields or []) when f.fieldType != 'Sequence' and not (f.formula and f.formula != '' and not f.triggerFields))
+    out = {}
+    for name in names
+      out[name] = @_coerceCellValue name, row?[name], boolNames
+    out
+
+  _cloneJson: (obj) ->
+    JSON.parse JSON.stringify(obj ? {})
+
+  _extractInsertedRecords: (results) ->
+    out = []
+    for r in (results or [])
+      rec = r?.insertRecord
+      continue unless rec?.id
+      parsed = if typeof rec.data == 'string' then JSON.parse(rec.data) else rec.data
+      out.push
+        id: String(rec.id)
+        after: parsed or {}
+    out
+
+  _actionContext: ->
+    if window.AppUndoHelpers?.currentContext?
+      window.AppUndoHelpers.currentContext @space.id
+    else
+      { spaceId: @space.id, hash: window.location?.hash or '' }
 
   _defaultCellValue: (field) ->
     if field.fieldType == 'Boolean' then false else ''

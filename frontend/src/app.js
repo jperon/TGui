@@ -113,6 +113,12 @@
       dataTitle: function() {
         return document.getElementById('data-title');
       },
+      undoBtn: function() {
+        return document.getElementById('undo-btn');
+      },
+      redoBtn: function() {
+        return document.getElementById('redo-btn');
+      },
       formulaFilterInput: function() {
         return document.getElementById('formula-filter-input');
       },

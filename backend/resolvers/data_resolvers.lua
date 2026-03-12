@@ -310,6 +310,38 @@ local Mutation = {
       end
     end)
     return results
+  end,
+  restoreRecords = function(_, args, ctx)
+    require_auth(ctx)
+    local sp = data_space(args.spaceId)
+    local results = { }
+    box.atomic(function()
+      local _list_0 = args.records
+      for _index_0 = 1, #_list_0 do
+        local rec = _list_0[_index_0]
+        local id = tostring(rec.id)
+        local existing = sp:get(id)
+        if existing then
+          error("Record already exists: " .. tostring(id))
+        end
+        local data
+        if type(rec.data) == 'string' then
+          data = json.decode(rec.data)
+        else
+          data = rec.data
+        end
+        sp:insert({
+          id,
+          json.encode(data)
+        })
+        table.insert(results, {
+          id = id,
+          spaceId = args.spaceId,
+          data = json.encode(data)
+        })
+      end
+    end)
+    return results
   end
 }
 local Query = {
