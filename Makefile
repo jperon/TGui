@@ -8,7 +8,7 @@ JS_OUTS         := $(COFFEE_SRCS:.coffee=.js)
 TEST_COFFEE_SRCS := $(shell find tests/js -name '*.coffee')
 TEST_JS_OUTS     := $(TEST_COFFEE_SRCS:.coffee=.js)
 
-.PHONY: all build test test-js test-up test-down test-logs up down logs clean vendor audit-deps doc doc-gen doc-md doc-check sdl-gen sdl-check ci
+.PHONY: all build test test-js test-up test-down test-logs up down logs clean vendor audit-deps doc doc-% doc-gen doc-md doc-check sdl-gen sdl-check ci
 
 all: build
 
@@ -65,17 +65,30 @@ clean:
 # ── Documentation PDF ────────────────────────────────────────────────────────
 DOC_DIR    = doc
 DOC_HEADER = $(DOC_DIR)/00_header.yml
-DOC_PDFS   = $(DOC_DIR)/get-started.pdf $(DOC_DIR)/reference.pdf $(DOC_DIR)/en/get-started.pdf $(DOC_DIR)/en/reference.pdf
 DOC_GEN_MD = $(DOC_DIR)/fr/api.md $(DOC_DIR)/en/api.md $(DOC_DIR)/fr/dev.md $(DOC_DIR)/en/dev.md \
 	$(DOC_DIR)/fr/dev/architecture.md $(DOC_DIR)/fr/dev/runtime.md $(DOC_DIR)/fr/dev/graphql.md $(DOC_DIR)/fr/dev/frontend.md $(DOC_DIR)/fr/dev/tests.md \
 	$(DOC_DIR)/en/dev/architecture.md $(DOC_DIR)/en/dev/runtime.md $(DOC_DIR)/en/dev/graphql.md $(DOC_DIR)/en/dev/frontend.md $(DOC_DIR)/en/dev/tests.md
 
-PANDOC_FLAGS = --metadata-file=00_header.yml --pdf-engine=xelatex
+PANDOC_FLAGS = --metadata-file=$(DOC_HEADER) --pdf-engine=xelatex
 
 $(DOC_DIR)/%.pdf: $(DOC_DIR)/%.md $(DOC_HEADER)
-	cd $(DOC_DIR) && pandoc $(PANDOC_FLAGS) $(<F) -o $(@F)
+	pandoc $(PANDOC_FLAGS) $< -o $@
 
-doc: $(DOC_PDFS)
+doc-%:
+	@lang=$*; \
+	quick_md="$(DOC_DIR)/$$lang/get-started.md"; \
+	ref_md="$(DOC_DIR)/$$lang/reference.md"; \
+	ref_pdf="$(DOC_DIR)/$$lang/reference.pdf"; \
+	if [ "$$lang" = "fr" ] && [ ! -f "$$ref_md" ] && [ -f "$(DOC_DIR)/reference.md" ]; then \
+		ref_md="$(DOC_DIR)/reference.md"; \
+		ref_pdf="$(DOC_DIR)/reference.pdf"; \
+	fi; \
+	test -f "$$quick_md" || { echo "Missing documentation file: $$quick_md"; exit 1; }; \
+	test -f "$$ref_md" || { echo "Missing documentation file: $$ref_md"; exit 1; }; \
+	pandoc $(PANDOC_FLAGS) "$$quick_md" -o "$${quick_md%.md}.pdf"; \
+	pandoc $(PANDOC_FLAGS) "$$ref_md" -o "$$ref_pdf"
+
+doc: doc-fr doc-en
 
 doc-gen:
 	docker build -t $(TEST_IMAGE) . 2>/dev/null

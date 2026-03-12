@@ -3,7 +3,8 @@
 | Document | Description |
 |----------|-------------|
 | [Quick Start](get-started.md) | Installation, login, first steps |
-| [Reference](reference.md) | All features, YAML syntax, GraphQL API |
+| [GraphQL API](api.md) | API reference (queries, mutations, examples) |
+| [Developer Documentation](dev.md) | Technical overview and architecture |
 
 ## Screenshots
 
