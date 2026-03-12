@@ -24,6 +24,8 @@ type Query {
   # Custom views (YAML dashboard layouts)
   customViews:            [CustomView!]!
   customView(id: ID!):    CustomView
+  widgetPlugins:          [WidgetPlugin!]!
+  widgetPlugin(id: ID, name: String): WidgetPlugin
 
   # Raw data from a user space
   records(spaceId: ID!, filter: RecordFilter, limit: Int, offset: Int, reprFormula: String, reprLanguage: String): RecordPage!
@@ -83,6 +85,9 @@ type Mutation {
   createCustomView(input: CreateCustomViewInput!): CustomView!
   updateCustomView(id: ID!, input: UpdateCustomViewInput!): CustomView!
   deleteCustomView(id: ID!):                       Boolean!
+  createWidgetPlugin(input: CreateWidgetPluginInput!): WidgetPlugin!
+  updateWidgetPlugin(id: ID!, input: UpdateWidgetPluginInput!): WidgetPlugin!
+  deleteWidgetPlugin(id: ID!): Boolean!
 
   # Records (CRUD on user-defined spaces)
   insertRecord(spaceId: ID!, data: JSON!):       Record!
@@ -191,6 +196,18 @@ type CustomView {
   yaml:        String!
   createdAt:   String!
   updatedAt:   String!
+}
+
+type WidgetPlugin {
+  id:               ID!
+  name:             String!
+  description:      String
+  scriptLanguage:   String!
+  templateLanguage: String!
+  scriptCode:       String!
+  templateCode:     String!
+  createdAt:        String!
+  updatedAt:        String!
 }
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -351,6 +368,24 @@ input UpdateCustomViewInput {
   name:        String
   description: String
   yaml:        String
+}
+
+input CreateWidgetPluginInput {
+  name:             String!
+  description:      String
+  scriptLanguage:   String
+  templateLanguage: String
+  scriptCode:       String!
+  templateCode:     String!
+}
+
+input UpdateWidgetPluginInput {
+  name:             String
+  description:      String
+  scriptLanguage:   String
+  templateLanguage: String
+  scriptCode:       String
+  templateCode:     String
 }
 
 input CreateUserInput {
