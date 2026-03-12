@@ -268,7 +268,6 @@ class YamlBuilder
       startLeft = container.scrollLeft
       startTop  = container.scrollTop
       container.classList.add 'is-panning'
-      container.setPointerCapture? e.pointerId
 
     onPointerMove = (e) =>
       return unless dragging
@@ -285,7 +284,6 @@ class YamlBuilder
       return unless dragging
       dragging = false
       container.classList.remove 'is-panning'
-      container.releasePointerCapture? e.pointerId
       @_suppressNextClick = moved
 
     onClickCapture = (e) =>

@@ -502,8 +502,7 @@
         startY = e.clientY;
         startLeft = container.scrollLeft;
         startTop = container.scrollTop;
-        container.classList.add('is-panning');
-        return typeof container.setPointerCapture === "function" ? container.setPointerCapture(e.pointerId) : void 0;
+        return container.classList.add('is-panning');
       };
       onPointerMove = (e) => {
         var dx, dy;
@@ -528,9 +527,6 @@
         }
         dragging = false;
         container.classList.remove('is-panning');
-        if (typeof container.releasePointerCapture === "function") {
-          container.releasePointerCapture(e.pointerId);
-        }
         return this._suppressNextClick = moved;
       };
       onClickCapture = (e) => {
