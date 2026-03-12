@@ -46,29 +46,29 @@ FORMULA_ENV._ENV = FORMULA_ENV  -- self-reference for inner closures
 -- ── Formula compilation ───────────────────────────────────────────────────────
 
 -- Compile a formula string into a Lua function(self, space).
--- language: 'lua' (défaut) ou 'moonscript'.
--- Pour MoonScript, la formule est une expression MoonScript ; elle est transpilée
--- en Lua via moonscript.base.to_lua avant le load() habituel.
--- Pour les filtres, @ fait référence à l'enregistrement courant (self)
+-- language: 'lua' (default) or 'moonscript'.
+-- For MoonScript, the formula is a MoonScript expression transpiled
+-- to Lua via moonscript.base.to_lua before the regular load().
+-- For filters, @ refers to the current record (self).
 -- Returns the compiled function, or nil + logs an error on failure.
 compile_formula = (formula, field_name, language) ->
-  -- Construire la chaîne Lua du chunk qui retourne la fonction
+  -- Build the Lua chunk string that returns the function.
   lua_chunk = if language == 'moonscript'
     ok_ms, moon = pcall require, 'moonscript.base'
     unless ok_ms
-      log.error "tdb triggers: moonscript.base non disponible pour '#{field_name}': #{moon}"
+      log.error "tdb triggers: moonscript.base unavailable for '#{field_name}': #{moon}"
       return nil
 
-    -- Pour les filtres, transformer @xxx en self.xxx pour la compatibilité
+    -- For filters, rewrite @xxx to self.xxx for compatibility.
     if field_name == 'filter'
-      -- Remplacer @xxx par self.xxx dans les formules de filtre
+      -- Replace @xxx with self.xxx in filter formulas.
       formula = formula\gsub '@([%w_]+)', 'self.%1'
 
-    -- Encapsuler l'expression dans une lambda MoonScript : (self, space) -> <expr>
+    -- Wrap expression in a MoonScript lambda: (self, space) -> <expr>
     moon_src = "return (self, space) -> " .. formula
     ok_c, lua_or_err = pcall moon.to_lua, moon_src
     unless ok_c
-      log.error "tdb triggers: MoonScript parse error pour '#{field_name}': #{lua_or_err}"
+      log.error "tdb triggers: MoonScript parse error for '#{field_name}': #{lua_or_err}"
       return nil
     lua_or_err
   else
@@ -122,25 +122,25 @@ format_formula_error = (err) ->
   s = tostring err
   short = "Erreur de formule"
   if s\find "attempt to index"
-    short = "Champ inconnu (nil)"
+    short = "Unknown field (nil)"
   elseif s\find "attempt to call"
-    short = "Fonction inconnue (nil)"
+    short = "Unknown function (nil)"
   elseif s\find "attempt to perform arithmetic"
-    short = "Opération sur nil"
+    short = "Operation on nil"
   elseif s\find "attempt to concatenate"
-    short = "Concaténation invalide"
+    short = "Invalid concatenation"
   elseif s\find "unexpected symbol" or s\find "malformed number" or s\find "parse error"
-    short = "Erreur de syntaxe"
+    short = "Syntax error"
   elseif s\find "stack overflow"
-    short = "Boucle infinie (récursion)"
+    short = "Infinite loop (recursion)"
   else
-    -- Erreur générique potentiellement liée à TGui ou non prévue
-    short = "Erreur (inconnue)"
+    -- Generic fallback for unexpected errors.
+    short = "Unknown error"
 
-  -- Nettoyer le prefixe '[string "..."]:ligne: ' généré par Lua
+  -- Remove Lua-generated prefix '[string \"...\"]:line: '.
   clean_msg = s\gsub '^%[string ".-"%]:%d+: ', ''
 
-  -- Format attendu par le frontend: [Erreur|Type court|Message complet]
+  -- Expected frontend format: [ERROR|Short type|Full message]
   "[ERROR|#{short}|#{clean_msg}]"
 
 -- ── Formula compilation and caching ────────────────────────────────────────────
@@ -358,8 +358,8 @@ register_space_trigger = (space_name) ->
     formula      = t[8]
     trigger_json = t[9]
     language     = t[10] or 'lua'
-    -- Un trigger ne s'enregistre que si trigger_json est présent et non "null"
-    -- (les formula columns simples ont trigger_json = nil (ancien format) ou "null" (nouveau format))
+    -- Register trigger only when trigger_json is present and not "null".
+    -- Simple formula columns have trigger_json = nil (legacy) or "null" (new format).
     if formula and formula != '' and trigger_json != nil and trigger_json != 'null'
       ok, trigger_fields_list = pcall json.decode, trigger_json
       unless ok

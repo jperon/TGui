@@ -521,6 +521,11 @@ make_content = function()
           '✎ Éditer'
         }),
         H.button({
+          id = 'yaml-plugins-btn',
+          class = 'toolbar-btn',
+          '🧩 Plugins'
+        }),
+        H.button({
           id = 'yaml-delete-btn',
           class = 'toolbar-btn toolbar-btn--danger',
           title = 'Supprimer la vue',
@@ -862,16 +867,139 @@ make_content = function()
         H.div({
           class = 'yaml-modal-body',
           H.div({
-            id = 'yaml-validation-msg',
-            class = 'yaml-validation-msg hidden',
-            ''
-          }),
-          H.div({
-            id = 'yaml-cm-editor',
-            ''
+            class = 'yaml-editor-pane',
+            H.div({
+              id = 'yaml-validation-msg',
+              class = 'yaml-validation-msg hidden',
+              ''
+            }),
+            H.div({
+              id = 'yaml-cm-editor',
+              ''
+            })
           }),
           H.div({
             id = 'schema-browser',
+            class = 'schema-browser',
+            ''
+          })
+        })
+      })
+    }),
+    H.div({
+      id = 'widget-plugin-modal',
+      class = 'modal-overlay hidden',
+      H.div({
+        class = 'modal-box modal-box--editor',
+        H.div({
+          class = 'modal-editor-header',
+          H.span({
+            class = 'modal-title',
+            'Plugins widgets'
+          }),
+          H.div({
+            class = 'modal-editor-actions',
+            H.button({
+              id = 'widget-plugin-new-btn',
+              class = 'toolbar-btn',
+              '＋ Nouveau'
+            }),
+            H.button({
+              id = 'widget-plugin-delete-btn',
+              class = 'toolbar-btn toolbar-btn--danger',
+              '🗑 Supprimer'
+            }),
+            H.button({
+              id = 'widget-plugin-save-btn',
+              class = 'btn-primary',
+              '💾 Enregistrer'
+            }),
+            H.button({
+              id = 'widget-plugin-modal-close-btn',
+              class = 'toolbar-btn',
+              '✕'
+            })
+          })
+        }),
+        H.div({
+          class = 'yaml-modal-body',
+          H.div({
+            class = 'yaml-editor-pane',
+            H.label({
+              class = 'formula-hint',
+              ['for'] = 'widget-plugin-name',
+              'Nom'
+            }),
+            H.input({
+              id = 'widget-plugin-name',
+              type = 'text',
+              placeholder = 'my_widget_plugin'
+            }),
+            H.label({
+              class = 'formula-hint',
+              ['for'] = 'widget-plugin-description',
+              'Description'
+            }),
+            H.input({
+              id = 'widget-plugin-description',
+              type = 'text',
+              placeholder = 'Description'
+            }),
+            H.div({
+              class = 'formula-lang-row',
+              H.label({
+                class = 'formula-hint',
+                ['for'] = 'widget-plugin-script-language',
+                'Script'
+              }),
+              H.select({
+                id = 'widget-plugin-script-language',
+                H.option({
+                  value = 'coffeescript',
+                  'CoffeeScript'
+                }),
+                H.option({
+                  value = 'javascript',
+                  'JavaScript'
+                })
+              }),
+              H.label({
+                class = 'formula-hint',
+                ['for'] = 'widget-plugin-template-language',
+                'Template'
+              }),
+              H.select({
+                id = 'widget-plugin-template-language',
+                H.option({
+                  value = 'pug',
+                  'Pug'
+                }),
+                H.option({
+                  value = 'html',
+                  'HTML'
+                })
+              })
+            }),
+            H.label({
+              class = 'formula-hint',
+              'Template'
+            }),
+            H.div({
+              id = 'widget-plugin-template-editor',
+              style = 'height: 180px; border: 1px solid #2a2a2a;'
+            }),
+            H.label({
+              class = 'formula-hint',
+              style = 'margin-top: .5rem;',
+              'Script'
+            }),
+            H.div({
+              id = 'widget-plugin-script-editor',
+              style = 'height: 220px; border: 1px solid #2a2a2a;'
+            })
+          }),
+          H.div({
+            id = 'widget-plugin-list',
             class = 'schema-browser',
             ''
           })
@@ -947,6 +1075,10 @@ make_body = function()
       ''
     }),
     H.script({
+      src = '/vendor/plugin-runtime.bundle.js',
+      ''
+    }),
+    H.script({
       src = '/src/i18n.js',
       ''
     }),
@@ -964,6 +1096,10 @@ make_body = function()
     }),
     H.script({
       src = '/src/spaces.js',
+      ''
+    }),
+    H.script({
+      src = '/src/widget_plugins.js',
       ''
     }),
     H.script({

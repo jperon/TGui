@@ -1,13 +1,13 @@
 (function() {
-  // tests/js/test_data_view.coffee — tests pour DataView (data_view.js)
-  // Teste la logique pure (sans mount/tui.Grid).
+  // tests/js/test_data_view.coffee — tests for DataView (data_view.js)
+  // Tests pure logic (without mount/tui.Grid).
   var DV, assert, container, deepEq, describe, eq, it, makeSpace, summary;
 
   require('./dom_stub');
 
   ({describe, it, eq, deepEq, assert, summary} = require('./runner'));
 
-  // Stubs requis par data_view.js
+  // Stubs required by data_view.js
   global.GQL = {
     query: function() {
       return Promise.resolve({});
@@ -105,16 +105,16 @@
 
   // ---------------------------------------------------------------------------
   describe('DataView._sentinel', function() {
-    it('produit une ligne avec __isNew et tous les champs non-Sequence', function() {
+    it('produces a row with __isNew and all non-Sequence fields', function() {
       var dv, s;
       dv = new DV(container(), makeSpace());
       s = dv._sentinel();
-      assert(s.__isNew, '__isNew absent');
-      assert('nom' in s, 'nom manquant');
-      assert('age' in s, 'age manquant');
-      return assert(!('seq' in s), 'seq (Sequence) ne doit pas figurer dans le sentinel');
+      assert(s.__isNew, '__isNew missing');
+      assert('nom' in s, 'nom missing');
+      assert('age' in s, 'age missing');
+      return assert(!('seq' in s), 'seq (Sequence) must not appear in sentinel');
     });
-    it('utilise les defaultValues', function() {
+    it('uses defaultValues', function() {
       var dv, s;
       dv = new DV(container(), makeSpace());
       dv.setDefaultValues({
@@ -122,9 +122,9 @@
       });
       s = dv._sentinel();
       eq(s.nom, 'Alice');
-      return eq(s.age, ''); // pas dans defaults
+      return eq(s.age, ''); // not in defaults
     });
-    return it('retourne chaîne vide pour les champs sans default', function() {
+    return it('returns empty string for fields without default', function() {
       var dv, s;
       dv = new DV(container(), makeSpace());
       s = dv._sentinel();
@@ -134,7 +134,7 @@
   });
 
   describe('DataView._lsKey', function() {
-    return it('inclut l\'id de l\'espace', function() {
+    return it('includes space id', function() {
       var dv;
       dv = new DV(container(), makeSpace({
         id: 'abc'
@@ -144,14 +144,14 @@
   });
 
   describe('DataView._loadColWidths', function() {
-    it('retourne {} si rien en localStorage', async function() {
+    it('returns {} when localStorage is empty', async function() {
       var dv, prefs;
       global.localStorage.clear();
       dv = new DV(container(), makeSpace());
       prefs = (await dv._loadColWidths());
       return deepEq(prefs, {});
     });
-    it('parse le JSON depuis localStorage', async function() {
+    it('parses JSON from localStorage', async function() {
       var dv, prefs;
       global.localStorage.setItem('tdb_colwidths_sp1', JSON.stringify({
         nom: 200
@@ -162,7 +162,7 @@
       prefs = (await dv._loadColWidths());
       return eq(prefs.nom, 200);
     });
-    return it('retourne {} si JSON invalide', async function() {
+    return it('returns {} on invalid JSON', async function() {
       var dv, prefs;
       global.localStorage.setItem('tdb_colwidths_sp1', 'not-json');
       dv = new DV(container(), makeSpace({
@@ -174,7 +174,7 @@
   });
 
   describe('DataView.setDefaultValues', function() {
-    it('stocke les valeurs et les reflète dans le sentinel', function() {
+    it('stores values and reflects them in sentinel', function() {
       var dv;
       dv = new DV(container(), makeSpace());
       dv.setDefaultValues({
@@ -182,7 +182,7 @@
       });
       return eq(dv._sentinel().age, '42');
     });
-    return it('accepte null/undefined → remet à zéro', function() {
+    return it('accepts null/undefined -> resets state', function() {
       var dv;
       dv = new DV(container(), makeSpace());
       dv.setDefaultValues({
@@ -194,7 +194,7 @@
   });
 
   describe('DataView.setFilter + _applyData', function() {
-    it('setFilter met à jour @filter', function() {
+    it('setFilter updates @filter', function() {
       var dv;
       dv = new DV(container(), makeSpace());
       dv.setFilter({
@@ -204,11 +204,11 @@
       eq(dv.filter.field, 'age');
       return eq(dv.filter.value, '30');
     });
-    it('_applyData filtre les lignes par field/value', function() {
+    it('_applyData filters rows by field/value', function() {
       var dv, gridData, sp;
       sp = makeSpace();
       dv = new DV(container(), sp);
-      // Monte un grid mock minimal
+      // Mount a minimal mocked grid
       gridData = [];
       dv._grid = {
         resetData: function(d) {
@@ -243,11 +243,11 @@
       dv._applyData();
       // sentinel excluded from assertion count, so total = 2 data + 1 sentinel
       eq(gridData.length, 3);
-      assert(gridData[0].nom === 'Alice', 'première ligne filtrée incorrecte');
-      assert(gridData[1].nom === 'Carol', 'deuxième ligne filtrée incorrecte');
-      return assert(gridData[2].__isNew, 'sentinel absent en fin');
+      assert(gridData[0].nom === 'Alice', 'first filtered row is incorrect');
+      assert(gridData[1].nom === 'Carol', 'second filtered row is incorrect');
+      return assert(gridData[2].__isNew, 'missing sentinel at end');
     });
-    return it('_applyData sans filtre inclut toutes les lignes', function() {
+    return it('_applyData without filter includes all rows', function() {
       var dv, gridData, sp;
       sp = makeSpace();
       dv = new DV(container(), sp);
@@ -277,7 +277,7 @@
   });
 
   describe('DataView formula error rendering state', function() {
-    return it('_applyData marque la cellule quand _repr_<field> contient une erreur', function() {
+    return it('_applyData marks cell when _repr_<field> contains an error', function() {
       var classes, dv, gridData, ref, ref1, ref2, row, sp;
       sp = makeSpace({
         fields: [
@@ -311,12 +311,12 @@
       dv._applyData();
       row = gridData[0];
       classes = ((ref = row._attributes) != null ? (ref1 = ref.className) != null ? (ref2 = ref1.column) != null ? ref2.nom : void 0 : void 0 : void 0) || [];
-      return assert(classes.includes('cell-formula-error'), 'cell-formula-error absente');
+      return assert(classes.includes('cell-formula-error'), 'cell-formula-error missing');
     });
   });
 
   describe('DataView FK maps use _repr', function() {
-    return it('_buildFkMaps privilégie _repr pour le display FK', async function() {
+    return it('_buildFkMaps prioritizes _repr for FK display', async function() {
       var dv, oldQuery, relations, sp;
       oldQuery = global.GQL.query;
       global.GQL.query = function(q, vars) {
@@ -368,7 +368,7 @@
   });
 
   describe('DataView editable columns formatter regression', function() {
-    return it('FK et Boolean formatters ne renvoient pas de HTML brut', async function() {
+    return it('FK and Boolean formatters do not return raw HTML', async function() {
       var boolCol, boolRenderedFalse, boolRenderedTrue, cols, dv, fkCol, fkRendered, ref, ref1, ref2, ref3, rels, sp;
       sp = makeSpace({
         fields: [
@@ -422,9 +422,9 @@
       boolCol = cols.find(function(c) {
         return c.name === 'disponible';
       });
-      assert(fkCol, 'colonne FK absente');
-      assert(boolCol, 'colonne Boolean absente');
-      assert(typeof ((ref = fkCol.editor) != null ? ref.type : void 0) === 'function', 'éditeur FK custom absent');
+      assert(fkCol, 'missing FK column');
+      assert(boolCol, 'missing Boolean column');
+      assert(typeof ((ref = fkCol.editor) != null ? ref.type : void 0) === 'function', 'missing custom FK editor');
       eq((ref1 = fkCol.editor) != null ? (ref2 = ref1.type) != null ? ref2.name : void 0 : void 0, 'FkSearchEditor');
       eq((ref3 = boolCol.editor) != null ? ref3.type : void 0, 'checkbox');
       fkRendered = fkCol.formatter({
@@ -445,18 +445,18 @@
           disponible: false
         }
       });
-      assert(fkRendered === 'Hugo Victor', 'le formatter FK doit renvoyer du texte pur');
-      assert(!String(fkRendered).includes('<'), 'le formatter FK ne doit pas renvoyer de HTML');
+      assert(fkRendered === 'Hugo Victor', 'FK formatter must return plain text');
+      assert(!String(fkRendered).includes('<'), 'FK formatter must not return HTML');
       eq(boolRenderedTrue, '☑');
       eq(boolRenderedFalse, '☐');
-      assert(!String(boolRenderedTrue).includes('<'), 'le formatter Boolean ne doit pas renvoyer de HTML');
-      assert(!String(boolRenderedFalse).includes('<'), 'le formatter Boolean ne doit pas renvoyer de HTML');
+      assert(!String(boolRenderedTrue).includes('<'), 'Boolean formatter must not return HTML');
+      assert(!String(boolRenderedFalse).includes('<'), 'Boolean formatter must not return HTML');
       return dv.unmount();
     });
   });
 
   describe('DataView FK fuzzy autocomplete editor', function() {
-    return it('supporte la recherche fuzzy et mappe label -> id', async function() {
+    return it('supports fuzzy search and maps label -> id', async function() {
       var Editor, dv, editor, el, fkCol, matches, ref, rels, sp;
       sp = makeSpace({
         fields: [
@@ -505,7 +505,7 @@
         return c.name === 'auteur';
       });
       Editor = (ref = fkCol.editor) != null ? ref.type : void 0;
-      assert(typeof Editor === 'function', 'classe éditeur FK absente');
+      assert(typeof Editor === 'function', 'missing FK editor class');
       editor = new Editor({
         value: '',
         columnInfo: {
@@ -517,9 +517,9 @@
         }
       });
       el = editor.getElement();
-      assert(!('list' in el), 'l’éditeur FK ne doit pas utiliser un datalist natif');
+      assert(!('list' in el), 'FK editor must not use a native datalist');
       matches = editor._filterItems('hgo');
-      assert(matches.length > 0, 'aucun résultat fuzzy');
+      assert(matches.length > 0, 'no fuzzy result');
       eq(matches[0].label, 'Hugo Victor');
       editor._renderMenu('hgo');
       eq(editor.visibleItems[0].label, 'Hugo Victor');
@@ -530,7 +530,7 @@
   });
 
   describe('DataView.unmount', function() {
-    return it('remet _mounted à false et vide les tableaux', function() {
+    return it('sets _mounted to false and clears arrays', function() {
       var dv;
       dv = new DV(container(), makeSpace());
       dv._mounted = true;
@@ -547,7 +547,7 @@
       dv._pasteListener = null;
       dv._grid = null;
       dv.unmount();
-      assert(!dv._mounted, '_mounted doit être false');
+      assert(!dv._mounted, '_mounted must be false');
       eq(dv._rows.length, 0);
       return eq(dv._currentData.length, 0);
     });

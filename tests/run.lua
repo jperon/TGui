@@ -28,7 +28,7 @@ do
       end
       local new_grp = perms.create_group('admin', 'Administrators with full access')
       admin_grp = box.space._tdb_groups:get(new_grp.id)
-      print("   [fixture] groupe admin recréé: " .. tostring(new_grp.id))
+      print("   [fixture] admin group recreated: " .. tostring(new_grp.id))
     end
     local mems = box.space._tdb_memberships.index.by_user:select({
       admin_user.id
@@ -45,7 +45,7 @@ do
         admin_user.id,
         admin_grp[1]
       })
-      print("   [fixture] admin membership restauré")
+      print("   [fixture] admin membership restored")
     end
   end
 end
@@ -58,6 +58,7 @@ require('tests.test_spaces')
 require('tests.test_batch_ops')
 require('tests.test_triggers')
 require('tests.test_custom_views')
+require('tests.test_widget_plugins')
 require('tests.test_relations')
 require('tests.test_relation_type_regression')
 require('tests.test_snapshot')

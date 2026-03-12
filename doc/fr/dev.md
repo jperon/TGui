@@ -1,30 +1,30 @@
-# Documentation développeur — TGui
+# Developer Documentation — TGui
 
-> Fichier généré automatiquement. Ne pas modifier manuellement.
+> Auto-generated file. Do not edit manually.
 >
-> Généré le: 2026-03-12 10:33:27 UTC
+> Generated at: 2026-03-12 20:58:48 UTC
 
-Synthèse compacte de l’architecture TGui. La référence complète est disponible dans `doc/fr/dev/*.md`.
+Compact architecture overview for TGui. Full reference is available in `doc/en/dev/*.md`.
 
-## Architecture (résumé)
+## Architecture (summary)
 
-- Point d’entrée d’exécution: `backend/init.moon`
-- Passerelle HTTP: `backend/http_server.moon`
-- Exécution GraphQL: `backend/graphql/executor.moon`
-- Assemblage schéma/résolveurs: `backend/resolvers/init.moon`
-- Moteur métadonnées: `backend/core/spaces.moon`
-- Interface SPA: `frontend/src/app.coffee`
+- Runtime entrypoint: `backend/init.moon`
+- HTTP edge: `backend/http_server.moon`
+- GraphQL execution: `backend/graphql/executor.moon`
+- Schema/resolver assembly: `backend/resolvers/init.moon`
+- Metadata engine: `backend/core/spaces.moon`
+- Frontend SPA shell: `frontend/src/app.coffee`
 
-## Références détaillées
+## Detailed references
 
-- Architecture globale: `doc/fr/dev/architecture.md`
-- Exécution backend: `doc/fr/dev/runtime.md`
-- Chaîne GraphQL: `doc/fr/dev/graphql.md`
-- Interface SPA: `doc/fr/dev/frontend.md`
-- Stratégie de tests: `doc/fr/dev/tests.md`
+- Global architecture: `doc/en/dev/architecture.md`
+- Backend runtime: `doc/en/dev/runtime.md`
+- GraphQL pipeline: `doc/en/dev/graphql.md`
+- Frontend SPA: `doc/en/dev/frontend.md`
+- Testing strategy: `doc/en/dev/tests.md`
 
-## Commandes
+## Commands
 
-- Génération docs: `make doc-gen`
-- Vérification docs: `make doc-check`
-- CI complète: `make ci`
+- Generate docs: `make doc-gen`
+- Check docs: `make doc-check`
+- Full CI: `make ci`

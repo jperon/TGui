@@ -107,8 +107,8 @@ apply_filter = function(tuples, filter, fk_def_map)
   end
   return result
 end
-R.describe("matches_filter — opérateur EQ", function()
-  R.it("EQ : égalité exacte → true", function()
+R.describe("matches_filter — EQ operator", function()
+  R.it("EQ: exact equality -> true", function()
     return R.ok(matches_filter({
       nom = 'Dupont'
     }, {
@@ -117,7 +117,7 @@ R.describe("matches_filter — opérateur EQ", function()
       value = 'Dupont'
     }))
   end)
-  R.it("EQ : inégalité → false", function()
+  R.it("EQ: inequality -> false", function()
     return R.eq(matches_filter({
       nom = 'Dupont'
     }, {
@@ -126,7 +126,7 @@ R.describe("matches_filter — opérateur EQ", function()
       value = 'Martin'
     }), false)
   end)
-  R.it("EQ : champ absent → compare '' à valeur", function()
+  R.it("EQ: missing field -> compares '' to value", function()
     R.eq(matches_filter({ }, {
       field = 'x',
       op = 'EQ',
@@ -138,7 +138,7 @@ R.describe("matches_filter — opérateur EQ", function()
       value = 'truc'
     }), false)
   end)
-  return R.it("EQ : comparaison numérique convertie en string", function()
+  return R.it("EQ: numeric comparison converted to string", function()
     return R.ok(matches_filter({
       age = 42
     }, {
@@ -148,8 +148,8 @@ R.describe("matches_filter — opérateur EQ", function()
     }))
   end)
 end)
-R.describe("matches_filter — opérateur NEQ", function()
-  R.it("NEQ : valeurs différentes → true", function()
+R.describe("matches_filter — NEQ operator", function()
+  R.it("NEQ: different values -> true", function()
     return R.ok(matches_filter({
       nom = 'Dupont'
     }, {
@@ -158,7 +158,7 @@ R.describe("matches_filter — opérateur NEQ", function()
       value = 'Martin'
     }))
   end)
-  return R.it("NEQ : valeurs égales → false", function()
+  return R.it("NEQ: equal values -> false", function()
     return R.eq(matches_filter({
       nom = 'Dupont'
     }, {
@@ -168,8 +168,8 @@ R.describe("matches_filter — opérateur NEQ", function()
     }), false)
   end)
 end)
-R.describe("matches_filter — opérateurs LT / GT / LTE / GTE", function()
-  R.it("LT : strictement inférieur → true", function()
+R.describe("matches_filter — LT / GT / LTE / GTE operators", function()
+  R.it("LT: strictly lower -> true", function()
     return R.ok(matches_filter({
       age = 30
     }, {
@@ -178,7 +178,7 @@ R.describe("matches_filter — opérateurs LT / GT / LTE / GTE", function()
       value = '40'
     }))
   end)
-  R.it("LT : égal → false", function()
+  R.it("LT: equal -> false", function()
     return R.eq(matches_filter({
       age = 40
     }, {
@@ -187,7 +187,7 @@ R.describe("matches_filter — opérateurs LT / GT / LTE / GTE", function()
       value = '40'
     }), false)
   end)
-  R.it("GT : strictement supérieur → true", function()
+  R.it("GT: strictly greater -> true", function()
     return R.ok(matches_filter({
       age = 50
     }, {
@@ -196,7 +196,7 @@ R.describe("matches_filter — opérateurs LT / GT / LTE / GTE", function()
       value = '40'
     }))
   end)
-  R.it("GT : égal → false", function()
+  R.it("GT: equal -> false", function()
     return R.eq(matches_filter({
       age = 40
     }, {
@@ -205,7 +205,7 @@ R.describe("matches_filter — opérateurs LT / GT / LTE / GTE", function()
       value = '40'
     }), false)
   end)
-  R.it("LTE : inférieur ou égal → true", function()
+  R.it("LTE: lower or equal -> true", function()
     R.ok(matches_filter({
       age = 40
     }, {
@@ -221,7 +221,7 @@ R.describe("matches_filter — opérateurs LT / GT / LTE / GTE", function()
       value = '40'
     }))
   end)
-  return R.it("GTE : supérieur ou égal → true", function()
+  return R.it("GTE: greater or equal -> true", function()
     R.ok(matches_filter({
       age = 40
     }, {
@@ -238,8 +238,8 @@ R.describe("matches_filter — opérateurs LT / GT / LTE / GTE", function()
     }))
   end)
 end)
-R.describe("matches_filter — opérateur CONTAINS", function()
-  R.it("CONTAINS : sous-chaîne présente → true", function()
+R.describe("matches_filter — CONTAINS operator", function()
+  R.it("CONTAINS: substring present -> true", function()
     return R.ok(matches_filter({
       nom = 'Dupont'
     }, {
@@ -248,7 +248,7 @@ R.describe("matches_filter — opérateur CONTAINS", function()
       value = 'pont'
     }))
   end)
-  R.it("CONTAINS : sous-chaîne absente → false", function()
+  R.it("CONTAINS: substring missing -> false", function()
     return R.eq(matches_filter({
       nom = 'Dupont'
     }, {
@@ -257,7 +257,7 @@ R.describe("matches_filter — opérateur CONTAINS", function()
       value = 'xyz'
     }), false)
   end)
-  R.it("CONTAINS : chaîne vide correspond toujours", function()
+  R.it("CONTAINS: empty string always matches", function()
     return R.ok(matches_filter({
       nom = 'Dupont'
     }, {
@@ -266,7 +266,7 @@ R.describe("matches_filter — opérateur CONTAINS", function()
       value = ''
     }))
   end)
-  return R.it("CONTAINS : caractères spéciaux Lua non interprétés comme patterns", function()
+  return R.it("CONTAINS: Lua special characters not interpreted as patterns", function()
     R.eq(matches_filter({
       code = 'abc'
     }, {
@@ -283,8 +283,8 @@ R.describe("matches_filter — opérateur CONTAINS", function()
     }))
   end)
 end)
-R.describe("matches_filter — opérateur STARTS_WITH", function()
-  R.it("STARTS_WITH : début exact → true", function()
+R.describe("matches_filter — STARTS_WITH operator", function()
+  R.it("STARTS_WITH: exact prefix -> true", function()
     return R.ok(matches_filter({
       nom = 'Dupont'
     }, {
@@ -293,7 +293,7 @@ R.describe("matches_filter — opérateur STARTS_WITH", function()
       value = 'Du'
     }))
   end)
-  R.it("STARTS_WITH : ne commence pas par → false", function()
+  R.it("STARTS_WITH: does not start with -> false", function()
     return R.eq(matches_filter({
       nom = 'Dupont'
     }, {
@@ -302,7 +302,7 @@ R.describe("matches_filter — opérateur STARTS_WITH", function()
       value = 'pont'
     }), false)
   end)
-  return R.it("STARTS_WITH : chaîne vide → true (tout commence par '')", function()
+  return R.it("STARTS_WITH: empty string -> true (everything starts with '')", function()
     return R.ok(matches_filter({
       nom = 'Dupont'
     }, {
@@ -312,8 +312,8 @@ R.describe("matches_filter — opérateur STARTS_WITH", function()
     }))
   end)
 end)
-R.describe("matches_filter — combinaisons AND / OR", function()
-  R.it("AND : les deux conditions vraies → true", function()
+R.describe("matches_filter — AND / OR combinations", function()
+  R.it("AND: both conditions true -> true", function()
     local flt = { }
     flt["and"] = {
       {
@@ -332,7 +332,7 @@ R.describe("matches_filter — combinaisons AND / OR", function()
       b = '2'
     }, flt))
   end)
-  R.it("AND : une condition fausse → false", function()
+  R.it("AND: one condition false -> false", function()
     local flt = { }
     flt["and"] = {
       {
@@ -351,7 +351,7 @@ R.describe("matches_filter — combinaisons AND / OR", function()
       b = '99'
     }, flt), false)
   end)
-  R.it("OR : au moins une condition vraie → true", function()
+  R.it("OR: at least one condition true -> true", function()
     local flt = { }
     flt["or"] = {
       {
@@ -369,7 +369,7 @@ R.describe("matches_filter — combinaisons AND / OR", function()
       nom = 'Martin'
     }, flt))
   end)
-  R.it("OR : aucune condition vraie → false", function()
+  R.it("OR: no condition true -> false", function()
     local flt = { }
     flt["or"] = {
       {
@@ -387,19 +387,19 @@ R.describe("matches_filter — combinaisons AND / OR", function()
       nom = 'Durand'
     }, flt), false)
   end)
-  R.it("filtre nil → true (pas de filtre)", function()
+  R.it("nil filter -> true (no filter)", function()
     return R.ok(matches_filter({
       nom = 'Dupont'
     }, nil))
   end)
-  return R.it("filtre sans field ni and/or → true (filtre vide)", function()
+  return R.it("filter without field or and/or -> true (empty filter)", function()
     return R.ok(matches_filter({
       nom = 'Dupont'
     }, { }))
   end)
 end)
-R.describe("matches_filter — opérateur inconnu", function()
-  return R.it("opérateur inconnu → toujours true (non filtrant)", function()
+R.describe("matches_filter — unknown operator", function()
+  return R.it("unknown operator -> always true (non-filtering)", function()
     return R.ok(matches_filter({
       x = 'y'
     }, {
@@ -409,8 +409,8 @@ R.describe("matches_filter — opérateur inconnu", function()
     }))
   end)
 end)
-R.describe("matches_filter — filtre formule Lua", function()
-  R.it("formule vraie → true", function()
+R.describe("matches_filter — Lua formula filter", function()
+  R.it("true formula -> true", function()
     local fn = triggers.compile_formula('self.age > 18', 'test', 'moonscript')
     local flt = {
       formula = 'self.age > 18',
@@ -421,7 +421,7 @@ R.describe("matches_filter — filtre formule Lua", function()
       age = 30
     }, flt))
   end)
-  R.it("formule fausse → false", function()
+  R.it("false formula -> false", function()
     local fn = triggers.compile_formula('self.age > 18', 'test', 'moonscript')
     local flt = {
       formula = 'self.age > 18',
@@ -432,7 +432,7 @@ R.describe("matches_filter — filtre formule Lua", function()
       age = 10
     }, flt), false)
   end)
-  R.it("formule avec accès à un champ string", function()
+  R.it("formula with string-field access", function()
     local fn = triggers.compile_formula('self.nom == "Hugo"', 'test', 'moonscript')
     local flt = {
       formula = 'self.nom == "Hugo"',
@@ -446,7 +446,7 @@ R.describe("matches_filter — filtre formule Lua", function()
       nom = 'Balzac'
     }, flt), false)
   end)
-  R.it("formule erreur de compilation → false (_formula_fn = false)", function()
+  R.it("formula compilation error -> false (_formula_fn = false)", function()
     local flt = {
       formula = 'syntax_error???',
       _formula_fn = false
@@ -455,9 +455,9 @@ R.describe("matches_filter — filtre formule Lua", function()
       x = 1
     }, flt), false)
   end)
-  return R.it("formule Lua native (sans return)", function()
+  return R.it("native Lua formula (without explicit return)", function()
     local fn = triggers.compile_formula('self.score >= 5', 'filter_test', 'lua')
-    R.ok(fn ~= nil, "compile_formula doit retourner une fonction")
+    R.ok(fn ~= nil, "compile_formula must return a function")
     local flt = {
       formula = 'self.score >= 5',
       language = 'lua',
@@ -471,8 +471,8 @@ R.describe("matches_filter — filtre formule Lua", function()
     }, flt), false)
   end)
 end)
-R.describe("apply_filter — filtre formule (compilation auto)", function()
-  R.it("formule filtre une liste, ne modifie pas les enregistrements sans match", function()
+R.describe("apply_filter — formula filter (auto-compilation)", function()
+  R.it("formula filters a list and keeps non-matching rows untouched", function()
     local data = {
       {
         nom = 'Alice',
@@ -496,7 +496,7 @@ R.describe("apply_filter — filtre formule (compilation auto)", function()
     R.eq(result[1].nom, 'Alice')
     return R.eq(result[2].nom, 'Charlie')
   end)
-  R.it("formule vide → toutes les lignes retournées", function()
+  R.it("empty formula -> all rows returned", function()
     local data = {
       {
         x = 1
@@ -511,7 +511,7 @@ R.describe("apply_filter — filtre formule (compilation auto)", function()
     local result = apply_filter(data, flt)
     return R.eq(#result, 2)
   end)
-  return R.it("formule compilée une seule fois (cache _formula_fn)", function()
+  return R.it("formula compiled only once (_formula_fn cache)", function()
     local data = {
       {
         n = 1
@@ -532,8 +532,8 @@ R.describe("apply_filter — filtre formule (compilation auto)", function()
     return R.ok(flt._formula_fn ~= nil and flt._formula_fn ~= false)
   end)
 end)
-R.describe("matches_filter — opérateur EQ", function()
-  R.it("EQ : égalité exacte → true", function()
+R.describe("matches_filter — EQ operator", function()
+  R.it("EQ: exact equality -> true", function()
     return R.ok(matches_filter({
       nom = 'Dupont'
     }, {
@@ -542,7 +542,7 @@ R.describe("matches_filter — opérateur EQ", function()
       value = 'Dupont'
     }))
   end)
-  R.it("EQ : inégalité → false", function()
+  R.it("EQ: inequality -> false", function()
     return R.eq(matches_filter({
       nom = 'Dupont'
     }, {
@@ -551,7 +551,7 @@ R.describe("matches_filter — opérateur EQ", function()
       value = 'Martin'
     }), false)
   end)
-  R.it("EQ : champ absent → compare '' à valeur", function()
+  R.it("EQ: missing field -> compares '' to value", function()
     R.eq(matches_filter({ }, {
       field = 'x',
       op = 'EQ',
@@ -563,7 +563,7 @@ R.describe("matches_filter — opérateur EQ", function()
       value = 'truc'
     }), false)
   end)
-  return R.it("EQ : comparaison numérique convertie en string", function()
+  return R.it("EQ: numeric comparison converted to string", function()
     return R.ok(matches_filter({
       age = 42
     }, {
@@ -573,8 +573,8 @@ R.describe("matches_filter — opérateur EQ", function()
     }))
   end)
 end)
-R.describe("matches_filter — opérateur NEQ", function()
-  R.it("NEQ : valeurs différentes → true", function()
+R.describe("matches_filter — NEQ operator", function()
+  R.it("NEQ: different values -> true", function()
     return R.ok(matches_filter({
       nom = 'Dupont'
     }, {
@@ -583,7 +583,7 @@ R.describe("matches_filter — opérateur NEQ", function()
       value = 'Martin'
     }))
   end)
-  return R.it("NEQ : valeurs égales → false", function()
+  return R.it("NEQ: equal values -> false", function()
     return R.eq(matches_filter({
       nom = 'Dupont'
     }, {
@@ -593,8 +593,8 @@ R.describe("matches_filter — opérateur NEQ", function()
     }), false)
   end)
 end)
-R.describe("matches_filter — opérateur CONTAINS", function()
-  R.it("CONTAINS : sous-chaîne présente → true", function()
+R.describe("matches_filter — CONTAINS operator", function()
+  R.it("CONTAINS: substring present -> true", function()
     return R.ok(matches_filter({
       nom = 'Dupont'
     }, {
@@ -603,7 +603,7 @@ R.describe("matches_filter — opérateur CONTAINS", function()
       value = 'pont'
     }))
   end)
-  R.it("CONTAINS : sous-chaîne absente → false", function()
+  R.it("CONTAINS: substring missing -> false", function()
     return R.eq(matches_filter({
       nom = 'Dupont'
     }, {
@@ -612,7 +612,7 @@ R.describe("matches_filter — opérateur CONTAINS", function()
       value = 'xyz'
     }), false)
   end)
-  R.it("CONTAINS : chaîne vide correspond toujours", function()
+  R.it("CONTAINS: empty string always matches", function()
     return R.ok(matches_filter({
       nom = 'Dupont'
     }, {
@@ -621,7 +621,7 @@ R.describe("matches_filter — opérateur CONTAINS", function()
       value = ''
     }))
   end)
-  return R.it("CONTAINS : caractères spéciaux Lua non interprétés comme patterns", function()
+  return R.it("CONTAINS: Lua special characters not interpreted as patterns", function()
     R.eq(matches_filter({
       code = 'abc'
     }, {
@@ -638,8 +638,8 @@ R.describe("matches_filter — opérateur CONTAINS", function()
     }))
   end)
 end)
-R.describe("matches_filter — opérateur STARTS_WITH", function()
-  R.it("STARTS_WITH : début exact → true", function()
+R.describe("matches_filter — STARTS_WITH operator", function()
+  R.it("STARTS_WITH: exact prefix -> true", function()
     return R.ok(matches_filter({
       nom = 'Dupont'
     }, {
@@ -648,7 +648,7 @@ R.describe("matches_filter — opérateur STARTS_WITH", function()
       value = 'Du'
     }))
   end)
-  R.it("STARTS_WITH : ne commence pas par → false", function()
+  R.it("STARTS_WITH: does not start with -> false", function()
     return R.eq(matches_filter({
       nom = 'Dupont'
     }, {
@@ -657,7 +657,7 @@ R.describe("matches_filter — opérateur STARTS_WITH", function()
       value = 'pont'
     }), false)
   end)
-  return R.it("STARTS_WITH : chaîne vide → true (tout commence par '')", function()
+  return R.it("STARTS_WITH: empty string -> true (everything starts with '')", function()
     return R.ok(matches_filter({
       nom = 'Dupont'
     }, {
@@ -667,8 +667,8 @@ R.describe("matches_filter — opérateur STARTS_WITH", function()
     }))
   end)
 end)
-R.describe("matches_filter — combinaisons AND / OR", function()
-  R.it("AND : les deux conditions vraies → true", function()
+R.describe("matches_filter — AND / OR combinations", function()
+  R.it("AND: both conditions true -> true", function()
     local flt = { }
     flt["and"] = {
       {
@@ -687,7 +687,7 @@ R.describe("matches_filter — combinaisons AND / OR", function()
       b = '2'
     }, flt))
   end)
-  R.it("AND : une condition fausse → false", function()
+  R.it("AND: one condition false -> false", function()
     local flt = { }
     flt["and"] = {
       {
@@ -706,7 +706,7 @@ R.describe("matches_filter — combinaisons AND / OR", function()
       b = '99'
     }, flt), false)
   end)
-  R.it("OR : au moins une condition vraie → true", function()
+  R.it("OR: at least one condition true -> true", function()
     local flt = { }
     flt["or"] = {
       {
@@ -724,7 +724,7 @@ R.describe("matches_filter — combinaisons AND / OR", function()
       nom = 'Martin'
     }, flt))
   end)
-  R.it("OR : aucune condition vraie → false", function()
+  R.it("OR: no condition true -> false", function()
     local flt = { }
     flt["or"] = {
       {
@@ -742,19 +742,19 @@ R.describe("matches_filter — combinaisons AND / OR", function()
       nom = 'Durand'
     }, flt), false)
   end)
-  R.it("filtre nil → true (pas de filtre)", function()
+  R.it("nil filter -> true (no filter)", function()
     return R.ok(matches_filter({
       nom = 'Dupont'
     }, nil))
   end)
-  return R.it("filtre sans field ni and/or → true (filtre vide)", function()
+  return R.it("filter without field or and/or -> true (empty filter)", function()
     return R.ok(matches_filter({
       nom = 'Dupont'
     }, { }))
   end)
 end)
-R.describe("matches_filter — opérateur inconnu", function()
-  return R.it("opérateur inconnu → toujours true (non filtrant)", function()
+R.describe("matches_filter — unknown operator", function()
+  return R.it("unknown operator -> always true (non-filtering)", function()
     return R.ok(matches_filter({
       x = 'y'
     }, {
@@ -805,7 +805,7 @@ do
   data_Mutation.insertRecord({ }, {
     spaceId = fk_livres_sp_id,
     data = {
-      titre = 'Les Misérables',
+      titre = 'Les Miserables',
       genre_id = genre_roman_uuid
     }
   }, CTX_FK)
@@ -817,18 +817,18 @@ do
     }
   }, CTX_FK)
 end
-R.describe("FK proxy — make_self_proxy résout les champs FK", function()
-  R.it("proxy.genre_id retourne un sous-proxy (table)", function()
+R.describe("FK proxy — make_self_proxy resolves FK fields", function()
+  R.it("proxy.genre_id returns a nested proxy (table)", function()
     local fk_map = triggers.build_fk_def_map(fk_livres_sp_id)
     local proxy = triggers.make_self_proxy({
       titre = 'Test',
       genre_id = genre_roman_uuid
     }, fk_map)
     local genre_proxy = proxy.genre_id
-    R.ok(genre_proxy ~= nil, "genre_id doit retourner un proxy non nil")
+    R.ok(genre_proxy ~= nil, "genre_id should return a non-nil proxy")
     return R.eq(type(genre_proxy), 'table')
   end)
-  R.it("proxy.genre_id.libelle retourne la valeur du champ de l'enregistrement lié", function()
+  R.it("proxy.genre_id.libelle returns linked-record field value", function()
     local fk_map = triggers.build_fk_def_map(fk_livres_sp_id)
     local proxy = triggers.make_self_proxy({
       titre = 'Test',
@@ -836,7 +836,7 @@ R.describe("FK proxy — make_self_proxy résout les champs FK", function()
     }, fk_map)
     return R.eq(proxy.genre_id.libelle, 'Roman')
   end)
-  R.it("proxy.titre retourne le champ non-FK directement", function()
+  R.it("proxy.titre returns non-FK field directly", function()
     local fk_map = triggers.build_fk_def_map(fk_livres_sp_id)
     local proxy = triggers.make_self_proxy({
       titre = 'Dune',
@@ -844,7 +844,7 @@ R.describe("FK proxy — make_self_proxy résout les champs FK", function()
     }, fk_map)
     return R.eq(proxy.titre, 'Dune')
   end)
-  return R.it("proxy FK nil → nil sans plantage", function()
+  return R.it("nil FK proxy -> nil without crash", function()
     local fk_map = triggers.build_fk_def_map(fk_livres_sp_id)
     local proxy = triggers.make_self_proxy({
       titre = 'Sans genre'
@@ -852,12 +852,12 @@ R.describe("FK proxy — make_self_proxy résout les champs FK", function()
     return R.is_nil(proxy.genre_id)
   end)
 end)
-R.describe("FK proxy — apply_filter avec formule @fk_field.sub_field", function()
-  R.it("filtre @genre_id.libelle == 'Roman' retourne seulement les romans", function()
+R.describe("FK proxy — apply_filter with @fk_field.sub_field formula", function()
+  R.it("filter @genre_id.libelle == 'Roman' returns only roman books", function()
     local fk_map = triggers.build_fk_def_map(fk_livres_sp_id)
     local tuples = {
       {
-        titre = 'Les Misérables',
+        titre = 'Les Miserables',
         genre_id = genre_roman_uuid
       },
       {
@@ -871,9 +871,9 @@ R.describe("FK proxy — apply_filter avec formule @fk_field.sub_field", functio
     }
     local result = apply_filter(tuples, flt, fk_map)
     R.eq(#result, 1)
-    return R.eq(result[1].titre, 'Les Misérables')
+    return R.eq(result[1].titre, 'Les Miserables')
   end)
-  return R.it("filtre sans fk_def_map (nil) ne plante pas sur les tests non-FK", function()
+  return R.it("filter without fk_def_map (nil) does not crash on non-FK tests", function()
     local tuples = {
       {
         nom = 'Alice',
@@ -893,8 +893,8 @@ R.describe("FK proxy — apply_filter avec formule @fk_field.sub_field", functio
     return R.eq(result[1].nom, 'Alice')
   end)
 end)
-R.describe("FK proxy — intégration via Query.records avec filtre formule", function()
-  R.it("records() filtre @genre_id.libelle == 'Roman' → 1 résultat", function()
+R.describe("FK proxy — integration via Query.records with formula filter", function()
+  R.it("records() filter @genre_id.libelle == 'Roman' -> 1 result", function()
     local res = data_Query.records({ }, {
       spaceId = fk_livres_sp_id,
       filter = {
@@ -910,9 +910,9 @@ R.describe("FK proxy — intégration via Query.records avec filtre formule", fu
       json = require('json').json
     end
     local d = type(res.items[1].data) == 'string' and require('json').decode(res.items[1].data) or res.items[1].data
-    return R.eq(d.titre, 'Les Misérables')
+    return R.eq(d.titre, 'Les Miserables')
   end)
-  R.it("records() filtre @genre_id.libelle == 'Polar' → 1 résultat", function()
+  R.it("records() filter @genre_id.libelle == 'Polar' -> 1 result", function()
     local res = data_Query.records({ }, {
       spaceId = fk_livres_sp_id,
       filter = {
@@ -924,14 +924,14 @@ R.describe("FK proxy — intégration via Query.records avec filtre formule", fu
     local d = type(res.items[1].data) == 'string' and require('json').decode(res.items[1].data) or res.items[1].data
     return R.eq(d.titre, 'Sherlock Holmes')
   end)
-  return R.it("records() sans filtre FK → tous les livres", function()
+  return R.it("records() without FK filter -> all books", function()
     local res = data_Query.records({ }, {
       spaceId = fk_livres_sp_id
     }, CTX_FK)
     return R.eq(res.total, 2)
   end)
 end)
-R.describe("FK proxy — chaîne imbriquée @livre.auteur.nom", function()
+R.describe("FK proxy — nested chain @livre.auteur.nom", function()
   local NESTSFX = tostring(math.random(100000, 999999))
   local nested_authors_sp_id = nil
   local nested_books_sp_id = nil
@@ -997,7 +997,7 @@ R.describe("FK proxy — chaîne imbriquée @livre.auteur.nom", function()
       }
     }, CTX_FK)
   end
-  R.it("résout une FK imbriquée quand la relation cible un champ id (non _id)", function()
+  R.it("resolves nested FK when relation targets id field (non _id)", function()
     local fk_map = triggers.build_fk_def_map(nested_loans_sp_id)
     local proxy = triggers.make_self_proxy({
       livre = 1
@@ -1006,7 +1006,7 @@ R.describe("FK proxy — chaîne imbriquée @livre.auteur.nom", function()
     R.ok(proxy.livre.auteur ~= nil)
     return R.eq(proxy.livre.auteur.nom, 'Hugo')
   end)
-  return R.it("nettoie les espaces et relations du test imbriqué", function()
+  return R.it("cleans nested test spaces and relations", function()
     if nested_rel_loan_book_id then
       schema_Mutation.deleteRelation({ }, {
         id = nested_rel_loan_book_id

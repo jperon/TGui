@@ -2,43 +2,43 @@
 
 > Auto-generated file. Do not edit manually.
 >
-> Generated at: 2026-03-12 10:33:27 UTC
+> Generated at: 2026-03-12 20:58:48 UTC
 
 Backend/frontend test panorama and per-file intent.
 
-| Module | Résumé |
+| Module | Summary |
 |---|---|
-| `tests/run.moon` | Point d'entrée de la suite de tests TGui. |
-| `tests/runner.moon` | Micro-framework de test autonome (aucune dépendance externe). |
-| `tests/test_batch_ops.moon` | Tests d'intégration GraphQL pour insertRecords/updateRecords sur un espace temporaire. |
-| `tests/test_custom_views.moon` | Tests des opérations CRUD sur les vues personnalisées (resolvers/custom_view_resolvers.moon). |
-| `tests/test_data_filters.moon` | Tests des opérateurs de filtrage (matches_filter / apply_filter). |
-| `tests/test_executor.moon` | Tests de l'executor GraphQL (graphql/executor.moon). |
-| `tests/test_lexer.moon` | Tests du lexer GraphQL (graphql/lexer.moon). |
-| `tests/test_nesting.moon` | Tests des requêtes imbriquées (nesting/sub-queries) |
-| `tests/test_parser.moon` | Tests du parser GraphQL (graphql/parser.moon). |
-| `tests/test_permissions.moon` | Tests de la couverture des permissions : require_auth, require_admin, |
-| `tests/test_relation_display_backend.moon` | Test backend pour vérifier l'affichage des relations |
-| `tests/test_relation_display_regression.moon` | Test de régression pour s'assurer que l'affichage des relations ne casse plus |
-| `tests/test_relation_field.moon` | Test pour s'assurer que le type Relation n'existe pas et que l'UI utilise les bonnes mutations |
-| `tests/test_relation_integration.moon` | Test d'intégration complet pour les relations |
-| `tests/test_relation_repr.moon` | Test pour vérifier que les relations utilisent bien _repr |
-| `tests/test_relation_type_regression.moon` | Régression: vérifie le mapping sécurisé fieldType=Relation -> Int et la création de relation associée. |
-| `tests/test_relations.moon` | Tests des relations FK : create_relation, list_relations, update_relation |
-| `tests/test_schema.moon` | Tests du système de types GraphQL (graphql/schema.moon). |
-| `tests/test_snapshot.moon` | Tests des resolvers exportSnapshot / diffSnapshot / importSnapshot. |
-| `tests/test_spaces.moon` | Tests des opérations CRUD sur les espaces (core/spaces.moon). |
-| `tests/test_triggers.moon` | Tests des trigger formulas (core/triggers.moon). |
-| `tests/js/dom_stub.coffee` | (pas de description en tête de fichier) |
-| `tests/js/run.coffee` | (pas de description en tête de fichier) |
-| `tests/js/runner.coffee` | (pas de description en tête de fichier) |
-| `tests/js/test_auth.coffee` | (pas de description en tête de fichier) |
-| `tests/js/test_custom_view.coffee` | (pas de description en tête de fichier) |
-| `tests/js/test_data_view.coffee` | (pas de description en tête de fichier) |
-| `tests/js/test_graphql_client.coffee` | (pas de description en tête de fichier) |
-| `tests/js/test_i18n.coffee` | (pas de description en tête de fichier) |
-| `tests/js/test_relation_display_frontend.coffee` | (pas de description en tête de fichier) |
-| `tests/js/test_relation_display_frontend_regression.coffee` | (pas de description en tête de fichier) |
-| `tests/js/test_spaces.coffee` | (pas de description en tête de fichier) |
-| `tests/js/test_undo_helpers.coffee` | (pas de description en tête de fichier) |
-| `tests/js/test_yaml_builder.coffee` | (pas de description en tête de fichier) |
+| `tests/run.moon` | Entrypoint for the TGui test suite. |
+| `tests/runner.moon` | Standalone test micro-framework (no external dependencies). |
+| `tests/test_batch_ops.moon` | GraphQL integration tests for insertRecords/updateRecords on a temporary space. |
+| `tests/test_custom_views.moon` | Tests CRUD operations on custom views (resolvers/custom_view_resolvers.moon). |
+| `tests/test_data_filters.moon` | Tests filter operators (matches_filter / apply_filter). |
+| `tests/test_executor.moon` | Tests GraphQL executor behavior (graphql/executor.moon). |
+| `tests/test_lexer.moon` | Tests for GraphQL lexer (graphql/lexer.moon). |
+| `tests/test_nesting.moon` | Tests nested GraphQL queries (nesting/sub-queries). |
+| `tests/test_parser.moon` | Tests for GraphQL parser (graphql/parser.moon). |
+| `tests/test_permissions.moon` | Tests permission coverage: require_auth, require_admin, |
+| `tests/test_relation_display_backend.moon` | Backend test to verify relation display behavior. |
+| `tests/test_relation_display_regression.moon` | Regression test to ensure relation rendering no longer breaks. |
+| `tests/test_relation_field.moon` | Ensures Relation type is not used directly and UI follows the correct mutation flow. |
+| `tests/test_relation_integration.moon` | Full integration test for relations. |
+| `tests/test_relation_repr.moon` | Test to verify that relations correctly use _repr. |
+| `tests/test_relation_type_regression.moon` | Regression: verifies safe fieldType=Relation -> Int mapping and relation creation. |
+| `tests/test_relations.moon` | Tests FK relation behavior: create_relation, list_relations, update_relation |
+| `tests/test_schema.moon` | Tests for GraphQL type system (graphql/schema.moon). |
+| `tests/test_snapshot.moon` | Tests exportSnapshot / diffSnapshot / importSnapshot resolvers. |
+| `tests/test_spaces.moon` | Tests CRUD operations on spaces (core/spaces.moon). |
+| `tests/test_triggers.moon` | Tests trigger formulas (core/triggers.moon). |
+| `tests/js/dom_stub.coffee` | tests/js/dom_stub.coffee — minimal DOM stub for Node.js |
+| `tests/js/run.coffee` | tests/js/run.coffee — runs all test_*.coffee files sequentially |
+| `tests/js/runner.coffee` | tests/js/runner.coffee — minimal test runner (no dependencies) |
+| `tests/js/test_auth.coffee` | tests/js/test_auth.coffee — tests pour Auth (auth.js) |
+| `tests/js/test_custom_view.coffee` | tests/js/test_custom_view.coffee — tests for CustomView (custom_view.js) |
+| `tests/js/test_data_view.coffee` | tests/js/test_data_view.coffee — tests for DataView (data_view.js) |
+| `tests/js/test_graphql_client.coffee` | tests/js/test_graphql_client.coffee — tests pour GQL (graphql_client.js) |
+| `tests/js/test_i18n.coffee` | tests/js/test_i18n.coffee — tests du runtime i18n minimal |
+| `tests/js/test_relation_display_frontend.coffee` | Static frontend tests (Node) for relation display. |
+| `tests/js/test_relation_display_frontend_regression.coffee` | Targeted regressions for frontend relation rendering. |
+| `tests/js/test_spaces.coffee` | tests/js/test_spaces.coffee — tests for Spaces (spaces.js) |
+| `tests/js/test_undo_helpers.coffee` | tests/js/test_undo_helpers.coffee — tests for global AppUndoHelpers service. |
+| `tests/js/test_yaml_builder.coffee` | tests/js/test_yaml_builder.coffee — tests for YamlBuilder (yaml_builder.js) |

@@ -1,5 +1,5 @@
 (function() {
-  // i18n.coffee — Localisation légère sans dépendance externe.
+  // i18n.coffee — Lightweight localization without external dependencies.
   var CATALOGS, I18N_KEY, _locale, apply_to_dom, interpolate, lookup, pick_locale, t;
 
   I18N_KEY = 'tgui_locale';

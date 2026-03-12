@@ -1,15 +1,15 @@
 -- backend/fixtures.moon
--- Jeu de données factices pour le conteneur de test TGui
--- Exécuté automatiquement au démarrage du conteneur de test
+-- Seed dataset for the TGui test container.
+-- Automatically executed when the test container starts.
 
 log = require 'log'
 spaces = require 'core.spaces'
 auth = require 'core.auth'
 executor = require 'graphql.executor'
 
--- Fonction helper pour exécuter une mutation GraphQL
+-- Helper function to execute a GraphQL mutation.
 execute_mutation = (mutation, variables) ->
-  -- Créer un contexte admin pour les mutations
+  -- Build an admin context for mutations.
   admin_user = { id: 1, username: "admin" }
   context = { user_id: admin_user.id }
 
@@ -18,24 +18,24 @@ execute_mutation = (mutation, variables) ->
     error "GraphQL mutation failed: #{require('json').encode(result.errors)}"
   result.data
 
--- Crée des données de démonstration seulement si la base est vide
+-- Creates demo data only when the database is empty.
 setup_demo_data = ->
-  -- Vérifier s'il y a déjà des espaces utilisateur (non système)
+  -- Check whether user spaces already exist (non-system spaces).
   all_spaces = spaces.list_spaces!
   user_spaces = [space for space in *all_spaces when not space.name\match '^_tdb_']
   return if #user_spaces > 0
 
   log.info "Setting up demo data for test environment..."
 
-  -- ── Création des espaces avec mutations GraphQL ─────────────────────────────
+  -- ── Space creation via GraphQL mutations ────────────────────────────────────
 
-  -- Espace: Auteurs
+  -- Space: Authors
   authors_result = execute_mutation [[
     mutation { createSpace(input: { name: "Auteurs", description: "Catalogue des auteurs" }) { id name } }
   ]], {}
   authors_space_id = authors_result.createSpace.id
 
-  -- Champs pour Auteurs (une seule mutation avec aliases)
+  -- Fields for Authors (single mutation with aliases).
   execute_mutation [[
     mutation AddAuthorsFields($spaceId: ID!) {
       f1: addField(spaceId: $spaceId, input: { name: "particule", fieldType: String, description: "Particule du nom (de, du, etc.)" }) { id }
@@ -48,13 +48,13 @@ setup_demo_data = ->
     }
   ]], { spaceId: authors_space_id }
 
-  -- Espace: Livres
+  -- Space: Books
   books_result = execute_mutation [[
     mutation { createSpace(input: { name: "Livres", description: "Catalogue des livres" }) { id name } }
   ]], {}
   books_space_id = books_result.createSpace.id
 
-  -- Champs pour Livres
+  -- Fields for Books
   execute_mutation [[
     mutation AddBooksFields($spaceId: ID!) {
       f1: addField(spaceId: $spaceId, input: { name: "titre", fieldType: String, notNull: true, description: "Titre du livre" }) { id }
@@ -68,13 +68,13 @@ setup_demo_data = ->
     }
   ]], { spaceId: books_space_id }
 
-  -- Espace: Emprunts
+  -- Space: Loans
   loans_result = execute_mutation [[
     mutation { createSpace(input: { name: "Emprunts", description: "Gestion des emprunts" }) { id name } }
   ]], {}
   loans_space_id = loans_result.createSpace.id
 
-  -- Champs pour Emprunts
+  -- Fields for Loans
   execute_mutation [[
     mutation AddLoansFields($spaceId: ID!) {
       f1: addField(spaceId: $spaceId, input: { name: "livre", fieldType: Int, notNull: true, description: "Livre emprunté" }) { id }
@@ -85,13 +85,13 @@ setup_demo_data = ->
     }
   ]], { spaceId: loans_space_id }
 
-  -- Espace: Catégories
+  -- Space: Categories
   categories_result = execute_mutation [[
     mutation { createSpace(input: { name: "Categories", description: "Catégories de livres" }) { id name } }
   ]], {}
   categories_space_id = categories_result.createSpace.id
 
-  -- Champs pour Catégories
+  -- Fields for Categories
   execute_mutation [[
     mutation AddCategoriesFields($spaceId: ID!) {
       f1: addField(spaceId: $spaceId, input: { name: "nom", fieldType: String, notNull: true, description: "Nom de la catégorie" }) { id }
@@ -102,9 +102,9 @@ setup_demo_data = ->
     }
   ]], { spaceId: categories_space_id }
 
-  -- ── Insertion des données avec mutations GraphQL (par lots) ───────────────────────
+  -- ── Data insertion via GraphQL mutations (batched) ─────────────────────────
 
-  -- Données pour Auteurs
+  -- Data for Authors
   authors_data = {
     { particule: "", nom: "Hugo", prenom: "Victor", biographie: "Écrivain, poète et dramaturge français", nationalite: "Française" }
     { particule: "de", nom: "Maupassant", prenom: "Guy", biographie: "Écrivain et journaliste français", nationalite: "Française" }
@@ -119,7 +119,7 @@ setup_demo_data = ->
     }
   ]], { spaceId: authors_space_id, data: authors_data }
 
-  -- Données pour Livres
+  -- Data for Books
   books_data = {
     { titre: "Les Misérables", isbn: "978-2-253-05407-5", annee_publication: 1862, genre: "Roman historique", pages: 1232, disponible: true, prix: 12.99, auteur: "1" }
     { titre: "Bel-Ami", isbn: "978-2-07-036418-8", annee_publication: 1885, genre: "Roman réaliste", pages: 432, disponible: true, prix: 9.99, auteur: "2" }
@@ -134,7 +134,7 @@ setup_demo_data = ->
     }
   ]], { spaceId: books_space_id, data: books_data }
 
-  -- Données pour Catégories
+  -- Data for Categories
   categories_data = {
     { nom: "Littérature française", description: "Œuvres d'auteurs français", couleur: "#FF6B6B", parent: "", ordre: 1 }
     { nom: "Littérature étrangère", description: "Œuvres traduites", couleur: "#4ECDC4", parent: "", ordre: 2 }
@@ -148,7 +148,7 @@ setup_demo_data = ->
     }
   ]], { spaceId: categories_space_id, data: categories_data }
 
-  -- Données pour Emprunts
+  -- Data for Loans
   current_time = os.time!
   loans_data = {
     { livre: "1", emprunteur_nom: "Alice Martin", date_emprunt: current_time - 86400 * 7, date_retour_prevue: current_time + 86400 * 7, date_retour_effective: nil }
@@ -162,9 +162,9 @@ setup_demo_data = ->
     }
   ]], { spaceId: loans_space_id, data: loans_data }
 
-  -- ── Création des relations ─────────────────────────────────────────────────────
+  -- ── Relation creation ───────────────────────────────────────────────────────
 
-  -- Récupérer les IDs des champs créés pour les relations
+  -- Fetch field IDs required to create relations.
   books_fields = execute_mutation [[
     query SpaceFields($spaceId: ID!) {
       space(id: $spaceId) {
@@ -197,7 +197,7 @@ setup_demo_data = ->
     }
   ]], { spaceId: categories_space_id }
 
-  -- Extraire les IDs des champs
+  -- Extract field IDs.
   get_field_id = (fields, name) ->
     if not fields or not fields.space or not fields.space.fields
       log.warn "Failed to get fields for space: #{name}"
@@ -206,7 +206,7 @@ setup_demo_data = ->
       return field.id if field.name == name
     nil
 
-  -- 1. Relation: Livres.auteur → Auteurs.id
+  -- 1. Relation: Books.author -> Authors.id
   auteur_field_id = get_field_id(books_fields, "auteur")
   authors_id_field = get_field_id(authors_fields, "id")
 
@@ -226,7 +226,7 @@ setup_demo_data = ->
       }
     }
 
-  -- 2. Relation: Emprunts.livre → Livres.id
+  -- 2. Relation: Loans.book -> Books.id
   livre_field_id = get_field_id(loans_fields, "livre")
   books_id_field = get_field_id(books_fields, "id")
 
@@ -246,7 +246,7 @@ setup_demo_data = ->
       }
     }
 
-  -- 3. Relation: Categories.parent → Categories.id (auto-référence)
+  -- 3. Relation: Categories.parent -> Categories.id (self-reference)
   parent_field_id = get_field_id(categories_fields, "parent")
   categories_id_field = get_field_id(categories_fields, "id")
 

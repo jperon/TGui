@@ -42,18 +42,18 @@ Mutation =
       auth_mod.delete_session ctx.token
     true
 
-  -- Seuls les admins peuvent créer des comptes utilisateurs.
+  -- Only admins can create user accounts.
   createUser: (_, args, ctx) ->
     require_admin ctx
     i = args.input
     auth_mod.create_user i.username, i.email, i.password
 
-  -- Tout utilisateur authentifié peut changer son propre mot de passe.
+  -- Any authenticated user can change their own password.
   changePassword: (_, args, ctx) ->
     uid = require_auth ctx
     auth_mod.change_password uid, args.currentPassword, args.newPassword
 
--- Admin peut forcer le changement de mot de passe de n'importe quel utilisateur.
+-- Admin can force-reset any user's password.
   adminSetPassword: (_, args, ctx) ->
     require_admin ctx
     auth_mod.admin_set_password args.userId, args.newPassword

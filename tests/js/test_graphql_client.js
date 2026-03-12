@@ -18,7 +18,7 @@
       eq(localStorageStub.getItem('tdb_token'), 'abc123');
       return eq(G._token, 'abc123');
     });
-    return it('clearToken supprime le token', function() {
+    return it('clearToken removes token', function() {
       G.setToken('xyz');
       G.clearToken();
       eq(G._token, null);
@@ -41,8 +41,8 @@
     });
   });
 
-  describe('GQL.query — corps de la requête', function() {
-    it('envoie query et variables en JSON', function() {
+  describe('GQL.query — request body', function() {
+    it('sends query and variables as JSON', function() {
       var body;
       body = null;
       global.fetch = function(url, opts) {
@@ -65,7 +65,7 @@
         return eq(body.variables.x, 1);
       });
     });
-    it('ajoute le header Authorization quand token présent', function() {
+    it('adds Authorization header when token is present', function() {
       var sentHeaders;
       sentHeaders = null;
       global.fetch = function(url, opts) {
@@ -81,11 +81,11 @@
       G.setToken('tok42');
       return G.query('query { me { id } }').then(function() {
         var ref;
-        assert((ref = sentHeaders['Authorization']) != null ? ref.includes('tok42') : void 0, 'Authorization manquant');
+        assert((ref = sentHeaders['Authorization']) != null ? ref.includes('tok42') : void 0, 'missing Authorization');
         return G.setToken(null);
       });
     });
-    return it('lève une erreur si result.errors non vide', function() {
+    return it('throws an error when result.errors is non-empty', function() {
       global.fetch = function(url, opts) {
         return Promise.resolve({
           json: function() {
@@ -102,13 +102,13 @@
       return G.query('query { me { id } }').then(function() {
         throw new Error('aurait dû rejeter');
       }).catch(function(e) {
-        return assert(e.message.includes('not authorized'), `message inattendu: ${e.message}`);
+        return assert(e.message.includes('not authorized'), `unexpected message: ${e.message}`);
       });
     });
   });
 
   describe('GQL.mutate', function() {
-    return it('délègue à query', function() {
+    return it('delegates to query', function() {
       var called, orig;
       called = null;
       orig = G.query.bind(G);

@@ -1,6 +1,6 @@
 (function() {
-  // tests/js/test_spaces.coffee — tests pour Spaces (spaces.js)
-  // Stratégie : stub GQL pour capturer les appels et vérifier la structure des mutations.
+  // tests/js/test_spaces.coffee — tests for Spaces (spaces.js)
+  // Strategy: stub GQL to capture calls and verify mutation shapes.
   var S, assert, capture, deepEq, describe, eq, it, lastCall, summary;
 
   require('./dom_stub');
@@ -29,7 +29,7 @@
     }
   };
 
-  // Chargement du module sous test
+  // Load module under test
   require('../../frontend/src/spaces');
 
   S = global.window.Spaces;
@@ -42,37 +42,37 @@
 
   // ---------------------------------------------------------------------------
   describe('Spaces.list', function() {
-    return it('émet une query GQL sans variables', function() {
+    return it('emits a GQL query without variables', function() {
       S.list();
-      assert(lastCall.type === 'query', 'doit être une query');
-      return assert(lastCall.q.includes('spaces'), 'query doit mentionner spaces');
+      assert(lastCall.type === 'query', 'must be a query');
+      return assert(lastCall.q.includes('spaces'), 'query must mention spaces');
     });
   });
 
   describe('Spaces.create', function() {
-    it('émet une mutation avec name et description', function() {
-      S.create('test_space', 'une description');
+    it('emits a mutation with name and description', function() {
+      S.create('test_space', 'a description');
       eq(lastCall.type, 'mutate');
       eq(lastCall.vars.input.name, 'test_space');
-      return eq(lastCall.vars.input.description, 'une description');
+      return eq(lastCall.vars.input.description, 'a description');
     });
-    return it('description vide par défaut', function() {
+    return it('empty default description', function() {
       S.create('sans_desc');
       return eq(lastCall.vars.input.description, '');
     });
   });
 
   describe('Spaces.update', function() {
-    return it('émet une mutation avec id et input', function() {
-      S.update('42', 'nouveau', 'desc');
+    return it('emits a mutation with id and input', function() {
+      S.update('42', 'new', 'desc');
       eq(lastCall.type, 'mutate');
       eq(lastCall.vars.id, '42');
-      return eq(lastCall.vars.input.name, 'nouveau');
+      return eq(lastCall.vars.input.name, 'new');
     });
   });
 
   describe('Spaces.delete', function() {
-    return it('émet une mutation avec id', function() {
+    return it('emits a mutation with id', function() {
       S.delete('7');
       eq(lastCall.type, 'mutate');
       return eq(lastCall.vars.id, '7');
@@ -80,7 +80,7 @@
   });
 
   describe('Spaces.addField', function() {
-    return it('passe spaceId et input', function() {
+    return it('passes spaceId and input', function() {
       S.addField('3', 'age', 'Int', false);
       eq(lastCall.type, 'mutate');
       eq(lastCall.vars.spaceId, '3');
@@ -90,7 +90,7 @@
   });
 
   describe('Spaces.updateField', function() {
-    return it('passe fieldId et input', function() {
+    return it('passes fieldId and input', function() {
       S.updateField('99', {
         formula: 'x + 1',
         language: 'moonscript'
@@ -102,7 +102,7 @@
   });
 
   describe('Spaces.createRelation', function() {
-    return it('passe tous les champs requis', function() {
+    return it('passes all required fields', function() {
       S.createRelation('rel', '1', '2', '3', '4');
       eq(lastCall.type, 'mutate');
       eq(lastCall.vars.input.name, 'rel');
@@ -112,7 +112,7 @@
   });
 
   describe('Spaces.deleteRelation', function() {
-    return it('passe l\'id', function() {
+    return it('passes id', function() {
       S.deleteRelation('55');
       return eq(lastCall.vars.id, '55');
     });

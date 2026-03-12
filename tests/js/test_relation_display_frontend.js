@@ -1,6 +1,6 @@
 (function() {
   // tests/js/test_relation_display_frontend.coffee
-  // Tests statiques frontend (Node) pour l'affichage des relations.
+  // Static frontend tests (Node) for relation display.
   var appSource, assert, dataViewSource, describe, fs, helpersSource, it, path, root, summary;
 
   fs = require('fs');
@@ -18,17 +18,17 @@
   dataViewSource = fs.readFileSync(path.join(root, 'frontend/src/views/data_view.coffee'), 'utf8');
 
   describe("Relation display frontend", function() {
-    it("affiche un badge de relation avec une flèche", function() {
+    it("renders relation badge with arrow", function() {
       var relationBadgePattern, relationTitlePattern;
       relationBadgePattern = /badge\.textContent\s*=\s*"→ #\{targetName\}"/;
       relationTitlePattern = /badge\.title\s*=\s*"Relation vers #\{targetName\}"/;
-      assert(relationBadgePattern.test(appSource) || relationBadgePattern.test(helpersSource), "format relation badge manquant");
-      return assert(relationTitlePattern.test(appSource) || relationTitlePattern.test(helpersSource), "tooltip relation manquant");
+      assert(relationBadgePattern.test(appSource) || relationBadgePattern.test(helpersSource), "missing relation badge format");
+      return assert(relationTitlePattern.test(appSource) || relationTitlePattern.test(helpersSource), "missing relation tooltip");
     });
-    return it("utilise _repr pour afficher les FK dans la grille", function() {
-      assert(/row\["_repr_#\{fieldName\}"\]\?/.test(dataViewSource), "_repr relation manquant");
-      assert(/displayVal\s*=\s*row\["_repr_#\{fieldName\}"\]/.test(dataViewSource), "fallback displayVal _repr manquant");
-      return assert(/fkMap\[String val\]/.test(dataViewSource), "lookup fkMap manquant");
+    return it("uses _repr to display FK values in grid", function() {
+      assert(/row\["_repr_#\{fieldName\}"\]\?/.test(dataViewSource), "missing relation _repr");
+      assert(/displayVal\s*=\s*row\["_repr_#\{fieldName\}"\]/.test(dataViewSource), "missing _repr displayVal fallback");
+      return assert(/fkMap\[String val\]/.test(dataViewSource), "missing fkMap lookup");
     });
   });
 

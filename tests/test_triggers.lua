@@ -27,13 +27,13 @@ read_data = function(id)
   return json.decode(t[2])
 end
 R.describe("Triggers — setup", function()
-  R.it("créer l'espace de test", function()
+  R.it("create test space", function()
     local sp = spaces_mod.create_user_space(SP_NAME)
     space_id = sp.id
     data_space = box.space["data_" .. tostring(SP_NAME)]
     return R.ok(data_space)
   end)
-  return R.it("ajouter les champs de base", function()
+  return R.it("add base fields", function()
     spaces_mod.add_field(space_id, 'prenom', 'String')
     spaces_mod.add_field(space_id, 'nom', 'String')
     spaces_mod.add_field(space_id, 'nom_complet', 'String', false, '', '(self.prenom or "") .. " " .. (self.nom or "")', {
@@ -45,8 +45,8 @@ R.describe("Triggers — setup", function()
     return R.ok(data_space)
   end)
 end)
-R.describe("Triggers — déclenchement à l'insertion", function()
-  R.it("nom_complet calculé à l'insertion", function()
+R.describe("Triggers — fired on insert", function()
+  R.it("full_name computed on insert", function()
     local id = 'trig_insert_1'
     data_space:insert({
       id,
@@ -58,7 +58,7 @@ R.describe("Triggers — déclenchement à l'insertion", function()
     local d = read_data(id)
     return R.eq(d.nom_complet, 'Jean Dupont')
   end)
-  R.it("prenom ou nom vide → concaténation partielle", function()
+  R.it("empty first or last name -> partial concatenation", function()
     local id = 'trig_insert_2'
     data_space:insert({
       id,
@@ -70,7 +70,7 @@ R.describe("Triggers — déclenchement à l'insertion", function()
     local d = read_data(id)
     return R.eq(d.nom_complet, 'Alice ')
   end)
-  return R.it("champ cree_le (creation-only) est calculé à l'insertion", function()
+  return R.it("created_at field (creation-only) is computed on insert", function()
     local id = 'trig_insert_3'
     data_space:insert({
       id,
@@ -84,8 +84,8 @@ R.describe("Triggers — déclenchement à l'insertion", function()
     return R.matches(tostring(d.cree_le), '^%d%d%d%d$')
   end)
 end)
-R.describe("Triggers — déclenchement à la mise à jour", function()
-  R.it("mise à jour de prenom → recalcul de nom_complet", function()
+R.describe("Triggers — fired on update", function()
+  R.it("updating first name -> full_name recomputed", function()
     local id = 'trig_update_1'
     data_space:insert({
       id,
@@ -104,7 +104,7 @@ R.describe("Triggers — déclenchement à la mise à jour", function()
     local d2 = read_data(id)
     return R.eq(d2.nom_complet, 'Pierre Dupont')
   end)
-  R.it("mise à jour de nom → recalcul de nom_complet", function()
+  R.it("updating last name -> full_name recomputed", function()
     local id = 'trig_update_2'
     data_space:insert({
       id,
@@ -123,7 +123,7 @@ R.describe("Triggers — déclenchement à la mise à jour", function()
     local d2 = read_data(id)
     return R.eq(d2.nom_complet, 'Jean Martin')
   end)
-  return R.it("champ cree_le (creation-only) n'est PAS recalculé à la mise à jour", function()
+  return R.it("created_at field (creation-only) is NOT recomputed on update", function()
     local id = 'trig_update_3'
     data_space:insert({
       id,
@@ -146,7 +146,7 @@ R.describe("Triggers — déclenchement à la mise à jour", function()
   end)
 end)
 R.describe("Triggers — compile_formula", function()
-  R.it("formule valide → fonction", function()
+  R.it("valid formula -> function", function()
     local fn_str = "return function(self, space) return self.a + self.b end"
     local ok, compiled = pcall(load, fn_str)
     R.ok(ok)
@@ -164,15 +164,15 @@ R.describe("Triggers — compile_formula", function()
     })
     return R.eq(fn(proxy, nil), 7)
   end)
-  R.it("formule invalide → erreur Lua", function()
+  R.it("invalid formula -> Lua error", function()
     local fn_str = "return function(self, space) return self.a +++++ end"
     local fn, err = load(fn_str)
     R.nok(fn)
     return R.ok(err)
   end)
-  return R.it("formule MoonScript valide → compilée en fonction Lua", function()
+  return R.it("valid MoonScript formula -> compiled to Lua function", function()
     local ok_ms, moon = pcall(require, 'moonscript.base')
-    R.ok(ok_ms, "moonscript.base doit être disponible")
+    R.ok(ok_ms, "moonscript.base should be available")
     local moon_src = "return (self, space) -> (self.a or 0) + (self.b or 0)"
     local ok_c, lua_code = pcall(moon.to_lua, moon_src)
     R.ok(ok_c, "MoonScript → Lua: " .. tostring(tostring(lua_code)))
@@ -189,7 +189,7 @@ R.describe("Triggers — compile_formula", function()
 end)
 R.describe("Triggers — trigger formula MoonScript", function()
   local ms_space_id, ms_data_space
-  R.it("créer un espace avec trigger formula MoonScript", function()
+  R.it("create space with MoonScript trigger formula", function()
     local sp = spaces_mod.create_user_space(MS_SP)
     ms_space_id = sp.id
     ms_data_space = box.space["data_" .. tostring(MS_SP)]
@@ -203,7 +203,7 @@ R.describe("Triggers — trigger formula MoonScript", function()
     triggers.register_space_trigger(MS_SP)
     return R.ok(ms_data_space)
   end)
-  R.it("trigger MoonScript calcule la valeur à l'insertion", function()
+  R.it("MoonScript trigger computes value on insert", function()
     local id = 'moon_insert_1'
     ms_data_space:insert({
       id,
@@ -215,7 +215,7 @@ R.describe("Triggers — trigger formula MoonScript", function()
     local d = json.decode((ms_data_space:get(id))[2])
     return R.eq(d.somme, 10)
   end)
-  return R.it("trigger MoonScript recalcule à la mise à jour", function()
+  return R.it("MoonScript trigger recomputes on update", function()
     local id = 'moon_update_1'
     ms_data_space:insert({
       id,
@@ -236,17 +236,17 @@ R.describe("Triggers — trigger formula MoonScript", function()
   end)
 end)
 R.describe("Triggers — register_space_trigger", function()
-  R.it("appel multiple sans erreur (idempotent)", function()
+  R.it("multiple calls without error (idempotent)", function()
     local ok, err = pcall(triggers.register_space_trigger, SP_NAME)
-    return R.ok(ok, "register_space_trigger doit être idempotent: " .. tostring(tostring(err)))
+    return R.ok(ok, "register_space_trigger should be idempotent: " .. tostring(tostring(err)))
   end)
-  return R.it("espace inexistant → pas d'erreur", function()
-    local ok, err = pcall(triggers.register_space_trigger, 'espace_qui_nexiste_pas')
-    return R.ok(ok, "espace inexistant doit être géré silencieusement: " .. tostring(tostring(err)))
+  return R.it("non-existing space -> no error", function()
+    local ok, err = pcall(triggers.register_space_trigger, 'space_that_does_not_exist')
+    return R.ok(ok, "non-existing space should be handled silently: " .. tostring(tostring(err)))
   end)
 end)
 R.describe("Triggers — init_all_triggers", function()
-  return R.it("init_all_triggers s'exécute sans erreur", function()
+  return R.it("init_all_triggers runs without error", function()
     local ok, err = pcall(triggers.init_all_triggers)
     return R.ok(ok, "init_all_triggers: " .. tostring(tostring(err)))
   end)

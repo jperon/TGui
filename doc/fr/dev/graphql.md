@@ -1,12 +1,12 @@
-# Chaîne GraphQL — référence détaillée
+# GraphQL pipeline — detailed reference
 
-> Fichier généré automatiquement. Ne pas modifier manuellement.
+> Auto-generated file. Do not edit manually.
 >
-> Généré le: 2026-03-12 10:33:27 UTC
+> Generated at: 2026-03-12 20:58:48 UTC
 
-Flux SDL/parser/executor/résolveurs (statique + dynamique).
+SDL/parser/executor/resolver flow (static + dynamic).
 
-| Module | Résumé |
+| Module | Summary |
 |---|---|
 | `backend/graphql/lexer.moon` | Tokenizes a GraphQL document (query or SDL) into a token stream. |
 | `backend/graphql/parser.moon` | Parses a GraphQL document (query or SDL) into an AST. |

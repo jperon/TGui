@@ -1,26 +1,21 @@
-# Démarrage rapide — TGui
+# Quick Start — TGui
 
-**TGui** est inspiré de [Grist](https://www.getgrist.com) — pour tout usage sérieux ou en
-production, l'utilisateur est invité à se tourner vers ce dernier en priorité.
+**TGui** is inspired by [Grist](https://www.getgrist.com) — for any serious or production use, users are encouraged to consider Grist as a priority.
 
-**TGui** est une interface graphique pour [Tarantool](https://www.tarantool.io/) permettant
-de créer et gérer des espaces de données (tables), de les relier entre eux, d'y définir des
-colonnes calculées ou des triggers, et de composer des vues personnalisées déclaratives (YAML).
+**TGui** is a graphical interface for [Tarantool](https://www.tarantool.io/) that lets you create and manage data spaces (tables), link them, define computed columns or triggers, and compose declarative custom views (YAML).
 
-Ce guide vous emmène pas à pas de zéro à une application de **gestion de bibliothèque
-scolaire** fonctionnelle : catalogue de livres, exemplaires physiques, emprunteurs et prêts.
+This guide walks you step by step from zero to a fully functional **school library management** application: book catalog, physical copies, borrowers, and loans.
 
 ---
 
-## Prérequis
+## Prerequisites
 
-- [Docker](https://www.docker.com/) (ou Tarantool 3.x installé localement)
-- `make`, `moonc` (compilateur MoonScript), `coffee` (CoffeeScript) — uniquement pour
-  modifier les sources
+- [Docker](https://www.docker.com/) (or Tarantool 3.x installed locally)
+- `make`, `moonc` (MoonScript compiler), `coffee` (CoffeeScript) — only needed to modify sources
 
 ---
 
-## Lancement
+## Launch
 
 ```bash
 git clone <repo>
@@ -28,127 +23,115 @@ cd tgui
 docker compose up
 ```
 
-L'interface est disponible sur **http://localhost:8080**.
+The interface is available at **http://localhost:8080**.
 
 ---
 
-## Connexion
+## Login
 
-![Écran de connexion](../img/login-screen.png)
-
-Au premier démarrage, un compte **admin** est créé automatiquement avec le mot de passe
-**admin**.
-
-> [!] Un bandeau d'avertissement s'affiche tant que ce mot de passe par défaut n'a pas été
-> changé. Cliquez sur « Changer maintenant » ou passez par le menu profil (en bas à gauche).
+![Login screen](../img/login-screen.png)
 
 ---
 
-## Présentation de l'interface
+## Overview of the interface
 
-![Interface principale](../img/main.png)
+![Main interface](../img/main.png)
 
-L'interface est divisée en deux zones :
+The interface is divided into two areas:
 
-| Zone | Rôle |
+| Area | Role |
 |------|------|
-| **Barre latérale** (gauche) | Navigation entre Vues, Données et Administration |
-| **Contenu** (droite) | Grille de données, éditeur de vue ou panel d'administration |
+| **Sidebar** (left) | Navigation between Views, Data and Administration |
+| **Content** (right) | Data grid, view editor or administration panel |
 
 ---
 
-## Créer les espaces (tables)
+## Create the spaces (tables)
 
-La bibliothèque repose sur 12 tables. Créez-les dans l'ordre suivant pour faciliter la
-définition des relations : d'abord les tables de référence, puis les tables principales,
-puis les tables de jointure, et enfin la table de transaction.
+The library is built on 12 tables. Create them in the following order to make relations easier to define: first the reference tables, then the main tables, then the join tables, and finally the transaction table.
 
-### 1 — Tables de référence
+### 1 — Reference tables
 
-Ces tables n'ont pas de dépendance vers d'autres tables.
+These tables have no dependency on other tables.
 
-1. Dans la section **Données** de la barre latérale, cliquez sur **+**.
-2. Saisissez le nom de l'espace et validez.
-3. Répétez pour chaque table.
+1. In the **Data** section of the sidebar, click **+**.
+2. Enter the space name and confirm.
+3. Repeat for each table.
 
-| Espace | Rôle |
+| Space | Role |
 |--------|------|
-| `genres` | Genres littéraires (roman, BD, documentaire…) |
-| `auteurs` | Auteurs des ouvrages |
-| `classes` | Classes scolaires de l'établissement |
-| `motscles` | Mots-clés thématiques |
-| `etiquettes` | Étiquettes de classement (prix, coups de cœur…) |
+| `genres` | Literary genres (novel, comic, non-fiction, …) |
+| `auteurs` | Book authors |
+| `classes` | School classes |
+| `motscles` | Thematic keywords |
+| `etiquettes` | Classification labels (prize, favorites, …) |
 
-![Espace de données avec grille](../img/space-data.png)
+![Data space with grid](../img/space-data.png)
 
-### 2 — Tables principales
+### 2 — Main tables
 
-| Espace | Rôle |
+| Space | Role |
 |--------|------|
-| `livres` | Catalogue des titres (références bibliographiques) |
-| `personnes` | Élèves et personnels pouvant emprunter |
-| `exemplaires` | Copies physiques de chaque titre |
-| `coordonnees` | Coordonnées de contact des personnes |
+| `livres` | Catalog of titles (bibliographic references) |
+| `personnes` | Students and staff who can borrow |
+| `exemplaires` | Physical copies of each title |
+| `coordonnees` | Contact details for people |
 
-### 3 — Tables de jointure many-to-many
+### 3 — Many-to-many join tables
 
-| Espace | Rôle |
+| Space | Role |
 |--------|------|
-| `livres_motscles` | Association livre ↔ mot-clé |
-| `livres_etiquettes` | Association livre ↔ étiquette |
+| `livres_motscles` | Book ↔ keyword association |
+| `livres_etiquettes` | Book ↔ label association |
 
-### 4 — Table de transaction
+### 4 — Transaction table
 
-| Espace | Rôle |
+| Space | Role |
 |--------|------|
-| `emprunts` | Enregistrement des prêts (exemplaire + emprunteur + dates) |
+| `emprunts` | Records of loans (copy + borrower + dates) |
 
 ---
 
-## Ajouter et gérer des champs
+## Add and manage fields
 
-Cliquez sur **[#] Champs** dans la barre d'outils pour ouvrir le panel latéral.
+Click **[#] Fields** in the toolbar to open the side panel.
 
-![Panel de champs](../img/fields-panel.png)
+![Fields panel](../img/fields-panel.png)
 
-### Créer un champ simple
+### Create a simple field
 
-1. Saisissez le **nom** du champ.
-2. Choisissez le **type** : `String`, `Int`, `Float`, `Boolean`, `UUID`, `Séquence`, `Any`,
-   `Map`, `Array`, ou `Relation`.
-3. Cochez **Requis** si la valeur ne peut pas être nulle.
-4. Cliquez sur **Ajouter**.
+1. Enter the **name** of the field.
+2. Choose the **type**: `String`, `Int`, `Float`, `Boolean`, `UUID`, `Sequence`, `Any`, `Map`, `Array`, or `Relation`.
+3. Check **Required** if the value cannot be null.
+4. Click **Add**.
 
-### Exemple : champs de l'espace `auteurs`
+### Example: fields of the `auteurs` space
 
-| Champ | Type | Requis |
+| Field | Type | Required |
 |-------|------|--------|
-| `id` | Séquence | — |
-| `particule` | String | non |
-| `nom` | String | **oui** |
-| `prenom` | String | non |
+| `id` | Sequence | — |
+| `particule` | String | no |
+| `nom` | String | **yes** |
+| `prenom` | String | no |
 
-### Exemple : champs de l'espace `livres`
+### Example: fields of the `livres` space
 
-| Champ | Type | Requis | Remarque |
+| Field | Type | Required | Note |
 |-------|------|--------|----------|
-| `id` | Séquence | — | |
-| `titre` | String | **oui** | |
-| `auteur_id` | Relation | non | → `auteurs` |
-| `genre_id` | Relation | non | → `genres` |
-| `cote` | String | non | Cote de rangement |
-| `isbn` | String | non | Nullable |
-| `annee` | Int | non | Année de parution, nullable |
+| `id` | Sequence | — | |
+| `titre` | String | **yes** | |
+| `auteur_id` | Relation | no | → `auteurs` |
+| `genre_id` | Relation | no | → `genres` |
+| `cote` | String | no | Shelf mark |
+| `isbn` | String | no | Nullable |
+| `annee` | Int | no | Publication year, nullable |
 
-### Colonne calculée (λ)
+### Computed column (λ)
 
-Sélectionnez **Colonne calculée** et saisissez une expression MoonScript ou Lua.
-La formule est le corps d'une fonction `(self, space) -> <formule>` ; en MoonScript,
-`@champ` accède à `self.champ`. La valeur est recalculée à chaque lecture ; elle n'est
-pas stockée.
+Select **Computed column** and enter a MoonScript or Lua expression.
+The formula is the body of a function `(self, space) -> <expression>`; in MoonScript `@field` accesses `self.field`. The value is recomputed on each read and is not stored.
 
-**Exemple : `nom_complet` dans `auteurs`** — combine prénom, particule et nom en tenant
-compte des valeurs nulles :
+**Example: `nom_complet` in `auteurs`** — combine first name, particle and last name while handling nulls:
 
 ```moonscript
 parts = {}
@@ -158,10 +141,10 @@ table.insert(parts, @nom) if @nom and @nom != ""
 table.concat(parts, " ")
 ```
 
-Le paramètre `space` donne accès aux enregistrements d'un autre espace (full scan) :
+The `space` parameter gives access to records of another space (full scan):
 
 ```moonscript
--- Compter les exemplaires disponibles pour ce livre
+-- Count available copies for this book
 n = 0
 for e in *space("exemplaires")
   n += 1 if e.livre_id == @id and e.disponible
@@ -170,12 +153,10 @@ n
 
 ### Trigger formula ((trigger))
 
-Sélectionnez **Trigger formula** et, optionnellement, listez les champs déclencheurs.
-La formule est exécutée et le résultat **stocké** lors de chaque création ou modification
-des champs listés.
+Select **Trigger formula** and optionally list the trigger fields.
+The formula is executed and the result **stored** on each creation or modification of the listed fields.
 
-**Exemple : `cote_auto` dans `livres`** — génère une cote bibliographique automatique à
-partir des trois premières lettres du titre et de l'année (déclenché sur `titre` et `annee`) :
+**Example: `cote_auto` in `livres`** — generate an automatic shelf mark from the first three letters of the title and the year (triggered on `titre` and `annee`):
 
 ```moonscript
 -- triggerFields: ["titre", "annee"]
@@ -184,37 +165,35 @@ annee  = if @annee then tostring(@annee) else "????"
 "#{prefix}-#{annee}"
 ```
 
-### Modifier un champ existant
+### Edit an existing field
 
-Cliquez sur **(crayon)** à côté du champ pour éditer son nom, type, formule ou trigger.
+Click the **(pencil)** icon next to a field to edit its name, type, formula or trigger.
 
-![Édition d'un champ](../img/field-edit.png)
-
----
-
-## Saisir et éditer des données
-
-- Cliquez sur une cellule pour l'éditer directement dans la grille.
-- Appuyez sur **Entrée** ou tabulation pour passer à la suivante.
-- Pour **ajouter une ligne**, cliquez dans la zone vide sous la dernière ligne.
-- Pour **supprimer des lignes**, sélectionnez-les (cases à cocher) puis cliquez sur le
-  bouton [suppr] « Supprimer les lignes sélectionnées ».
-
-Commencez par saisir les données dans les tables de référence (`genres`, `auteurs`,
-`classes`) avant de renseigner `livres`, `personnes` et `exemplaires`.
+![Edit field](../img/field-edit.png)
 
 ---
 
-## Relations entre espaces
+## Entering and editing data
 
-Dans le panel **Champs**, choisissez le type **Relation** pour les champs `_id` :
+- Click a cell to edit it directly in the grid.
+- Press **Enter** or Tab to move to the next cell.
+- To **add a row**, click in the empty area below the last row.
+- To **delete rows**, select them (checkboxes) then click the [del] “Delete selected rows” button.
 
-1. Choisissez l'espace **cible** dans la liste déroulante.
-2. Le champ stockera l'identifiant de l'enregistrement lié.
+Start by entering data in the reference tables (`genres`, `auteurs`, `classes`) before filling `livres`, `personnes` and `exemplaires`.
 
-Voici les relations à créer pour la bibliothèque :
+---
 
-| Champ (espace source) | Espace cible |
+## Relations between spaces
+
+In the **Fields** panel choose the **Relation** type for `_id` fields:
+
+1. Select the **target** space from the dropdown.
+2. The field will store the identifier of the linked record.
+
+Here are the relations to create for the library:
+
+| Source field (space) | Target space |
 |-----------------------|-------------|
 | `livres.auteur_id` | `auteurs` |
 | `livres.genre_id` | `genres` |
@@ -228,106 +207,90 @@ Voici les relations à créer pour la bibliothèque :
 | `livres_etiquettes.livre_id` | `livres` |
 | `livres_etiquettes.etiquette_id` | `etiquettes` |
 
-Les relations permettent ensuite de construire des vues personnalisées avec filtrage
-automatique (dépendances inter-widgets).
+Relations can then be used to build custom views with automatic filtering (inter-widget dependencies).
 
-### Formule de représentation (reprFormula)
+### Representation formula (reprFormula)
 
-Par défaut, une colonne de type Relation affiche l'identifiant brut de l'enregistrement
-lié. Vous pouvez définir une **formule de représentation** en MoonScript pour afficher
-un libellé lisible à la place.
+By default, a Relation column displays the raw identifier of the linked record. You can define a **representation formula** in MoonScript to show a human-friendly label instead.
 
-- La syntaxe `@champ` donne accès aux champs de l'enregistrement lié.
-- Les champs FK sont résolus automatiquement : `@genre_id.libelle` suit la relation
-  `genre_id` dans l'espace lié et retourne son `libelle`.
-- Le chaînage multi-niveaux est supporté : `@livre_id.genre_id.libelle`
-  (exemplaire → livre → genre).
-- Si aucune formule n'est définie, la colonne utilise le champ `_repr` de l'espace cible
-  (s'il existe), sinon l'identifiant brut.
+- The syntax `@field` accesses fields of the linked record.
+- FK fields are resolved automatically: `@genre_id.libelle` follows the `genre_id` relation in the linked space and returns its `libelle`.
+- Multi-level chaining is supported: `@livre_id.genre_id.libelle` (copy → book → genre).
+- If no formula is defined, the column uses the `_repr` field of the target space (if present), otherwise the raw id.
 
-**Exemples :**
+**Examples:**
 
-| Formule | Effet |
+| Formula | Effect |
 |---------|-------|
-| `@nom` | Affiche le champ `nom` de l'enregistrement lié |
-| `@nom .. ' ' .. @prenom` | Concatène nom et prénom |
-| `@genre_id.libelle` | Suit la FK `genre_id` et affiche le libelle du genre |
-| `@livre_id.genre_id.libelle` | Chaîne deux FK (exemplaire → livre → genre) |
+| `@nom` | Shows the `nom` field of the linked record |
+| `@nom .. ' ' .. @prenom` | Concatenates last name and first name |
+| `@genre_id.libelle` | Follows the FK `genre_id` and displays the genre label |
+| `@livre_id.genre_id.libelle` | Chains two FKs (copy → book → genre) |
 
-**Exemple concret — emprunts :**
+**Concrete example — loans:**
 
-Dans l'espace `emprunts`, la colonne `exemplaire_id` peut afficher le titre du livre
-correspondant grâce à une chaîne de FK :
+In the `emprunts` space, the `exemplaire_id` column can display the title of the corresponding book by chaining FKs:
 
 ```
 reprFormula : @livre_id.titre
 ```
-(exemplaire → livre : affiche le titre du livre de cet exemplaire)
 
-Pour définir la formule, cliquez sur **(crayon)** à côté du champ Relation dans le panel
-Champs, puis saisissez la formule dans le champ **Formule de représentation**.
+(To show the book title for this copy.)
+
+To set the formula, click the **(pencil)** next to the Relation field in the Fields panel and enter the representation formula in the **Representation formula** field.
 
 ---
 
-## Vues personnalisées (YAML)
+## Custom views (YAML)
 
-Les vues permettent de composer des tableaux de bord multi-espaces.
+Views let you compose multi-space dashboards.
 
-![Vue personnalisée](../img/custom-view.png)
+![Custom view](../img/custom-view.png)
 
-### Créer une vue
+### Create a view
 
-1. Dans la section **Vues**, cliquez sur **+**.
-2. Donnez un nom à la vue (ex. `Gestion des prêts`).
-3. L'éditeur YAML s'ouvre automatiquement.
+1. In the **Views** section click **+**.
+2. Give the view a name (e.g. `Loans management`).
+3. The YAML editor opens automatically.
 
-### Éditeur YAML avec schéma ERD
+### YAML editor with ERD schema
 
-Cliquer sur **« Éditer »** ouvre un modal plein écran avec deux panneaux :
+Clicking **Edit** opens a fullscreen modal with two panels:
 
-- **Gauche** : éditeur CodeMirror (coloration syntaxique YAML, thème monokai).
-- **Droite** : diagramme ERD interactif montrant tous les espaces et leurs relations.
+- **Left**: CodeMirror editor (YAML syntax highlighting, monokai theme).
+- **Right**: interactive ERD diagram showing all spaces and their relations.
 
-![Modal éditeur YAML et diagramme ERD](../img/erd-modal-overview.png)
+![YAML editor modal and ERD diagram](../img/erd-modal-overview.png)
 
-**Utiliser le diagramme ERD pour construire le YAML :**
+**Use the ERD diagram to build the YAML:**
 
-Chaque boîte représente un espace. Pour chaque champ (rangée) :
+Each box represents a space. For each field (row):
 
-- Cliquer sur **`*`** (première rangée, en italique) ajoute l'espace **sans restriction de colonnes**.
-  La boîte s'illumine avec le badge `* ✓`.
+- Click **`*`** (first row, italic) to add the space **without column restrictions**. The box lights up with the `* ✓` badge.
 
-![Sélection avec le pseudo-champ *](../img/erd-star-field.png)
+![Select with pseudo-field *](../img/erd-star-field.png)
 
-- Cliquer sur un **champ nommé** l'ajoute à la liste `columns` du widget.
-  Si l'espace n'est pas encore dans le YAML, il est créé. Si cet espace a une clé étrangère
-  vers un espace déjà présent dans le YAML, un `depends_on` est généré automatiquement.
+- Click a **named field** to add it to the widget's `columns` list. If the space is not yet in the YAML it is created. If that space has a foreign key to an already-present space in the YAML, a `depends_on` is generated automatically.
 
-![Détection automatique de depends_on](../img/erd-depends-on.png)
+![Auto-detection of depends_on](../img/erd-depends-on.png)
 
-- Recliquer un champ déjà sélectionné le retire. Retirer tous les champs supprime le widget.
-- Le bouton **Effacer** réinitialise la sélection.
-- Les **flèches** indiquent les clés étrangères ; les **auto-relations** (ex. `parent_id → id`)
-  sont dessinées comme une boucle sur le côté droit de la boîte.
+- Clicking a selected field again removes it. Removing all fields deletes the widget.
+- The **Clear** button resets the selection.
+- **Arrows** indicate foreign keys; **self-relations** (e.g. `parent_id → id`) are drawn as a loop on the right side of the box.
 
-**Synchronisation bidirectionnelle :** le diagramme ERD s'initialise depuis le YAML existant
-au moment de l'ouverture du modal — les espaces et champs déjà définis sont mis en évidence.
-Modifier le YAML manuellement dans CodeMirror met à jour le diagramme en temps réel.
-Les champs non gérés par le constructeur (comme `title`, `aggregate`, `computed`) sont
-**préservés** lors des modifications via le diagramme.
+**Bidirectional sync:** the ERD initializes from the existing YAML when opening the modal — spaces and fields already defined are highlighted. Editing the YAML manually in CodeMirror updates the diagram in real time. Fields not managed by the builder (like `title`, `aggregate`, `computed`) are **preserved** when editing via the diagram.
 
-**Boutons du modal :**
+**Modal buttons:**
 
-| Bouton | Action |
+| Button | Action |
 |--------|--------|
-| **💾 Enregistrer** | Sauvegarde le YAML |
-| **▶ Aperçu** | Affiche la vue rendue |
-| **✕** | Ferme le modal sans sauvegarder |
+| **↓ Save** | Save the YAML |
+| **▶ Preview** | Show the rendered view |
+| **×** | Close the modal without saving |
 
-### Vue « Gestion des prêts »
+### View “Loans management”
 
-La vue principale de la bibliothèque affiche les livres, leurs exemplaires et les emprunts
-en cours, avec un récapitulatif par genre.
+The main library view shows books, their copies and current loans, with a summary by genre.
 
 ```yaml
 layout:
@@ -363,10 +326,9 @@ layout:
               factor: 3
 ```
 
-### Widget agrégat — Emprunts par genre
+### Aggregate widget — Loans by genre
 
-Un widget de type `aggregate` affiche un tableau de synthèse en lecture seule — l'équivalent
-d'un `GROUP BY` SQL, calculé en Lua côté serveur.
+An `aggregate` widget shows a read-only summary table — the equivalent of an SQL `GROUP BY`, computed in Lua on the server side.
 
 ```yaml
 - widget:
@@ -384,83 +346,81 @@ d'un `GROUP BY` SQL, calculé en Lua côté serveur.
         expr: "row.nb_emprunts > 10 ? 'Actif' : 'Peu emprunté'"
 ```
 
-Les fonctions disponibles sont `sum`, `count`, `avg`, `min`, `max`. L'alias `as` est
-optionnel (nom par défaut : `fn_champ`, ex. `count`).
+Available functions are `sum`, `count`, `avg`, `min`, `max`. The `as` alias is optional (default name: `fn_field`, e.g. `count`).
 
-![Exemple de widget agrégat](../img/aggregate-widget.png)
-
----
-
-## Gestion des utilisateurs et droits (admin)
-
-La section **Administration** n'est visible que pour les membres du groupe `admin`.
-
-### Utilisateurs
-
-![Panel utilisateurs](../img/admin-users.png)
-
-- **+ Créer** : ouvre un formulaire (nom d'utilisateur, email optionnel, mot de passe).
-- **[clé]** sur chaque ligne : permet à l'admin de forcer le changement de mot de passe d'un
-  utilisateur sans connaître son mot de passe actuel.
-
-### Groupes
-
-![Panel groupes](../img/admin-groups.png)
-
-- **+ Créer** : crée un nouveau groupe.
-- **[suppr]** : supprime le groupe (hors groupe `admin` qui est protégé).
-
-> Les droits (`grant` / `revoke`) sont actuellement gérables via l'API GraphQL.
-
-### Export et import de snapshots
-
-La section **Export / Import** permet de sauvegarder et restaurer une application TGui.
-
-**Exporter** :
-
-- **Structure seule** : télécharge un fichier `.tdb.yaml` contenant le schéma complet
-  (espaces, champs, relations, vues, groupes, permissions) sans les données.
-- **Structure + données** : inclut également toutes les lignes de chaque espace.
-
-**Importer** :
-
-1. Cliquer sur **Choisir un fichier** et sélectionner un fichier `.tdb.yaml`.
-2. Un **diff** s'affiche (vert = créer, rouge = supprimer, orange = modifier).
-3. Choisir le mode :
-   - **Fusion** : crée les éléments manquants, laisse l'existant intact.
-   - **Remplacement** : supprime tout puis recrée depuis le snapshot (attention : données perdues).
-4. Cliquer sur **Confirmer l'import**.
+![Aggregate widget example](../img/aggregate-widget.png)
 
 ---
 
-## Profil utilisateur
+## User and rights management (admin)
 
-Cliquez sur votre **nom d'utilisateur** (en bas à gauche) pour ouvrir le menu :
+The **Administration** section is visible only to members of the `admin` group.
 
-![Menu profil](../img/user-menu.png)
+### Users
 
-- **Changer le mot de passe** : saisir l'ancien puis le nouveau mot de passe.
-- **Déconnexion** : invalide la session côté serveur et revient à l'écran de connexion.
-- **FR / EN** : change la langue de l'interface (préférence conservée localement dans le navigateur).
+![Users panel](../img/admin-users.png)
 
-![Dialog changement de mot de passe](../img/change-password.png)
+- **+ Create**: opens a form (username, optional email, password).
+- **[key]** on each row: allows the admin to force a password change for a user without knowing their current password.
+
+### Groups
+
+![Groups panel](../img/admin-groups.png)
+
+- **+ Create**: creates a new group.
+- **[del]**: deletes the group (except the protected `admin` group).
+
+> Rights (`grant` / `revoke`) are currently manageable via the GraphQL API.
+
+### Export and import snapshots
+
+The **Export / Import** section allows saving and restoring a TGui application.
+
+**Export:**
+
+- **Structure only**: downloads a `.tdb.yaml` file containing the full schema (spaces, fields, relations, views, groups, permissions) without data.
+- **Structure + data**: includes all rows of each space.
+
+**Import:**
+
+1. Click **Choose file** and select a `.tdb.yaml` file.
+2. A **diff** is shown (green = create, red = delete, orange = modify).
+3. Choose mode:
+   - **Merge**: create missing elements, leave existing ones untouched.
+   - **Replace**: delete everything and recreate from the snapshot (warning: data loss).
+4. Click **Confirm import**.
 
 ---
 
-## Renommer ou supprimer un espace
+## User profile
 
-Dans la barre d'outils de l'espace :
+Click your **username** (bottom left) to open the menu:
 
-- **(crayon)** (icône crayon) : renommer l'espace.
-- **[suppr]** (icône poubelle à côté du titre) : supprimer l'espace et toutes ses données.
+![Profile menu](../img/user-menu.png)
+
+- **Change password**: enter the old and the new password.
+- **Logout**: invalidates the session on the server and returns to the login screen.
+- **FR / EN**: changes the interface language (preference is stored locally in the browser).
+
+![Change password dialog](../img/change-password.png)
 
 ---
 
-## Raccourcis clavier
+## Rename or delete a space
 
-| Touche | Action |
+In the space toolbar:
+
+- **(pencil)** (pencil icon): rename the space.
+- **[del]** (trash icon next to the title): delete the space and all its data.
+
+---
+
+## Keyboard shortcuts
+
+| Key | Action |
 |--------|--------|
-| **Entrée** | Valider la saisie dans une cellule |
-| **Échap** | Annuler la saisie en cours |
-| **Tab** | Passer à la cellule suivante |
-| **Entrée** sur l'écran de connexion | Se connecter |
+| **Enter** | Confirm cell edit |
+| **Escape** | Cancel current edit |
+| **Tab** | Move to the next cell |
+| **Enter** on the login screen | Log in |
+

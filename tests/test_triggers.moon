@@ -1,78 +1,78 @@
 -- tests/test_triggers.moon
--- Tests des trigger formulas (core/triggers.moon).
--- Nécessite Tarantool (box déjà initialisé dans run.moon).
+-- Tests trigger formulas (core/triggers.moon).
+-- Requires Tarantool (box already initialized in run.moon).
 
 R = require 'tests.runner'
 json        = require 'json'
 spaces_mod  = require 'core.spaces'
 triggers    = require 'core.triggers'
 
--- Espace isolé pour ces tests
+-- Isolated space for these tests
 SUFFIX  = tostring(math.random 100000, 999999)
 SP_NAME = "test_triggers_#{SUFFIX}"
 MS_SP   = "trig_moon_#{SUFFIX}"
 
 local space_id, data_space
 
--- Helper : insérer un tuple directement
+-- Helper: insert a tuple directly
 insert_raw = (data) ->
   id = tostring(os.time!) .. math.random(1000, 9999)
   data_space\insert { id, json.encode data }
   { id: id, data: data }
 
--- Helper : lire les données d'un tuple
+-- Helper: read tuple data
 read_data = (id) ->
   t = data_space\get id
   return nil unless t
   json.decode t[2]
 
 R.describe "Triggers — setup", ->
-  R.it "créer l'espace de test", ->
+  R.it "create test space", ->
     sp = spaces_mod.create_user_space SP_NAME
     space_id = sp.id
     data_space = box.space["data_#{SP_NAME}"]
     R.ok data_space
 
-  R.it "ajouter les champs de base", ->
+  R.it "add base fields", ->
     spaces_mod.add_field space_id, 'prenom', 'String'
     spaces_mod.add_field space_id, 'nom',    'String'
-    -- Trigger formula : se déclenche à tout changement de prenom ou nom
+    -- Trigger formula: triggered on any first/last name change
     spaces_mod.add_field space_id, 'nom_complet', 'String', false, '',
       '(self.prenom or "") .. " " .. (self.nom or "")',
       {'prenom', 'nom'}
-    -- Trigger formula : création seulement
+    -- Trigger formula: creation only
     spaces_mod.add_field space_id, 'cree_le', 'String', false, '',
       'os.date("%Y")',
       {}
     triggers.register_space_trigger SP_NAME
-    R.ok data_space  -- trigger enregistré sans erreur
+    R.ok data_space  -- trigger registered without error
 
-R.describe "Triggers — déclenchement à l'insertion", ->
-  R.it "nom_complet calculé à l'insertion", ->
+R.describe "Triggers — fired on insert", ->
+  R.it "full_name computed on insert", ->
     id = 'trig_insert_1'
     data_space\insert { id, json.encode { prenom: 'Jean', nom: 'Dupont' } }
     d = read_data id
     R.eq d.nom_complet, 'Jean Dupont'
 
-  R.it "prenom ou nom vide → concaténation partielle", ->
+  R.it "empty first or last name -> partial concatenation", ->
     id = 'trig_insert_2'
     data_space\insert { id, json.encode { prenom: 'Alice', nom: '' } }
     d = read_data id
     R.eq d.nom_complet, 'Alice '
 
-  R.it "champ cree_le (creation-only) est calculé à l'insertion", ->
+  R.it "created_at field (creation-only) is computed on insert", ->
     id = 'trig_insert_3'
     data_space\insert { id, json.encode { prenom: 'Bob', nom: 'Martin' } }
     d = read_data id
     R.ok d.cree_le and d.cree_le != ''
-    -- doit être une année (4 chiffres)
+    -- should be a year (4 digits)
     R.matches tostring(d.cree_le), '^%d%d%d%d$'
 
-R.describe "Triggers — déclenchement à la mise à jour", ->
-  R.it "mise à jour de prenom → recalcul de nom_complet", ->
+R.describe "Triggers — fired on update", ->
+  R.it "updating first name -> full_name recomputed", ->
     id = 'trig_update_1'
     data_space\insert { id, json.encode { prenom: 'Jean', nom: 'Dupont' } }
-    -- Modifier prenom
+    -- Change first name
     old = data_space\get id
     d = json.decode old[2]
     d.prenom = 'Pierre'
@@ -80,7 +80,7 @@ R.describe "Triggers — déclenchement à la mise à jour", ->
     d2 = read_data id
     R.eq d2.nom_complet, 'Pierre Dupont'
 
-  R.it "mise à jour de nom → recalcul de nom_complet", ->
+  R.it "updating last name -> full_name recomputed", ->
     id = 'trig_update_2'
     data_space\insert { id, json.encode { prenom: 'Jean', nom: 'Dupont' } }
     old = data_space\get id
@@ -90,24 +90,24 @@ R.describe "Triggers — déclenchement à la mise à jour", ->
     d2 = read_data id
     R.eq d2.nom_complet, 'Jean Martin'
 
-  R.it "champ cree_le (creation-only) n'est PAS recalculé à la mise à jour", ->
+  R.it "created_at field (creation-only) is NOT recomputed on update", ->
     id = 'trig_update_3'
     data_space\insert { id, json.encode { prenom: 'X', nom: 'Y' } }
     d_before = read_data id
     old_val = d_before.cree_le
-    -- Attendre une seconde et modifier
+    -- Wait one second and modify
     old = data_space\get id
     d = json.decode old[2]
     d.prenom = 'Z'
     data_space\replace { id, json.encode d }
     d_after = read_data id
-    -- cree_le ne doit pas changer
+    -- created_at must not change
     R.eq d_after.cree_le, old_val
 
 R.describe "Triggers — compile_formula", ->
-  -- Test interne via le module chargé
-  R.it "formule valide → fonction", ->
-    -- On utilise pcall + load directement pour tester la logique
+  -- Internal test through loaded module
+  R.it "valid formula -> function", ->
+    -- Use pcall + load directly to test behavior
     fn_str = "return function(self, space) return self.a + self.b end"
     ok, compiled = pcall load, fn_str
     R.ok ok
@@ -118,16 +118,16 @@ R.describe "Triggers — compile_formula", ->
     setmetatable proxy, { __index: (t, k) -> rawget t, k }
     R.eq fn(proxy, nil), 7
 
-  R.it "formule invalide → erreur Lua", ->
+  R.it "invalid formula -> Lua error", ->
     fn_str = "return function(self, space) return self.a +++++ end"
     fn, err = load fn_str
     R.nok fn
     R.ok err
 
-  R.it "formule MoonScript valide → compilée en fonction Lua", ->
-    -- Vérifier que moonscript.base est disponible et compile correctement
+  R.it "valid MoonScript formula -> compiled to Lua function", ->
+    -- Verify moonscript.base is available and compiles correctly
     ok_ms, moon = pcall require, 'moonscript.base'
-    R.ok ok_ms, "moonscript.base doit être disponible"
+    R.ok ok_ms, "moonscript.base should be available"
     moon_src = "return (self, space) -> (self.a or 0) + (self.b or 0)"
     ok_c, lua_code = pcall moon.to_lua, moon_src
     R.ok ok_c, "MoonScript → Lua: #{tostring lua_code}"
@@ -141,27 +141,27 @@ R.describe "Triggers — compile_formula", ->
 R.describe "Triggers — trigger formula MoonScript", ->
   local ms_space_id, ms_data_space
 
-  R.it "créer un espace avec trigger formula MoonScript", ->
+  R.it "create space with MoonScript trigger formula", ->
     sp = spaces_mod.create_user_space MS_SP
     ms_space_id = sp.id
     ms_data_space = box.space["data_#{MS_SP}"]
     R.ok ms_data_space
     spaces_mod.add_field ms_space_id, 'a', 'Int'
     spaces_mod.add_field ms_space_id, 'b', 'Int'
-    -- Trigger formula en MoonScript : additionner a et b
+    -- MoonScript trigger formula: add a and b
     spaces_mod.add_field ms_space_id, 'somme', 'Int', false, '',
       '(self.a or 0) + (self.b or 0)',
       {'a', 'b'}, 'moonscript'
     triggers.register_space_trigger MS_SP
     R.ok ms_data_space
 
-  R.it "trigger MoonScript calcule la valeur à l'insertion", ->
+  R.it "MoonScript trigger computes value on insert", ->
     id = 'moon_insert_1'
     ms_data_space\insert { id, json.encode { a: 3, b: 7 } }
     d = json.decode (ms_data_space\get id)[2]
     R.eq d.somme, 10
 
-  R.it "trigger MoonScript recalcule à la mise à jour", ->
+  R.it "MoonScript trigger recomputes on update", ->
     id = 'moon_update_1'
     ms_data_space\insert { id, json.encode { a: 2, b: 4 } }
     t = ms_data_space\get id
@@ -172,19 +172,19 @@ R.describe "Triggers — trigger formula MoonScript", ->
     R.eq d2.somme, 14
 
 R.describe "Triggers — register_space_trigger", ->
-  R.it "appel multiple sans erreur (idempotent)", ->
+  R.it "multiple calls without error (idempotent)", ->
     ok, err = pcall triggers.register_space_trigger, SP_NAME
-    R.ok ok, "register_space_trigger doit être idempotent: #{tostring err}"
+    R.ok ok, "register_space_trigger should be idempotent: #{tostring err}"
 
-  R.it "espace inexistant → pas d'erreur", ->
-    ok, err = pcall triggers.register_space_trigger, 'espace_qui_nexiste_pas'
-    R.ok ok, "espace inexistant doit être géré silencieusement: #{tostring err}"
+  R.it "non-existing space -> no error", ->
+    ok, err = pcall triggers.register_space_trigger, 'space_that_does_not_exist'
+    R.ok ok, "non-existing space should be handled silently: #{tostring err}"
 
 R.describe "Triggers — init_all_triggers", ->
-  R.it "init_all_triggers s'exécute sans erreur", ->
+  R.it "init_all_triggers runs without error", ->
     ok, err = pcall triggers.init_all_triggers
     R.ok ok, "init_all_triggers: #{tostring err}"
 
--- Nettoyage : suppression des espaces créés pour ces tests
+-- Cleanup: delete spaces created for these tests
 spaces_mod.delete_user_space SP_NAME
 spaces_mod.delete_user_space MS_SP

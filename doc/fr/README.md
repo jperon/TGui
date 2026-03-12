@@ -1,11 +1,11 @@
-# Documentation TGui
+# TGui Documentation
 
 | Document | Description |
 |----------|-------------|
-| [Démarrage rapide](get-started.md) | Installation, connexion, premières étapes |
-| [API GraphQL](api.md) | Référence API (queries, mutations, exemples) |
-| [Documentation développeur](dev.md) | Vue d’ensemble technique et architecture |
+| [Quick Start](get-started.md) | Installation, login, first steps |
+| [GraphQL API](api.md) | API reference (queries, mutations, examples) |
+| [Developer Documentation](dev.md) | Technical overview and architecture |
 
-## Copies d'écran
+## Screenshots
 
-Les captures d'écran se trouvent dans le dossier [`img/`](../img/).
+Screenshots are located in the [`img/`](../img/) folder.

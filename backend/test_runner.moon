@@ -1,6 +1,6 @@
 -- backend/test_runner.moon
--- Point d'entrée pour exécuter les tests dans un conteneur Docker
--- Retourne le code de sortie approprié (0 si succès, 1 si échec)
+-- Entrypoint to run tests in a Docker container.
+-- Returns the appropriate exit code (0 on success, 1 on failure).
 
 box.cfg {
     listen: '0.0.0.0:3301',

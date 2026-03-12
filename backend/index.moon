@@ -1,6 +1,6 @@
 -- backend/index.moon
--- Génère dynamiquement la page HTML principale de TGui.
--- Utilise backend/html.lua pour construire l'arbre HTML sans concaténation manuelle.
+-- Dynamically generates the main TGui HTML page.
+-- Uses backend/html.lua to build the HTML tree without manual string concatenation.
 
 H = require 'html'
 
@@ -20,7 +20,7 @@ FIELD_TYPE_OPTIONS = {
   {'Relation', 'Relation'}
 }
 
--- Construit le <select> des types de champs.
+-- Builds the field-type <select>.
 field_type_select = ->
   opts = {id: 'field-type'}
   for {val, label} in *FIELD_TYPE_OPTIONS
@@ -28,7 +28,7 @@ field_type_select = ->
   H.select opts
 
 
--- Section <head>
+-- <head> section
 make_head = ->
   H.head {
     H.meta {charset: 'UTF-8'}
@@ -40,7 +40,7 @@ make_head = ->
     H.link {rel: 'stylesheet', href: '/css/app.css'}
   }
 
--- Overlay de connexion
+-- Login overlay
 make_login_overlay = ->
   H.div {id: 'login-overlay', class: 'overlay',
       H.div {class: 'login-box',
@@ -52,7 +52,7 @@ make_login_overlay = ->
     }
   }
 
--- Barre latérale
+-- Sidebar
 make_sidebar = ->
   H.nav {id: 'sidebar',
     H.div {class: 'sidebar-header',
@@ -97,7 +97,7 @@ make_sidebar = ->
     }
   }
 
--- Panneau latéral de gestion des champs
+-- Side panel for field management
 make_fields_panel = ->
   H.aside {id: 'fields-panel', class: 'hidden',
     H.div {class: 'fields-panel-header',
@@ -176,10 +176,10 @@ make_fields_panel = ->
     }
   }
 
--- Zone de contenu principale
+-- Main content area
 make_content = ->
   H.main {id: 'content',
-    -- Bandeau avertissement mot de passe par défaut
+    -- Default-password warning banner
     H.div {id: 'default-password-warning', class: 'warning-banner hidden',
       '⚠ Vous utilisez le mot de passe par défaut. '
       H.button {id: 'warning-change-password-btn', 'Changer maintenant'}
@@ -203,6 +203,7 @@ make_content = ->
       H.div {class: 'yaml-editor-toolbar',
         H.span {id: 'yaml-view-name', class: 'content-title', ''}
         H.button {id: 'yaml-edit-btn', class: 'toolbar-btn', '✎ Éditer'}
+        H.button {id: 'yaml-plugins-btn', class: 'toolbar-btn', '🧩 Plugins'}
         H.button {id: 'yaml-delete-btn', class: 'toolbar-btn toolbar-btn--danger', title: 'Supprimer la vue', '🗑'}
       }
     }
@@ -211,7 +212,7 @@ make_content = ->
       H.div {id: 'custom-view-container', class: 'hidden', ''}
       make_fields_panel!
     }
-    -- Panel d'administration (utilisateurs + groupes)
+    -- Admin panel (users + groups)
     H.div {id: 'admin-panel', class: 'hidden admin-panel',
       H.div {id: 'admin-users-section',
         H.div {class: 'admin-section-header',
@@ -274,7 +275,7 @@ make_content = ->
     H.div {id: 'welcome', class: 'welcome',
       H.p {'Sélectionnez un espace ou une vue dans la barre latérale.'}
     }
-    -- Dialog : changement de mot de passe
+    -- Dialog: change password
     H.div {id: 'change-password-dialog', class: 'modal-overlay hidden',
       H.div {class: 'modal-box',
         H.h2 {'Changer le mot de passe'}
@@ -288,7 +289,7 @@ make_content = ->
         }
       }
     }
-    -- Dialog : créer un utilisateur (admin)
+    -- Dialog: create user (admin)
     H.div {id: 'create-user-dialog', class: 'modal-overlay hidden',
       H.div {class: 'modal-box',
         H.h2 {'Créer un utilisateur'}
@@ -302,7 +303,7 @@ make_content = ->
         }
       }
     }
-    -- Dialog : créer un groupe (admin)
+    -- Dialog: create group (admin)
     H.div {id: 'create-group-dialog', class: 'modal-overlay hidden',
       H.div {class: 'modal-box',
         H.h2 {'Créer un groupe'}
@@ -315,7 +316,7 @@ make_content = ->
         }
       }
     }
-    -- Modal : éditeur YAML (CodeMirror)
+    -- Modal: YAML editor (CodeMirror)
     H.div {id: 'yaml-modal', class: 'modal-overlay hidden',
       H.div {class: 'modal-box modal-box--editor',
         H.div {class: 'modal-editor-header',
@@ -327,13 +328,54 @@ make_content = ->
           }
         }
         H.div {class: 'yaml-modal-body',
-          H.div {id: 'yaml-validation-msg', class: 'yaml-validation-msg hidden', ''}
-          H.div {id: 'yaml-cm-editor', ''}
+          H.div {class: 'yaml-editor-pane',
+            H.div {id: 'yaml-validation-msg', class: 'yaml-validation-msg hidden', ''}
+            H.div {id: 'yaml-cm-editor', ''}
+          }
           H.div {id: 'schema-browser', class: 'schema-browser', ''}
         }
       }
     }
-    -- Modal : éditeur de formule (CodeMirror)
+    -- Modal: widget plugins editor (CodeMirror)
+    H.div {id: 'widget-plugin-modal', class: 'modal-overlay hidden',
+      H.div {class: 'modal-box modal-box--editor',
+        H.div {class: 'modal-editor-header',
+          H.span {class: 'modal-title', 'Plugins widgets'}
+          H.div {class: 'modal-editor-actions',
+            H.button {id: 'widget-plugin-new-btn', class: 'toolbar-btn', '＋ Nouveau'}
+            H.button {id: 'widget-plugin-delete-btn', class: 'toolbar-btn toolbar-btn--danger', '🗑 Supprimer'}
+            H.button {id: 'widget-plugin-save-btn', class: 'btn-primary', '💾 Enregistrer'}
+            H.button {id: 'widget-plugin-modal-close-btn', class: 'toolbar-btn', '✕'}
+          }
+        }
+        H.div {class: 'yaml-modal-body',
+          H.div {class: 'yaml-editor-pane',
+            H.label {class: 'formula-hint', ['for']: 'widget-plugin-name', 'Nom'}
+            H.input {id: 'widget-plugin-name', type: 'text', placeholder: 'my_widget_plugin'}
+            H.label {class: 'formula-hint', ['for']: 'widget-plugin-description', 'Description'}
+            H.input {id: 'widget-plugin-description', type: 'text', placeholder: 'Description'}
+            H.div {class: 'formula-lang-row',
+              H.label {class: 'formula-hint', ['for']: 'widget-plugin-script-language', 'Script'}
+              H.select {id: 'widget-plugin-script-language',
+                H.option {value: 'coffeescript', 'CoffeeScript'}
+                H.option {value: 'javascript', 'JavaScript'}
+              }
+              H.label {class: 'formula-hint', ['for']: 'widget-plugin-template-language', 'Template'}
+              H.select {id: 'widget-plugin-template-language',
+                H.option {value: 'pug', 'Pug'}
+                H.option {value: 'html', 'HTML'}
+              }
+            }
+            H.label {class: 'formula-hint', 'Template'}
+            H.div {id: 'widget-plugin-template-editor', style: 'height: 180px; border: 1px solid #2a2a2a;'}
+            H.label {class: 'formula-hint', style: 'margin-top: .5rem;', 'Script'}
+            H.div {id: 'widget-plugin-script-editor', style: 'height: 220px; border: 1px solid #2a2a2a;'}
+          }
+          H.div {id: 'widget-plugin-list', class: 'schema-browser', ''}
+        }
+      }
+    }
+    -- Modal: formula editor (CodeMirror)
     H.div {id: 'formula-modal', class: 'modal-overlay hidden',
       H.div {class: 'modal-box modal-box--editor',
         H.div {class: 'modal-editor-header',
@@ -348,7 +390,7 @@ make_content = ->
     }
   }
 
--- <body> complet avec scripts
+-- Full <body> with scripts
 make_body = ->
   H.body {
     H.div {id: 'app',
@@ -371,11 +413,13 @@ make_body = ->
     H.script {src: '/vendor/tui-grid.bundle.js', ''}
     H.script {src: '/vendor/jsyaml.bundle.js', ''}
     H.script {src: '/vendor/codemirror.bundle.js', ''}
+    H.script {src: '/vendor/plugin-runtime.bundle.js', ''}
     H.script {src: '/src/i18n.js', ''}
     H.script {src: '/src/modal.js', ''}
     H.script {src: '/src/graphql_client.js', ''}
     H.script {src: '/src/auth.js', ''}
     H.script {src: '/src/spaces.js', ''}
+    H.script {src: '/src/widget_plugins.js', ''}
     H.script {src: '/src/app_fields_helpers.js', ''}
     H.script {src: '/src/app_sidebar_helpers.js', ''}
     H.script {src: '/src/app_undo_helpers.js', ''}
@@ -390,7 +434,7 @@ make_body = ->
 
 _html = nil
 
--- Génère (et met en cache) la page HTML complète.
+-- Generates (and caches) the complete HTML page.
 render = ->
   return _html if _html
   doc = H.html {lang: 'fr',

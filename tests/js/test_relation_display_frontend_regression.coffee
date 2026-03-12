@@ -1,5 +1,5 @@
 # tests/js/test_relation_display_frontend_regression.coffee
-# Régressions ciblées sur le rendu des relations côté frontend.
+# Targeted regressions for frontend relation rendering.
 
 fs = require 'fs'
 path = require 'path'
@@ -11,15 +11,15 @@ helpersSource = fs.readFileSync path.join(root, 'frontend/src/app_fields_helpers
 dataViewSource = fs.readFileSync path.join(root, 'frontend/src/views/data_view.coffee'), 'utf8'
 
 describe "Relation display frontend regression", ->
-  it "conserve le format flèche + tooltip dans la liste des champs", ->
+  it "keeps arrow + tooltip format in fields list", ->
     hasBadge = appSource.includes('badge.textContent = "→ #{targetName}"') or helpersSource.includes('badge.textContent = "→ #{targetName}"')
     hasTitle = appSource.includes('badge.title = "Relation vers #{targetName}"') or helpersSource.includes('badge.title = "Relation vers #{targetName}"')
-    assert hasBadge, "format flèche régression"
-    assert hasTitle, "tooltip relation régression"
+    assert hasBadge, "arrow format regression"
+    assert hasTitle, "relation tooltip regression"
 
-  it "conserve le rendu relation via _repr puis fkMap", ->
+  it "keeps relation rendering via _repr then fkMap", ->
     assert dataViewSource.includes('row["_repr_#{fieldName}"]?'), "check _repr absent"
-    assert dataViewSource.includes('displayVal = row["_repr_#{fieldName}"]'), "assign _repr absente"
-    assert dataViewSource.includes('fkMap[String val]'), "fallback fkMap absent"
+    assert dataViewSource.includes('displayVal = row["_repr_#{fieldName}"]'), "missing _repr assignment"
+    assert dataViewSource.includes('fkMap[String val]'), "missing fkMap fallback"
 
 summary()

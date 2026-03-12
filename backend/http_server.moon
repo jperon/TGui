@@ -42,7 +42,7 @@ read_file = (path) ->
 
 serve_static = (req) ->
   url_path = req.path
-  -- Les requêtes vers / sont gérées par serve_index ; ici on ne sert que les assets.
+  -- Requests to / are handled by serve_index; this path serves only assets.
   disk_path = FRONTEND_DIR .. url_path
   content = read_file disk_path
   unless content

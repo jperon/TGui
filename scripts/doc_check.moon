@@ -15,6 +15,38 @@ trim = (s) ->
   s = s\gsub '%s+$', ''
   s
 
+read_text = (path) ->
+  f = io.open path, 'r'
+  return nil unless f
+  text = f\read '*a'
+  f\close!
+  text
+
+has_c1_controls = (text) ->
+  i = 1
+  while i <= #text
+    b1 = text\byte i
+    if b1 == 0xC2 and i < #text
+      b2 = text\byte i + 1
+      return true if b2 >= 0x80 and b2 <= 0x9F
+      i += 2
+    else
+      i += 1
+  false
+
+MOJIBAKE_PREFIXES = {
+  string.char(0xC3, 0xA2, 0xC2, 0x80)
+  string.char(0xC3, 0xA2, 0xC2, 0x86)
+  string.char(0xC3, 0xA2, 0xC2, 0x96)
+  string.char(0xC3, 0xA2, 0xC2, 0x9C)
+  string.char(0xC3, 0x83, 0xC2)
+}
+
+has_mojibake = (text) ->
+  for prefix in *MOJIBAKE_PREFIXES
+    return true if text\find prefix, 1, true
+  false
+
 run_lines = (cmd) ->
   p, err = io.popen cmd
   error "Cannot execute command: #{cmd} (#{err or 'unknown error'})" unless p
@@ -225,6 +257,12 @@ for row in *extract_block_rows 'Mutation', schema_lines
     table.insert errors, "undocumented Mutation domain mapping for `#{row.field}`"
 
 required_docs = {
+  './doc/en/README.md'
+  './doc/fr/README.md'
+  './doc/en/get-started.md'
+  './doc/fr/get-started.md'
+  './doc/en/reference.md'
+  './doc/fr/reference.md'
   './doc/fr/api.md'
   './doc/en/api.md'
   './doc/fr/dev.md'
@@ -241,9 +279,24 @@ required_docs = {
   './doc/en/dev/tests.md'
 }
 for path in *required_docs
+  text = read_text path
+  if not text
+    table.insert errors, "missing generated doc file: #{path}"
+  else
+    if path\match '^./doc/fr/'
+      if has_c1_controls text
+        table.insert errors, "encoding regression (C1 control) in #{path}"
+      if has_mojibake text
+        table.insert errors, "encoding regression (mojibake marker) in #{path}"
+
+required_po = {
+  './po/tdb-docs.pot'
+  './po/fr.po'
+}
+for path in *required_po
   f = io.open path, 'r'
   if not f
-    table.insert errors, "missing generated doc file: #{path}"
+    table.insert errors, "missing PO catalog file: #{path}"
   else
     f\close!
 

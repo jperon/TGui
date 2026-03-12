@@ -1,41 +1,41 @@
 -- tests/test_relations.moon
--- Tests des relations FK : create_relation, list_relations, update_relation
+-- Tests FK relation behavior: create_relation, list_relations, update_relation
 -- (reprFormula), delete_relation.
--- Nécessite Tarantool (box déjà initialisé dans run.moon).
+-- Requires Tarantool (box already initialized in run.moon).
 
 R = require 'tests.runner'
 spaces_mod = require 'core.spaces'
 { :Query, :Mutation } = require 'resolvers.schema_resolvers'
 
 SUFFIX  = tostring math.random(100000, 999999)
-SP_SRC  = "rel_src_#{SUFFIX}"  -- espace source (contient le champ FK)
-SP_TGT  = "rel_tgt_#{SUFFIX}"  -- espace cible
+SP_SRC  = "rel_src_#{SUFFIX}"  -- source space (contains FK field)
+SP_TGT  = "rel_tgt_#{SUFFIX}"  -- target space
 
--- Contexte authentifié minimal (require_auth vérifie juste que user_id est défini)
+-- Minimal authenticated context (require_auth only checks user_id presence)
 CTX = { user_id: 'test-user' }
 
-local src_id, tgt_id, src_fk_field_id, tgt_seq_field_id, rel_id
+src_id, tgt_id, src_fk_field_id, tgt_seq_field_id, rel_id = nil, nil, nil, nil, nil
 
--- ── Fixture : créer deux espaces et les champs nécessaires ───────────────────
+-- ── Fixture: create two spaces and required fields ───────────────────────────
 
 do
-  src = spaces_mod.create_user_space SP_SRC, 'Espace source'
-  tgt = spaces_mod.create_user_space SP_TGT, 'Espace cible'
+  src = spaces_mod.create_user_space SP_SRC, 'Source space'
+  tgt = spaces_mod.create_user_space SP_TGT, 'Target space'
   src_id = src.id
   tgt_id = tgt.id
 
-  -- Champ Sequence dans l'espace cible (cible du FK)
+  -- Sequence field in target space (FK target)
   seq = spaces_mod.add_field tgt_id, 'seq_id', 'Sequence'
   tgt_seq_field_id = seq.id
 
-  -- Champ Int dans l'espace source (stocke la référence)
+  -- Int field in source space (stores FK reference)
   fk  = spaces_mod.add_field src_id, 'cible_id', 'Int'
   src_fk_field_id = fk.id
 
--- ── Tests : création de relation ─────────────────────────────────────────────
+-- ── Tests: relation creation ──────────────────────────────────────────────────
 
 R.describe "Relations — createRelation", ->
-  R.it "crée une relation et retourne les métadonnées", ->
+  R.it "creates a relation and returns metadata", ->
     res = Mutation.createRelation {}, {
       input: {
         name:        'src_vers_tgt'
@@ -54,7 +54,7 @@ R.describe "Relations — createRelation", ->
     R.eq res.reprFormula, '@nom'
     rel_id = res.id
 
-  R.it "sans reprFormula → reprFormula vide", ->
+  R.it "without reprFormula -> empty reprFormula", ->
     tmp = Mutation.createRelation {}, {
       input: {
         name:        'tmp_rel'
@@ -66,13 +66,13 @@ R.describe "Relations — createRelation", ->
     }, CTX
     R.ok tmp
     R.eq tmp.reprFormula, ''
-    -- Nettoyage immédiat
+    -- Immediate cleanup
     Mutation.deleteRelation {}, { id: tmp.id }, CTX
 
--- ── Tests : lecture des relations ────────────────────────────────────────────
+-- ── Tests: relation query ─────────────────────────────────────────────────────
 
 R.describe "Relations — Query.relations", ->
-  R.it "retourne les relations de l'espace source", ->
+  R.it "returns relations for source space", ->
     rels = Query.relations {}, { spaceId: src_id }, CTX
     R.ok rels
     found = false
@@ -81,17 +81,17 @@ R.describe "Relations — Query.relations", ->
         found = true
         R.eq r.name,        'src_vers_tgt'
         R.eq r.reprFormula, '@nom'
-    R.ok found, "relation créée doit être listée"
+    R.ok found, "created relation must be listed"
 
-  R.it "ne retourne pas les relations d'un autre espace", ->
+  R.it "does not return relations for another space", ->
     rels = Query.relations {}, { spaceId: tgt_id }, CTX
     for r in *rels
-      R.nok (r.id == rel_id), "relation de src ne doit pas apparaître pour tgt"
+      R.nok (r.id == rel_id), "source relation must not appear for target"
 
--- ── Tests : mise à jour de la formule ────────────────────────────────────────
+-- ── Tests: formula update ─────────────────────────────────────────────────────
 
 R.describe "Relations — updateRelation (reprFormula)", ->
-  R.it "met à jour reprFormula", ->
+  R.it "updates reprFormula", ->
     res = Mutation.updateRelation {}, {
       id:    rel_id
       input: { reprFormula: '@prenom .. " " .. @nom' }
@@ -100,41 +100,41 @@ R.describe "Relations — updateRelation (reprFormula)", ->
     R.eq res.id,          rel_id
     R.eq res.reprFormula, '@prenom .. " " .. @nom'
 
-  R.it "la nouvelle valeur est persistée (relecture)", ->
+  R.it "new value is persisted (readback)", ->
     rels = Query.relations {}, { spaceId: src_id }, CTX
     for r in *rels
       if r.id == rel_id
         R.eq r.reprFormula, '@prenom .. " " .. @nom'
         return
-    R.ok false, "relation introuvable après update"
+    R.ok false, "relation not found after update"
 
-  R.it "passer reprFormula vide efface la formule", ->
+  R.it "passing empty reprFormula clears formula", ->
     res = Mutation.updateRelation {}, {
       id:    rel_id
       input: { reprFormula: '' }
     }, CTX
     R.eq res.reprFormula, ''
 
-  R.it "id inconnu → retourne nil sans planter", ->
+  R.it "unknown id -> returns nil without crashing", ->
     res = Mutation.updateRelation {}, {
-      id:    'inconnu-00000000-0000-0000-0000-000000000000'
+      id:    'unknown-00000000-0000-0000-0000-000000000000'
       input: { reprFormula: '@x' }
     }, CTX
     R.is_nil res
 
--- ── Tests : suppression ──────────────────────────────────────────────────────
+-- ── Tests: deletion ───────────────────────────────────────────────────────────
 
 R.describe "Relations — deleteRelation", ->
-  R.it "supprime la relation", ->
+  R.it "deletes relation", ->
     ok = Mutation.deleteRelation {}, { id: rel_id }, CTX
     R.ok ok
 
-  R.it "la relation n'apparaît plus dans la liste", ->
+  R.it "relation no longer appears in list", ->
     rels = Query.relations {}, { spaceId: src_id }, CTX
     for r in *rels
-      R.nok (r.id == rel_id), "relation supprimée ne doit plus être listée"
+      R.nok (r.id == rel_id), "deleted relation must no longer be listed"
 
--- ── Nettoyage ────────────────────────────────────────────────────────────────
+-- ── Cleanup ───────────────────────────────────────────────────────────────────
 
 spaces_mod.delete_user_space SP_SRC
 spaces_mod.delete_user_space SP_TGT

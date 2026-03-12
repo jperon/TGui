@@ -1,24 +1,24 @@
 -- core/config.moon
--- Configuration centralisée pour TGui
--- Centralise constantes et paramètres pour éviter la duplication
+-- Centralized configuration for TGui.
+-- Keeps constants and settings in one place to avoid duplication.
 
 log = require 'log'
 
 -- ────────────────────────────────────────────────────────────────────────────
--- Sessions et authentification
+-- Sessions and authentication
 -- ────────────────────────────────────────────────────────────────────────────
 
-SESSION_TTL = 24 * 3600  -- 24 heures en secondes
+SESSION_TTL = 24 * 3600  -- 24 hours in seconds
 TOKEN_LENGTH = 32
 
 -- ────────────────────────────────────────────────────────────────────────────
--- Paths et répertoires
+-- Paths and directories
 -- ────────────────────────────────────────────────────────────────────────────
 
 FRONTEND_DIR = '/app/frontend'
 
 -- ────────────────────────────────────────────────────────────────────────────
--- Limits (souples pour l'utilisateur)
+-- Limits (user-friendly defaults)
 -- ────────────────────────────────────────────────────────────────────────────
 
 DEFAULT_FORMULA_MAX_LENGTH = 10000
@@ -27,7 +27,7 @@ DEFAULT_FIELD_NAME_MAX_LENGTH = 255
 LIMITS = {
   formula: {
     max_length: DEFAULT_FORMULA_MAX_LENGTH
-    warning_threshold: 5000  -- warning avant limite
+    warning_threshold: 5000  -- warning before hard limit
   }
   field_name: {
     max_length: DEFAULT_FIELD_NAME_MAX_LENGTH
@@ -35,7 +35,7 @@ LIMITS = {
 }
 
 -- ────────────────────────────────────────────────────────────────────────────
--- Helpers utilitaires
+-- Utility helpers
 -- ────────────────────────────────────────────────────────────────────────────
 
 -- Safe execution helper

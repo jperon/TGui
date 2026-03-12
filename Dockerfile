@@ -1,6 +1,6 @@
 FROM tarantool/tarantool:3
 
-RUN apt-get update && apt-get install -y --no-install-recommends git build-essential wget unzip && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends git build-essential wget unzip gettext po4a && rm -rf /var/lib/apt/lists/*
 
 # Install the HTTP server rock
 RUN tt rocks install http

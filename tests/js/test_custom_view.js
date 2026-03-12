@@ -1,6 +1,6 @@
 (function() {
-  // tests/js/test_custom_view.coffee — tests pour CustomView (custom_view.js)
-  // Teste : parsing YAML, structure du DOM produit, factor flex, filtrage colonnes, depends_on.
+  // tests/js/test_custom_view.coffee — tests for CustomView (custom_view.js)
+  // Covers: YAML parsing, generated DOM structure, flex factor, columns filtering, depends_on.
   var CV, DataView, assert, deepEq, describe, eq, it, makeContainer, makeSpaces, summary, yamlJSON;
 
   require('./dom_stub');
@@ -10,7 +10,7 @@
   // --- stubs ------------------------------------------------------------------
   global.jsyaml = {
     load: function(src) {
-      return JSON.parse(src); // les YAML de test seront du JSON valide
+      return JSON.parse(src); // test YAML fixtures are valid JSON
     }
   };
 
@@ -36,12 +36,12 @@
 
   };
 
-  // Chargement du module sous test (expose window.CustomView)
+  // Load module under test (exposes window.CustomView)
   require('../../frontend/src/views/custom_view');
 
   CV = global.window.CustomView;
 
-  // --- helper -----------------------------------------------------------------
+  // --- helpers ----------------------------------------------------------------
   makeSpaces = function() {
     return [
       {
@@ -94,7 +94,7 @@
 
   // ---------------------------------------------------------------------------
   describe('CustomView — layout vertical simple', function() {
-    it('monte un widget sans erreur', function() {
+    it('mounts a widget without error', function() {
       var cv, layout;
       layout = {
         layout: {
@@ -108,9 +108,9 @@
       cv = new CV(makeContainer(), yamlJSON(layout), makeSpaces());
       cv.mount();
       eq(cv._widgets.length, 1);
-      return assert(cv._widgets[0].dataView.mounted, 'DataView doit être monté');
+      return assert(cv._widgets[0].dataView.mounted, 'DataView should be mounted');
     });
-    it('_widgetsById indexé par id', function() {
+    it('_widgetsById indexed by id', function() {
       var cv, layout;
       layout = {
         layout: {
@@ -122,14 +122,14 @@
       };
       cv = new CV(makeContainer(), yamlJSON(layout), makeSpaces());
       cv.mount();
-      return assert(cv._widgetsById['mon_widget'] != null, 'index par id');
+      return assert(cv._widgetsById['mon_widget'] != null, 'index by id');
     });
-    return it('espace introuvable → dataView null', function() {
+    return it('unknown space -> dataView null', function() {
       var cv, layout;
       layout = {
         layout: {
           widget: {
-            space: 'inexistant'
+            space: 'unknown'
           }
         }
       };
@@ -139,8 +139,8 @@
     });
   });
 
-  describe('CustomView — zone avec enfants', function() {
-    return it('crée un enfant par widget enfant', function() {
+  describe('CustomView — zone with children', function() {
+    return it('creates one child per child widget', function() {
       var cv, layout;
       layout = {
         layout: {
@@ -166,7 +166,7 @@
   });
 
   describe('CustomView — factor', function() {
-    it('applique factor comme flex', function() {
+    it('applies factor as flex', function() {
       var cv, entries, layout;
       layout = {
         layout: {
@@ -189,13 +189,13 @@
       };
       cv = new CV(makeContainer(), yamlJSON(layout), makeSpaces());
       cv.mount();
-      // Le container principal a flex appliqué par _renderZoneOrWidget (nœud racine)
-      // Les enfants ont leur flex dans l'élément rendu
+      // Main container flex is set by _renderZoneOrWidget (root node)
+      // Child nodes keep their own flex values
       entries = cv._widgets;
       eq(entries[0].el.style.flex, '3');
       return eq(entries[1].el.style.flex, '1');
     });
-    return it('factor absent → flex par défaut à "1"', function() {
+    return it('missing factor -> default flex "1"', function() {
       var cv, layout;
       layout = {
         layout: {
@@ -211,7 +211,7 @@
   });
 
   describe('CustomView — columns', function() {
-    it('filtre les colonnes spécifiées', function() {
+    it('filters specified columns', function() {
       var cv, dv, layout;
       layout = {
         layout: {
@@ -228,7 +228,7 @@
       eq(dv.space.fields[0].name, 'age');
       return eq(dv.space.fields[1].name, 'nom');
     });
-    it('ignore les colonnes inconnues silencieusement', function() {
+    it('silently ignores unknown columns', function() {
       var cv, layout;
       layout = {
         layout: {
@@ -243,7 +243,7 @@
       eq(cv._widgets[0].dataView.space.fields.length, 1);
       return eq(cv._widgets[0].dataView.space.fields[0].name, 'nom');
     });
-    it('sans columns → tous les champs', function() {
+    it('without columns -> all fields', function() {
       var cv, layout;
       layout = {
         layout: {
@@ -256,7 +256,7 @@
       cv.mount();
       return eq(cv._widgets[0].dataView.space.fields.length, 3);
     });
-    return it('ne modifie pas l\'espace original (clone)', function() {
+    return it('does not mutate original space object (clone)', function() {
       var cv, layout, spaces;
       spaces = makeSpaces();
       layout = {
@@ -269,12 +269,12 @@
       };
       cv = new CV(makeContainer(), yamlJSON(layout), spaces);
       cv.mount();
-      return eq(spaces[0].fields.length, 3); // original inchangé
+      return eq(spaces[0].fields.length, 3); // original unchanged
     });
   });
 
-  describe('CustomView — YAML invalide', function() {
-    return it('affiche une erreur sans lever d\'exception', function() {
+  describe('CustomView — invalid YAML', function() {
+    return it('shows an error without throwing exception', function() {
       var badYaml, cv;
       badYaml = '{ not valid json !!!!';
       global.jsyaml.load = function(s) {
@@ -290,7 +290,7 @@
   });
 
   describe('CustomView — unmount', function() {
-    return it('vide _widgets et _widgetsById', function() {
+    return it('clears _widgets and _widgetsById', function() {
       var cv, layout;
       layout = {
         layout: {

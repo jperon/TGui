@@ -1,6 +1,6 @@
 -- tests/test_lexer.moon
--- Tests du lexer GraphQL (graphql/lexer.moon).
--- Aucune dépendance Tarantool — peut tourner avec `lua` ou `tarantool`.
+-- Tests for GraphQL lexer (graphql/lexer.moon).
+-- No Tarantool dependency — can run with `lua` or `tarantool`.
 
 R = require 'tests.runner'
 { :tokenize, :TOKEN_TYPES } = require 'graphql.lexer'
@@ -26,14 +26,14 @@ R.describe "Lexer — tokens de base", ->
     R.eq t.type, 'NAME'
     R.eq t.value, 'hello'
 
-  R.it "mot-clé query est un NAME", ->
+  R.it "query keyword is a NAME", ->
     R.eq first("query").type, 'NAME'
     R.eq first("query").value, 'query'
 
-  R.it "mot-clé mutation est un NAME", ->
+  R.it "mutation keyword is a NAME", ->
     R.eq first("mutation").value, 'mutation'
 
-  R.it "underscore dans l'identifiant", ->
+  R.it "underscore in identifier", ->
     t = first "_my_field"
     R.eq t.type, 'NAME'
     R.eq t.value, '_my_field'
@@ -67,12 +67,12 @@ R.describe "Lexer — nombres", ->
     R.eq t.type, 'INT'
     R.eq t.value, '42'
 
-  R.it "entier négatif", ->
+  R.it "negative integer", ->
     t = first "-7"
     R.eq t.type, 'INT'
     R.eq t.value, '-7'
 
-  R.it "zéro", ->
+  R.it "zero", ->
     t = first "0"
     R.eq t.type, 'INT'
     R.eq t.value, '0'
@@ -82,7 +82,7 @@ R.describe "Lexer — nombres", ->
     R.eq t.type, 'FLOAT'
     R.eq t.value, '3.14'
 
-  R.it "flottant négatif", ->
+  R.it "negative float", ->
     t = first "-0.5"
     R.eq t.type, 'FLOAT'
 
@@ -90,59 +90,59 @@ R.describe "Lexer — nombres", ->
     t = first "1e10"
     R.eq t.type, 'FLOAT'
 
-  R.it "notation scientifique avec exposant négatif", ->
+  R.it "scientific notation with negative exponent", ->
     t = first "1.5E-3"
     R.eq t.type, 'FLOAT'
 
-R.describe "Lexer — chaînes", ->
-  R.it "chaîne simple", ->
+R.describe "Lexer — strings", ->
+  R.it "simple string", ->
     t = first '"hello"'
     R.eq t.type, 'STRING'
     R.eq t.value, 'hello'
 
-  R.it "chaîne vide", ->
+  R.it "empty string", ->
     t = first '""'
     R.eq t.type, 'STRING'
     R.eq t.value, ''
 
-  R.it "chaîne avec échappement \\n", ->
+  R.it "string with \\n escape", ->
     t = first '"a\\nb"'
     R.eq t.type, 'STRING'
     R.matches t.value, 'a'
 
-  R.it "chaîne avec échappement \\t", ->
+  R.it "string with \\t escape", ->
     t = first '"a\\tb"'
     R.eq t.type, 'STRING'
 
-  R.it "block string (triple guillemets)", ->
+  R.it "block string (triple quotes)", ->
     t = first '"""hello world"""'
     R.eq t.type, 'BLOCK_STRING'
     R.matches t.value, 'hello'
 
-R.describe "Lexer — espaces et commentaires", ->
-  R.it "les espaces sont ignorés", ->
+R.describe "Lexer — spaces and comments", ->
+  R.it "spaces are ignored", ->
     tokens = tokenize "   hello   "
     R.eq tokens[1].type, 'NAME'
     R.eq tokens[1].value, 'hello'
 
-  R.it "les virgules sont ignorées", ->
+  R.it "commas are ignored", ->
     types = tok_types "a, b, c"
     R.eq types[1], 'NAME'
     R.eq types[2], 'NAME'
     R.eq types[3], 'NAME'
     R.eq types[4], 'EOF'
 
-  R.it "les commentaires # sont ignorés", ->
+  R.it "# comments are ignored", ->
     tokens = tokenize "# commentaire\nhello"
     R.eq tokens[1].type, 'NAME'
     R.eq tokens[1].value, 'hello'
 
-  R.it "les sauts de ligne sont ignorés", ->
+  R.it "newlines are ignored", ->
     tokens = tokenize "a\nb\nc"
     R.eq #tokens, 4  -- a, b, c, EOF
 
-R.describe "Lexer — séquences mixtes", ->
-  R.it "requête minimaliste { field }", ->
+R.describe "Lexer — mixed sequences", ->
+  R.it "minimal query { field }", ->
     types = tok_types "{ field }"
     R.eq types[1], 'BRACE_L'
     R.eq types[2], 'NAME'

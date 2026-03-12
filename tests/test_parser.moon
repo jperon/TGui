@@ -1,42 +1,42 @@
 -- tests/test_parser.moon
--- Tests du parser GraphQL (graphql/parser.moon).
--- Aucune dépendance Tarantool.
+-- Tests for GraphQL parser (graphql/parser.moon).
+-- No Tarantool dependency.
 
 R = require 'tests.runner'
 { :parse } = require 'graphql.parser'
 
--- Helper : premier nœud de définition du document
+-- Helper: first definition node in a document
 first_def = (src) -> parse(src).definitions[1]
 
--- Helper : premier champ de la sélection de la première définition
+-- Helper: first field in the first definition selection
 first_field = (src) -> first_def(src).selectionSet.selections[1]
 
 R.describe "Parser — document", ->
-  R.it "produit un nœud Document", ->
+  R.it "produces a Document node", ->
     doc = parse "{ hello }"
     R.eq doc.kind, 'Document'
     R.ok doc.definitions
 
-  R.it "une définition pour une opération anonyme", ->
+  R.it "one definition for an anonymous operation", ->
     doc = parse "{ hello }"
     R.eq #doc.definitions, 1
 
-  R.it "plusieurs définitions", ->
+  R.it "multiple definitions", ->
     doc = parse "query A { a } query B { b }"
     R.eq #doc.definitions, 2
 
-R.describe "Parser — opérations", ->
-  R.it "sélection courte → query anonyme", ->
+R.describe "Parser — operations", ->
+  R.it "short selection -> anonymous query", ->
     def = first_def "{ hello }"
     R.eq def.kind, 'OperationDefinition'
     R.eq def.operation, 'query'
     R.is_nil def.name
 
-  R.it "mot-clé query explicite", ->
+  R.it "explicit query keyword", ->
     def = first_def "query { hello }"
     R.eq def.operation, 'query'
 
-  R.it "query nommé", ->
+  R.it "named query", ->
     def = first_def "query MonQuery { hello }"
     R.eq def.name, 'MonQuery'
 
@@ -44,60 +44,60 @@ R.describe "Parser — opérations", ->
     def = first_def "mutation { doSomething }"
     R.eq def.operation, 'mutation'
 
-  R.it "mutation nommée", ->
+  R.it "named mutation", ->
     def = first_def "mutation DoIt { doSomething }"
     R.eq def.name, 'DoIt'
 
-R.describe "Parser — SelectionSet et Fields", ->
-  R.it "champ simple", ->
+R.describe "Parser — SelectionSet and fields", ->
+  R.it "simple field", ->
     f = first_field "{ hello }"
     R.eq f.kind, 'Field'
     R.eq f.name, 'hello'
 
-  R.it "plusieurs champs", ->
+  R.it "multiple fields", ->
     def = first_def "{ a b c }"
     R.eq #def.selectionSet.selections, 3
 
-  R.it "champ avec alias", ->
+  R.it "field with alias", ->
     f = first_field "{ myAlias: hello }"
     R.eq f.alias, 'myAlias'
     R.eq f.name, 'hello'
 
-  R.it "SelectionSet imbriqué", ->
+  R.it "nested SelectionSet", ->
     f = first_field "{ outer { inner } }"
     R.eq f.name, 'outer'
     R.ok f.selectionSet
     R.eq f.selectionSet.selections[1].name, 'inner'
 
-  R.it "imbrication profonde", ->
+  R.it "deep nesting", ->
     f = first_field "{ a { b { c } } }"
     inner = f.selectionSet.selections[1].selectionSet.selections[1]
     R.eq inner.name, 'c'
 
 R.describe "Parser — arguments", ->
-  R.it "argument entier", ->
+  R.it "integer argument", ->
     f = first_field "{ f(x: 42) }"
     R.eq #f.arguments, 1
     R.eq f.arguments[1].name, 'x'
     R.eq f.arguments[1].value.kind, 'IntValue'
     R.eq f.arguments[1].value.value, '42'
 
-  R.it "argument chaîne", ->
+  R.it "string argument", ->
     f = first_field '{ f(s: "hello") }'
     arg = f.arguments[1]
     R.eq arg.value.kind, 'StringValue'
     R.eq arg.value.value, 'hello'
 
-  R.it "argument flottant", ->
+  R.it "float argument", ->
     f = first_field "{ f(n: 3.14) }"
     R.eq f.arguments[1].value.kind, 'FloatValue'
 
-  R.it "argument booléen true", ->
+  R.it "boolean argument true", ->
     f = first_field "{ f(b: true) }"
     R.eq f.arguments[1].value.kind, 'BooleanValue'
     R.eq f.arguments[1].value.value, true
 
-  R.it "argument booléen false", ->
+  R.it "boolean argument false", ->
     f = first_field "{ f(b: false) }"
     R.eq f.arguments[1].value.value, false
 
@@ -105,12 +105,12 @@ R.describe "Parser — arguments", ->
     f = first_field "{ f(x: null) }"
     R.eq f.arguments[1].value.kind, 'NullValue'
 
-  R.it "argument liste", ->
+  R.it "list argument", ->
     f = first_field "{ f(l: [1, 2, 3]) }"
     R.eq f.arguments[1].value.kind, 'ListValue'
     R.eq #f.arguments[1].value.values, 3
 
-  R.it "argument objet", ->
+  R.it "object argument", ->
     f = first_field '{ f(o: {a: 1, b: "x"}) }'
     R.eq f.arguments[1].value.kind, 'ObjectValue'
     R.eq #f.arguments[1].value.fields, 2
@@ -120,17 +120,17 @@ R.describe "Parser — arguments", ->
     R.eq f.arguments[1].value.kind, 'EnumValue'
     R.eq f.arguments[1].value.value, 'ASC'
 
-  R.it "argument variable", ->
+  R.it "variable argument", ->
     f = first_field "{ f(x: $myVar) }"
     R.eq f.arguments[1].value.kind, 'Variable'
     R.eq f.arguments[1].value.name, 'myVar'
 
-  R.it "plusieurs arguments", ->
+  R.it "multiple arguments", ->
     f = first_field "{ f(a: 1, b: 2, c: 3) }"
     R.eq #f.arguments, 3
 
-R.describe "Parser — variables de l'opération", ->
-  R.it "une variable", ->
+R.describe "Parser — operation variables", ->
+  R.it "one variable", ->
     def = first_def "query($id: ID!) { f(x: $id) }"
     R.eq #def.variableDefs, 1
     vd = def.variableDefs[1]
@@ -138,34 +138,34 @@ R.describe "Parser — variables de l'opération", ->
     R.eq vd.type.kind, 'NonNullType'
     R.eq vd.type.ofType.name, 'ID'
 
-  R.it "plusieurs variables", ->
+  R.it "multiple variables", ->
     def = first_def "query($a: Int, $b: String) { f }"
     R.eq #def.variableDefs, 2
 
-  R.it "variable avec valeur par défaut", ->
+  R.it "variable with default value", ->
     def = first_def "query($n: Int = 0) { f }"
     vd = def.variableDefs[1]
     R.eq vd.defaultValue.value, '0'
 
-R.describe "Parser — références de types", ->
-  R.it "type nommé", ->
+R.describe "Parser — type references", ->
+  R.it "named type", ->
     -- via SDL
     def = first_def "type T { f: String }"
     field_type = def.fields[1].type
     R.eq field_type.kind, 'NamedType'
     R.eq field_type.name, 'String'
 
-  R.it "type non-nul", ->
+  R.it "non-null type", ->
     def = first_def "type T { f: String! }"
     R.eq def.fields[1].type.kind, 'NonNullType'
     R.eq def.fields[1].type.ofType.name, 'String'
 
-  R.it "type liste", ->
+  R.it "list type", ->
     def = first_def "type T { f: [String] }"
     R.eq def.fields[1].type.kind, 'ListType'
     R.eq def.fields[1].type.ofType.name, 'String'
 
-  R.it "type liste non-nul", ->
+  R.it "non-null list type", ->
     def = first_def "type T { f: [String!]! }"
     outer = def.fields[1].type
     R.eq outer.kind, 'NonNullType'
@@ -174,7 +174,7 @@ R.describe "Parser — références de types", ->
     R.eq inner.ofType.kind, 'NonNullType'
 
 R.describe "Parser — fragments", ->
-  R.it "définition de fragment", ->
+  R.it "fragment definition", ->
     doc = parse "fragment Fields on User { name email }"
     def = doc.definitions[1]
     R.eq def.kind, 'FragmentDefinition'
@@ -182,7 +182,7 @@ R.describe "Parser — fragments", ->
     R.eq def.typeCondition, 'User'
     R.eq #def.selectionSet.selections, 2
 
-  R.it "spread de fragment", ->
+  R.it "fragment spread", ->
     f = first_field "{ ...MyFrag }"
     R.eq f.kind, 'FragmentSpread'
     R.eq f.name, 'MyFrag'
@@ -192,36 +192,36 @@ R.describe "Parser — fragments", ->
     R.eq f.kind, 'InlineFragment'
     R.eq f.typeCondition, 'User'
 
-  R.it "fragment inline sans type", ->
+  R.it "inline fragment without type", ->
     f = first_field "{ ... { name } }"
     R.eq f.kind, 'InlineFragment'
     R.is_nil f.typeCondition
 
-R.describe "Parser — SDL : types objet", ->
-  R.it "type objet simple", ->
+R.describe "Parser — SDL: object types", ->
+  R.it "simple object type", ->
     def = first_def "type User { name: String! }"
     R.eq def.kind, 'ObjectTypeDefinition'
     R.eq def.name, 'User'
     R.eq #def.fields, 1
     R.eq def.fields[1].name, 'name'
 
-  R.it "plusieurs champs", ->
+  R.it "multiple fields", ->
     def = first_def "type User { id: ID! name: String email: String }"
     R.eq #def.fields, 3
 
-  R.it "description de type", ->
+  R.it "type description", ->
     def = first_def '"""Mon type""" type Foo { x: Int }'
     R.ok def.description
     R.matches def.description, 'Mon type'
 
-  R.it "champ avec argument SDL", ->
+  R.it "field with SDL argument", ->
     def = first_def "type Q { f(limit: Int = 10): [String] }"
     arg = def.fields[1].arguments[1]
     R.eq arg.name, 'limit'
     R.eq arg.defaultValue.value, '10'
 
-R.describe "Parser — SDL : scalaires, enums, unions, inputs", ->
-  R.it "scalaire", ->
+R.describe "Parser — SDL: scalars, enums, unions, inputs", ->
+  R.it "scalar", ->
     def = first_def "scalar Date"
     R.eq def.kind, 'ScalarTypeDefinition'
     R.eq def.name, 'Date'
@@ -246,11 +246,11 @@ R.describe "Parser — SDL : scalaires, enums, unions, inputs", ->
     def = first_def "interface Node { id: ID! }"
     R.eq def.kind, 'InterfaceTypeDefinition'
 
-R.describe "Parser — erreurs", ->
-  R.it "accolade fermante manquante", ->
-    R.raises (-> parse "{ hello "), nil, 'erreur syntaxique attendue'
+R.describe "Parser — errors", ->
+  R.it "missing closing brace", ->
+    R.raises (-> parse "{ hello "), nil, 'expected syntax error'
 
-  R.it "source vide → document vide", ->
+  R.it "empty source -> empty document", ->
     doc = parse ""
     R.eq doc.kind, 'Document'
     R.eq #doc.definitions, 0

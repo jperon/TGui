@@ -28,7 +28,7 @@
   I18N = global.window.I18N;
 
   describe('I18N.init', function() {
-    return it('prend la locale stockée si disponible', function() {
+    return it('uses stored locale when available', function() {
       localStorageStub.clear();
       localStorageStub.setItem('tgui_locale', 'en');
       I18N.init();
@@ -37,11 +37,11 @@
   });
 
   describe('I18N.t', function() {
-    it('retourne une traduction dans la locale active', function() {
+    it('returns translation in active locale', function() {
       I18N.setLocale('en');
       return eq(I18N.t('common.cancel'), 'Cancel');
     });
-    it('retourne la traduction anglaise quand disponible', function() {
+    it('returns English translation when available', function() {
       I18N.setLocale('en');
       return eq(I18N.t('ui.snapshot.sectionSpacesDelete'), '⚠ Spaces to delete (data loss)');
     });

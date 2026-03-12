@@ -28,8 +28,8 @@ local admin = auth.get_user_by_username('admin')
 local CTX = {
   user_id = admin and admin.id
 }
-R.describe("CustomViews — création", function()
-  R.it("createCustomView retourne les métadonnées", function()
+R.describe("CustomViews — creation", function()
+  R.it("createCustomView returns metadata", function()
     local res = cvr.Mutation.createCustomView({ }, {
       input = {
         name = CV_NAME,
@@ -44,7 +44,7 @@ R.describe("CustomViews — création", function()
     R.eq(res.yaml, YAML_SIMPLE)
     cv_id = res.id
   end)
-  R.it("customViews liste inclut la vue créée", function()
+  R.it("customViews list includes created view", function()
     local found = false
     local _list_0 = cvr.Query.customViews({ }, { }, CTX)
     for _index_0 = 1, #_list_0 do
@@ -55,7 +55,7 @@ R.describe("CustomViews — création", function()
     end
     return R.ok(found)
   end)
-  return R.it("customView retourne la vue par id", function()
+  return R.it("customView returns the view by id", function()
     local v = cvr.Query.customView({ }, {
       id = cv_id
     }, CTX)
@@ -64,8 +64,8 @@ R.describe("CustomViews — création", function()
     return R.eq(v.name, CV_NAME)
   end)
 end)
-R.describe("CustomViews — mise à jour", function()
-  R.it("updateCustomView modifie le nom et le yaml", function()
+R.describe("CustomViews — update", function()
+  R.it("updateCustomView updates name and yaml", function()
     local res = cvr.Mutation.updateCustomView({ }, {
       id = cv_id,
       input = {
@@ -77,7 +77,7 @@ R.describe("CustomViews — mise à jour", function()
     R.eq(res.name, CV_NAME .. '_v2')
     return R.eq(res.yaml, YAML_FACTOR)
   end)
-  R.it("updateCustomView avec champs partiels conserve les anciens", function()
+  R.it("updateCustomView with partial fields keeps previous values", function()
     local res = cvr.Mutation.updateCustomView({ }, {
       id = cv_id,
       input = {
@@ -87,7 +87,7 @@ R.describe("CustomViews — mise à jour", function()
     R.ok(res)
     return R.eq(res.yaml, YAML_FACTOR)
   end)
-  return R.it("updateCustomView sur id inexistant → erreur", function()
+  return R.it("updateCustomView on unknown id -> error", function()
     return R.raises((function()
       return cvr.Mutation.updateCustomView({ }, {
         id = 'no-such-id',
@@ -98,14 +98,14 @@ R.describe("CustomViews — mise à jour", function()
     end), 'not found')
   end)
 end)
-return R.describe("CustomViews — suppression", function()
-  R.it("deleteCustomView retourne true", function()
+return R.describe("CustomViews — deletion", function()
+  R.it("deleteCustomView returns true", function()
     local ok = cvr.Mutation.deleteCustomView({ }, {
       id = cv_id
     }, CTX)
     return R.ok(ok)
   end)
-  R.it("la vue supprimée n'apparaît plus dans la liste", function()
+  R.it("deleted view no longer appears in list", function()
     local found = false
     local _list_0 = cvr.Query.customViews({ }, { }, CTX)
     for _index_0 = 1, #_list_0 do
@@ -116,7 +116,7 @@ return R.describe("CustomViews — suppression", function()
     end
     return R.nok(found)
   end)
-  return R.it("customView sur id supprimé retourne nil", function()
+  return R.it("customView on deleted id returns nil", function()
     local v = cvr.Query.customView({ }, {
       id = cv_id
     }, CTX)

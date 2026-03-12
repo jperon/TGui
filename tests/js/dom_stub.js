@@ -1,7 +1,7 @@
 (function() {
-  // tests/js/dom_stub.coffee — stub DOM minimal pour Node.js
+  // tests/js/dom_stub.coffee — minimal DOM stub for Node.js
   // Expose global.window, global.document, global.localStorage, global.fetch
-  // (pas de dépendance jsdom)
+  // (no jsdom dependency)
   var _elementsById, _lsStore, fetchStub, localStorageStub, makeElement;
 
   makeElement = function(tag) {
@@ -17,7 +17,7 @@
       dataset: {},
       _children: [],
       _listeners: {},
-      children: [], // alias synchronisé par appendChild
+      children: [], // alias synchronized by appendChild
       classList: {
         add: function(c) {
           classes.add(c);
@@ -90,13 +90,13 @@
       return _lsStore = {};
     },
     _store: function() {
-      return _lsStore; // helper pour les tests
+      return _lsStore; // helper for tests
     }
   };
 
   
   // --- fetch stub (configurable par test) -------------------------------------
-  // Par défaut, retourne {} (pas d'erreurs). Remplacer global.fetch dans les tests.
+  // By default returns {} (no errors). Replace global.fetch in tests as needed.
   fetchStub = function(url, opts) {
     return Promise.resolve({
       json: function() {
@@ -139,7 +139,7 @@
     addEventListener: function() {},
     removeEventListener: function() {},
     _setById: function(id, el) {
-      return _elementsById[id] = el; // helper pour les tests
+      return _elementsById[id] = el; // helper for tests
     }
   };
 

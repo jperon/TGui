@@ -85,6 +85,23 @@ SYSTEM_SPACES =
       primary: { parts: {'id'},   unique: true,  type: 'HASH' }
       by_name: { parts: {'name'}, unique: true,  type: 'TREE' }
 
+  -- Custom widget plugins (script/template code used by custom views)
+  _tdb_widget_plugins:
+    format: {
+      { name: 'id',                type: 'string' }
+      { name: 'name',              type: 'string' }
+      { name: 'description',       type: 'string' }
+      { name: 'script_language',   type: 'string' }
+      { name: 'template_language', type: 'string' }
+      { name: 'script_code',       type: 'string' }
+      { name: 'template_code',     type: 'string' }
+      { name: 'created_at',        type: 'number' }
+      { name: 'updated_at',        type: 'number' }
+    }
+    indexes:
+      primary: { parts: {'id'},   unique: true,  type: 'HASH' }
+      by_name: { parts: {'name'}, unique: true,  type: 'TREE' }
+
   -- Foreign-key relations between fields in different spaces
   _tdb_relations:
     format: {
@@ -301,17 +318,17 @@ add_field = (space_id, field_name, field_type, not_null, description, formula, t
   fid = tostring uuid.new!
   tuple = { fid, space_id, field_name, field_type, not_null or false, pos, description or '' }
   if formula and formula != ''
-    -- Index 8 : formule ; index 9 : trigger_fields (JSON, "null" si absent) ;
-    -- index 10 : langage. La présence systématique des trois garantit une position fixe.
+    -- Index 8: formula; index 9: trigger_fields (JSON, "null" when absent);
+    -- index 10: language. Keeping all three ensures stable tuple positions.
     table.insert tuple, formula
     table.insert tuple, json.encode(trigger_fields)  -- "null" si trigger_fields est nil
     table.insert tuple, language or 'lua'
     table.insert tuple, repr_formula or ''
   elseif repr_formula and repr_formula != ''
-    -- Pas de formula mais une reprFormula : on doit quand même remplir t[8..10] pour maintenir les positions
-    table.insert tuple, ''          -- formula vide
+    -- No formula but a reprFormula: still fill t[8..10] to preserve positions.
+    table.insert tuple, ''          -- empty formula
     table.insert tuple, json.encode(nil)  -- trigger_fields null
-    table.insert tuple, 'lua'        -- language défaut
+    table.insert tuple, 'lua'        -- default language
     table.insert tuple, repr_formula
   box.space._tdb_fields\insert tuple
   -- Create a Tarantool sequence for auto-increment fields and backfill existing records
@@ -377,9 +394,9 @@ list_fields = (space_id) ->
   result = {}
   json = require 'json'
   for t in *box.space._tdb_fields.index.by_space_pos\select { space_id }
-    -- Index 9 peut être : nil (ancien tuple sans formula), "null" (formula sans trigger),
-    -- ou un JSON array (trigger formula). L'index 10 est le langage (nouveaux tuples).
-    -- L'index 11 est la reprFormula (encore plus récent).
+    -- Index 9 may be: nil (legacy tuple without formula), "null" (formula without trigger),
+    -- or a JSON array (trigger formula). Index 10 stores language (newer tuples).
+    -- Index 11 stores reprFormula (latest tuple format).
     trigger_raw = t[9]
     trigger_fields = if trigger_raw and trigger_raw != 'null'
       json.decode trigger_raw

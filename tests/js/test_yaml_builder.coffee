@@ -1,17 +1,17 @@
-# tests/js/test_yaml_builder.coffee — tests pour YamlBuilder (yaml_builder.js)
-# Teste : génération YAML, clic champ, clic en-tête (aggregate), badges, dépendances.
+# tests/js/test_yaml_builder.coffee — tests for YamlBuilder (yaml_builder.js)
+# Covers YAML generation, field click, header click (aggregate), badges, dependencies.
 
 require './dom_stub'
 { describe, it, eq, deepEq, assert, summary } = require './runner'
 
 # --- stubs ------------------------------------------------------------------
 global.jsyaml =
-  dump: (obj) -> JSON.stringify obj   # simplifie les comparaisons
+  dump: (obj) -> JSON.stringify obj   # simplifies comparisons
   load: (src) ->
     # Minimal YAML-as-JSON stub: supports JSON and simple key: value
     try JSON.parse src catch e then {}
 
-# Chargement du module sous test (expose window.YamlBuilder)
+# Load module under test (exposes window.YamlBuilder)
 require '../../frontend/src/yaml_builder'
 YB = global.window.YamlBuilder
 
@@ -41,24 +41,24 @@ makeYB = (opts = {}) ->
     allRelations: opts.relations or []
     initialYaml:  opts.initialYaml or null
     onChange:     opts.onChange  or ->
-  yb._render = ->   # no-op: tests d'état uniquement, pas de DOM SVG
+  yb._render = ->   # no-op: state-only tests, no SVG DOM assertions
   yb
 
-# --- YamlBuilder : état initial ---------------------------------------------
+# --- YamlBuilder: initial state ----------------------------------------------
 describe 'YamlBuilder — initial', ->
-  it 'pas de widgets au démarrage', ->
+  it 'no widgets on startup', ->
     yb = makeYB()
     eq yb._widgets.length, 0
 
-  it 'toYaml() vide retourne squelette', ->
+  it 'empty toYaml() returns skeleton', ->
     yb = makeYB()
     yaml = yb.toYaml()
-    assert yaml.indexOf('layout') != -1, 'contient layout'
-    assert yaml.indexOf('children') != -1, 'contient children'
+    assert yaml.indexOf('layout') != -1, 'contains layout'
+    assert yaml.indexOf('children') != -1, 'contains children'
 
-# --- YamlBuilder : clic champ -----------------------------------------------
-describe 'YamlBuilder — clic champ', ->
-  it 'ajouter un champ crée un widget régulier', ->
+# --- YamlBuilder: field click ------------------------------------------------
+describe 'YamlBuilder — field click', ->
+  it 'adding a field creates a regular widget', ->
     yb = makeYB()
     yb._onFieldClick 'sp1', 'nom'
     eq yb._widgets.length, 1
@@ -66,58 +66,58 @@ describe 'YamlBuilder — clic champ', ->
     eq yb._widgets[0].columns.length, 1
     eq yb._widgets[0].columns[0], 'nom'
 
-  it 'clic * crée un widget sans restriction de colonnes', ->
+  it 'clicking * creates a widget without column restriction', ->
     yb = makeYB()
     yb._onFieldClick 'sp1', '*'
     eq yb._widgets[0].columns.length, 0
-    assert yb._widgets[0].type != 'aggregate', 'widget régulier, pas agrégat'
+    assert yb._widgets[0].type != 'aggregate', 'regular widget, not aggregate'
 
-  it 'reclic * en mode all-columns supprime le widget', ->
+  it 'clicking * again in all-columns mode removes widget', ->
     yb = makeYB()
     yb._onFieldClick 'sp1', '*'
     yb._onFieldClick 'sp1', '*'
     eq yb._widgets.length, 0
 
-  it 'reclic même champ le retire', ->
+  it 'clicking same field again removes it', ->
     yb = makeYB()
     yb._onFieldClick 'sp1', 'nom'
     yb._onFieldClick 'sp1', 'nom'
     eq yb._widgets.length, 0
 
-  it 'plusieurs champs dans un même widget', ->
+  it 'multiple fields in same widget', ->
     yb = makeYB()
     yb._onFieldClick 'sp1', 'nom'
     yb._onFieldClick 'sp1', 'age'
     eq yb._widgets.length, 1
     eq yb._widgets[0].columns.length, 2
 
-# --- YamlBuilder : clic en-tête (aggregate) ---------------------------------
-describe 'YamlBuilder — clic en-tête (aggregate)', ->
-  it 'crée un widget de type aggregate', ->
+# --- YamlBuilder: header click (aggregate) -----------------------------------
+describe 'YamlBuilder — header click (aggregate)', ->
+  it 'creates an aggregate widget', ->
     yb = makeYB()
     yb._onHeaderClick 'sp1'
     eq yb._widgets.length, 1
     eq yb._widgets[0].type, 'aggregate'
     eq yb._widgets[0].spaceName, 'personnes'
 
-  it 'groupBy contient tous les champs (pas de FK pour sp1)', ->
+  it 'groupBy contains all fields (no FK for sp1)', ->
     yb = makeYB()
     yb._onHeaderClick 'sp1'
     deepEq yb._widgets[0].groupBy, ['age', 'nom', 'prenom']   # alphabetical
 
-  it 'groupBy exclut les champs FK', ->
+  it 'groupBy excludes FK fields', ->
     yb = makeYB spaces: makeSpaces(), relations: makeRelations()
     yb._onHeaderClick 'sp2'
-    # client_id est FK → exclus ; seul total reste
+    # client_id is FK -> excluded; only total remains
     deepEq yb._widgets[0].groupBy, ['total']
 
-  it 'deuxième clic en-tête supprime le widget agrégat', ->
+  it 'second header click removes aggregate widget', ->
     yb = makeYB()
     yb._onHeaderClick 'sp1'
     yb._onHeaderClick 'sp1'
     eq yb._widgets.length, 0
 
-  it 'widget agrégat et widget régulier peuvent coexister', ->
+  it 'aggregate and regular widgets can coexist', ->
     yb = makeYB()
     yb._onHeaderClick 'sp1'     # aggregate
     yb._onFieldClick  'sp2', 'total'   # regular
@@ -125,50 +125,50 @@ describe 'YamlBuilder — clic en-tête (aggregate)', ->
     eq (yb._widgets.filter (w) -> w.type == 'aggregate').length, 1
     eq (yb._widgets.filter (w) -> w.type != 'aggregate').length, 1
 
-  it '_widgetForSpace n\'est pas sensible aux widgets agrégats', ->
+  it '_widgetForSpace ignores aggregate widgets', ->
     yb = makeYB()
     yb._onHeaderClick 'sp1'
-    assert !yb._widgetForSpace('sp1'), 'pas de widget régulier pour sp1'
-    assert yb._aggWidgetForSpace('sp1'), 'widget agrégat présent'
+    assert !yb._widgetForSpace('sp1'), 'no regular widget for sp1'
+    assert yb._aggWidgetForSpace('sp1'), 'aggregate widget present'
 
-# --- YamlBuilder : toYaml avec aggregate ------------------------------------
+# --- YamlBuilder: toYaml with aggregate --------------------------------------
 describe 'YamlBuilder — toYaml aggregate', ->
-  it 'génère type:aggregate avec groupBy', ->
+  it 'generates type:aggregate with groupBy', ->
     yb = makeYB()
     yb._onHeaderClick 'sp1'
     parsed = JSON.parse yb.toYaml()
     wObj = parsed.layout.children[0].widget
     eq wObj.type, 'aggregate'
     eq wObj.space, 'personnes'
-    assert Array.isArray(wObj.groupBy), 'groupBy est un tableau'
-    assert wObj.aggregate?.length > 0, 'aggregate a au moins une entrée'
+    assert Array.isArray(wObj.groupBy), 'groupBy is an array'
+    assert wObj.aggregate?.length > 0, 'aggregate has at least one entry'
     eq wObj.aggregate[0].fn, 'count'
 
-  it 'génère le widget régulier correctement en présence d\'un agrégat', ->
+  it 'generates regular widget correctly when aggregate is present', ->
     yb = makeYB()
     yb._onHeaderClick 'sp1'
     yb._onFieldClick  'sp2', 'total'
     parsed = JSON.parse yb.toYaml()
     eq parsed.layout.children.length, 2
     types = parsed.layout.children.map (c) -> c.widget.type
-    assert 'aggregate' in types, 'agrégat présent'
+    assert 'aggregate' in types, 'aggregate present'
 
-# --- YamlBuilder : depends_on automatique -----------------------------------
+# --- YamlBuilder: automatic depends_on ---------------------------------------
 describe 'YamlBuilder — depends_on', ->
-  it 'détecte FK et génère depends_on', ->
+  it 'detects FK and generates depends_on', ->
     yb = makeYB spaces: makeSpaces(), relations: makeRelations()
     yb._onFieldClick 'sp1', 'nom'    # parent
-    yb._onFieldClick 'sp2', 'total'  # enfant (a FK vers sp1)
+    yb._onFieldClick 'sp2', 'total'  # child (has FK to sp1)
     child = yb._widgets[1]
-    assert child.dependsOn?, 'depends_on détecté'
+    assert child.dependsOn?, 'depends_on detected'
     eq child.dependsOn.field, 'client_id'
 
 # Helper: build a JSON-YAML string (our stub parses JSON)
 yamlFromObj = (obj) -> JSON.stringify obj
 
-# --- YamlBuilder : hydratation depuis YAML existant -------------------------
+# --- YamlBuilder: hydration from existing YAML -------------------------------
 describe 'YamlBuilder — _loadFromYaml (initialYaml)', ->
-  it 'charge un widget régulier', ->
+  it 'loads a regular widget', ->
     yaml = yamlFromObj
       layout:
         children: [{ widget: { id: 'w1', space: 'personnes', columns: ['nom'] } }]
@@ -178,7 +178,7 @@ describe 'YamlBuilder — _loadFromYaml (initialYaml)', ->
     deepEq yb._widgets[0].columns, ['nom']
     eq yb._widgets[0].id, 'w1'
 
-  it 'charge un widget agrégat', ->
+  it 'loads an aggregate widget', ->
     yaml = yamlFromObj
       layout:
         children: [{ widget: { type: 'aggregate', space: 'commandes', groupBy: ['total'] } }]
@@ -188,7 +188,7 @@ describe 'YamlBuilder — _loadFromYaml (initialYaml)', ->
     eq yb._widgets[0].spaceName, 'commandes'
     deepEq yb._widgets[0].groupBy, ['total']
 
-  it 'charge depends_on', ->
+  it 'loads depends_on', ->
     yaml = yamlFromObj
       layout:
         children: [
@@ -198,18 +198,18 @@ describe 'YamlBuilder — _loadFromYaml (initialYaml)', ->
     yb = makeYB initialYaml: yaml
     eq yb._widgets.length, 2
     dep = yb._widgets[1].dependsOn
-    assert dep?, 'depends_on présent'
+    assert dep?, 'depends_on present'
     eq dep.widgetId, 'p'
     eq dep.field, 'client_id'
 
-  it 'ignore les espaces inconnus', ->
+  it 'ignores unknown spaces', ->
     yaml = yamlFromObj
       layout:
-        children: [{ widget: { space: 'inexistant' } }]
+        children: [{ widget: { space: 'unknown' } }]
     yb = makeYB initialYaml: yaml
     eq yb._widgets.length, 0
 
-  it 'ne duplique pas lors d\'un clic sur espace déjà chargé', ->
+  it 'does not duplicate when clicking already-loaded space', ->
     yaml = yamlFromObj
       layout:
         children: [{ widget: { space: 'personnes', columns: ['nom'] } }]
@@ -217,9 +217,9 @@ describe 'YamlBuilder — _loadFromYaml (initialYaml)', ->
     # Clicking another field should ADD to existing widget, not create a new one
     yb._onFieldClick 'sp1', 'age'
     eq yb._widgets.length, 1
-    assert 'age' in yb._widgets[0].columns, 'age ajouté'
+    assert 'age' in yb._widgets[0].columns, 'age added'
 
-  it 'reloadFromYaml reset et re-hydrate le state', ->
+  it 'reloadFromYaml resets and re-hydrates state', ->
     yb = makeYB()
     yb._onFieldClick 'sp1', 'nom'
     eq yb._widgets.length, 1

@@ -1,12 +1,12 @@
-# tests/js/test_custom_view.coffee — tests pour CustomView (custom_view.js)
-# Teste : parsing YAML, structure du DOM produit, factor flex, filtrage colonnes, depends_on.
+# tests/js/test_custom_view.coffee — tests for CustomView (custom_view.js)
+# Covers: YAML parsing, generated DOM structure, flex factor, columns filtering, depends_on.
 
 require './dom_stub'
 { describe, it, eq, deepEq, assert, summary } = require './runner'
 
 # --- stubs ------------------------------------------------------------------
 global.jsyaml =
-  load: (src) -> JSON.parse src      # les YAML de test seront du JSON valide
+  load: (src) -> JSON.parse src      # test YAML fixtures are valid JSON
 
 global.DataView = class DataView
   constructor: (@container, @space) ->
@@ -18,11 +18,11 @@ global.DataView = class DataView
   setDefaultValues: ->
   deleteSelected: ->
 
-# Chargement du module sous test (expose window.CustomView)
+# Load module under test (exposes window.CustomView)
 require '../../frontend/src/views/custom_view'
 CV = global.window.CustomView
 
-# --- helper -----------------------------------------------------------------
+# --- helpers ----------------------------------------------------------------
 makeSpaces = ->
   [
     { id: '1', name: 'personnes', fields: [
@@ -42,27 +42,27 @@ yamlJSON = (obj) -> JSON.stringify obj
 
 # ---------------------------------------------------------------------------
 describe 'CustomView — layout vertical simple', ->
-  it 'monte un widget sans erreur', ->
+  it 'mounts a widget without error', ->
     layout = { layout: { widget: { id: 'w1', title: 'Gens', space: 'personnes' } } }
     cv = new CV makeContainer(), yamlJSON(layout), makeSpaces()
     cv.mount()
     eq cv._widgets.length, 1
-    assert cv._widgets[0].dataView.mounted, 'DataView doit être monté'
+    assert cv._widgets[0].dataView.mounted, 'DataView should be mounted'
 
-  it '_widgetsById indexé par id', ->
+  it '_widgetsById indexed by id', ->
     layout = { layout: { widget: { id: 'mon_widget', space: 'personnes' } } }
     cv = new CV makeContainer(), yamlJSON(layout), makeSpaces()
     cv.mount()
-    assert cv._widgetsById['mon_widget']?, 'index par id'
+    assert cv._widgetsById['mon_widget']?, 'index by id'
 
-  it 'espace introuvable → dataView null', ->
-    layout = { layout: { widget: { space: 'inexistant' } } }
+  it 'unknown space -> dataView null', ->
+    layout = { layout: { widget: { space: 'unknown' } } }
     cv = new CV makeContainer(), yamlJSON(layout), makeSpaces()
     cv.mount()
     eq cv._widgets[0].dataView, null
 
-describe 'CustomView — zone avec enfants', ->
-  it 'crée un enfant par widget enfant', ->
+describe 'CustomView — zone with children', ->
+  it 'creates one child per child widget', ->
     layout =
       layout:
         direction: 'horizontal'
@@ -75,7 +75,7 @@ describe 'CustomView — zone avec enfants', ->
     eq cv._widgets.length, 2
 
 describe 'CustomView — factor', ->
-  it 'applique factor comme flex', ->
+  it 'applies factor as flex', ->
     layout =
       layout:
         direction: 'vertical'
@@ -85,20 +85,20 @@ describe 'CustomView — factor', ->
         ]
     cv = new CV makeContainer(), yamlJSON(layout), makeSpaces()
     cv.mount()
-    # Le container principal a flex appliqué par _renderZoneOrWidget (nœud racine)
-    # Les enfants ont leur flex dans l'élément rendu
+    # Main container flex is set by _renderZoneOrWidget (root node)
+    # Child nodes keep their own flex values
     entries = cv._widgets
     eq entries[0].el.style.flex, '3'
     eq entries[1].el.style.flex, '1'
 
-  it 'factor absent → flex par défaut à "1"', ->
+  it 'missing factor -> default flex "1"', ->
     layout = { layout: { widget: { space: 'personnes' } } }
     cv = new CV makeContainer(), yamlJSON(layout), makeSpaces()
     cv.mount()
     eq cv._widgets[0].el.style.flex, '1'
 
 describe 'CustomView — columns', ->
-  it 'filtre les colonnes spécifiées', ->
+  it 'filters specified columns', ->
     layout = { layout: { widget: { space: 'personnes', columns: ['age', 'nom'] } } }
     cv = new CV makeContainer(), yamlJSON(layout), makeSpaces()
     cv.mount()
@@ -107,28 +107,28 @@ describe 'CustomView — columns', ->
     eq dv.space.fields[0].name, 'age'
     eq dv.space.fields[1].name, 'nom'
 
-  it 'ignore les colonnes inconnues silencieusement', ->
+  it 'silently ignores unknown columns', ->
     layout = { layout: { widget: { space: 'personnes', columns: ['nom', 'inconnu'] } } }
     cv = new CV makeContainer(), yamlJSON(layout), makeSpaces()
     cv.mount()
     eq cv._widgets[0].dataView.space.fields.length, 1
     eq cv._widgets[0].dataView.space.fields[0].name, 'nom'
 
-  it 'sans columns → tous les champs', ->
+  it 'without columns -> all fields', ->
     layout = { layout: { widget: { space: 'personnes' } } }
     cv = new CV makeContainer(), yamlJSON(layout), makeSpaces()
     cv.mount()
     eq cv._widgets[0].dataView.space.fields.length, 3
 
-  it 'ne modifie pas l\'espace original (clone)', ->
+  it 'does not mutate original space object (clone)', ->
     spaces = makeSpaces()
     layout = { layout: { widget: { space: 'personnes', columns: ['nom'] } } }
     cv = new CV makeContainer(), yamlJSON(layout), spaces
     cv.mount()
-    eq spaces[0].fields.length, 3  # original inchangé
+    eq spaces[0].fields.length, 3  # original unchanged
 
-describe 'CustomView — YAML invalide', ->
-  it 'affiche une erreur sans lever d\'exception', ->
+describe 'CustomView — invalid YAML', ->
+  it 'shows an error without throwing exception', ->
     badYaml = '{ not valid json !!!!'
     global.jsyaml.load = (s) -> throw new Error 'YAML parse error'
     cv = new CV makeContainer(), badYaml, makeSpaces()
@@ -137,7 +137,7 @@ describe 'CustomView — YAML invalide', ->
     global.jsyaml.load = (s) -> JSON.parse s  # restore
 
 describe 'CustomView — unmount', ->
-  it 'vide _widgets et _widgetsById', ->
+  it 'clears _widgets and _widgetsById', ->
     layout = { layout: { widget: { id: 'w', space: 'personnes' } } }
     cv = new CV makeContainer(), yamlJSON(layout), makeSpaces()
     cv.mount()

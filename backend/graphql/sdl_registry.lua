@@ -30,6 +30,16 @@ local Query = {
     returns = 'CustomView'
   },
   {
+    name = 'widgetPlugins',
+    args = '',
+    returns = '[WidgetPlugin!]!'
+  },
+  {
+    name = 'widgetPlugin',
+    args = 'id: ID, name: String',
+    returns = 'WidgetPlugin'
+  },
+  {
     name = 'records',
     args = 'spaceId: ID!, filter: RecordFilter, limit: Int, offset: Int, reprFormula: String, reprLanguage: String',
     returns = 'RecordPage!'
@@ -168,6 +178,21 @@ local Mutation = {
   },
   {
     name = 'deleteCustomView',
+    args = 'id: ID!',
+    returns = 'Boolean!'
+  },
+  {
+    name = 'createWidgetPlugin',
+    args = 'input: CreateWidgetPluginInput!',
+    returns = 'WidgetPlugin!'
+  },
+  {
+    name = 'updateWidgetPlugin',
+    args = 'id: ID!, input: UpdateWidgetPluginInput!',
+    returns = 'WidgetPlugin!'
+  },
+  {
+    name = 'deleteWidgetPlugin',
     args = 'id: ID!',
     returns = 'Boolean!'
   },

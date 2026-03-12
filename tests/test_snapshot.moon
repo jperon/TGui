@@ -1,6 +1,6 @@
 -- tests/test_snapshot.moon
--- Tests des resolvers exportSnapshot / diffSnapshot / importSnapshot.
--- S'exécute dans l'instance Tarantool (box déjà initialisé).
+-- Tests exportSnapshot / diffSnapshot / importSnapshot resolvers.
+-- Runs inside Tarantool instance (box already initialized).
 
 R      = require 'tests.runner'
 auth   = require 'core.auth'
@@ -10,14 +10,14 @@ yaml   = require 'yaml'
 
 SUFFIX = tostring math.random 100000, 999999
 
--- Contexte admin factice (recherche l'utilisateur 'admin' réel)
+-- Fake admin context (uses the real 'admin' user)
 admin_user = auth.get_user_by_username 'admin'
 ADMIN_CTX  = { user_id: admin_user and admin_user.id }
 
 -- ────────────────────────────────────────────────────────────────────────────
 R.describe "exportSnapshot — structure", ->
 
-  R.it "retourne une chaîne YAML non vide", ->
+  R.it "returns a non-empty YAML string", ->
     result = export_r.Query.exportSnapshot nil, { includeData: false }, ADMIN_CTX
     R.ok result
     R.ok #result > 10
@@ -43,19 +43,19 @@ R.describe "exportSnapshot — structure", ->
   R.it "contient une section data en mode include_data", ->
     result = export_r.Query.exportSnapshot nil, { includeData: true }, ADMIN_CTX
     snap = yaml.decode result
-    -- data peut être nil si aucun espace n'a de données, mais la clé existe
-    -- (on vérifie juste que pas d'erreur)
+    -- data can be nil if no spaces contain rows, but key is still valid
+    -- (just verify no error)
     R.ok result
 
 -- ────────────────────────────────────────────────────────────────────────────
-R.describe "diffSnapshot — aucune différence", ->
+R.describe "diffSnapshot — no difference", ->
   local current_yaml
 
-  R.it "exporte le schéma courant", ->
+  R.it "exports current schema", ->
     current_yaml = export_r.Query.exportSnapshot nil, { includeData: false }, ADMIN_CTX
     R.ok current_yaml
 
-  R.it "diff sur le schéma courant → aucune divergence", ->
+  R.it "diff on current schema -> no divergence", ->
     diff = export_r.Query.diffSnapshot nil, { yaml: current_yaml }, ADMIN_CTX
     R.ok diff
     R.eq #diff.spacesToCreate,  0
@@ -67,7 +67,7 @@ R.describe "diffSnapshot — aucune différence", ->
 R.describe "importSnapshot — mode merge", ->
   SP = "snap_test_#{SUFFIX}"
 
-  R.it "crée un snapshot YAML minimal avec un nouvel espace", ->
+  R.it "creates a minimal YAML snapshot with a new space", ->
     snap = {
       version: "1"
       schema: {
@@ -93,7 +93,7 @@ R.describe "importSnapshot — mode merge", ->
     R.ok result.created > 0
     R.eq #result.errors, 0
 
-  R.it "l'espace importé est visible dans list_spaces", ->
+  R.it "imported space is visible in list_spaces", ->
     found = false
     for sp in *spaces.list_spaces!
       if sp.name == SP
@@ -101,7 +101,7 @@ R.describe "importSnapshot — mode merge", ->
         break
     R.ok found
 
-  R.it "les champs importés sont présents", ->
+  R.it "imported fields are present", ->
     sp = nil
     for s in *spaces.list_spaces!
       sp = s if s.name == SP
@@ -116,7 +116,7 @@ R.describe "importSnapshot — mode merge", ->
     R.ok has_titre
     R.ok has_valeur
 
-  R.it "deuxième import identique → tout ignoré, aucune erreur", ->
+  R.it "second identical import -> all skipped, no error", ->
     snap = {
       version: "1"
       schema: {
@@ -143,13 +143,13 @@ R.describe "importSnapshot — mode merge", ->
     R.ok result.skipped > 0
     R.eq #result.errors, 0
 
-  -- Nettoyage
-  R.it "suppression de l'espace de test", ->
+  -- Cleanup
+  R.it "delete test space", ->
     sp = nil
     for s in *spaces.list_spaces!
       sp = s if s.name == SP
     R.ok sp
-    spaces.delete_user_space SP   -- prend un nom, pas un id
+    spaces.delete_user_space SP   -- expects space name, not id
     found = false
     for s in *spaces.list_spaces!
       found = true if s.name == SP
@@ -160,13 +160,13 @@ R.describe "importSnapshot — mode replace", ->
   SP_A = "replace_a_#{SUFFIX}"
   SP_B = "replace_b_#{SUFFIX}"
 
-  R.it "crée deux espaces initiaux", ->
+  R.it "creates two initial spaces", ->
     for name in *{ SP_A, SP_B }
       ok, err = pcall -> spaces.create_user_space name, ''
       R.ok ok
 
-  R.it "mode replace supprime les espaces existants et recrée depuis snapshot", ->
-    -- Snapshot ne contenant que SP_B (SP_A sera supprimé)
+  R.it "replace mode removes existing spaces and recreates from snapshot", ->
+    -- Snapshot containing only SP_B (SP_A will be removed)
     snap = {
       version: "1"
       schema: {
@@ -183,13 +183,13 @@ R.describe "importSnapshot — mode replace", ->
     R.ok result
     R.eq #result.errors, 0
 
-  R.it "SP_B existe toujours (recréé par replace)", ->
+  R.it "SP_B still exists (recreated by replace)", ->
     found = false
     for s in *spaces.list_spaces!
       found = true if s.name == SP_B
     R.ok found
 
-  R.it "SP_B a le champ val importé", ->
+  R.it "SP_B has imported val field", ->
     sp = nil
     for s in *spaces.list_spaces!
       sp = s if s.name == SP_B
@@ -200,28 +200,28 @@ R.describe "importSnapshot — mode replace", ->
       has_val = true if f.name == 'val'
     R.ok has_val
 
-  -- Nettoyage
-  R.it "nettoyage des espaces replace_*", ->
+  -- Cleanup
+  R.it "cleanup replace_* spaces", ->
     for name in *{ SP_A, SP_B }
       sp = nil
       for s in *spaces.list_spaces!
         sp = s if s.name == name
       spaces.delete_user_space name if sp
-    -- Vérifier absence
+    -- Verify both spaces are absent
     found = false
     for s in *spaces.list_spaces!
       found = true if s.name == SP_A or s.name == SP_B
     R.eq found, false
 
 -- ────────────────────────────────────────────────────────────────────────────
-R.describe "importSnapshot — YAML invalide", ->
+R.describe "importSnapshot — invalid YAML", ->
 
-  R.it "erreur sur YAML vide", ->
+  R.it "error on empty YAML", ->
     ok, err = pcall ->
       export_r.Mutation.importSnapshot nil, { yaml: '', mode: 'merge' }, ADMIN_CTX
     R.eq ok, false
 
-  R.it "import avec YAML non-table → erreur", ->
+  R.it "import with non-table YAML -> error", ->
     ok, err = pcall ->
       export_r.Mutation.importSnapshot nil, { yaml: '42', mode: 'merge' }, ADMIN_CTX
     R.eq ok, false

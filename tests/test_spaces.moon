@@ -1,40 +1,40 @@
 -- tests/test_spaces.moon
--- Tests des opérations CRUD sur les espaces (core/spaces.moon).
--- Nécessite Tarantool (box déjà initialisé dans run.moon).
+-- Tests CRUD operations on spaces (core/spaces.moon).
+-- Requires Tarantool (box already initialized in run.moon).
 
 R = require 'tests.runner'
 spaces_mod = require 'core.spaces'
 
--- Identifiant unique pour isoler les tests de cette session
+-- Unique identifier to isolate this test session.
 SUFFIX = tostring(math.random 100000, 999999)
 SP_NAME = "test_space_#{SUFFIX}"
 
 local space_id, field_id_str, field_id_int, field_id_seq, field_id_formula
 
-R.describe "Spaces — création d'espace", ->
-  R.it "create_user_space retourne les métadonnées", ->
-    sp = spaces_mod.create_user_space SP_NAME, "Espace de test"
+R.describe "Spaces — space creation", ->
+  R.it "create_user_space returns metadata", ->
+    sp = spaces_mod.create_user_space SP_NAME, "Test space"
     R.ok sp
     R.ok sp.id
     R.eq sp.name, SP_NAME
     R.ok sp.createdAt
     space_id = sp.id
 
-  R.it "list_spaces inclut l'espace créé", ->
+  R.it "list_spaces includes created space", ->
     found = false
     for sp in *spaces_mod.list_spaces!
       if sp.id == space_id then found = true
     R.ok found
 
-  R.it "get_space retourne l'espace par id", ->
+  R.it "get_space returns space by id", ->
     sp = spaces_mod.get_space space_id
     R.ok sp
     R.eq sp.name, SP_NAME
 
-  R.it "l'espace de données data_X est créé dans Tarantool", ->
+  R.it "data_X data space is created in Tarantool", ->
     R.ok box.space["data_#{SP_NAME}"]
 
-R.describe "Spaces — ajout de champs", ->
+R.describe "Spaces — add fields", ->
   R.it "add_field String", ->
     f = spaces_mod.add_field space_id, 'nom', 'String', false, 'Nom de la personne'
     R.ok f
@@ -57,14 +57,14 @@ R.describe "Spaces — ajout de champs", ->
     R.eq f.fieldType, 'Sequence'
     field_id_seq = f.id
 
-  R.it "add_field avec formula", ->
+  R.it "add_field with formula", ->
     f = spaces_mod.add_field space_id, 'nom_complet', 'String', false, '', 'self.nom or ""'
     R.ok f
     R.eq f.formula, 'self.nom or ""'
-    R.eq f.language, 'lua'  -- langage par défaut
+    R.eq f.language, 'lua'  -- default language
     field_id_formula = f.id
 
-  R.it "add_field avec triggerFields", ->
+  R.it "add_field with triggerFields", ->
     f = spaces_mod.add_field space_id, 'initiales', 'String', false, '',
         'string.upper(string.sub(self.nom or "", 1, 1))',
         {'nom'}
@@ -72,7 +72,7 @@ R.describe "Spaces — ajout de champs", ->
     R.ok f.triggerFields
     R.eq f.triggerFields[1], 'nom'
 
-  R.it "add_field avec language=moonscript", ->
+  R.it "add_field with language=moonscript", ->
     f = spaces_mod.add_field space_id, 'nom_moon', 'String', false, '',
         '(self.nom or "") .. " (moon)"',
         nil, 'moonscript'
@@ -80,42 +80,42 @@ R.describe "Spaces — ajout de champs", ->
     R.eq f.language, 'moonscript'
     R.eq f.formula, '(self.nom or "") .. " (moon)"'
 
-  R.it "add_field avec type invalide → erreur", ->
+  R.it "add_field with invalid type -> error", ->
     R.raises (-> spaces_mod.add_field space_id, 'x', 'TypeInexistant'), 'invalide'
 
 R.describe "Spaces — list_fields", ->
-  R.it "retourne les champs triés par position", ->
+  R.it "returns fields sorted by position", ->
     fields = spaces_mod.list_fields space_id
     R.ok #fields >= 3
-    -- vérifier l'ordre croissant des positions
+    -- verify ascending position order
     for i = 2, #fields
       R.ok fields[i].position >= fields[i-1].position
 
-  R.it "les champs incluent nom, age, seq_id", ->
+  R.it "fields include nom, age, seq_id", ->
     fields = spaces_mod.list_fields space_id
     names = { f.name, true for f in *fields }
     R.ok names['nom']
     R.ok names['age']
     R.ok names['seq_id']
 
-  R.it "formula column a sa formula dans list_fields", ->
+  R.it "formula column contains formula in list_fields", ->
     fields = spaces_mod.list_fields space_id
     for f in *fields
       if f.name == 'nom_complet'
         R.ok f.formula and f.formula != ''
         R.eq f.language, 'lua'
         return
-    R.ok false  -- champ non trouvé
+    R.ok false  -- field not found
 
-  R.it "champ moonscript a son language dans list_fields", ->
+  R.it "moonscript field keeps language in list_fields", ->
     fields = spaces_mod.list_fields space_id
     for f in *fields
       if f.name == 'nom_moon'
         R.eq f.language, 'moonscript'
         return
-    R.ok false  -- champ non trouvé
+    R.ok false  -- field not found
 
-  R.it "trigger formula a ses triggerFields dans list_fields", ->
+  R.it "trigger formula keeps triggerFields in list_fields", ->
     fields = spaces_mod.list_fields space_id
     for f in *fields
       if f.name == 'initiales'
@@ -124,9 +124,9 @@ R.describe "Spaces — list_fields", ->
         return
     R.ok false
 
-R.describe "Spaces — suppression de champ", ->
-  R.it "remove_field supprime le champ", ->
-    -- Ajouter un champ temporaire puis le supprimer
+R.describe "Spaces — field deletion", ->
+  R.it "remove_field deletes field", ->
+    -- Add a temporary field then remove it
     tmp = spaces_mod.add_field space_id, 'tmp_field', 'Boolean'
     spaces_mod.remove_field tmp.id
     fields = spaces_mod.list_fields space_id
@@ -135,46 +135,46 @@ R.describe "Spaces — suppression de champ", ->
       if f.name == 'tmp_field' then found = true
     R.nok found
 
-R.describe "Spaces — réordonnancement", ->
+R.describe "Spaces — reordering", ->
   R.it "reorder_fields change les positions", ->
     fields = spaces_mod.list_fields space_id
     ids = [f.id for f in *fields]
-    -- Inverser l'ordre
+    -- Reverse order
     reversed = [ids[#ids - i + 1] for i = 1, #ids]
     result = spaces_mod.reorder_fields space_id, reversed
     R.ok result
-    -- Vérifier que le premier champ retourné a position 1
+    -- Verify first returned field has position 1
     R.eq result[1].position, 1
 
 R.describe "Spaces — FIELD_TYPES", ->
-  R.it "contient les types de base", ->
+  R.it "contains basic types", ->
     for _, t in ipairs {'String', 'Int', 'Float', 'Boolean', 'UUID'} do
       found = false
       for _, ft in ipairs spaces_mod.FIELD_TYPES do
         if ft == t then found = true
       R.ok found, "FIELD_TYPES doit contenir #{t}"
 
-  R.it "contient Any, Map, Array", ->
+  R.it "contains Any, Map, Array", ->
     for _, t in ipairs {'Any', 'Map', 'Array'} do
       found = false
       for _, ft in ipairs spaces_mod.FIELD_TYPES do
         if ft == t then found = true
       R.ok found, "FIELD_TYPES doit contenir #{t}"
 
-  R.it "contient Sequence", ->
+  R.it "contains Sequence", ->
     found = false
     for _, ft in ipairs spaces_mod.FIELD_TYPES do
       if ft == 'Sequence' then found = true
     R.ok found
 
-  R.it "contient Datetime", ->
+  R.it "contains Datetime", ->
     found = false
     for _, ft in ipairs spaces_mod.FIELD_TYPES do
       if ft == 'Datetime' then found = true
     R.ok found
 
-R.describe "Spaces — reprFormula et conversion", ->
-  R.it "peut creer un champ avec reprFormula et Datetime", ->
+R.describe "Spaces — reprFormula and conversion", ->
+  R.it "can create a field with reprFormula and Datetime", ->
     sp = spaces_mod.create_user_space 'test_repr_space', 'space for repr tests'
 
     -- Datetime field
@@ -192,7 +192,7 @@ R.describe "Spaces — reprFormula et conversion", ->
 
     spaces_mod.delete_user_space 'test_repr_space'
 
-  R.it "peut changer le type d'un champ avec conversion", ->
+  R.it "can change field type with conversion", ->
     sp = spaces_mod.create_user_space 'test_conv_space', 'space for conversion tests'
     str_field = spaces_mod.add_field sp.id, 'amount', 'String', false, ''
 
@@ -210,21 +210,21 @@ R.describe "Spaces — reprFormula et conversion", ->
 
     spaces_mod.delete_user_space 'test_conv_space'
 
-  R.it "conversion Int vers Sequence préserve les IDs existants", ->
+  R.it "Int to Sequence conversion preserves existing IDs", ->
     sp = spaces_mod.create_user_space 'test_seq_conv', 'Test sequence conversion'
     id_field = spaces_mod.add_field sp.id, 'id', 'Int', false, 'ID existant'
     name_field = spaces_mod.add_field sp.id, 'name', 'String', false, 'Nom'
 
-    -- Insérer des enregistrements avec des IDs spécifiques
+    -- Insert records with specific IDs
     box.space["data_#{sp.name}"]\insert { "1", require('json').encode({id: 100, name: "A"}) }
     box.space["data_#{sp.name}"]\insert { "2", require('json').encode({id: 250, name: "B"}) }
     box.space["data_#{sp.name}"]\insert { "3", require('json').encode({id: 75, name: "C"}) }
 
-    -- Convertir le champ id en Sequence
+    -- Convert id field to Sequence
     changed = spaces_mod.change_field_type id_field.id, 'Sequence', nil, 'lua'
     R.eq 'Sequence', changed.fieldType
 
-    -- Vérifier que les IDs existants sont préservés
+    -- Verify existing IDs are preserved
     data1 = box.space["data_#{sp.name}"]\get "1"
     data2 = box.space["data_#{sp.name}"]\get "2"
     data3 = box.space["data_#{sp.name}"]\get "3"
@@ -237,55 +237,55 @@ R.describe "Spaces — reprFormula et conversion", ->
     R.eq 250, parsed2.id
     R.eq 75, parsed3.id
 
-    -- Vérifier que la séquence démarre après la valeur max (250)
-    -- La séquence est créée mais on vérifie juste que les valeurs sont préservées
-    -- Le test de la séquence lui-même peut être fait séparément
+    -- Verify sequence starts after max value (250)
+    -- Sequence is created; here we only verify values are preserved
+    -- Sequence behavior itself can be tested separately
 
     spaces_mod.delete_user_space 'test_seq_conv'
 
-  R.it "ajout champ Sequence sur espace non-vide préserve les valeurs", ->
+  R.it "adding Sequence field on non-empty space preserves values", ->
     sp = spaces_mod.create_user_space 'test_seq_add', 'Test add sequence to non-empty'
     name_field = spaces_mod.add_field sp.id, 'name', 'String', false, 'Nom'
 
-    -- Insérer des enregistrements
+    -- Insert records
     box.space["data_#{sp.name}"]\insert { "1", require('json').encode({name: "A"}) }
     box.space["data_#{sp.name}"]\insert { "2", require('json').encode({name: "B"}) }
 
-    -- Ajouter un champ Sequence avec des valeurs existantes dans un autre champ
+    -- Add Sequence field while existing rows already exist
     id_field = spaces_mod.add_field sp.id, 'id', 'Sequence', false, 'ID auto'
 
-    -- Vérifier que les nouveaux enregistrements ont des IDs de la séquence
+    -- Verify existing rows received sequence IDs
     data1 = box.space["data_#{sp.name}"]\get "1"
     data2 = box.space["data_#{sp.name}"]\get "2"
 
     parsed1 = require('json').decode data1[2]
     parsed2 = require('json').decode data2[2]
 
-    -- Les IDs devraient être 1 et 2 (premières valeurs de la séquence)
+    -- IDs should be 1 and 2 (first sequence values)
     R.eq 1, parsed1.id
     R.eq 2, parsed2.id
 
     spaces_mod.delete_user_space 'test_seq_add'
 
--- Nettoyage : suppression de l'espace créé pour ces tests
+-- Cleanup: remove space created for these tests
 spaces_mod.delete_user_space SP_NAME
 
-R.describe "Spaces — conversion Int vers Sequence", ->
-  R.it "conversion Int vers Sequence préserve les IDs existants", ->
+R.describe "Spaces — Int to Sequence conversion", ->
+  R.it "Int to Sequence conversion preserves existing IDs", ->
     sp = spaces_mod.create_user_space 'test_seq_conv', 'Test sequence conversion'
     id_field = spaces_mod.add_field sp.id, 'id', 'Int', false, 'ID existant'
     name_field = spaces_mod.add_field sp.id, 'name', 'String', false, 'Nom'
 
-    -- Insérer des enregistrements avec des IDs spécifiques
+    -- Insert records with specific IDs
     box.space["data_#{sp.name}"]\insert { "1", require('json').encode({id: 100, name: "A"}) }
     box.space["data_#{sp.name}"]\insert { "2", require('json').encode({id: 250, name: "B"}) }
     box.space["data_#{sp.name}"]\insert { "3", require('json').encode({id: 75, name: "C"}) }
 
-    -- Convertir le champ id en Sequence
+    -- Convert id field to Sequence
     changed = spaces_mod.change_field_type id_field.id, 'Sequence', nil, 'lua'
     R.eq 'Sequence', changed.fieldType
 
-    -- Vérifier que les IDs existants sont préservés
+    -- Verify existing IDs are preserved
     data1 = box.space["data_#{sp.name}"]\get "1"
     data2 = box.space["data_#{sp.name}"]\get "2"
     data3 = box.space["data_#{sp.name}"]\get "3"
@@ -298,30 +298,30 @@ R.describe "Spaces — conversion Int vers Sequence", ->
     R.eq 250, parsed2.id
     R.eq 75, parsed3.id
 
-    -- Vérifier que la séquence démarre après la valeur max (250)
-    -- La séquence est créée mais on vérifie juste que les valeurs sont préservées
-    -- Le test de la séquence lui-même peut être fait séparément
+    -- Verify sequence starts after max value (250)
+    -- Sequence is created; here we only verify values are preserved
+    -- Sequence behavior itself can be tested separately
 
     spaces_mod.delete_user_space 'test_seq_conv'
 
-  R.it "conversion Int vers Sequence avec enregistrements sans valeur", ->
+  R.it "Int to Sequence conversion with records missing value", ->
     sp = spaces_mod.create_user_space 'test_seq_empty', 'Test sequence empty values'
     id_field = spaces_mod.add_field sp.id, 'test_id', 'Int', false, 'Test ID'
     name_field = spaces_mod.add_field sp.id, 'name', 'String', false, 'Nom'
 
-    -- Insérer un enregistrement sans valeur pour test_id
+    -- Insert a record without test_id value
     box.space["data_#{sp.name}"]\insert { "1", require('json').encode({name: "No ID"}) }
 
-    -- Convertir le champ en Sequence
+    -- Convert field to Sequence
     changed = spaces_mod.change_field_type id_field.id, 'Sequence', nil, 'lua'
     R.eq 'Sequence', changed.fieldType
 
-    -- Vérifier que l'enregistrement sans ID a reçu une valeur
+    -- Verify record without ID received a value
     data = box.space["data_#{sp.name}"]\get "1"
     parsed = require('json').decode data[2]
 
-    -- Devrait avoir une valeur de séquence (commence à 1 car max_val = 0)
-    error "L'enregistrement sans ID devrait avoir reçu une valeur" unless parsed.test_id != nil
-    error "La valeur devrait être un nombre" unless type(parsed.test_id) == 'number'
+    -- Should have a sequence value (starts at 1 because max_val = 0)
+    error "Record without ID should receive a value" unless parsed.test_id != nil
+    error "Value should be a number" unless type(parsed.test_id) == 'number'
 
     spaces_mod.delete_user_space 'test_seq_empty'

@@ -1,11 +1,11 @@
 -- tests/test_relation_display_regression.moon
--- Test de régression pour s'assurer que l'affichage des relations ne casse plus
+-- Regression test to ensure relation rendering no longer breaks.
 
 import execute_mutation from require 'tests.runner'
 
 describe "Relation display regression tests", ->
   it "should not allow Relation as a field type in addField", ->
-    -- Créer un espace de test
+    -- Create a test space.
     space_result = execute_mutation [[
       mutation {
         createSpace(input: { name: "test_regression_space", description: "Test" }) { id name }
@@ -13,19 +13,19 @@ describe "Relation display regression tests", ->
     ]], {}
     space_id = space_result.createSpace.id
 
-    -- Essayer de créer un champ avec le type "Relation"
-    -- Le backend devrait le transformer en "Int" automatiquement
+    -- Try creating a field with type "Relation".
+    -- Backend should automatically transform it to "Int".
     result = execute_mutation [[
       mutation {
         addField(spaceId: $spaceId, input: { name: "test_field", fieldType: "Relation", description: "Test" }) { id name fieldType }
       }
     ]], { spaceId: space_id }
 
-    -- Le champ doit être créé avec le type "Int"
+    -- Field must be created with type "Int".
     assert result.data.addField, "Field should be created"
     assert result.data.addField.fieldType == "Int", "Relation should be transformed to Int"
-    
-    -- Nettoyer
+
+    -- Cleanup.
     execute_mutation [[
       mutation {
         deleteSpace(id: $spaceId)
@@ -33,14 +33,14 @@ describe "Relation display regression tests", ->
     ]], { spaceId: space_id }
 
   it "should use correct display format for relations", ->
-    -- Ce test vérifie que le code frontend utilise bien le format "→ target"
-    -- Le format est défini dans app.coffee ligne 1229:
+    -- This test verifies frontend code uses the "→ target" format.
+    -- Format is defined in app.coffee around line 1229:
     -- badge.textContent = "→ #{targetName}"
-    
-    -- Le format attendu est:
+
+    -- Expected format:
     arrow_format = "→ "
     assert arrow_format\match("^→ "), "Should use arrow format"
-    
-    -- Le tooltip devrait être:
+
+    -- Expected tooltip:
     tooltip_format = "Relation vers "
     assert tooltip_format\match("^Relation vers "), "Should use correct tooltip"

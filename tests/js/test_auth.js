@@ -30,10 +30,10 @@
 
   A = global.window.Auth;
 
-  global.Auth = A; // auth.js référence Auth directement (global navigateur)
+  global.Auth = A; // auth.js references Auth directly (browser global)
 
   describe('Auth.login', function() {
-    it('appelle GQL.mutate avec les bons arguments', function() {
+    it('calls GQL.mutate with correct arguments', function() {
       var captured;
       captured = null;
       GQL.mutate = function(q, v) {
@@ -55,7 +55,7 @@
         return eq(captured != null ? captured.password : void 0, 'secret');
       });
     });
-    it('retourne l\'utilisateur résolu', function() {
+    it('returns resolved user', function() {
       GQL.mutate = function(q, v) {
         return Promise.resolve({
           login: {
@@ -74,7 +74,7 @@
         return eq(user.id, '2');
       });
     });
-    return it('appelle GQL.setToken avec le token reçu', function() {
+    return it('calls GQL.setToken with received token', function() {
       var tokReceived;
       tokReceived = null;
       GQL.setToken = function(t) {
@@ -101,7 +101,7 @@
   });
 
   describe('Auth.restoreSession', function() {
-    it('retourne l\'utilisateur si me est défini', function() {
+    it('returns user when me is defined', function() {
       GQL.query = function() {
         return Promise.resolve({
           me: {
@@ -116,7 +116,7 @@
         return eq(u != null ? u.username : void 0, 'dan');
       });
     });
-    it('retourne null si me est null', function() {
+    it('returns null when me is null', function() {
       GQL.query = function() {
         return Promise.resolve({
           me: null
@@ -126,7 +126,7 @@
         return eq(u, null);
       });
     });
-    return it('retourne null sur erreur réseau', function() {
+    return it('returns null on network error', function() {
       GQL.query = function() {
         return Promise.reject(new Error('network error'));
       };
@@ -137,7 +137,7 @@
   });
 
   describe('Auth.isAdmin', function() {
-    it('retourne true si currentUser est dans le groupe admin', function() {
+    it('returns true when currentUser is in admin group', function() {
       A.currentUser = {
         id: '1',
         username: 'root',
@@ -148,9 +148,9 @@
           }
         ]
       };
-      return assert(A.isAdmin(), 'isAdmin devrait être true');
+      return assert(A.isAdmin(), 'isAdmin should be true');
     });
-    it('retourne false si currentUser n\'est pas dans admin', function() {
+    it('returns false when currentUser is not in admin', function() {
       A.currentUser = {
         id: '2',
         username: 'bob',
@@ -161,16 +161,16 @@
           }
         ]
       };
-      return assert(!A.isAdmin(), 'isAdmin devrait être false');
+      return assert(!A.isAdmin(), 'isAdmin should be false');
     });
-    return it('retourne false si currentUser est null', function() {
+    return it('returns false when currentUser is null', function() {
       A.currentUser = null;
-      return assert(!A.isAdmin(), 'isAdmin devrait être false quand currentUser est null');
+      return assert(!A.isAdmin(), 'isAdmin should be false when currentUser is null');
     });
   });
 
   describe('Auth.changePassword', function() {
-    return it('appelle mutate et retourne la valeur changePassword', function() {
+    return it('calls mutate and returns changePassword value', function() {
       GQL.mutate = function(q, v) {
         return Promise.resolve({
           changePassword: true
@@ -183,12 +183,12 @@
   });
 
   describe('Auth.isAdmin (sans groupes)', function() {
-    return it('retourne false si groups est undefined', function() {
+    return it('returns false when groups is undefined', function() {
       A.currentUser = {
         id: '3',
         username: 'ghost'
       };
-      return assert(!A.isAdmin(), 'isAdmin devrait être false si groups absent');
+      return assert(!A.isAdmin(), 'isAdmin should be false when groups is missing');
     });
   });
 

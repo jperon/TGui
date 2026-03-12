@@ -2,7 +2,7 @@
 
 > Auto-generated file. Do not edit manually.
 >
-> Generated at: 2026-03-12 10:33:27 UTC
+> Generated at: 2026-03-12 20:58:48 UTC
 >
 > Source: `schema/tdb.graphql`
 
@@ -18,14 +18,14 @@
 
 ### Spaces & Fields
 
-| Opération | Arguments | Retour | Description |
+| Operation | Arguments | Return | Description |
 |---|---|---|---|
 | `spaces` | `-` | `[Space!]!` | Read operation on space/field metadata. |
 | `space` | `id: ID!` | `Space` | Read operation on space/field metadata. |
 
 ### Views
 
-| Opération | Arguments | Retour | Description |
+| Operation | Arguments | Return | Description |
 |---|---|---|---|
 | `views` | `spaceId: ID!` | `[View!]!` | Manage standard and custom views. |
 | `view` | `id: ID!` | `View` | Manage standard and custom views. |
@@ -34,14 +34,14 @@
 
 ### Relations
 
-| Opération | Arguments | Retour | Description |
+| Operation | Arguments | Return | Description |
 |---|---|---|---|
 | `relations` | `spaceId: ID!` | `[Relation!]!` | Manage inter-space relations and column display preferences. |
 | `gridColumnPrefs` | `spaceId: ID!` | `JSON!` | Manage inter-space relations and column display preferences. |
 
 ### Data (records)
 
-| Opération | Arguments | Retour | Description |
+| Operation | Arguments | Return | Description |
 |---|---|---|---|
 | `records` | `spaceId: ID!, filter: RecordFilter, limit: Int, offset: Int, reprFormula: String, reprLanguage: String` | `RecordPage!` | Read/write user records. |
 | `record` | `spaceId: ID!, id: ID!` | `Record` | Read/write user records. |
@@ -49,13 +49,13 @@
 
 ### Authentication
 
-| Opération | Arguments | Retour | Description |
+| Operation | Arguments | Return | Description |
 |---|---|---|---|
 | `me` | `-` | `User` | Authentication, sessions and password lifecycle. |
 
 ### Users & Groups
 
-| Opération | Arguments | Retour | Description |
+| Operation | Arguments | Return | Description |
 |---|---|---|---|
 | `users` | `-` | `[User!]!` | Administration for users, groups and permissions. |
 | `user` | `id: ID!` | `User` | Administration for users, groups and permissions. |
@@ -64,7 +64,7 @@
 
 ### Snapshots
 
-| Opération | Arguments | Retour | Description |
+| Operation | Arguments | Return | Description |
 |---|---|---|---|
 | `exportSnapshot` | `includeData: Boolean!` | `String!` | Export, diff and import configuration snapshots. |
 | `diffSnapshot` | `yaml: String!` | `SnapshotDiff!` | Export, diff and import configuration snapshots. |
@@ -73,7 +73,7 @@
 
 ### Spaces & Fields
 
-| Opération | Arguments | Retour | Description |
+| Operation | Arguments | Return | Description |
 |---|---|---|---|
 | `createSpace` | `input: CreateSpaceInput!` | `Space!` | Mutation operation on space/field metadata. |
 | `updateSpace` | `id: ID!, input: UpdateSpaceInput!` | `Space!` | Mutation operation on space/field metadata. |
@@ -87,7 +87,7 @@
 
 ### Views
 
-| Opération | Arguments | Retour | Description |
+| Operation | Arguments | Return | Description |
 |---|---|---|---|
 | `createView` | `spaceId: ID!, input: CreateViewInput!` | `View!` | Manage standard and custom views. |
 | `updateView` | `id: ID!, input: UpdateViewInput!` | `View!` | Manage standard and custom views. |
@@ -98,7 +98,7 @@
 
 ### Relations
 
-| Opération | Arguments | Retour | Description |
+| Operation | Arguments | Return | Description |
 |---|---|---|---|
 | `createRelation` | `input: CreateRelationInput!` | `Relation!` | Manage inter-space relations and column display preferences. |
 | `deleteRelation` | `id: ID!` | `Boolean!` | Manage inter-space relations and column display preferences. |
@@ -107,7 +107,7 @@
 
 ### Data (records)
 
-| Opération | Arguments | Retour | Description |
+| Operation | Arguments | Return | Description |
 |---|---|---|---|
 | `insertRecord` | `spaceId: ID!, data: JSON!` | `Record!` | Read/write user records. |
 | `updateRecord` | `spaceId: ID!, id: ID!, data: JSON!` | `Record!` | Read/write user records. |
@@ -119,7 +119,7 @@
 
 ### Authentication
 
-| Opération | Arguments | Retour | Description |
+| Operation | Arguments | Return | Description |
 |---|---|---|---|
 | `login` | `username: String!, password: String!` | `AuthPayload!` | Authentication, sessions and password lifecycle. |
 | `logout` | `-` | `Boolean!` | Authentication, sessions and password lifecycle. |
@@ -128,7 +128,7 @@
 
 ### Users & Groups
 
-| Opération | Arguments | Retour | Description |
+| Operation | Arguments | Return | Description |
 |---|---|---|---|
 | `createUser` | `input: CreateUserInput!` | `User!` | Administration for users, groups and permissions. |
 | `createGroup` | `input: CreateGroupInput!` | `Group!` | Administration for users, groups and permissions. |
@@ -140,7 +140,7 @@
 
 ### Snapshots
 
-| Opération | Arguments | Retour | Description |
+| Operation | Arguments | Return | Description |
 |---|---|---|---|
 | `importSnapshot` | `yaml: String!, mode: ImportMode!` | `ImportResult!` | Export, diff and import configuration snapshots. |
 

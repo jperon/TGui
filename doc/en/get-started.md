@@ -284,9 +284,9 @@ Each box represents a space. For each field (row):
 
 | Button | Action |
 |--------|--------|
-| **💾 Save** | Save the YAML |
+| **↓ Save** | Save the YAML |
 | **▶ Preview** | Show the rendered view |
-| **✕** | Close the modal without saving |
+| **×** | Close the modal without saving |
 
 ### View “Loans management”
 

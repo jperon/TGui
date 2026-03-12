@@ -1,11 +1,11 @@
 -- tests/test_relation_repr.moon
--- Test pour vérifier que les relations utilisent bien _repr
+-- Test to verify that relations correctly use _repr.
 
 import execute_mutation, execute_query from require 'tests.runner'
 
 describe "Relation _repr display", ->
   before_each ->
-    -- Nettoyer
+    -- Cleanup.
     spaces = require 'core.spaces'
     all_spaces = spaces.list_spaces!
     for space in *all_spaces
@@ -13,7 +13,7 @@ describe "Relation _repr display", ->
         spaces.delete_user_space space.id
 
   it "should include _repr fields in records query", ->
-    -- Créer deux espaces
+    -- Create two spaces.
     source_result = execute_mutation [[
       mutation {
         createSpace(input: { name: "test_relation_repr_source", description: "Source" }) { id name }
@@ -28,7 +28,7 @@ describe "Relation _repr display", ->
     ]], {}
     target_id = target_result.createSpace.id
 
-    -- Ajouter des champs
+    -- Add fields.
     execute_mutation [[
       mutation AddTargetFields($spaceId: ID!) {
         f1: addField(spaceId: $spaceId, input: { name: "id", fieldType: Sequence, notNull: true, description: "ID" }) { id }
@@ -43,23 +43,23 @@ describe "Relation _repr display", ->
       }
     ]], { spaceId: source_id }
 
-    -- Récupérer les IDs des champs
+    -- Fetch field IDs.
     source_fields = execute_mutation [[
       mutation {
         space(id: $spaceId) { fields { id name } }
       }
     ]], { spaceId: source_id }
-    
+
     target_fields = execute_mutation [[
       mutation {
         space(id: $spaceId) { fields { id name } }
       }
     ]], { spaceId: target_id }
 
-    relation_field = source_fields.data.space.fields[2].id  -- champ "relation"
-    id_field = target_fields.data.space.fields[1].id      -- champ "id"
+    relation_field = source_fields.data.space.fields[2].id  -- "relation" field
+    id_field = target_fields.data.space.fields[1].id      -- "id" field
 
-    -- Créer la relation
+    -- Create relation.
     execute_mutation [[
       mutation CreateRelation($sourceId: ID!, $fieldId: ID!, $targetId: ID!, $targetFieldId: ID!) {
         createRelation(input: {
@@ -78,7 +78,7 @@ describe "Relation _repr display", ->
       targetFieldId: id_field
     }
 
-    -- Insérer des données
+    -- Insert data.
     execute_mutation [[
       mutation InsertTarget($spaceId: ID!, $data: JSON!) {
         insertRecord(spaceId: $spaceId, data: $data) { id }
@@ -91,7 +91,7 @@ describe "Relation _repr display", ->
       }
     ]], { spaceId: source_id, data: { relation: "1" } }
 
-    -- Interroger avec reprFormula
+    -- Query records using reprFormula.
     records_result = execute_mutation [[
       mutation GetRecords($spaceId: ID!) {
         records(spaceId: $spaceId, limit: 10) {
@@ -103,15 +103,15 @@ describe "Relation _repr display", ->
       }
     ]], { spaceId: source_id }
 
-    -- Vérifier que les données sont là
+    -- Verify data is present.
     assert records_result.data.records.items, "Should have records"
     record = records_result.data.records.items[1]
     assert record, "Should have at least one record"
 
-    -- TODO: Tester avec reprFormula quand l'API le supportera
+    -- TODO: Add deeper reprFormula assertions when API exposes related projection.
 
   after_each ->
-    -- Nettoyer
+    -- Cleanup.
     spaces = require 'core.spaces'
     all_spaces = spaces.list_spaces!
     for space in *all_spaces

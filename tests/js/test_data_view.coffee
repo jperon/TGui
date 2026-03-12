@@ -1,10 +1,10 @@
-# tests/js/test_data_view.coffee — tests pour DataView (data_view.js)
-# Teste la logique pure (sans mount/tui.Grid).
+# tests/js/test_data_view.coffee — tests for DataView (data_view.js)
+# Tests pure logic (without mount/tui.Grid).
 
 require './dom_stub'
 { describe, it, eq, deepEq, assert, summary } = require './runner'
 
-# Stubs requis par data_view.js
+# Stubs required by data_view.js
 global.GQL =
   query:  -> Promise.resolve {}
   mutate: -> Promise.resolve {}
@@ -42,74 +42,74 @@ container = -> global.document.createElement 'div'
 
 # ---------------------------------------------------------------------------
 describe 'DataView._sentinel', ->
-  it 'produit une ligne avec __isNew et tous les champs non-Sequence', ->
+  it 'produces a row with __isNew and all non-Sequence fields', ->
     dv = new DV container(), makeSpace()
     s  = dv._sentinel()
-    assert s.__isNew, '__isNew absent'
-    assert 'nom' of s, 'nom manquant'
-    assert 'age' of s, 'age manquant'
-    assert not ('seq' of s), 'seq (Sequence) ne doit pas figurer dans le sentinel'
+    assert s.__isNew, '__isNew missing'
+    assert 'nom' of s, 'nom missing'
+    assert 'age' of s, 'age missing'
+    assert not ('seq' of s), 'seq (Sequence) must not appear in sentinel'
 
-  it 'utilise les defaultValues', ->
+  it 'uses defaultValues', ->
     dv = new DV container(), makeSpace()
     dv.setDefaultValues { nom: 'Alice' }
     s  = dv._sentinel()
     eq s.nom, 'Alice'
-    eq s.age, ''   # pas dans defaults
+    eq s.age, ''   # not in defaults
 
-  it 'retourne chaîne vide pour les champs sans default', ->
+  it 'returns empty string for fields without default', ->
     dv = new DV container(), makeSpace()
     s  = dv._sentinel()
     eq s.nom, ''
     eq s.age, ''
 
 describe 'DataView._lsKey', ->
-  it 'inclut l\'id de l\'espace', ->
+  it 'includes space id', ->
     dv = new DV container(), makeSpace { id: 'abc' }
     eq dv._lsKey(), 'tdb_colwidths_abc'
 
 describe 'DataView._loadColWidths', ->
-  it 'retourne {} si rien en localStorage', ->
+  it 'returns {} when localStorage is empty', ->
     global.localStorage.clear()
     dv = new DV container(), makeSpace()
     prefs = await dv._loadColWidths()
     deepEq prefs, {}
 
-  it 'parse le JSON depuis localStorage', ->
+  it 'parses JSON from localStorage', ->
     global.localStorage.setItem 'tdb_colwidths_sp1', JSON.stringify { nom: 200 }
     dv = new DV container(), makeSpace { id: 'sp1' }
     prefs = await dv._loadColWidths()
     eq prefs.nom, 200
 
-  it 'retourne {} si JSON invalide', ->
+  it 'returns {} on invalid JSON', ->
     global.localStorage.setItem 'tdb_colwidths_sp1', 'not-json'
     dv = new DV container(), makeSpace { id: 'sp1' }
     prefs = await dv._loadColWidths()
     deepEq prefs, {}
 
 describe 'DataView.setDefaultValues', ->
-  it 'stocke les valeurs et les reflète dans le sentinel', ->
+  it 'stores values and reflects them in sentinel', ->
     dv = new DV container(), makeSpace()
     dv.setDefaultValues { age: '42' }
     eq dv._sentinel().age, '42'
 
-  it 'accepte null/undefined → remet à zéro', ->
+  it 'accepts null/undefined -> resets state', ->
     dv = new DV container(), makeSpace()
     dv.setDefaultValues { nom: 'Bob' }
     dv.setDefaultValues null
     deepEq dv._defaultValues, {}
 
 describe 'DataView.setFilter + _applyData', ->
-  it 'setFilter met à jour @filter', ->
+  it 'setFilter updates @filter', ->
     dv = new DV container(), makeSpace()
     dv.setFilter { field: 'age', value: '30' }
     eq dv.filter.field, 'age'
     eq dv.filter.value, '30'
 
-  it '_applyData filtre les lignes par field/value', ->
+  it '_applyData filters rows by field/value', ->
     sp = makeSpace()
     dv = new DV container(), sp
-    # Monte un grid mock minimal
+    # Mount a minimal mocked grid
     gridData = []
     dv._grid =
       resetData: (d) -> gridData = d
@@ -124,11 +124,11 @@ describe 'DataView.setFilter + _applyData', ->
     dv._applyData()
     # sentinel excluded from assertion count, so total = 2 data + 1 sentinel
     eq gridData.length, 3
-    assert gridData[0].nom is 'Alice', 'première ligne filtrée incorrecte'
-    assert gridData[1].nom is 'Carol', 'deuxième ligne filtrée incorrecte'
-    assert gridData[2].__isNew, 'sentinel absent en fin'
+    assert gridData[0].nom is 'Alice', 'first filtered row is incorrect'
+    assert gridData[1].nom is 'Carol', 'second filtered row is incorrect'
+    assert gridData[2].__isNew, 'missing sentinel at end'
 
-  it '_applyData sans filtre inclut toutes les lignes', ->
+  it '_applyData without filter includes all rows', ->
     sp = makeSpace()
     dv = new DV container(), sp
     gridData = []
@@ -144,7 +144,7 @@ describe 'DataView.setFilter + _applyData', ->
     eq gridData.length, 3   # 2 data + 1 sentinel
 
 describe 'DataView formula error rendering state', ->
-  it '_applyData marque la cellule quand _repr_<field> contient une erreur', ->
+  it '_applyData marks cell when _repr_<field> contains an error', ->
     sp = makeSpace
       fields: [
         { id: 'f1', name: 'nom', fieldType: 'String', formula: null, triggerFields: null }
@@ -165,10 +165,10 @@ describe 'DataView formula error rendering state', ->
     dv._applyData()
     row = gridData[0]
     classes = row._attributes?.className?.column?.nom or []
-    assert classes.includes('cell-formula-error'), 'cell-formula-error absente'
+    assert classes.includes('cell-formula-error'), 'cell-formula-error missing'
 
 describe 'DataView FK maps use _repr', ->
-  it '_buildFkMaps privilégie _repr pour le display FK', ->
+  it '_buildFkMaps prioritizes _repr for FK display', ->
     oldQuery = global.GQL.query
     global.GQL.query = (q, vars) ->
       Promise.resolve
@@ -192,7 +192,7 @@ describe 'DataView FK maps use _repr', ->
     global.GQL.query = oldQuery
 
 describe 'DataView editable columns formatter regression', ->
-  it 'FK et Boolean formatters ne renvoient pas de HTML brut', ->
+  it 'FK and Boolean formatters do not return raw HTML', ->
     sp = makeSpace
       fields: [
         { id: 'f1', name: 'auteur', fieldType: 'Relation', formula: null, triggerFields: null }
@@ -215,9 +215,9 @@ describe 'DataView editable columns formatter regression', ->
     fkCol = cols.find (c) -> c.name == 'auteur'
     boolCol = cols.find (c) -> c.name == 'disponible'
 
-    assert fkCol, 'colonne FK absente'
-    assert boolCol, 'colonne Boolean absente'
-    assert typeof fkCol.editor?.type is 'function', 'éditeur FK custom absent'
+    assert fkCol, 'missing FK column'
+    assert boolCol, 'missing Boolean column'
+    assert typeof fkCol.editor?.type is 'function', 'missing custom FK editor'
     eq fkCol.editor?.type?.name, 'FkSearchEditor'
     eq boolCol.editor?.type, 'checkbox'
 
@@ -225,17 +225,17 @@ describe 'DataView editable columns formatter regression', ->
     boolRenderedTrue = boolCol.formatter { value: true, row: { disponible: true } }
     boolRenderedFalse = boolCol.formatter { value: false, row: { disponible: false } }
 
-    assert fkRendered == 'Hugo Victor', 'le formatter FK doit renvoyer du texte pur'
-    assert not String(fkRendered).includes('<'), 'le formatter FK ne doit pas renvoyer de HTML'
+    assert fkRendered == 'Hugo Victor', 'FK formatter must return plain text'
+    assert not String(fkRendered).includes('<'), 'FK formatter must not return HTML'
     eq boolRenderedTrue, '☑'
     eq boolRenderedFalse, '☐'
-    assert not String(boolRenderedTrue).includes('<'), 'le formatter Boolean ne doit pas renvoyer de HTML'
-    assert not String(boolRenderedFalse).includes('<'), 'le formatter Boolean ne doit pas renvoyer de HTML'
+    assert not String(boolRenderedTrue).includes('<'), 'Boolean formatter must not return HTML'
+    assert not String(boolRenderedFalse).includes('<'), 'Boolean formatter must not return HTML'
 
     dv.unmount()
 
 describe 'DataView FK fuzzy autocomplete editor', ->
-  it 'supporte la recherche fuzzy et mappe label -> id', ->
+  it 'supports fuzzy search and maps label -> id', ->
     sp = makeSpace
       fields: [
         { id: 'f1', name: 'auteur', fieldType: 'Relation', formula: null, triggerFields: null }
@@ -258,7 +258,7 @@ describe 'DataView FK fuzzy autocomplete editor', ->
 
     fkCol = dv._grid.getColumns().find (c) -> c.name == 'auteur'
     Editor = fkCol.editor?.type
-    assert typeof Editor is 'function', 'classe éditeur FK absente'
+    assert typeof Editor is 'function', 'missing FK editor class'
 
     editor = new Editor
       value: ''
@@ -268,10 +268,10 @@ describe 'DataView FK fuzzy autocomplete editor', ->
             items: dv._fkOptions.auteur
 
     el = editor.getElement()
-    assert not ('list' of el), 'l’éditeur FK ne doit pas utiliser un datalist natif'
+    assert not ('list' of el), 'FK editor must not use a native datalist'
 
     matches = editor._filterItems 'hgo'
-    assert matches.length > 0, 'aucun résultat fuzzy'
+    assert matches.length > 0, 'no fuzzy result'
     eq matches[0].label, 'Hugo Victor'
 
     editor._renderMenu 'hgo'
@@ -282,7 +282,7 @@ describe 'DataView FK fuzzy autocomplete editor', ->
     dv.unmount()
 
 describe 'DataView.unmount', ->
-  it 'remet _mounted à false et vide les tableaux', ->
+  it 'sets _mounted to false and clears arrays', ->
     dv = new DV container(), makeSpace()
     dv._mounted = true
     dv._rows = [{ __rowId: '1' }]
@@ -290,7 +290,7 @@ describe 'DataView.unmount', ->
     dv._pasteListener = null
     dv._grid = null
     dv.unmount()
-    assert not dv._mounted, '_mounted doit être false'
+    assert not dv._mounted, '_mounted must be false'
     eq dv._rows.length, 0
     eq dv._currentData.length, 0
 
