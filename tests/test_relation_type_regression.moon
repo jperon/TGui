@@ -1,3 +1,5 @@
+-- tests/test_relation_type_regression.moon
+-- Régression: vérifie le mapping sécurisé fieldType=Relation -> Int et la création de relation associée.
 R = require 'tests.runner'
 auth = require 'core.auth'
 spaces_mod = require 'core.spaces'

@@ -166,6 +166,17 @@ Pour ajouter un champ au schéma :
 2. Mettre à jour les resolvers correspondants dans `backend/resolvers/`
 3. Mettre à jour les requêtes frontend dans `frontend/src/spaces.coffee` si besoin
 
+### Références documentation & SDL
+
+- Référence API FR: `doc/fr/api.md`
+- Référence API EN: `doc/en/api.md`
+- Référence dev compacte FR: `doc/fr/dev.md`
+- Référence dev compacte EN: `doc/en/dev.md`
+- Références dev détaillées: `doc/fr/dev/*.md` et `doc/en/dev/*.md`
+- SDL statique (source de vérité): `schema/tdb.graphql`
+- SDL généré (snapshot runtime): `schema/tdb.generated.graphql`
+- Commandes associées: `make doc-gen`, `make doc-check`, `make sdl-gen`, `make sdl-check`
+
 ## Vérification dans le navigateur
 
 L'outil `chrome-devtools` permet d'inspecter l'application dans Chrome sans quitter

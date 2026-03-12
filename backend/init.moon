@@ -1,5 +1,15 @@
--- Tarantool entry point for tdb
--- MoonScript modules are compiled to .lua alongside their .moon sources.
+-- Summary: Tarantool bootstrap entrypoint for TGui backend runtime.
+-- Responsibilities:
+-- - Configure box and Lua module path for backend modules.
+-- - Bootstrap/migrate system spaces before serving requests.
+-- - Initialize GraphQL schema/resolvers and start HTTP server.
+-- Key Flows:
+-- - box.cfg -> core.spaces.bootstrap/migrate -> resolvers.init -> http_server.start.
+-- - Optional fixtures load in test environment (TGUI_TEST_ENV=true).
+-- Depends on:
+-- - core.spaces, resolvers, http_server, fixtures, fiber.
+-- Used by:
+-- - Docker service entrypoint (backend/init.lua requiring this compiled module).
 
 box.cfg {
     listen: '0.0.0.0:3301',

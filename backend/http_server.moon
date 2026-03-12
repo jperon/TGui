@@ -1,5 +1,15 @@
--- http_server.moon : HTTP routing for tdb
--- Serves static frontend files and dispatches POST /graphql.
+-- Summary: HTTP edge for TGui (index/static assets + GraphQL POST endpoint).
+-- Responsibilities:
+-- - Serve SPA shell (`/`) and static frontend files (`/.*`).
+-- - Decode GraphQL JSON requests and delegate execution to graphql.executor.
+-- - Build auth context from Bearer token before resolver execution.
+-- Key Flows:
+-- - POST /graphql -> extract token -> core.auth.validate_session -> graphql.execute.
+-- - GET / -> index.render ; GET /assets -> filesystem lookup under FRONTEND_DIR.
+-- Depends on:
+-- - http.server, graphql.executor, core.auth, core.config, index.
+-- Used by:
+-- - backend/init.moon runtime bootstrap (`http_server.start`).
 
 http = require 'http.server'
 fiber = require 'fiber'

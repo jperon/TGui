@@ -1,5 +1,5 @@
 # MoonScript sources and their compiled Lua output
-MOON_SRCS     := $(shell find backend tests -name '*.moon')
+MOON_SRCS     := $(shell find backend tests scripts -name '*.moon')
 LUA_OUTS      := $(MOON_SRCS:.moon=.lua)
 
 # CoffeeScript sources and their compiled JS output
@@ -8,7 +8,7 @@ JS_OUTS         := $(COFFEE_SRCS:.coffee=.js)
 TEST_COFFEE_SRCS := $(shell find tests/js -name '*.coffee')
 TEST_JS_OUTS     := $(TEST_COFFEE_SRCS:.coffee=.js)
 
-.PHONY: all build test test-js test-up test-down test-logs up down logs clean vendor audit-deps doc sdl-gen sdl-check ci
+.PHONY: all build test test-js test-up test-down test-logs up down logs clean vendor audit-deps doc doc-gen doc-md doc-check sdl-gen sdl-check ci
 
 all: build
 
@@ -66,6 +66,9 @@ clean:
 DOC_DIR    = doc
 DOC_HEADER = $(DOC_DIR)/00_header.yml
 DOC_PDFS   = $(DOC_DIR)/get-started.pdf $(DOC_DIR)/reference.pdf $(DOC_DIR)/en/get-started.pdf $(DOC_DIR)/en/reference.pdf
+DOC_GEN_MD = $(DOC_DIR)/fr/api.md $(DOC_DIR)/en/api.md $(DOC_DIR)/fr/dev.md $(DOC_DIR)/en/dev.md \
+	$(DOC_DIR)/fr/dev/architecture.md $(DOC_DIR)/fr/dev/runtime.md $(DOC_DIR)/fr/dev/graphql.md $(DOC_DIR)/fr/dev/frontend.md $(DOC_DIR)/fr/dev/tests.md \
+	$(DOC_DIR)/en/dev/architecture.md $(DOC_DIR)/en/dev/runtime.md $(DOC_DIR)/en/dev/graphql.md $(DOC_DIR)/en/dev/frontend.md $(DOC_DIR)/en/dev/tests.md
 
 PANDOC_FLAGS = --metadata-file=00_header.yml --pdf-engine=xelatex
 
@@ -73,6 +76,16 @@ $(DOC_DIR)/%.pdf: $(DOC_DIR)/%.md $(DOC_HEADER)
 	cd $(DOC_DIR) && pandoc $(PANDOC_FLAGS) $(<F) -o $(@F)
 
 doc: $(DOC_PDFS)
+
+doc-gen:
+	docker build -t $(TEST_IMAGE) . 2>/dev/null
+	docker run --rm -e HOST_UID=$$(id -u) -e HOST_GID=$$(id -g) -v ./:/app $(TEST_IMAGE) sh -lc 'tarantool /app/scripts/generate_docs.lua && chown -R "$$HOST_UID:$$HOST_GID" /app/doc/fr /app/doc/en' 2>/dev/null
+
+doc-md: doc-gen
+
+doc-check:
+	docker build -t $(TEST_IMAGE) . 2>/dev/null
+	docker run --rm -w /app -v ./:/app $(TEST_IMAGE) tarantool /app/scripts/doc_check.lua
 
 # ── Dependencies audit ────────────────────────────────────────────────
 audit-deps:
@@ -95,6 +108,6 @@ sdl-check: build
 	rm -f $$tmp; \
 	echo "SDL check OK"
 
-ci: sdl-check test test-js
+ci: sdl-check test test-js doc-check
 
 .PHONY: doc
