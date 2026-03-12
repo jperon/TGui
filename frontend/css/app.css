@@ -662,7 +662,7 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
 
 /* ── Message de validation YAML (éditeur modal) ────────────────────────────── */
 .yaml-validation-msg {
-  background: #fef2f2; border-bottom: 1px solid #fca5a5;
+  background: #fef2f2; border-top: 1px solid #fca5a5;
   padding: .35rem .75rem; font-size: .82rem; color: #b91c1c;
   font-family: monospace; white-space: pre-wrap; word-break: break-word;
   overflow: auto; min-height: 0;

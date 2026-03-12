@@ -329,8 +329,8 @@ make_content = ->
         }
         H.div {class: 'yaml-modal-body',
           H.div {class: 'yaml-editor-pane',
-            H.div {id: 'yaml-validation-msg', class: 'yaml-validation-msg hidden', ''}
             H.div {id: 'yaml-cm-editor', ''}
+            H.div {id: 'yaml-validation-msg', class: 'yaml-validation-msg hidden', ''}
           }
           H.div {id: 'schema-browser', class: 'schema-browser', ''}
         }
