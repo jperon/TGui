@@ -31,6 +31,7 @@ window.CustomView = class CustomView
     @_widgets   = []   # list of { dataView, node, el }
     @_widgetsById = {} # id -> entry
     @_pluginStateByWidgetId = {}
+    @_pluginSelectionListenersByWidgetId = {}
 
   mount: ->
     @container.innerHTML = ''
@@ -268,10 +269,12 @@ window.CustomView = class CustomView
 
   _setPluginSelectionListener: (widgetId, listener) ->
     return unless widgetId
+    @_pluginSelectionListenersByWidgetId[widgetId] ?= []
+    @_pluginSelectionListenersByWidgetId[widgetId].push listener
     st = @_pluginStateByWidgetId[widgetId]
-    return unless st
-    st.listeners ?= []
-    st.listeners.push listener
+    if st
+      st.listeners ?= []
+      st.listeners.push listener
 
   _emitPluginSelection: (widgetId, selection) ->
     st = @_pluginStateByWidgetId[widgetId]
@@ -309,6 +312,8 @@ window.CustomView = class CustomView
     requestMap = {}
     reqSeq = 0
     listeners = []
+    for fn in (@_pluginSelectionListenersByWidgetId[widgetId] or [])
+      listeners.push fn
     @_pluginStateByWidgetId[widgetId] = { iframe, listeners, requestMap, reqSeq }
 
     onMessage = (ev) =>
@@ -431,4 +436,5 @@ window.CustomView = class CustomView
     @container.innerHTML = ''
     @_widgets     = []
     @_pluginStateByWidgetId = {}
+    @_pluginSelectionListenersByWidgetId = {}
     @_widgetsById = {}
