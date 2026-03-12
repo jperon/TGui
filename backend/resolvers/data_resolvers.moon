@@ -176,6 +176,20 @@ Mutation =
         table.insert results, { id: id, spaceId: args.spaceId, data: json.encode(old_data) }
     results
 
+  restoreRecords: (_, args, ctx) ->
+    require_auth ctx
+    sp = data_space args.spaceId
+    results = {}
+    box.atomic ->
+      for rec in *args.records
+        id = tostring rec.id
+        existing = sp\get id
+        error "Record already exists: #{id}" if existing
+        data = if type(rec.data) == 'string' then json.decode(rec.data) else rec.data
+        sp\insert { id, json.encode(data) }
+        table.insert results, { id: id, spaceId: args.spaceId, data: json.encode(data) }
+    results
+
 Query =
   records: (_, args, ctx) ->
     require_auth ctx

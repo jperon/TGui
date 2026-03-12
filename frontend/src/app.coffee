@@ -75,6 +75,8 @@ window.App =
     adminNavSnapshot:  -> document.getElementById 'admin-nav-snapshot'
     dataToolbar:       -> document.getElementById 'data-toolbar'
     dataTitle:         -> document.getElementById 'data-title'
+    undoBtn:           -> document.getElementById 'undo-btn'
+    redoBtn:           -> document.getElementById 'redo-btn'
     formulaFilterInput: -> document.getElementById 'formula-filter-input'
     renameSpaceBtn:    -> document.getElementById 'rename-space-btn'
     deleteSpaceBtn:    -> document.getElementById 'delete-space-btn'

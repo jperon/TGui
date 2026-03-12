@@ -389,9 +389,9 @@
 
     // Build FK display maps for all relation fields.
     async _buildFkMaps() {
-      var data, display, e, field, fkId, formula, j, l, len, len1, map, options, rec, records, ref, ref1, ref2, ref3, ref4, ref5, ref6, rel, results;
+      var data, display, e, field, fkId, formula, j, l, len, len1, map, options, rec, records, ref, ref1, ref2, ref3, ref4, ref5, ref6, rel, results1;
       ref = this._relations;
-      results = [];
+      results1 = [];
       for (j = 0, len = ref.length; j < len; j++) {
         rel = ref[j];
         field = (this.space.fields || []).find(function(f) {
@@ -435,13 +435,13 @@
             return a.text.localeCompare(b.text);
           });
           this._fkMaps[field.name] = map;
-          results.push(this._fkOptions[field.name] = options);
+          results1.push(this._fkOptions[field.name] = options);
         } catch (error) {
           e = error;
-          results.push(console.warn(`FK map build failed for ${field.name}:`, e));
+          results1.push(console.warn(`FK map build failed for ${field.name}:`, e));
         }
       }
-      return results;
+      return results1;
     }
 
     async mount() {
@@ -454,37 +454,37 @@
       this.container.appendChild(wrapper);
       fields = this.space.fields || [];
       seqNames = new Set((function() {
-        var j, len, results;
-        results = [];
+        var j, len, results1;
+        results1 = [];
         for (j = 0, len = fields.length; j < len; j++) {
           f = fields[j];
           if (f.fieldType === 'Sequence') {
-            results.push(f.name);
+            results1.push(f.name);
           }
         }
-        return results;
+        return results1;
       })());
       boolNames = new Set((function() {
-        var j, len, results;
-        results = [];
+        var j, len, results1;
+        results1 = [];
         for (j = 0, len = fields.length; j < len; j++) {
           f = fields[j];
           if (f.fieldType === 'Boolean') {
-            results.push(f.name);
+            results1.push(f.name);
           }
         }
-        return results;
+        return results1;
       })());
       formulaNames = new Set((function() {
-        var j, len, results;
-        results = [];
+        var j, len, results1;
+        results1 = [];
         for (j = 0, len = fields.length; j < len; j++) {
           f = fields[j];
           if (f.formula && f.formula !== '' && !f.triggerFields) {
-            results.push(f.name);
+            results1.push(f.name);
           }
         }
-        return results;
+        return results1;
       })());
       escapeHtml = (s) => {
         return this._escapeHtml(s);
@@ -497,8 +497,8 @@
         await this._buildFkMaps();
       }
       columns = (function() {
-        var j, len, results;
-        results = [];
+        var j, len, results1;
+        results1 = [];
         for (j = 0, len = fields.length; j < len; j++) {
           f = fields[j];
           col = {
@@ -611,9 +611,9 @@
               })(f.name);
             }
           }
-          results.push(col);
+          results1.push(col);
         }
-        return results;
+        return results1;
       }).call(this);
       this._grid = new tui.Grid({
         el: wrapper,
@@ -764,7 +764,7 @@
       document.addEventListener('keydown', this._tabListener, true);
       // Handle cell edits (single edit and paste)
       this._grid.on('afterChange', async(ev) => {
-        var byRow, c, changes, clipErr, clipRow, clipRows, clipText, colNames, data, i, j, l, len, len1, len2, len3, len4, n, name, name1, o, ops, p, patch, ref1, ref2, ref3, ref4, ref5, ref6, rk, row, sentinelPatch, t, val;
+        var action, afterData, beforeData, byRow, c, changes, clipErr, clipRow, clipRows, clipText, colNames, data, i, j, l, len, len1, len2, len3, len4, n, name, name1, name2, o, ops, p, patch, prevByRow, prevVal, ref1, ref2, ref3, ref4, ref5, ref6, ref7, rk, row, sentinelPatch, t, val;
         changes = (ev.changes || []).filter(function(c) {
           return String(c.value) !== String(c.prevValue);
         });
@@ -773,26 +773,38 @@
         }
         // Group field changes by row
         byRow = {};
+        prevByRow = {};
         for (j = 0, len = changes.length; j < len; j++) {
           c = changes[j];
           if (byRow[name1 = c.rowKey] == null) {
             byRow[name1] = {};
           }
+          if (prevByRow[name2 = c.rowKey] == null) {
+            prevByRow[name2] = {};
+          }
           byRow[c.rowKey][c.columnName] = c.value;
+          prevByRow[c.rowKey][c.columnName] = c.prevValue;
         }
         colNames = (function() {
-          var l, len1, results;
-          results = [];
+          var l, len1, results1;
+          results1 = [];
           for (l = 0, len1 = fields.length; l < len1; l++) {
             f = fields[l];
             if (!seqNames.has(f.name) && !formulaNames.has(f.name)) {
-              results.push(f.name);
+              results1.push(f.name);
             }
           }
-          return results;
+          return results1;
         })();
         ops = [];
         sentinelPatch = null;
+        action = {
+          spaceId: this.space.id,
+          context: this._actionContext(),
+          updates: [],
+          inserts: [],
+          deletes: []
+        };
         for (rk in byRow) {
           if (!hasProp.call(byRow, rk)) continue;
           patch = byRow[rk];
@@ -811,6 +823,20 @@
           if (row != null ? row.__isNew : void 0) {
             sentinelPatch = patch;
           } else if (row != null ? row.__rowId : void 0) {
+            beforeData = {};
+            afterData = {};
+            ref1 = prevByRow[rk] || {};
+            for (n in ref1) {
+              if (!hasProp.call(ref1, n)) continue;
+              prevVal = ref1[n];
+              beforeData[n] = this._coerceCellValue(n, prevVal, boolNames);
+              afterData[n] = this._coerceCellValue(n, row != null ? row[n] : void 0, boolNames);
+            }
+            action.updates.push({
+              id: String(row.__rowId),
+              before: beforeData,
+              after: afterData
+            });
             ops.push(GQL.mutate(UPDATE_RECORD, {
               spaceId: this.space.id,
               id: row.__rowId,
@@ -836,7 +862,7 @@
                 data = {};
                 for (i = o = 0, len2 = colNames.length; o < len2; i = ++o) {
                   name = colNames[i];
-                  data[name] = (ref1 = (ref2 = clipRow[i]) != null ? ref2 : this._defaultValues[name]) != null ? ref1 : '';
+                  data[name] = (ref2 = (ref3 = clipRow[i]) != null ? ref3 : this._defaultValues[name]) != null ? ref2 : '';
                 }
                 ops.push(GQL.mutate(INSERT_RECORD, {
                   spaceId: this.space.id,
@@ -849,7 +875,7 @@
               data = {};
               for (p = 0, len3 = colNames.length; p < len3; p++) {
                 n = colNames[p];
-                data[n] = (ref3 = (ref4 = sentinelPatch[n]) != null ? ref4 : this._defaultValues[n]) != null ? ref3 : '';
+                data[n] = (ref4 = (ref5 = sentinelPatch[n]) != null ? ref5 : this._defaultValues[n]) != null ? ref4 : '';
               }
               ops.push(GQL.mutate(INSERT_RECORD, {
                 spaceId: this.space.id,
@@ -861,7 +887,7 @@
             data = {};
             for (t = 0, len4 = colNames.length; t < len4; t++) {
               n = colNames[t];
-              data[n] = (ref5 = (ref6 = sentinelPatch[n]) != null ? ref6 : this._defaultValues[n]) != null ? ref5 : '';
+              data[n] = (ref6 = (ref7 = sentinelPatch[n]) != null ? ref7 : this._defaultValues[n]) != null ? ref6 : '';
             }
             ops.push(GQL.mutate(INSERT_RECORD, {
               spaceId: this.space.id,
@@ -869,7 +895,21 @@
             }));
           }
         }
-        return Promise.all(ops).then(() => {
+        return Promise.all(ops).then((results) => {
+          var ref8, ref9;
+          action.inserts = this._extractInsertedRecords(results);
+          if (action.updates.length > 0 || action.inserts.length > 0) {
+            if ((ref8 = window.AppUndoHelpers) != null) {
+              if (typeof ref8.pushAction === "function") {
+                ref8.pushAction(action);
+              }
+            }
+          }
+          if ((ref9 = window.AppUndoHelpers) != null) {
+            if (typeof ref9.refreshUI === "function") {
+              ref9.refreshUI(window.App);
+            }
+          }
           return this.load();
         }).catch((err) => {
           return this._showError(`Erreur d'enregistrement : ${err.message}`);
@@ -913,43 +953,43 @@
       }
       fields = this.space.fields || [];
       formulaNames = new Set((function() {
-        var j, len, results;
-        results = [];
+        var j, len, results1;
+        results1 = [];
         for (j = 0, len = fields.length; j < len; j++) {
           f = fields[j];
           if (f.formula && f.formula !== '' && !f.triggerFields) {
-            results.push(f.name);
+            results1.push(f.name);
           }
         }
-        return results;
+        return results1;
       })());
       reprNames = new Set((function() {
-        var j, len, results;
-        results = [];
+        var j, len, results1;
+        results1 = [];
         for (j = 0, len = fields.length; j < len; j++) {
           f = fields[j];
           if (f.reprFormula && f.reprFormula !== '') {
-            results.push(f.name);
+            results1.push(f.name);
           }
         }
-        return results;
+        return results1;
       })());
       if ((formulaNames.size > 0 || reprNames.size > 0) && !this._formulaFilter) {
         // Use the space-specific dynamic resolver so formula fields are evaluated.
         tname = gqlName(this.space.name);
         fieldList = (function() {
-          var j, len, results;
-          results = [];
+          var j, len, results1;
+          results1 = [];
           for (j = 0, len = fields.length; j < len; j++) {
             f = fields[j];
             nm = gqlName(f.name);
             if (f.reprFormula && f.reprFormula !== '') {
-              results.push(nm + ` _repr_${nm}`);
+              results1.push(nm + ` _repr_${nm}`);
             } else {
-              results.push(nm);
+              results1.push(nm);
             }
           }
-          return results;
+          return results1;
         })();
         fieldList = fieldList.join(' ');
         spaceQuery = `query { ${tname}(limit: 2000) { items { _id ${fieldList} } } }`;
@@ -1090,26 +1130,26 @@
       var data, f, fields, formulaNames, j, len, seqNames;
       fields = this.space.fields || [];
       seqNames = new Set((function() {
-        var j, len, results;
-        results = [];
+        var j, len, results1;
+        results1 = [];
         for (j = 0, len = fields.length; j < len; j++) {
           f = fields[j];
           if (f.fieldType === 'Sequence') {
-            results.push(f.name);
+            results1.push(f.name);
           }
         }
-        return results;
+        return results1;
       })());
       formulaNames = new Set((function() {
-        var j, len, results;
-        results = [];
+        var j, len, results1;
+        results1 = [];
         for (j = 0, len = fields.length; j < len; j++) {
           f = fields[j];
           if (f.formula && f.formula !== '' && !f.triggerFields) {
-            results.push(f.name);
+            results1.push(f.name);
           }
         }
-        return results;
+        return results1;
       })());
       data = {};
       for (j = 0, len = fields.length; j < len; j++) {
@@ -1129,7 +1169,7 @@
     }
 
     deleteSelected() {
-      var ids, keys, row, toDelete;
+      var action, ids, keys, row, toDelete;
       keys = this._grid.getCheckedRowKeys();
       if (!keys.length) {
         return;
@@ -1144,15 +1184,46 @@
         return;
       }
       ids = (function() {
-        var j, len, results;
-        results = [];
+        var j, len, results1;
+        results1 = [];
         for (j = 0, len = toDelete.length; j < len; j++) {
           row = toDelete[j];
-          results.push(row.__rowId);
+          results1.push(row.__rowId);
         }
-        return results;
+        return results1;
       })();
+      action = {
+        spaceId: this.space.id,
+        context: this._actionContext(),
+        updates: [],
+        inserts: [],
+        deletes: (function() {
+          var j, len, results1;
+          results1 = [];
+          for (j = 0, len = toDelete.length; j < len; j++) {
+            row = toDelete[j];
+            results1.push({
+              id: String(row.__rowId),
+              before: this._serializeRowForMutation(row)
+            });
+          }
+          return results1;
+        }).call(this)
+      };
       return Spaces.deleteRecords(this.space.id, ids).then(() => {
+        var ref, ref1;
+        if (action.deletes.length > 0) {
+          if ((ref = window.AppUndoHelpers) != null) {
+            if (typeof ref.pushAction === "function") {
+              ref.pushAction(action);
+            }
+          }
+        }
+        if ((ref1 = window.AppUndoHelpers) != null) {
+          if (typeof ref1.refreshUI === "function") {
+            ref1.refreshUI(window.App);
+          }
+        }
         return this.load();
       }).catch((err) => {
         return this._showError(`Erreur suppression : ${err.message}`);
@@ -1268,6 +1339,86 @@
       }
       s = String(v != null ? v : '').toLowerCase();
       return s === 'true' || s === '1' || s === 'yes' || s === 'on';
+    }
+
+    _coerceCellValue(fieldName, value, boolNames = null) {
+      var boolSet, f;
+      if ((this._fkMaps[fieldName] != null) && (value != null) && value !== '') {
+        return Number(value);
+      }
+      boolSet = boolNames || new Set((function() {
+        var j, len, ref, results1;
+        ref = this.space.fields || [];
+        results1 = [];
+        for (j = 0, len = ref.length; j < len; j++) {
+          f = ref[j];
+          if (f.fieldType === 'Boolean') {
+            results1.push(f.name);
+          }
+        }
+        return results1;
+      }).call(this));
+      if (boolSet.has(fieldName)) {
+        return this._toBoolean(value);
+      }
+      return value;
+    }
+
+    _serializeRowForMutation(row, colNames = null, boolNames = null) {
+      var f, j, len, name, names, out;
+      names = colNames || ((function() {
+        var j, len, ref, results1;
+        ref = this.space.fields || [];
+        results1 = [];
+        for (j = 0, len = ref.length; j < len; j++) {
+          f = ref[j];
+          if (f.fieldType !== 'Sequence' && !(f.formula && f.formula !== '' && !f.triggerFields)) {
+            results1.push(f.name);
+          }
+        }
+        return results1;
+      }).call(this));
+      out = {};
+      for (j = 0, len = names.length; j < len; j++) {
+        name = names[j];
+        out[name] = this._coerceCellValue(name, row != null ? row[name] : void 0, boolNames);
+      }
+      return out;
+    }
+
+    _cloneJson(obj) {
+      return JSON.parse(JSON.stringify(obj != null ? obj : {}));
+    }
+
+    _extractInsertedRecords(results) {
+      var j, len, out, parsed, r, rec, ref;
+      out = [];
+      ref = results || [];
+      for (j = 0, len = ref.length; j < len; j++) {
+        r = ref[j];
+        rec = r != null ? r.insertRecord : void 0;
+        if (!(rec != null ? rec.id : void 0)) {
+          continue;
+        }
+        parsed = typeof rec.data === 'string' ? JSON.parse(rec.data) : rec.data;
+        out.push({
+          id: String(rec.id),
+          after: parsed || {}
+        });
+      }
+      return out;
+    }
+
+    _actionContext() {
+      var ref, ref1;
+      if (((ref = window.AppUndoHelpers) != null ? ref.currentContext : void 0) != null) {
+        return window.AppUndoHelpers.currentContext(this.space.id);
+      } else {
+        return {
+          spaceId: this.space.id,
+          hash: ((ref1 = window.location) != null ? ref1.hash : void 0) || ''
+        };
+      }
     }
 
     _defaultCellValue(field) {

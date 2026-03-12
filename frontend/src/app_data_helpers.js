@@ -102,9 +102,11 @@
       app.el.welcome().classList.add('hidden');
       app.el.contentRow().classList.remove('hidden');
       return Spaces.getWithFields(sp.id).then(function(full) {
+        var ref3;
         app._currentSpace = full;
         app.el.dataTitle().textContent = full.name;
-        return app._mountDataView(full);
+        app._mountDataView(full);
+        return (ref3 = window.AppUndoHelpers) != null ? typeof ref3.refreshUI === "function" ? ref3.refreshUI(app) : void 0 : void 0;
       }).catch(function(err) {
         return tdbAlert(app._err(err), 'error');
       });
@@ -123,7 +125,7 @@
       }
     },
     mountDataView: async function(app, space) {
-      var container, input, ref, relations;
+      var container, input, ref, ref1, relations;
       if ((ref = app._activeDataView) != null) {
         if (typeof ref.unmount === "function") {
           ref.unmount();
@@ -140,13 +142,35 @@
       input = app.el.formulaFilterInput();
       if (input) {
         input.value = '';
-        return input.classList.remove('active');
+        input.classList.remove('active');
       }
+      return (ref1 = window.AppUndoHelpers) != null ? typeof ref1.refreshUI === "function" ? ref1.refreshUI(app) : void 0 : void 0;
     },
     bindDataToolbar: function(app) {
+      var ref, ref1, ref2, ref3;
+      if ((ref = window.AppUndoHelpers) != null) {
+        if (typeof ref.bindGlobalShortcuts === "function") {
+          ref.bindGlobalShortcuts(app);
+        }
+      }
+      if ((ref1 = app.el.undoBtn()) != null) {
+        ref1.addEventListener('click', function() {
+          var ref2;
+          return (ref2 = window.AppUndoHelpers) != null ? typeof ref2.undo === "function" ? ref2.undo(app) : void 0 : void 0;
+        });
+      }
+      if ((ref2 = app.el.redoBtn()) != null) {
+        ref2.addEventListener('click', function() {
+          var ref3;
+          return (ref3 = window.AppUndoHelpers) != null ? typeof ref3.redo === "function" ? ref3.redo(app) : void 0 : void 0;
+        });
+      }
       app.el.deleteRowsBtn().addEventListener('click', function() {
-        var ref;
-        return (ref = app._activeDataView) != null ? ref.deleteSelected() : void 0;
+        var ref3, ref4;
+        if ((ref3 = app._activeDataView) != null) {
+          ref3.deleteSelected();
+        }
+        return (ref4 = window.AppUndoHelpers) != null ? typeof ref4.refreshUI === "function" ? ref4.refreshUI(app) : void 0 : void 0;
       });
       window.AppFieldsHelpers.bindFormulaFilter(app);
       app.el.deleteSpaceBtn().addEventListener('click', async function() {
@@ -159,11 +183,11 @@
           return;
         }
         return Spaces.delete(app._currentSpace.id).then(function() {
-          var ref;
+          var ref3, ref4;
           app._currentSpace = null;
-          if ((ref = app._activeDataView) != null) {
-            if (typeof ref.unmount === "function") {
-              ref.unmount();
+          if ((ref3 = app._activeDataView) != null) {
+            if (typeof ref3.unmount === "function") {
+              ref3.unmount();
             }
           }
           app._activeDataView = null;
@@ -171,12 +195,13 @@
           app.el.fieldsPanel().classList.add('hidden');
           app.el.fieldsBtn().classList.remove('active');
           app.el.welcome().classList.remove('hidden');
-          return app._loadAll();
+          app._loadAll();
+          return (ref4 = window.AppUndoHelpers) != null ? typeof ref4.refreshUI === "function" ? ref4.refreshUI(app) : void 0 : void 0;
         }).catch(function(err) {
           return tdbAlert(app._err(err), 'error');
         });
       });
-      return app.el.renameSpaceBtn().addEventListener('click', async function() {
+      app.el.renameSpaceBtn().addEventListener('click', async function() {
         var newName;
         if (!app._currentSpace) {
           return;
@@ -197,6 +222,7 @@
           return tdbAlert(app._err(err), 'error');
         });
       });
+      return (ref3 = window.AppUndoHelpers) != null ? typeof ref3.refreshUI === "function" ? ref3.refreshUI(app) : void 0 : void 0;
     }
   };
 

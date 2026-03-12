@@ -46,6 +46,7 @@ Mutation = {
   { name: 'deleteRecords',    args: 'spaceId: ID!, ids: [ID!]!',         returns: '[Boolean!]!' }
   { name: 'insertRecords',    args: 'spaceId: ID!, data: [JSON!]!',      returns: '[Record!]!' }
   { name: 'updateRecords',    args: 'spaceId: ID!, records: [RecordUpdateInput!]!', returns: '[Record!]!' }
+  { name: 'restoreRecords',   args: 'spaceId: ID!, records: [RecordUpdateInput!]!', returns: '[Record!]!' }
   { name: 'login',            args: 'username: String!, password: String!', returns: 'AuthPayload!' }
   { name: 'logout',           args: '',                                   returns: 'Boolean!' }
   { name: 'createUser',       args: 'input: CreateUserInput!',            returns: 'User!' }
