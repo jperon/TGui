@@ -24,7 +24,9 @@ npm install --save-dev \
   tui-pagination \
   xlsx \
   js-yaml \
-  codemirror@5
+  codemirror@5 \
+  coffeescript \
+  pug
 
 # ── Entry: tui-grid (expose as window.tui.Grid) ───────────────────────────
 cat > entry-tui.js <<'JSEOF'
@@ -85,11 +87,16 @@ JSEOF
 
 ./node_modules/.bin/rollup -c rollup-yaml.mjs
 
-# ── Entry: CodeMirror v5 (core + YAML mode + Lua mode) ────────────────────
+# ── Entry: CodeMirror v5 (core + YAML/Lua/JS/Coffee/Pug/XML/HTML modes) ───
 cat > entry-cm.js <<'JSEOF'
 import CodeMirror from 'codemirror/lib/codemirror';
 import 'codemirror/mode/yaml/yaml';
 import 'codemirror/mode/lua/lua';
+import 'codemirror/mode/javascript/javascript';
+import 'codemirror/mode/coffeescript/coffeescript';
+import 'codemirror/mode/pug/pug';
+import 'codemirror/mode/xml/xml';
+import 'codemirror/mode/htmlmixed/htmlmixed';
 window.CodeMirror = CodeMirror;
 JSEOF
 
@@ -114,6 +121,36 @@ JSEOF
 
 ./node_modules/.bin/rollup -c rollup-cm.mjs
 
+# ── Entry: plugin runtime libs (CoffeeScript + Pug) ────────────────────────
+cat > entry-plugin-runtime.js <<'JSEOF'
+import CoffeeScript from 'coffeescript';
+import pug from 'pug';
+window.CoffeeScript = CoffeeScript;
+window.pug = pug;
+JSEOF
+
+cat > rollup-plugin-runtime.mjs <<JSEOF
+import resolve from "@rollup/plugin-node-resolve";
+import commonjs from "@rollup/plugin-commonjs";
+import json from "@rollup/plugin-json";
+
+export default {
+  input: "entry-plugin-runtime.js",
+  output: {
+    file: "$VENDOR/plugin-runtime.bundle.js",
+    format: "iife",
+    name: "_plugin_runtime_init",
+  },
+  plugins: [resolve({ browser: true }), commonjs(), json()],
+  onwarn(w, warn) {
+    if (w.code === "CIRCULAR_DEPENDENCY") return;
+    warn(w);
+  },
+};
+JSEOF
+
+./node_modules/.bin/rollup -c rollup-plugin-runtime.mjs
+
 # ── CSS: CodeMirror core + monokai theme ──────────────────────────────────
 cat node_modules/codemirror/lib/codemirror.css \
     node_modules/codemirror/theme/monokai.css \
@@ -125,3 +162,4 @@ echo "  $VENDOR/tui-grid.bundle.css"
 echo "  $VENDOR/jsyaml.bundle.js"
 echo "  $VENDOR/codemirror.bundle.js"
 echo "  $VENDOR/codemirror.bundle.css"
+echo "  $VENDOR/plugin-runtime.bundle.js"
