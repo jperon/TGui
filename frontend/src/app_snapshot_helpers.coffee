@@ -84,6 +84,7 @@ window.AppSnapshotHelpers =
   renderSnapshotDiff: (app, diff) ->
     c = app.el.snapshotDiffContent()
     c.innerHTML = ''
+    esc = (s) -> String(s ? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
     section = (title, items, cls) ->
       return unless items and items.length > 0
       h = document.createElement 'h5'
@@ -96,12 +97,13 @@ window.AppSnapshotHelpers =
         if typeof item == 'string'
           li.textContent = item
         else
+          safe = { space: esc(item.space), field: esc(item.field), oldType: esc(item.oldType), newType: esc(item.newType) }
           if item.oldType and item.newType
-            li.innerHTML = "<code>#{item.space}.#{item.field}</code> : <em>#{item.oldType}</em> → <strong>#{item.newType}</strong>"
+            li.innerHTML = "<code>#{safe.space}.#{safe.field}</code> : <em>#{safe.oldType}</em> → <strong>#{safe.newType}</strong>"
           else if item.newType
-            li.innerHTML = app._t('ui.snapshot.fieldToCreate', item)
+            li.innerHTML = app._t('ui.snapshot.fieldToCreate', safe)
           else
-            li.innerHTML = app._t('ui.snapshot.fieldToDelete', item)
+            li.innerHTML = app._t('ui.snapshot.fieldToDelete', safe)
         ul.appendChild li
       c.appendChild ul
 

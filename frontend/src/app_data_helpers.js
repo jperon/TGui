@@ -60,14 +60,6 @@
             return app.selectSpace(sp);
           });
         })(sp);
-        ul.appendChild(li);
-        li.textContent = sp.name;
-        li.dataset.id = sp.id;
-        (function(sp) {
-          return li.addEventListener('click', function() {
-            return app.selectSpace(sp);
-          });
-        })(sp);
         results.push(ul.appendChild(li));
       }
       return results;

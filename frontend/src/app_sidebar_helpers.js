@@ -155,7 +155,7 @@
     },
     loadAdminUsers: function(app) {
       return Auth.listUsers().then(function(users) {
-        var btnPwd, groupNames, i, len, li, u, ul;
+        var btnPwd, groupNames, i, len, li, spanMeta, spanName, u, ul;
         ul = app.el.adminUsersList();
         ul.innerHTML = '';
         for (i = 0, len = users.length; i < len; i++) {
@@ -165,7 +165,14 @@
           groupNames = (u.groups || []).map(function(g) {
             return g.name;
           }).join(', ') || '—';
-          li.innerHTML = `<span class='admin-item-name'>${u.username}</span><span class='admin-item-meta'>${groupNames}</span>`;
+          spanName = document.createElement('span');
+          spanName.className = 'admin-item-name';
+          spanName.textContent = u.username;
+          spanMeta = document.createElement('span');
+          spanMeta.className = 'admin-item-meta';
+          spanMeta.textContent = groupNames;
+          li.appendChild(spanName);
+          li.appendChild(spanMeta);
           btnPwd = document.createElement('button');
           btnPwd.className = 'toolbar-btn';
           btnPwd.textContent = '🔑';
@@ -200,7 +207,7 @@
     },
     loadAdminGroups: function(app) {
       return Auth.listGroups().then(function(groups) {
-        var btnDel, g, i, len, li, memberNames, ul;
+        var btnDel, g, i, len, li, memberNames, spanMeta, spanName, ul;
         ul = app.el.adminGroupsList();
         ul.innerHTML = '';
         for (i = 0, len = groups.length; i < len; i++) {
@@ -210,7 +217,14 @@
           memberNames = (g.members || []).map(function(m) {
             return m.username;
           }).join(', ') || '—';
-          li.innerHTML = `<span class='admin-item-name'>${g.name}</span><span class='admin-item-meta'>${memberNames}</span>`;
+          spanName = document.createElement('span');
+          spanName.className = 'admin-item-name';
+          spanName.textContent = g.name;
+          spanMeta = document.createElement('span');
+          spanMeta.className = 'admin-item-meta';
+          spanMeta.textContent = memberNames;
+          li.appendChild(spanName);
+          li.appendChild(spanMeta);
           if (g.name !== 'admin') {
             btnDel = document.createElement('button');
             btnDel.className = 'toolbar-btn toolbar-btn--icon toolbar-btn--danger';

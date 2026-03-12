@@ -233,7 +233,7 @@ bootstrap = ->
     -- Create the default admin user
     auth_mod = require 'core.auth'
     admin_user = os.getenv('TDB_ADMIN_USER') or 'admin'
-    admin_pass = os.getenv('TDB_ADMIN_PASSWORD') or 'admin'
+    admin_pass = os.getenv('TDB_ADMIN_PASSWORD') or 'adminadmin'
     u = auth_mod.create_user admin_user, '', admin_pass
     -- Add admin user to admin group
     box.space._tdb_memberships\insert { u.id, tostring(admin_gid) }

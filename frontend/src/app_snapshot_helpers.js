@@ -113,11 +113,14 @@
       });
     },
     renderSnapshotDiff: function(app, diff) {
-      var c, noop, p, section;
+      var c, esc, noop, p, section;
       c = app.el.snapshotDiffContent();
       c.innerHTML = '';
+      esc = function(s) {
+        return String(s != null ? s : '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      };
       section = function(title, items, cls) {
-        var h, i, item, len, li, ul;
+        var h, i, item, len, li, safe, ul;
         if (!(items && items.length > 0)) {
           return;
         }
@@ -132,12 +135,18 @@
           if (typeof item === 'string') {
             li.textContent = item;
           } else {
+            safe = {
+              space: esc(item.space),
+              field: esc(item.field),
+              oldType: esc(item.oldType),
+              newType: esc(item.newType)
+            };
             if (item.oldType && item.newType) {
-              li.innerHTML = `<code>${item.space}.${item.field}</code> : <em>${item.oldType}</em> → <strong>${item.newType}</strong>`;
+              li.innerHTML = `<code>${safe.space}.${safe.field}</code> : <em>${safe.oldType}</em> → <strong>${safe.newType}</strong>`;
             } else if (item.newType) {
-              li.innerHTML = app._t('ui.snapshot.fieldToCreate', item);
+              li.innerHTML = app._t('ui.snapshot.fieldToCreate', safe);
             } else {
-              li.innerHTML = app._t('ui.snapshot.fieldToDelete', item);
+              li.innerHTML = app._t('ui.snapshot.fieldToDelete', safe);
             }
           }
           ul.appendChild(li);

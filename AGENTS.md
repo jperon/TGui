@@ -88,7 +88,7 @@ backend/
 ├── core/
 │   ├── spaces.moon          # Bootstrap des espaces système, CRUD espaces/champs
 │   ├── triggers.moon        # Trigger formulas (Lua et MoonScript)
-│   ├── auth.moon            # Sessions, bcrypt, tokens
+│   ├── auth.moon            # Sessions, PBKDF2-HMAC-SHA256 (100k itérations), tokens
 │   ├── permissions.moon     # Groupes & droits read/write/admin
 │   └── views.moon           # Vues personnalisées YAML
 └── resolvers/
@@ -117,7 +117,7 @@ Tarantool stocke les métadonnées dans des espaces système préfixés `_tdb_` 
 | `_tdb_spaces` | Espaces utilisateur (id, name, description, …) |
 | `_tdb_fields` | Champs (id, space_id, name, type, not_null, pos, desc, formula?, trigger_json?, language?) |
 | `_tdb_sessions` | Tokens d'authentification |
-| `_tdb_users` | Utilisateurs (bcrypt) |
+| `_tdb_users` | Utilisateurs (PBKDF2-HMAC-SHA256, 100k itérations) |
 | `_tdb_groups` | Groupes |
 | `_tdb_permissions` | Droits par groupe/ressource |
 | `_tdb_relations` | Clés étrangères entre espaces |
@@ -197,7 +197,7 @@ l'agent. Utiliser systématiquement pour valider les changements frontend :
 ```
 
 L'application tourne sur **http://localhost:8080**.
-Identifiants par défaut : `admin` / `admin`.
+Identifiants par défaut : `admin` / `adminadmin`.
 
 ## Commandes utiles
 

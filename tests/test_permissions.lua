@@ -36,7 +36,7 @@ R.describe("require_admin — blocked for non-admin", function()
     return R.ok(tostring(err):find('Unauthorized'))
   end)
   R.it("non-admin user -> Forbidden", function()
-    local ok_u, user = pcall(auth.create_user, "nonadmin_" .. tostring(SUFFIX), "nonadmin_" .. tostring(SUFFIX) .. "@test.local", "pass123")
+    local ok_u, user = pcall(auth.create_user, "nonadmin_" .. tostring(SUFFIX), "nonadmin_" .. tostring(SUFFIX) .. "@test.local", "pass1234")
     R.ok(ok_u)
     local sess = auth.create_session(user.id)
     local ctx = {
@@ -110,7 +110,7 @@ R.describe("Sessions — expired purge", function()
 end)
 R.describe("GraphQL resolver auth policy — admin queries", function()
   R.it("Query.users refuse un utilisateur non-admin", function()
-    local ok_u, user = pcall(auth.create_user, "policy_nonadmin_" .. tostring(SUFFIX), "policy_nonadmin_" .. tostring(SUFFIX) .. "@test.local", "pass123")
+    local ok_u, user = pcall(auth.create_user, "policy_nonadmin_" .. tostring(SUFFIX), "policy_nonadmin_" .. tostring(SUFFIX) .. "@test.local", "pass1234")
     R.ok(ok_u)
     local ctx = {
       user_id = user.id

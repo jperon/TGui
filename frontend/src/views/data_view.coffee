@@ -318,6 +318,7 @@ window.DataView = class DataView
     formulaNames = new Set (f.name for f in fields when f.formula and f.formula != '' and not f.triggerFields)
     escapeHtml = (s) => @_escapeHtml s
     toBool = (v) => @_toBoolean v
+    fmtError = (v) => @_formatFormulaError v
     saved    = await @_loadColWidths()
 
     await @_buildFkMaps() if @_relations?.length > 0
@@ -335,16 +336,8 @@ window.DataView = class DataView
         fkOptions = @_fkOptions[f.name] or []
         col.formatter = do (fkMap) => (props) =>
           val = props.value
-          if typeof val == 'string'
-            m = val.match /^\[ERROR\|(.*?)\|(.*)\]$/
-            if m
-              safeShort = m[1].replace(/"/g, '&quot;').replace(/</g, '&lt;')
-              safeFull = m[2].replace(/"/g, '&quot;').replace(/</g, '&lt;')
-              isInternal = safeShort.indexOf('inconnue') > -1
-              cls = if isInternal then 'formula-error internal-error' else 'formula-error'
-              return "<span class=\"#{cls}\" title=\"#{safeFull}\">⚠ #{safeShort}</span>"
-            else if val.indexOf('[Erreur de formule:') == 0
-              return "<span class=\"formula-error\" title=\"#{val.replace(/"/g, '&quot;')}\">⚠ Erreur</span>"
+          err = fmtError val
+          return err if err
           display = fkMap[String val] ? String(val ? '')
           escapeHtml display
         col.editor =
@@ -363,14 +356,8 @@ window.DataView = class DataView
             row = props.row
             val = props.value
             displayVal = if row["_repr_#{fieldName}"]? then row["_repr_#{fieldName}"] else val
-            if typeof displayVal == 'string'
-              m = displayVal.match /^\[ERROR\|(.*?)\|(.*)\]$/
-              if m
-                safeShort = m[1].replace(/"/g, '&quot;').replace(/</g, '&lt;')
-                safeFull = m[2].replace(/"/g, '&quot;').replace(/</g, '&lt;')
-                isInternal = safeShort.indexOf('inconnue') > -1
-                cls = if isInternal then 'formula-error internal-error' else 'formula-error'
-                return "<span class=\"#{cls}\" title=\"#{safeFull}\">⚠ #{safeShort}</span>"
+            err = fmtError displayVal
+            return err if err
             if toBool(displayVal) then '☑' else '☐'
         else
           col.editor = 'text' unless seqNames.has(f.name) or formulaNames.has(f.name)
@@ -383,16 +370,8 @@ window.DataView = class DataView
             if row["_repr_#{fieldName}"]?
               displayVal = row["_repr_#{fieldName}"]
 
-            if typeof displayVal == 'string'
-              m = displayVal.match /^\[ERROR\|(.*?)\|(.*)\]$/
-              if m
-                safeShort = m[1].replace(/"/g, '&quot;').replace(/</g, '&lt;')
-                safeFull = m[2].replace(/"/g, '&quot;').replace(/</g, '&lt;')
-                isInternal = safeShort.indexOf('inconnue') > -1
-                cls = if isInternal then 'formula-error internal-error' else 'formula-error'
-                return "<span class=\"#{cls}\" title=\"#{safeFull}\">⚠ #{safeShort}</span>"
-              else if displayVal.indexOf('[Erreur de formule:') == 0
-                return "<span class=\"formula-error\" title=\"#{displayVal.replace(/"/g, '&quot;')}\">⚠ Erreur</span>"
+            err = fmtError displayVal
+            return err if err
             safe = escapeHtml String(displayVal ? '')
             "<span class=\"tdb-cell-text\" data-full-text=\"#{safe}\">#{safe}</span>"
       col
@@ -854,6 +833,19 @@ window.DataView = class DataView
 
   _defaultCellValue: (field) ->
     if field.fieldType == 'Boolean' then false else ''
+
+  _formatFormulaError: (val) ->
+    if typeof val == 'string'
+      m = val.match /^\[ERROR\|(.*?)\|(.*)\]$/
+      if m
+        safeShort = m[1].replace(/"/g, '&quot;').replace(/</g, '&lt;')
+        safeFull = m[2].replace(/"/g, '&quot;').replace(/</g, '&lt;')
+        isInternal = safeShort.indexOf('inconnue') > -1
+        cls = if isInternal then 'formula-error internal-error' else 'formula-error'
+        return "<span class=\"#{cls}\" title=\"#{safeFull}\">⚠ #{safeShort}</span>"
+      else if val.indexOf('[Erreur de formule:') == 0
+        return "<span class=\"formula-error\" title=\"#{val.replace(/"/g, '&quot;')}\">⚠ Erreur</span>"
+    null
 
   _escapeHtml: (s) ->
     String(s ? '')

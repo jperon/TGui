@@ -121,7 +121,14 @@ window.AppSidebarHelpers =
         li = document.createElement 'li'
         li.className = 'admin-list-item'
         groupNames = (u.groups or []).map((g) -> g.name).join(', ') or '—'
-        li.innerHTML = "<span class='admin-item-name'>#{u.username}</span><span class='admin-item-meta'>#{groupNames}</span>"
+        spanName = document.createElement 'span'
+        spanName.className = 'admin-item-name'
+        spanName.textContent = u.username
+        spanMeta = document.createElement 'span'
+        spanMeta.className = 'admin-item-meta'
+        spanMeta.textContent = groupNames
+        li.appendChild spanName
+        li.appendChild spanMeta
         btnPwd = document.createElement 'button'
         btnPwd.className = 'toolbar-btn'
         btnPwd.textContent = '🔑'
@@ -146,7 +153,14 @@ window.AppSidebarHelpers =
         li = document.createElement 'li'
         li.className = 'admin-list-item'
         memberNames = (g.members or []).map((m) -> m.username).join(', ') or '—'
-        li.innerHTML = "<span class='admin-item-name'>#{g.name}</span><span class='admin-item-meta'>#{memberNames}</span>"
+        spanName = document.createElement 'span'
+        spanName.className = 'admin-item-name'
+        spanName.textContent = g.name
+        spanMeta = document.createElement 'span'
+        spanMeta.className = 'admin-item-meta'
+        spanMeta.textContent = memberNames
+        li.appendChild spanName
+        li.appendChild spanMeta
         unless g.name == 'admin'
           btnDel = document.createElement 'button'
           btnDel.className = 'toolbar-btn toolbar-btn--icon toolbar-btn--danger'

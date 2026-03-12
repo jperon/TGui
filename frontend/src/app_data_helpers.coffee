@@ -39,11 +39,6 @@ window.AppDataHelpers =
       do (sp) ->
         li.addEventListener 'click', -> app.selectSpace sp
       ul.appendChild li
-      li.textContent = sp.name
-      li.dataset.id  = sp.id
-      do (sp) ->
-        li.addEventListener 'click', -> app.selectSpace sp
-      ul.appendChild li
 
   selectSpace: (app, sp) ->
     history.replaceState null, '', "#space/#{sp.id}"

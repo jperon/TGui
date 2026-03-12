@@ -445,7 +445,7 @@
     }
 
     async mount() {
-      var allCols, boolNames, col, columns, editableCols, editableSet, escapeHtml, f, fields, fkMap, fkOptions, formulaNames, moveTo, ref, saved, seqNames, setFocusedColumn, toBool, wrapper;
+      var allCols, boolNames, col, columns, editableCols, editableSet, escapeHtml, f, fields, fkMap, fkOptions, fmtError, formulaNames, moveTo, ref, saved, seqNames, setFocusedColumn, toBool, wrapper;
       this._mounted = true;
       this.container.innerHTML = '';
       wrapper = document.createElement('div');
@@ -492,6 +492,9 @@
       toBool = (v) => {
         return this._toBoolean(v);
       };
+      fmtError = (v) => {
+        return this._formatFormulaError(v);
+      };
       saved = (await this._loadColWidths());
       if (((ref = this._relations) != null ? ref.length : void 0) > 0) {
         await this._buildFkMaps();
@@ -514,19 +517,11 @@
             fkOptions = this._fkOptions[f.name] || [];
             col.formatter = ((fkMap) => {
               return (props) => {
-                var cls, display, isInternal, m, ref1, safeFull, safeShort, val;
+                var display, err, ref1, val;
                 val = props.value;
-                if (typeof val === 'string') {
-                  m = val.match(/^\[ERROR\|(.*?)\|(.*)\]$/);
-                  if (m) {
-                    safeShort = m[1].replace(/"/g, '&quot;').replace(/</g, '&lt;');
-                    safeFull = m[2].replace(/"/g, '&quot;').replace(/</g, '&lt;');
-                    isInternal = safeShort.indexOf('inconnue') > -1;
-                    cls = isInternal ? 'formula-error internal-error' : 'formula-error';
-                    return `<span class=\"${cls}\" title=\"${safeFull}\">⚠ ${safeShort}</span>`;
-                  } else if (val.indexOf('[Erreur de formule:') === 0) {
-                    return `<span class=\"formula-error\" title=\"${val.replace(/"/g, '&quot;')}\">⚠ Erreur</span>`;
-                  }
+                err = fmtError(val);
+                if (err) {
+                  return err;
                 }
                 display = (ref1 = fkMap[String(val)]) != null ? ref1 : String(val != null ? val : '');
                 return escapeHtml(display);
@@ -557,19 +552,13 @@
               }
               col.formatter = ((fieldName) => {
                 return (props) => {
-                  var cls, displayVal, isInternal, m, row, safeFull, safeShort, val;
+                  var displayVal, err, row, val;
                   row = props.row;
                   val = props.value;
                   displayVal = row[`_repr_${fieldName}`] != null ? row[`_repr_${fieldName}`] : val;
-                  if (typeof displayVal === 'string') {
-                    m = displayVal.match(/^\[ERROR\|(.*?)\|(.*)\]$/);
-                    if (m) {
-                      safeShort = m[1].replace(/"/g, '&quot;').replace(/</g, '&lt;');
-                      safeFull = m[2].replace(/"/g, '&quot;').replace(/</g, '&lt;');
-                      isInternal = safeShort.indexOf('inconnue') > -1;
-                      cls = isInternal ? 'formula-error internal-error' : 'formula-error';
-                      return `<span class=\"${cls}\" title=\"${safeFull}\">⚠ ${safeShort}</span>`;
-                    }
+                  err = fmtError(displayVal);
+                  if (err) {
+                    return err;
                   }
                   if (toBool(displayVal)) {
                     return '☑';
@@ -585,7 +574,7 @@
               // Highlight formula errors in normal text columns
               col.formatter = ((fieldName) => {
                 return (props) => {
-                  var cls, displayVal, isInternal, m, row, safe, safeFull, safeShort, val;
+                  var displayVal, err, row, safe, val;
                   row = props.row;
                   val = props.value;
                   displayVal = val;
@@ -593,17 +582,9 @@
                   if (row[`_repr_${fieldName}`] != null) {
                     displayVal = row[`_repr_${fieldName}`];
                   }
-                  if (typeof displayVal === 'string') {
-                    m = displayVal.match(/^\[ERROR\|(.*?)\|(.*)\]$/);
-                    if (m) {
-                      safeShort = m[1].replace(/"/g, '&quot;').replace(/</g, '&lt;');
-                      safeFull = m[2].replace(/"/g, '&quot;').replace(/</g, '&lt;');
-                      isInternal = safeShort.indexOf('inconnue') > -1;
-                      cls = isInternal ? 'formula-error internal-error' : 'formula-error';
-                      return `<span class=\"${cls}\" title=\"${safeFull}\">⚠ ${safeShort}</span>`;
-                    } else if (displayVal.indexOf('[Erreur de formule:') === 0) {
-                      return `<span class=\"formula-error\" title=\"${displayVal.replace(/"/g, '&quot;')}\">⚠ Erreur</span>`;
-                    }
+                  err = fmtError(displayVal);
+                  if (err) {
+                    return err;
                   }
                   safe = escapeHtml(String(displayVal != null ? displayVal : ''));
                   return `<span class=\"tdb-cell-text\" data-full-text=\"${safe}\">${safe}</span>`;
@@ -1427,6 +1408,23 @@
       } else {
         return '';
       }
+    }
+
+    _formatFormulaError(val) {
+      var cls, isInternal, m, safeFull, safeShort;
+      if (typeof val === 'string') {
+        m = val.match(/^\[ERROR\|(.*?)\|(.*)\]$/);
+        if (m) {
+          safeShort = m[1].replace(/"/g, '&quot;').replace(/</g, '&lt;');
+          safeFull = m[2].replace(/"/g, '&quot;').replace(/</g, '&lt;');
+          isInternal = safeShort.indexOf('inconnue') > -1;
+          cls = isInternal ? 'formula-error internal-error' : 'formula-error';
+          return `<span class=\"${cls}\" title=\"${safeFull}\">⚠ ${safeShort}</span>`;
+        } else if (val.indexOf('[Erreur de formule:') === 0) {
+          return `<span class=\"formula-error\" title=\"${val.replace(/"/g, '&quot;')}\">⚠ Erreur</span>`;
+        }
+      }
+      return null;
     }
 
     _escapeHtml(s) {
