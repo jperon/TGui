@@ -46,6 +46,7 @@
       this.container.innerHTML = '';
       this._widgets = [];
       this._widgetsById = {};
+      this._mountPromises = [];
       try {
         parsed = jsyaml.load(this.yamlText);
       } catch (error) {
@@ -61,19 +62,21 @@
       el = this._renderZoneOrWidget(root);
       this.container.style.cssText = 'display:flex;flex-direction:column;height:100%;';
       this.container.appendChild(el);
-      // Wire depends_on after all widgets are mounted
-      this._wireDepends();
-      // Refresh grid layouts now that elements are in the live DOM
-      return setTimeout(() => {
-        var entry, i, len, ref, ref1, ref2, results;
-        ref = this._widgets;
-        results = [];
-        for (i = 0, len = ref.length; i < len; i++) {
-          entry = ref[i];
-          results.push((ref1 = entry.dataView) != null ? (ref2 = ref1._grid) != null ? ref2.refreshLayout() : void 0 : void 0);
-        }
-        return results;
-      }, 0);
+      // Wire depends_on after all DataView grids are ready (mount is async)
+      return Promise.all(this._mountPromises).then(() => {
+        this._wireDepends();
+        // Refresh grid layouts now that elements are in the live DOM
+        return setTimeout(() => {
+          var entry, i, len, ref, ref1, ref2, results;
+          ref = this._widgets;
+          results = [];
+          for (i = 0, len = ref.length; i < len; i++) {
+            entry = ref[i];
+            results.push((ref1 = entry.dataView) != null ? (ref2 = ref1._grid) != null ? ref2.refreshLayout() : void 0 : void 0);
+          }
+          return results;
+        }, 0);
+      });
     }
 
     // Renders either a zone (direction+children) or a widget node.
@@ -191,7 +194,7 @@
           dv._formulaFilter = formula;
         }
       }
-      dv.mount();
+      this._mountPromises.push(dv.mount());
       delBtn.addEventListener('click', () => {
         return dv.deleteSelected();
       });

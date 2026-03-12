@@ -19,6 +19,8 @@ npm install --save-dev \
   @rollup/plugin-node-resolve \
   @rollup/plugin-commonjs \
   @rollup/plugin-json \
+  rollup-plugin-polyfill-node \
+  @rollup/plugin-replace \
   tui-grid \
   tui-date-picker \
   tui-pagination \
@@ -133,6 +135,17 @@ cat > rollup-plugin-runtime.mjs <<JSEOF
 import resolve from "@rollup/plugin-node-resolve";
 import commonjs from "@rollup/plugin-commonjs";
 import json from "@rollup/plugin-json";
+import nodePolyfills from "rollup-plugin-polyfill-node";
+
+const patchProcessVersions = {
+  name: 'patch-process-versions',
+  renderChunk(code) {
+    return code.replace(
+      'var versions = {};',
+      "var versions = { node: '18.0.0' };"
+    );
+  },
+};
 
 export default {
   input: "entry-plugin-runtime.js",
@@ -141,7 +154,13 @@ export default {
     format: "iife",
     name: "_plugin_runtime_init",
   },
-  plugins: [resolve({ browser: true }), commonjs(), json()],
+  plugins: [
+    resolve({ browser: true, preferBuiltins: false }),
+    commonjs(),
+    json(),
+    nodePolyfills(),
+    patchProcessVersions,
+  ],
   onwarn(w, warn) {
     if (w.code === "CIRCULAR_DEPENDENCY") return;
     warn(w);

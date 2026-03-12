@@ -37,6 +37,7 @@ window.CustomView = class CustomView
     @container.innerHTML = ''
     @_widgets     = []
     @_widgetsById = {}
+    @_mountPromises = []
     try
       parsed = jsyaml.load @yamlText
     catch e
@@ -52,14 +53,14 @@ window.CustomView = class CustomView
     @container.style.cssText = 'display:flex;flex-direction:column;height:100%;'
     @container.appendChild el
 
-    # Wire depends_on after all widgets are mounted
-    @_wireDepends()
-
-    # Refresh grid layouts now that elements are in the live DOM
-    setTimeout =>
-      for entry in @_widgets
-        entry.dataView?._grid?.refreshLayout()
-    , 0
+    # Wire depends_on after all DataView grids are ready (mount is async)
+    Promise.all(@_mountPromises).then =>
+      @_wireDepends()
+      # Refresh grid layouts now that elements are in the live DOM
+      setTimeout =>
+        for entry in @_widgets
+          entry.dataView?._grid?.refreshLayout()
+      , 0
 
   # Renders either a zone (direction+children) or a widget node.
   # Applies `factor` (flex proportion) when specified (default: 1).
@@ -136,7 +137,7 @@ window.CustomView = class CustomView
       formula = if typeof wNode.filter == 'string' then wNode.filter else (wNode.filter.formula or '')
       lang    = if typeof wNode.filter == 'object' then (wNode.filter.language or 'moonscript') else 'moonscript'
       dv._formulaFilter = formula if formula
-    dv.mount()
+    @_mountPromises.push dv.mount()
     delBtn.addEventListener 'click', => dv.deleteSelected()
     entry = { dataView: dv, node: wNode, el: wrapper }
     @_widgets.push entry
