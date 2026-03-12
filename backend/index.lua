@@ -869,12 +869,12 @@ make_content = function()
           H.div({
             class = 'yaml-editor-pane',
             H.div({
-              id = 'yaml-validation-msg',
-              class = 'yaml-validation-msg hidden',
+              id = 'yaml-cm-editor',
               ''
             }),
             H.div({
-              id = 'yaml-cm-editor',
+              id = 'yaml-validation-msg',
+              class = 'yaml-validation-msg hidden',
               ''
             })
           }),
