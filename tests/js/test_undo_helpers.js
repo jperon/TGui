@@ -1,4 +1,6 @@
 (function() {
+  // tests/js/test_undo_helpers.coffee — tests du service global AppUndoHelpers.
+  // Couvre undo/redo sur update, delete, multi-update et détection de conflits.
   var UH, assert, describe, eq, it, lastDeleteIds, lastRestorePayload, lastUpdatePayload, makeApp, store, summary;
 
   require('./dom_stub');

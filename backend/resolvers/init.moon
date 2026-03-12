@@ -1,5 +1,15 @@
--- resolvers/init.moon
--- Aggregates all resolver maps and builds the executable schema.
+-- Summary: Compose and initialize the executable GraphQL schema/resolver graph.
+-- Responsibilities:
+-- - Merge resolver modules (schema/data/auth/custom/aggregate/export/introspection).
+-- - Build combined SDL (static + dynamic + introspection) and initialize executor.
+-- - Provide safe `reinit` hook and background session purge.
+-- Key Flows:
+-- - init -> build -> executor.init -> executor.set_reinit_fn -> triggers.init_all_triggers.
+-- - metadata mutation -> executor.reinit_schema -> resolvers.init.reinit (pcall-protected).
+-- Depends on:
+-- - resolvers.* modules, graphql.dynamic, graphql.schema, graphql.executor, core.triggers.
+-- Used by:
+-- - backend/init.moon bootstrap and any schema reinitialization path.
 
 schema_r      = require 'resolvers.schema_resolvers'
 data_r        = require 'resolvers.data_resolvers'

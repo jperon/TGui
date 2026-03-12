@@ -1,4 +1,5 @@
 -- tests/test_batch_ops.moon
+-- Tests d'intégration GraphQL pour insertRecords/updateRecords sur un espace temporaire.
 R = require 'tests.runner'
 spaces_mod = require 'core.spaces'
 auth = require 'core.auth'
@@ -14,7 +15,7 @@ R.describe "Batch Operations", ->
   R.it "setup: create space and fields", ->
     admin = auth.get_user_by_username 'admin'
     context = { user_id: admin.id }
-    
+
     sp = spaces_mod.create_user_space SP_NAME, "Batch test"
     space_id = sp.id
     spaces_mod.add_field space_id, 'name', 'String'
@@ -47,7 +48,7 @@ R.describe "Batch Operations", ->
     R.eq #res.data.insertRecords, 2
     R.ok res.data.insertRecords[1].id
     R.ok res.data.insertRecords[2].id
-    
+
     -- Verify in space
     sp = box.space["data_#{SP_NAME}"]
     R.eq sp\count!, 2
@@ -80,7 +81,7 @@ R.describe "Batch Operations", ->
     R.ok res.data
     R.ok res.data.updateRecords
     R.eq #res.data.updateRecords, 2
-    
+
     -- Verify values
     t1 = sp\get id1
     t2 = sp\get id2
@@ -88,7 +89,7 @@ R.describe "Batch Operations", ->
     d2 = json.decode t2[2]
     R.eq d1.val, 10
     R.eq d2.val, 20
-    
+
     found_A = false
     for t in *sp\select!
       d = json.decode t[2]
