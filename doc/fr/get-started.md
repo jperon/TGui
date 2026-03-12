@@ -34,7 +34,7 @@ L'interface est disponible sur **http://localhost:8080**.
 
 ## Connexion
 
-![Écran de connexion](img/login-screen.png)
+![Écran de connexion](../img/login-screen.png)
 
 Au premier démarrage, un compte **admin** est créé automatiquement avec le mot de passe
 **admin**.
@@ -46,7 +46,7 @@ Au premier démarrage, un compte **admin** est créé automatiquement avec le mo
 
 ## Présentation de l'interface
 
-![Interface principale](img/main.png)
+![Interface principale](../img/main.png)
 
 L'interface est divisée en deux zones :
 
@@ -79,7 +79,7 @@ Ces tables n'ont pas de dépendance vers d'autres tables.
 | `motscles` | Mots-clés thématiques |
 | `etiquettes` | Étiquettes de classement (prix, coups de cœur…) |
 
-![Espace de données avec grille](img/space-data.png)
+![Espace de données avec grille](../img/space-data.png)
 
 ### 2 — Tables principales
 
@@ -109,7 +109,7 @@ Ces tables n'ont pas de dépendance vers d'autres tables.
 
 Cliquez sur **[#] Champs** dans la barre d'outils pour ouvrir le panel latéral.
 
-![Panel de champs](img/fields-panel.png)
+![Panel de champs](../img/fields-panel.png)
 
 ### Créer un champ simple
 
@@ -188,7 +188,7 @@ annee  = if @annee then tostring(@annee) else "????"
 
 Cliquez sur **(crayon)** à côté du champ pour éditer son nom, type, formule ou trigger.
 
-![Édition d'un champ](img/field-edit.png)
+![Édition d'un champ](../img/field-edit.png)
 
 ---
 
@@ -273,7 +273,7 @@ Champs, puis saisissez la formule dans le champ **Formule de représentation**.
 
 Les vues permettent de composer des tableaux de bord multi-espaces.
 
-![Vue personnalisée](img/custom-view.png)
+![Vue personnalisée](../img/custom-view.png)
 
 ### Créer une vue
 
@@ -288,7 +288,7 @@ Cliquer sur **« Éditer »** ouvre un modal plein écran avec deux panneaux :
 - **Gauche** : éditeur CodeMirror (coloration syntaxique YAML, thème monokai).
 - **Droite** : diagramme ERD interactif montrant tous les espaces et leurs relations.
 
-![Modal éditeur YAML et diagramme ERD](img/erd-modal-overview.png)
+![Modal éditeur YAML et diagramme ERD](../img/erd-modal-overview.png)
 
 **Utiliser le diagramme ERD pour construire le YAML :**
 
@@ -297,13 +297,13 @@ Chaque boîte représente un espace. Pour chaque champ (rangée) :
 - Cliquer sur **`*`** (première rangée, en italique) ajoute l'espace **sans restriction de colonnes**.
   La boîte s'illumine avec le badge `* ✓`.
 
-![Sélection avec le pseudo-champ *](img/erd-star-field.png)
+![Sélection avec le pseudo-champ *](../img/erd-star-field.png)
 
 - Cliquer sur un **champ nommé** l'ajoute à la liste `columns` du widget.
   Si l'espace n'est pas encore dans le YAML, il est créé. Si cet espace a une clé étrangère
   vers un espace déjà présent dans le YAML, un `depends_on` est généré automatiquement.
 
-![Détection automatique de depends_on](img/erd-depends-on.png)
+![Détection automatique de depends_on](../img/erd-depends-on.png)
 
 - Recliquer un champ déjà sélectionné le retire. Retirer tous les champs supprime le widget.
 - Le bouton **Effacer** réinitialise la sélection.
@@ -387,7 +387,7 @@ d'un `GROUP BY` SQL, calculé en Lua côté serveur.
 Les fonctions disponibles sont `sum`, `count`, `avg`, `min`, `max`. L'alias `as` est
 optionnel (nom par défaut : `fn_champ`, ex. `count`).
 
-![Exemple de widget agrégat](img/aggregate-widget.png)
+![Exemple de widget agrégat](../img/aggregate-widget.png)
 
 ---
 
@@ -397,7 +397,7 @@ La section **Administration** n'est visible que pour les membres du groupe `admi
 
 ### Utilisateurs
 
-![Panel utilisateurs](img/admin-users.png)
+![Panel utilisateurs](../img/admin-users.png)
 
 - **+ Créer** : ouvre un formulaire (nom d'utilisateur, email optionnel, mot de passe).
 - **[clé]** sur chaque ligne : permet à l'admin de forcer le changement de mot de passe d'un
@@ -405,7 +405,7 @@ La section **Administration** n'est visible que pour les membres du groupe `admi
 
 ### Groupes
 
-![Panel groupes](img/admin-groups.png)
+![Panel groupes](../img/admin-groups.png)
 
 - **+ Créer** : crée un nouveau groupe.
 - **[suppr]** : supprime le groupe (hors groupe `admin` qui est protégé).
@@ -437,13 +437,13 @@ La section **Export / Import** permet de sauvegarder et restaurer une applicatio
 
 Cliquez sur votre **nom d'utilisateur** (en bas à gauche) pour ouvrir le menu :
 
-![Menu profil](img/user-menu.png)
+![Menu profil](../img/user-menu.png)
 
 - **Changer le mot de passe** : saisir l'ancien puis le nouveau mot de passe.
 - **Déconnexion** : invalide la session côté serveur et revient à l'écran de connexion.
 - **FR / EN** : change la langue de l'interface (préférence conservée localement dans le navigateur).
 
-![Dialog changement de mot de passe](img/change-password.png)
+![Dialog changement de mot de passe](../img/change-password.png)
 
 ---
 
