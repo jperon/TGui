@@ -38,6 +38,7 @@
       this._widgets = []; // list of { dataView, node, el }
       this._widgetsById = {}; // id -> entry
       this._pluginStateByWidgetId = {};
+      this._pluginSelectionListenersByWidgetId = {};
     }
 
     mount() {
@@ -407,18 +408,21 @@
     }
 
     _setPluginSelectionListener(widgetId, listener) {
-      var st;
+      var base, st;
       if (!widgetId) {
         return;
       }
+      if ((base = this._pluginSelectionListenersByWidgetId)[widgetId] == null) {
+        base[widgetId] = [];
+      }
+      this._pluginSelectionListenersByWidgetId[widgetId].push(listener);
       st = this._pluginStateByWidgetId[widgetId];
-      if (!st) {
-        return;
+      if (st) {
+        if (st.listeners == null) {
+          st.listeners = [];
+        }
+        return st.listeners.push(listener);
       }
-      if (st.listeners == null) {
-        st.listeners = [];
-      }
-      return st.listeners.push(listener);
     }
 
     _emitPluginSelection(widgetId, selection) {
@@ -464,7 +468,7 @@
     }
 
     _mountPluginIframe(container, widgetId, plugin, pluginParams) {
-      var compiled, iframe, listeners, onMessage, reqSeq, requestMap, srcDoc;
+      var compiled, fn, i, iframe, len, listeners, onMessage, ref, reqSeq, requestMap, srcDoc;
       compiled = this._compilePlugin(plugin);
       iframe = document.createElement('iframe');
       iframe.setAttribute('sandbox', 'allow-scripts');
@@ -474,6 +478,11 @@
       requestMap = {};
       reqSeq = 0;
       listeners = [];
+      ref = this._pluginSelectionListenersByWidgetId[widgetId] || [];
+      for (i = 0, len = ref.length; i < len; i++) {
+        fn = ref[i];
+        listeners.push(fn);
+      }
       this._pluginStateByWidgetId[widgetId] = {iframe, listeners, requestMap, reqSeq};
       onMessage = (ev) => {
         var msg, q, reqId, vars;
@@ -489,16 +498,16 @@
           vars = msg.variables || {};
           reqId = msg.requestId;
           return GQL.query(q, vars).then((data) => {
-            var ref;
-            return (ref = iframe.contentWindow) != null ? ref.postMessage({
+            var ref1;
+            return (ref1 = iframe.contentWindow) != null ? ref1.postMessage({
               type: 'gql_response',
               widgetId,
               requestId: reqId,
               data
             }, '*') : void 0;
           }).catch((err) => {
-            var ref;
-            return (ref = iframe.contentWindow) != null ? ref.postMessage({
+            var ref1;
+            return (ref1 = iframe.contentWindow) != null ? ref1.postMessage({
               type: 'gql_error',
               widgetId,
               requestId: reqId,
@@ -644,6 +653,7 @@ ${js}
       this.container.innerHTML = '';
       this._widgets = [];
       this._pluginStateByWidgetId = {};
+      this._pluginSelectionListenersByWidgetId = {};
       return this._widgetsById = {};
     }
 

@@ -14,8 +14,8 @@ global.DataView = class DataView
     @mounted = false
   mount: -> @mounted = true
   refreshLayout: ->
-  setFilter: ->
-  setDefaultValues: ->
+  setFilter: (f) -> @lastFilter = f
+  setDefaultValues: (d) -> @lastDefaults = d
   deleteSelected: ->
 
 # Load module under test (exposes window.CustomView)
@@ -39,6 +39,15 @@ makeSpaces = ->
 makeContainer = -> global.document.createElement 'div'
 
 yamlJSON = (obj) -> JSON.stringify obj
+flush = -> new Promise (resolve) -> setTimeout resolve, 0
+syncPlugin = (plugin) ->
+  then: (cb) ->
+    err = null
+    try
+      cb plugin
+    catch e
+      err = e
+    catch: (onErr) -> onErr(err) if err
 
 # ---------------------------------------------------------------------------
 describe 'CustomView — layout vertical simple', ->
@@ -145,5 +154,114 @@ describe 'CustomView — unmount', ->
     cv.unmount()
     eq cv._widgets.length, 0
     eq Object.keys(cv._widgetsById).length, 0
+
+describe 'CustomView — plugin widgets', ->
+  it 'mounts a plugin widget and initializes iframe state', ->
+    global.window.CoffeeScript = { compile: -> "module.exports = function(api){ api.render('<div>ok</div>'); }" }
+    global.window.pug = { compile: -> -> "<div>tpl</div>" }
+    global.WidgetPlugins =
+      getByName: -> syncPlugin
+        id: 'p1'
+        name: 'sample_plugin'
+        scriptLanguage: 'coffeescript'
+        templateLanguage: 'pug'
+        scriptCode: 'ignored by compile stub'
+        templateCode: 'ignored by pug compile stub'
+    global.window.addEventListener = ->
+    global.window.removeEventListener = ->
+
+    oldCreate = global.document.createElement
+    global.document.createElement = (tag) ->
+      el = oldCreate tag
+      if tag is 'iframe'
+        el.setAttribute ?= ->
+        el.contentWindow = { postMessage: -> }
+      el
+
+    layout = { layout: { widget: { id: 'plug1', type: 'sample_plugin', title: 'Plugin' } } }
+    cv = new CV makeContainer(), yamlJSON(layout), makeSpaces()
+    try
+      cv.mount()
+      assert cv._widgetsById['plug1']?, 'plugin indexed by id'
+      assert cv._widgetsById['plug1'].plugin is true, 'entry marked as plugin'
+      assert cv._pluginStateByWidgetId['plug1']?, 'iframe runtime state created'
+    catch e
+      global.document.createElement = oldCreate
+      throw e
+    global.document.createElement = oldCreate
+
+  it 'propagates depends_on from plugin selection to DataView target', ->
+    global.window.CoffeeScript = { compile: -> "module.exports = function(api){}" }
+    global.window.pug = { compile: -> -> "<div>tpl</div>" }
+    global.WidgetPlugins =
+      getByName: -> syncPlugin
+        id: 'p2'
+        name: 'sample_plugin_2'
+        scriptLanguage: 'coffeescript'
+        templateLanguage: 'pug'
+        scriptCode: ''
+        templateCode: ''
+    global.window.addEventListener = ->
+    global.window.removeEventListener = ->
+
+    oldCreate = global.document.createElement
+    global.document.createElement = (tag) ->
+      el = oldCreate tag
+      if tag is 'iframe'
+        el.setAttribute ?= ->
+        el.contentWindow = { postMessage: -> }
+      el
+
+    layout =
+      layout:
+        direction: 'horizontal'
+        children: [
+          { widget: { id: 'src', type: 'sample_plugin_2' } }
+          { widget: { id: 'dst', space: 'personnes', depends_on: { widget: 'src', field: 'age', from_field: 'id' } } }
+        ]
+    cv = new CV makeContainer(), yamlJSON(layout), makeSpaces()
+    try
+      cv.mount()
+      cv._emitPluginSelection 'src', { rows: [{ id: 7 }] }
+      dv = cv._widgetsById['dst'].dataView
+      eq dv.lastDefaults.age, '7'
+      deepEq dv.lastFilter, { field: 'age', value: '7' }
+    catch e
+      global.document.createElement = oldCreate
+      throw e
+    global.document.createElement = oldCreate
+
+  it 'shows a fallback error when CoffeeScript runtime is missing', ->
+    delete global.window.CoffeeScript
+    global.window.pug = { compile: -> -> "<div>tpl</div>" }
+    global.WidgetPlugins =
+      getByName: -> syncPlugin
+        id: 'p3'
+        name: 'broken_plugin'
+        scriptLanguage: 'coffeescript'
+        templateLanguage: 'pug'
+        scriptCode: 'x = 1'
+        templateCode: 'div hi'
+    global.window.addEventListener = ->
+    global.window.removeEventListener = ->
+
+    oldCreate = global.document.createElement
+    global.document.createElement = (tag) ->
+      el = oldCreate tag
+      if tag is 'iframe'
+        el.setAttribute ?= ->
+        el.contentWindow = { postMessage: -> }
+      el
+
+    layout = { layout: { widget: { id: 'plug_err', type: 'broken_plugin' } } }
+    cv = new CV makeContainer(), yamlJSON(layout), makeSpaces()
+    try
+      cv.mount()
+      body = cv._widgets[0].el._children[1]
+      assert body.innerHTML.includes('Erreur plugin'), 'fallback error should be rendered'
+    catch e
+      global.document.createElement = oldCreate
+      throw e
+    global.document.createElement = oldCreate
 
 summary()

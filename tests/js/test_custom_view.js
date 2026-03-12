@@ -1,7 +1,7 @@
 (function() {
   // tests/js/test_custom_view.coffee — tests for CustomView (custom_view.js)
   // Covers: YAML parsing, generated DOM structure, flex factor, columns filtering, depends_on.
-  var CV, DataView, assert, deepEq, describe, eq, it, makeContainer, makeSpaces, summary, yamlJSON;
+  var CV, DataView, assert, deepEq, describe, eq, flush, it, makeContainer, makeSpaces, summary, syncPlugin, yamlJSON;
 
   require('./dom_stub');
 
@@ -28,9 +28,13 @@
 
     refreshLayout() {}
 
-    setFilter() {}
+    setFilter(f) {
+      return this.lastFilter = f;
+    }
 
-    setDefaultValues() {}
+    setDefaultValues(d) {
+      return this.lastDefaults = d;
+    }
 
     deleteSelected() {}
 
@@ -90,6 +94,34 @@
 
   yamlJSON = function(obj) {
     return JSON.stringify(obj);
+  };
+
+  flush = function() {
+    return new Promise(function(resolve) {
+      return setTimeout(resolve, 0);
+    });
+  };
+
+  syncPlugin = function(plugin) {
+    return {
+      then: function(cb) {
+        var e, err;
+        err = null;
+        try {
+          cb(plugin);
+        } catch (error) {
+          e = error;
+          err = e;
+        }
+        return {
+          catch: function(onErr) {
+            if (err) {
+              return onErr(err);
+            }
+          }
+        };
+      }
+    };
   };
 
   // ---------------------------------------------------------------------------
@@ -306,6 +338,220 @@
       cv.unmount();
       eq(cv._widgets.length, 0);
       return eq(Object.keys(cv._widgetsById).length, 0);
+    });
+  });
+
+  describe('CustomView — plugin widgets', function() {
+    it('mounts a plugin widget and initializes iframe state', function() {
+      var cv, e, layout, oldCreate;
+      global.window.CoffeeScript = {
+        compile: function() {
+          return "module.exports = function(api){ api.render('<div>ok</div>'); }";
+        }
+      };
+      global.window.pug = {
+        compile: function() {
+          return function() {
+            return "<div>tpl</div>";
+          };
+        }
+      };
+      global.WidgetPlugins = {
+        getByName: function() {
+          return syncPlugin({
+            id: 'p1',
+            name: 'sample_plugin',
+            scriptLanguage: 'coffeescript',
+            templateLanguage: 'pug',
+            scriptCode: 'ignored by compile stub',
+            templateCode: 'ignored by pug compile stub'
+          });
+        }
+      };
+      global.window.addEventListener = function() {};
+      global.window.removeEventListener = function() {};
+      oldCreate = global.document.createElement;
+      global.document.createElement = function(tag) {
+        var el;
+        el = oldCreate(tag);
+        if (tag === 'iframe') {
+          if (el.setAttribute == null) {
+            el.setAttribute = function() {};
+          }
+          el.contentWindow = {
+            postMessage: function() {}
+          };
+        }
+        return el;
+      };
+      layout = {
+        layout: {
+          widget: {
+            id: 'plug1',
+            type: 'sample_plugin',
+            title: 'Plugin'
+          }
+        }
+      };
+      cv = new CV(makeContainer(), yamlJSON(layout), makeSpaces());
+      try {
+        cv.mount();
+        assert(cv._widgetsById['plug1'] != null, 'plugin indexed by id');
+        assert(cv._widgetsById['plug1'].plugin === true, 'entry marked as plugin');
+        assert(cv._pluginStateByWidgetId['plug1'] != null, 'iframe runtime state created');
+      } catch (error) {
+        e = error;
+        global.document.createElement = oldCreate;
+        throw e;
+      }
+      return global.document.createElement = oldCreate;
+    });
+    it('propagates depends_on from plugin selection to DataView target', function() {
+      var cv, dv, e, layout, oldCreate;
+      global.window.CoffeeScript = {
+        compile: function() {
+          return "module.exports = function(api){}";
+        }
+      };
+      global.window.pug = {
+        compile: function() {
+          return function() {
+            return "<div>tpl</div>";
+          };
+        }
+      };
+      global.WidgetPlugins = {
+        getByName: function() {
+          return syncPlugin({
+            id: 'p2',
+            name: 'sample_plugin_2',
+            scriptLanguage: 'coffeescript',
+            templateLanguage: 'pug',
+            scriptCode: '',
+            templateCode: ''
+          });
+        }
+      };
+      global.window.addEventListener = function() {};
+      global.window.removeEventListener = function() {};
+      oldCreate = global.document.createElement;
+      global.document.createElement = function(tag) {
+        var el;
+        el = oldCreate(tag);
+        if (tag === 'iframe') {
+          if (el.setAttribute == null) {
+            el.setAttribute = function() {};
+          }
+          el.contentWindow = {
+            postMessage: function() {}
+          };
+        }
+        return el;
+      };
+      layout = {
+        layout: {
+          direction: 'horizontal',
+          children: [
+            {
+              widget: {
+                id: 'src',
+                type: 'sample_plugin_2'
+              }
+            },
+            {
+              widget: {
+                id: 'dst',
+                space: 'personnes',
+                depends_on: {
+                  widget: 'src',
+                  field: 'age',
+                  from_field: 'id'
+                }
+              }
+            }
+          ]
+        }
+      };
+      cv = new CV(makeContainer(), yamlJSON(layout), makeSpaces());
+      try {
+        cv.mount();
+        cv._emitPluginSelection('src', {
+          rows: [
+            {
+              id: 7
+            }
+          ]
+        });
+        dv = cv._widgetsById['dst'].dataView;
+        eq(dv.lastDefaults.age, '7');
+        deepEq(dv.lastFilter, {
+          field: 'age',
+          value: '7'
+        });
+      } catch (error) {
+        e = error;
+        global.document.createElement = oldCreate;
+        throw e;
+      }
+      return global.document.createElement = oldCreate;
+    });
+    return it('shows a fallback error when CoffeeScript runtime is missing', function() {
+      var body, cv, e, layout, oldCreate;
+      delete global.window.CoffeeScript;
+      global.window.pug = {
+        compile: function() {
+          return function() {
+            return "<div>tpl</div>";
+          };
+        }
+      };
+      global.WidgetPlugins = {
+        getByName: function() {
+          return syncPlugin({
+            id: 'p3',
+            name: 'broken_plugin',
+            scriptLanguage: 'coffeescript',
+            templateLanguage: 'pug',
+            scriptCode: 'x = 1',
+            templateCode: 'div hi'
+          });
+        }
+      };
+      global.window.addEventListener = function() {};
+      global.window.removeEventListener = function() {};
+      oldCreate = global.document.createElement;
+      global.document.createElement = function(tag) {
+        var el;
+        el = oldCreate(tag);
+        if (tag === 'iframe') {
+          if (el.setAttribute == null) {
+            el.setAttribute = function() {};
+          }
+          el.contentWindow = {
+            postMessage: function() {}
+          };
+        }
+        return el;
+      };
+      layout = {
+        layout: {
+          widget: {
+            id: 'plug_err',
+            type: 'broken_plugin'
+          }
+        }
+      };
+      cv = new CV(makeContainer(), yamlJSON(layout), makeSpaces());
+      try {
+        cv.mount();
+        body = cv._widgets[0].el._children[1];
+        assert(body.innerHTML.includes('Erreur plugin'), 'fallback error should be rendered');
+      } catch (error) {
+        e = error;
+        global.document.createElement = oldCreate;
+        throw e;
+      }
+      return global.document.createElement = oldCreate;
     });
   });
 
