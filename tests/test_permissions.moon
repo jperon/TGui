@@ -40,7 +40,7 @@ R.describe "require_admin — blocked for non-admin", ->
 
   R.it "non-admin user -> Forbidden", ->
     -- Create a non-admin user
-    ok_u, user = pcall auth.create_user, "nonadmin_#{SUFFIX}", "nonadmin_#{SUFFIX}@test.local", "pass123"
+    ok_u, user = pcall auth.create_user, "nonadmin_#{SUFFIX}", "nonadmin_#{SUFFIX}@test.local", "pass1234"
     R.ok ok_u
     -- Create a session for this user
     sess = auth.create_session user.id
@@ -112,7 +112,7 @@ R.describe "Sessions — expired purge", ->
 
 R.describe "GraphQL resolver auth policy — admin queries", ->
   R.it "Query.users refuse un utilisateur non-admin", ->
-    ok_u, user = pcall auth.create_user, "policy_nonadmin_#{SUFFIX}", "policy_nonadmin_#{SUFFIX}@test.local", "pass123"
+    ok_u, user = pcall auth.create_user, "policy_nonadmin_#{SUFFIX}", "policy_nonadmin_#{SUFFIX}@test.local", "pass1234"
     R.ok ok_u
     ctx = { user_id: user.id }
     ok_q, err_q = pcall auth_r.Query.users, nil, {}, ctx

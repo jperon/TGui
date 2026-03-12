@@ -637,7 +637,7 @@ bootstrap = function()
     })
     local auth_mod = require('core.auth')
     local admin_user = os.getenv('TDB_ADMIN_USER') or 'admin'
-    local admin_pass = os.getenv('TDB_ADMIN_PASSWORD') or 'admin'
+    local admin_pass = os.getenv('TDB_ADMIN_PASSWORD') or 'adminadmin'
     local u = auth_mod.create_user(admin_user, '', admin_pass)
     box.space._tdb_memberships:insert({
       u.id,

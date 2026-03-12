@@ -78,9 +78,11 @@ compile_formula = (formula, field_name, language) ->
   if not chunk_fn
     log.error "tdb triggers: parse error for field '#{field_name}': #{load_err}"
     return nil
-  -- Apply sandbox via setfenv (Lua 5.1 / LuaJIT)
+  -- Apply sandbox via setfenv (Lua 5.1 / LuaJIT) — mandatory for security
   ok_env, _ = pcall setfenv, chunk_fn, FORMULA_ENV
-  log.warn "tdb triggers: setfenv not available, formula '#{field_name}' runs unsandboxed" unless ok_env
+  unless ok_env
+    log.error "tdb triggers: setfenv not available, refusing to run formula '#{field_name}' unsandboxed"
+    return nil
   -- Execute chunk to get the formula function
   ok2, fn = pcall chunk_fn
   if not ok2 or type(fn) != 'function'
