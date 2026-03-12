@@ -7,6 +7,50 @@ trim = function(s)
   s = s:gsub('%s+$', '')
   return s
 end
+local read_text
+read_text = function(path)
+  local f = io.open(path, 'r')
+  if not (f) then
+    return nil
+  end
+  local text = f:read('*a')
+  f:close()
+  return text
+end
+local has_c1_controls
+has_c1_controls = function(text)
+  local i = 1
+  while i <= #text do
+    local b1 = text:byte(i)
+    if b1 == 0xC2 and i < #text then
+      local b2 = text:byte(i + 1)
+      if b2 >= 0x80 and b2 <= 0x9F then
+        return true
+      end
+      i = i + 2
+    else
+      i = i + 1
+    end
+  end
+  return false
+end
+local MOJIBAKE_PREFIXES = {
+  string.char(0xC3, 0xA2, 0xC2, 0x80),
+  string.char(0xC3, 0xA2, 0xC2, 0x86),
+  string.char(0xC3, 0xA2, 0xC2, 0x96),
+  string.char(0xC3, 0xA2, 0xC2, 0x9C),
+  string.char(0xC3, 0x83, 0xC2)
+}
+local has_mojibake
+has_mojibake = function(text)
+  for _index_0 = 1, #MOJIBAKE_PREFIXES do
+    local prefix = MOJIBAKE_PREFIXES[_index_0]
+    if text:find(prefix, 1, true) then
+      return true
+    end
+  end
+  return false
+end
 local run_lines
 run_lines = function(cmd)
   local p, err = io.popen(cmd)
@@ -343,6 +387,12 @@ for _index_0 = 1, #_list_1 do
   end
 end
 local required_docs = {
+  './doc/en/README.md',
+  './doc/fr/README.md',
+  './doc/en/get-started.md',
+  './doc/fr/get-started.md',
+  './doc/en/reference.md',
+  './doc/fr/reference.md',
   './doc/fr/api.md',
   './doc/en/api.md',
   './doc/fr/dev.md',
@@ -360,9 +410,29 @@ local required_docs = {
 }
 for _index_0 = 1, #required_docs do
   local path = required_docs[_index_0]
+  local text = read_text(path)
+  if not text then
+    table.insert(errors, "missing generated doc file: " .. tostring(path))
+  else
+    if path:match('^./doc/fr/') then
+      if has_c1_controls(text) then
+        table.insert(errors, "encoding regression (C1 control) in " .. tostring(path))
+      end
+      if has_mojibake(text) then
+        table.insert(errors, "encoding regression (mojibake marker) in " .. tostring(path))
+      end
+    end
+  end
+end
+local required_po = {
+  './po/tdb-docs.pot',
+  './po/fr.po'
+}
+for _index_0 = 1, #required_po do
+  local path = required_po[_index_0]
   local f = io.open(path, 'r')
   if not f then
-    table.insert(errors, "missing generated doc file: " .. tostring(path))
+    table.insert(errors, "missing PO catalog file: " .. tostring(path))
   else
     f:close()
   end

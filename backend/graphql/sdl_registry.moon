@@ -9,6 +9,8 @@ Query = {
   { name: 'view',         args: 'id: ID!',                    returns: 'View' }
   { name: 'customViews',  args: '',                           returns: '[CustomView!]!' }
   { name: 'customView',   args: 'id: ID!',                    returns: 'CustomView' }
+  { name: 'widgetPlugins',args: '',                           returns: '[WidgetPlugin!]!' }
+  { name: 'widgetPlugin', args: 'id: ID, name: String',       returns: 'WidgetPlugin' }
   { name: 'records',      args: 'spaceId: ID!, filter: RecordFilter, limit: Int, offset: Int, reprFormula: String, reprLanguage: String', returns: 'RecordPage!' }
   { name: 'record',       args: 'spaceId: ID!, id: ID!',      returns: 'Record' }
   { name: 'relations',    args: 'spaceId: ID!',               returns: '[Relation!]!' }
@@ -40,6 +42,9 @@ Mutation = {
   { name: 'createCustomView', args: 'input: CreateCustomViewInput!',     returns: 'CustomView!' }
   { name: 'updateCustomView', args: 'id: ID!, input: UpdateCustomViewInput!', returns: 'CustomView!' }
   { name: 'deleteCustomView', args: 'id: ID!',                           returns: 'Boolean!' }
+  { name: 'createWidgetPlugin', args: 'input: CreateWidgetPluginInput!', returns: 'WidgetPlugin!' }
+  { name: 'updateWidgetPlugin', args: 'id: ID!, input: UpdateWidgetPluginInput!', returns: 'WidgetPlugin!' }
+  { name: 'deleteWidgetPlugin', args: 'id: ID!',                         returns: 'Boolean!' }
   { name: 'insertRecord',     args: 'spaceId: ID!, data: JSON!',         returns: 'Record!' }
   { name: 'updateRecord',     args: 'spaceId: ID!, id: ID!, data: JSON!', returns: 'Record!' }
   { name: 'deleteRecord',     args: 'spaceId: ID!, id: ID!',             returns: 'Boolean!' }

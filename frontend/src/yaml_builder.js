@@ -32,16 +32,23 @@
   };
 
   YamlBuilder = class YamlBuilder {
-    constructor({container, allSpaces, allRelations, onChange, initialYaml}) {
+    constructor({
+        container: container1,
+        allSpaces,
+        allRelations,
+        onChange,
+        initialYaml
+      }) {
       var f, j, l, len, len1, ref, ref1, sp;
-      this.container = container;
+      this.container = container1;
       this.allSpaces = allSpaces;
       this.allRelations = allRelations;
       this.onChange = onChange;
       this._widgets = [];
       this._idCounter = 1;
       this._positions = {}; // spaceId -> { x, y, width, height }
-      
+      this._panCleanup = null;
+      this._suppressNextClick = false;
       // Lookup maps
       this._spaceById = {};
       this._fieldById = {}; // [spaceId][fieldId] -> field obj
@@ -470,6 +477,85 @@
       return this._render();
     }
 
+    _bindPan(container) {
+      var dragging, moved, onClickCapture, onPointerDown, onPointerMove, onPointerUp, startLeft, startTop, startX, startY;
+      if (!container) {
+        return;
+      }
+      if (typeof this._panCleanup === "function") {
+        this._panCleanup();
+      }
+      container.classList.add('schema-browser--pannable');
+      dragging = false;
+      moved = false;
+      startX = 0;
+      startY = 0;
+      startLeft = 0;
+      startTop = 0;
+      onPointerDown = (e) => {
+        if (e.button !== 0) {
+          return;
+        }
+        dragging = true;
+        moved = false;
+        startX = e.clientX;
+        startY = e.clientY;
+        startLeft = container.scrollLeft;
+        startTop = container.scrollTop;
+        container.classList.add('is-panning');
+        return typeof container.setPointerCapture === "function" ? container.setPointerCapture(e.pointerId) : void 0;
+      };
+      onPointerMove = (e) => {
+        var dx, dy;
+        if (!dragging) {
+          return;
+        }
+        dx = e.clientX - startX;
+        dy = e.clientY - startY;
+        if (!moved && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
+          moved = true;
+        }
+        if (!moved) {
+          return;
+        }
+        container.scrollLeft = startLeft - dx;
+        container.scrollTop = startTop - dy;
+        return e.preventDefault();
+      };
+      onPointerUp = (e) => {
+        if (!dragging) {
+          return;
+        }
+        dragging = false;
+        container.classList.remove('is-panning');
+        if (typeof container.releasePointerCapture === "function") {
+          container.releasePointerCapture(e.pointerId);
+        }
+        return this._suppressNextClick = moved;
+      };
+      onClickCapture = (e) => {
+        if (!this._suppressNextClick) {
+          return;
+        }
+        this._suppressNextClick = false;
+        e.preventDefault();
+        return e.stopPropagation();
+      };
+      container.addEventListener('pointerdown', onPointerDown);
+      container.addEventListener('pointermove', onPointerMove);
+      container.addEventListener('pointerup', onPointerUp);
+      container.addEventListener('pointercancel', onPointerUp);
+      container.addEventListener('click', onClickCapture, true);
+      return this._panCleanup = () => {
+        container.removeEventListener('pointerdown', onPointerDown);
+        container.removeEventListener('pointermove', onPointerMove);
+        container.removeEventListener('pointerup', onPointerUp);
+        container.removeEventListener('pointercancel', onPointerUp);
+        container.removeEventListener('click', onClickCapture, true);
+        return container.classList.remove('is-panning');
+      };
+    }
+
     _render() {
       var arrowsG, boxesG, btn, c, cx, defs, fi, fp, fromSp, hdr, hint, j, l, lbl, len, len1, len2, lx, m, marker, msg, pos, positions, rel, rels, sortedFrom, sortedTo, sp, spaces, svg, ti, toSp, totalH, totalW, tp, x, x1, x2, y1, y2;
       c = this.container;
@@ -613,7 +699,8 @@
         }
       }
       svg.appendChild(boxesG);
-      return c.appendChild(svg);
+      c.appendChild(svg);
+      return this._bindPan(c);
     }
 
     _drawBox(sp, pos) {

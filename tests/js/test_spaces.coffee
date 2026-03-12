@@ -1,5 +1,5 @@
-# tests/js/test_spaces.coffee — tests pour Spaces (spaces.js)
-# Stratégie : stub GQL pour capturer les appels et vérifier la structure des mutations.
+# tests/js/test_spaces.coffee — tests for Spaces (spaces.js)
+# Strategy: stub GQL to capture calls and verify mutation shapes.
 
 require './dom_stub'
 { describe, it, eq, deepEq, assert, summary } = require './runner'
@@ -10,7 +10,7 @@ global.GQL =
   query:  (q, vars) -> lastCall = { type: 'query',  q, vars }; Promise.resolve {}
   mutate: (q, vars) -> lastCall = { type: 'mutate', q, vars }; Promise.resolve {}
 
-# Chargement du module sous test
+# Load module under test
 require '../../frontend/src/spaces'
 S = global.window.Spaces
 
@@ -21,37 +21,37 @@ capture = ->
 
 # ---------------------------------------------------------------------------
 describe 'Spaces.list', ->
-  it 'émet une query GQL sans variables', ->
+  it 'emits a GQL query without variables', ->
     S.list()
-    assert lastCall.type is 'query', 'doit être une query'
-    assert lastCall.q.includes('spaces'), 'query doit mentionner spaces'
+    assert lastCall.type is 'query', 'must be a query'
+    assert lastCall.q.includes('spaces'), 'query must mention spaces'
 
 describe 'Spaces.create', ->
-  it 'émet une mutation avec name et description', ->
-    S.create 'test_space', 'une description'
+  it 'emits a mutation with name and description', ->
+    S.create 'test_space', 'a description'
     eq lastCall.type, 'mutate'
     eq lastCall.vars.input.name, 'test_space'
-    eq lastCall.vars.input.description, 'une description'
+    eq lastCall.vars.input.description, 'a description'
 
-  it 'description vide par défaut', ->
+  it 'empty default description', ->
     S.create 'sans_desc'
     eq lastCall.vars.input.description, ''
 
 describe 'Spaces.update', ->
-  it 'émet une mutation avec id et input', ->
-    S.update '42', 'nouveau', 'desc'
+  it 'emits a mutation with id and input', ->
+    S.update '42', 'new', 'desc'
     eq lastCall.type, 'mutate'
     eq lastCall.vars.id, '42'
-    eq lastCall.vars.input.name, 'nouveau'
+    eq lastCall.vars.input.name, 'new'
 
 describe 'Spaces.delete', ->
-  it 'émet une mutation avec id', ->
+  it 'emits a mutation with id', ->
     S.delete '7'
     eq lastCall.type, 'mutate'
     eq lastCall.vars.id, '7'
 
 describe 'Spaces.addField', ->
-  it 'passe spaceId et input', ->
+  it 'passes spaceId and input', ->
     S.addField '3', 'age', 'Int', false
     eq lastCall.type, 'mutate'
     eq lastCall.vars.spaceId, '3'
@@ -59,14 +59,14 @@ describe 'Spaces.addField', ->
     eq lastCall.vars.input.fieldType, 'Int'
 
 describe 'Spaces.updateField', ->
-  it 'passe fieldId et input', ->
+  it 'passes fieldId and input', ->
     S.updateField '99', { formula: 'x + 1', language: 'moonscript' }
     eq lastCall.type, 'mutate'
     eq lastCall.vars.fieldId, '99'
     eq lastCall.vars.input.formula, 'x + 1'
 
 describe 'Spaces.createRelation', ->
-  it 'passe tous les champs requis', ->
+  it 'passes all required fields', ->
     S.createRelation 'rel', '1', '2', '3', '4'
     eq lastCall.type, 'mutate'
     eq lastCall.vars.input.name, 'rel'
@@ -74,7 +74,7 @@ describe 'Spaces.createRelation', ->
     eq lastCall.vars.input.toSpaceId, '3'
 
 describe 'Spaces.deleteRelation', ->
-  it 'passe l\'id', ->
+  it 'passes id', ->
     S.deleteRelation '55'
     eq lastCall.vars.id, '55'
 

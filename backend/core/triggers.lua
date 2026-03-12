@@ -39,7 +39,7 @@ compile_formula = function(formula, field_name, language)
   if language == 'moonscript' then
     local ok_ms, moon = pcall(require, 'moonscript.base')
     if not (ok_ms) then
-      log.error("tdb triggers: moonscript.base non disponible pour '" .. tostring(field_name) .. "': " .. tostring(moon))
+      log.error("tdb triggers: moonscript.base unavailable for '" .. tostring(field_name) .. "': " .. tostring(moon))
       return nil
     end
     if field_name == 'filter' then
@@ -48,7 +48,7 @@ compile_formula = function(formula, field_name, language)
     local moon_src = "return (self, space) -> " .. formula
     local ok_c, lua_or_err = pcall(moon.to_lua, moon_src)
     if not (ok_c) then
-      log.error("tdb triggers: MoonScript parse error pour '" .. tostring(field_name) .. "': " .. tostring(lua_or_err))
+      log.error("tdb triggers: MoonScript parse error for '" .. tostring(field_name) .. "': " .. tostring(lua_or_err))
       return nil
     end
     lua_chunk = lua_or_err
@@ -126,19 +126,19 @@ format_formula_error = function(err)
   local s = tostring(err)
   local short = "Erreur de formule"
   if s:find("attempt to index") then
-    short = "Champ inconnu (nil)"
+    short = "Unknown field (nil)"
   elseif s:find("attempt to call") then
-    short = "Fonction inconnue (nil)"
+    short = "Unknown function (nil)"
   elseif s:find("attempt to perform arithmetic") then
-    short = "Opération sur nil"
+    short = "Operation on nil"
   elseif s:find("attempt to concatenate") then
-    short = "Concaténation invalide"
+    short = "Invalid concatenation"
   elseif s:find("unexpected symbol" or s:find("malformed number" or s:find("parse error"))) then
-    short = "Erreur de syntaxe"
+    short = "Syntax error"
   elseif s:find("stack overflow") then
-    short = "Boucle infinie (récursion)"
+    short = "Infinite loop (recursion)"
   else
-    short = "Erreur (inconnue)"
+    short = "Unknown error"
   end
   local clean_msg = s:gsub('^%[string ".-"%]:%d+: ', '')
   return "[ERROR|" .. tostring(short) .. "|" .. tostring(clean_msg) .. "]"

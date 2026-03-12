@@ -1,8 +1,8 @@
-# modal.coffee — Remplaçants promisifiés pour alert(), confirm(), prompt()
-# Usage :
-#   await tdbAlert "Message d'erreur", 'error'
-#   if await tdbConfirm "Supprimer ?"
-#   name = await tdbPrompt "Nom :", "valeur par défaut"
+# modal.coffee — Promise-based async replacements for alert(), confirm(), prompt().
+# Usage:
+#   await tdbAlert "Error message", 'error'
+#   if await tdbConfirm "Delete?"
+#   name = await tdbPrompt "Name:", "default value"
 
 _overlay = null
 _box     = null
@@ -71,14 +71,14 @@ _hide = ->
   _overlay.classList.add 'hidden'
   _input.value = ''
 
-# alert-like : affiche un message, résout quand l'utilisateur clique OK
+# alert-like: shows a message and resolves when the user clicks OK.
 window.tdbAlert = (msg, type = 'info') ->
   new Promise (resolve) ->
     _show msg, type, false, '', false
     _okBtn.onclick = ->
       _hide()
       resolve()
-    # Fermer aussi avec Escape
+    # Also close on Escape.
     handler = (e) ->
       if e.key == 'Escape' or e.key == 'Enter'
         document.removeEventListener 'keydown', handler
@@ -86,7 +86,7 @@ window.tdbAlert = (msg, type = 'info') ->
         resolve()
     document.addEventListener 'keydown', handler
 
-# confirm-like : résout true/false
+# confirm-like: resolves true/false.
 window.tdbConfirm = (msg, type = 'warn') ->
   new Promise (resolve) ->
     _show msg, type, false, '', true
@@ -107,7 +107,7 @@ window.tdbConfirm = (msg, type = 'warn') ->
         resolve true
     document.addEventListener 'keydown', handler
 
-# prompt-like : résout avec la chaîne saisie ou null si annulé
+# prompt-like: resolves with input string or null if canceled.
 window.tdbPrompt = (msg, defaultVal = '', type = 'info') ->
   new Promise (resolve) ->
     _show msg, type, true, defaultVal, true

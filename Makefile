@@ -8,7 +8,7 @@ JS_OUTS         := $(COFFEE_SRCS:.coffee=.js)
 TEST_COFFEE_SRCS := $(shell find tests/js -name '*.coffee')
 TEST_JS_OUTS     := $(TEST_COFFEE_SRCS:.coffee=.js)
 
-.PHONY: all build test test-js test-up test-down test-logs up down logs clean vendor audit-deps doc doc-% doc-gen doc-md doc-check sdl-gen sdl-check ci
+.PHONY: all build test test-js test-up test-down test-logs up down logs clean vendor audit-deps doc doc-% doc-gen doc-po-update doc-po-build doc-md doc-check sdl-gen sdl-check ci
 
 all: build
 
@@ -43,7 +43,8 @@ VENDOR_OUTS := frontend/vendor/tui-grid.bundle.js \
 	frontend/vendor/tui-grid.bundle.css \
 	frontend/vendor/jsyaml.bundle.js \
 	frontend/vendor/codemirror.bundle.js \
-	frontend/vendor/codemirror.bundle.css
+	frontend/vendor/codemirror.bundle.css \
+	frontend/vendor/plugin-runtime.bundle.js
 
 vendor: $(VENDOR_OUTS)
 
@@ -65,36 +66,49 @@ clean:
 # ── Documentation PDF ────────────────────────────────────────────────────────
 DOC_DIR    = doc
 DOC_HEADER = $(DOC_DIR)/00_header.yml
-DOC_GEN_MD = $(DOC_DIR)/fr/api.md $(DOC_DIR)/en/api.md $(DOC_DIR)/fr/dev.md $(DOC_DIR)/en/dev.md \
-	$(DOC_DIR)/fr/dev/architecture.md $(DOC_DIR)/fr/dev/runtime.md $(DOC_DIR)/fr/dev/graphql.md $(DOC_DIR)/fr/dev/frontend.md $(DOC_DIR)/fr/dev/tests.md \
+DOC_GEN_MD = $(DOC_DIR)/en/api.md $(DOC_DIR)/en/dev.md \
 	$(DOC_DIR)/en/dev/architecture.md $(DOC_DIR)/en/dev/runtime.md $(DOC_DIR)/en/dev/graphql.md $(DOC_DIR)/en/dev/frontend.md $(DOC_DIR)/en/dev/tests.md
+DOC_LOCALIZED_MD = $(DOC_DIR)/fr/README.md $(DOC_DIR)/fr/get-started.md $(DOC_DIR)/fr/api.md $(DOC_DIR)/fr/dev.md \
+	$(DOC_DIR)/fr/dev/architecture.md $(DOC_DIR)/fr/dev/runtime.md $(DOC_DIR)/fr/dev/graphql.md $(DOC_DIR)/fr/dev/frontend.md $(DOC_DIR)/fr/dev/tests.md
 
-PANDOC_FLAGS = --metadata-file=$(DOC_HEADER) --pdf-engine=xelatex
+PANDOC_FLAGS = --metadata-file=$(DOC_HEADER) --pdf-engine=lualatex
 
 $(DOC_DIR)/%.pdf: $(DOC_DIR)/%.md $(DOC_HEADER)
-	pandoc $(PANDOC_FLAGS) $< -o $@
+	pandoc $(PANDOC_FLAGS) --from=markdown "$<" -o "$@"
 
 doc-%:
 	@lang=$*; \
-	quick_md="$(DOC_DIR)/$$lang/get-started.md"; \
-	ref_md="$(DOC_DIR)/$$lang/reference.md"; \
-	ref_pdf="$(DOC_DIR)/$$lang/reference.pdf"; \
-	if [ "$$lang" = "fr" ] && [ ! -f "$$ref_md" ] && [ -f "$(DOC_DIR)/reference.md" ]; then \
-		ref_md="$(DOC_DIR)/reference.md"; \
-		ref_pdf="$(DOC_DIR)/reference.pdf"; \
+	lang_dir="$(DOC_DIR)/$$lang"; \
+	test -d "$$lang_dir" || { echo "Missing documentation directory: $$lang_dir"; exit 1; }; \
+	set -e; \
+	if [ "$$lang" = "fr" ]; then \
+		files="$(DOC_LOCALIZED_MD)"; \
+	elif [ "$$lang" = "en" ]; then \
+		files="$(DOC_DIR)/en/README.md $(DOC_DIR)/en/get-started.md $(DOC_GEN_MD)"; \
+	else \
+		files="$$(find "$$lang_dir" -type f -name '*.md' | sort)"; \
 	fi; \
-	test -f "$$quick_md" || { echo "Missing documentation file: $$quick_md"; exit 1; }; \
-	test -f "$$ref_md" || { echo "Missing documentation file: $$ref_md"; exit 1; }; \
-	pandoc $(PANDOC_FLAGS) "$$quick_md" -o "$${quick_md%.md}.pdf"; \
-	pandoc $(PANDOC_FLAGS) "$$ref_md" -o "$$ref_pdf"
+	for md in $$files; do \
+		test -f "$$md" || { echo "Missing documentation file: $$md"; exit 1; }; \
+		pdf="$${md%.md}.pdf"; \
+		pandoc $(PANDOC_FLAGS) --from=markdown --resource-path="$$lang_dir:$(DOC_DIR)" "$$md" -o "$$pdf"; \
+	done
 
-doc: doc-fr doc-en
+doc: doc-md doc-fr doc-en
 
 doc-gen:
 	docker build -t $(TEST_IMAGE) . 2>/dev/null
-	docker run --rm -e HOST_UID=$$(id -u) -e HOST_GID=$$(id -g) -v ./:/app $(TEST_IMAGE) sh -lc 'tarantool /app/scripts/generate_docs.lua && chown -R "$$HOST_UID:$$HOST_GID" /app/doc/fr /app/doc/en' 2>/dev/null
+	docker run --rm -e HOST_UID=$$(id -u) -e HOST_GID=$$(id -g) -v ./:/app $(TEST_IMAGE) sh -lc 'tarantool /app/scripts/generate_docs.lua && chown -R "$$HOST_UID:$$HOST_GID" /app/doc/en' 2>/dev/null
 
-doc-md: doc-gen
+doc-po-update:
+	docker build -t $(TEST_IMAGE) . 2>/dev/null
+	docker run --rm -e HOST_UID=$$(id -u) -e HOST_GID=$$(id -g) -v ./:/app $(TEST_IMAGE) sh -lc 'cd /app && tarantool /app/scripts/doc_localize.lua update-pot && chown -R "$$HOST_UID:$$HOST_GID" /app/po' 2>/dev/null
+
+doc-po-build:
+	docker build -t $(TEST_IMAGE) . 2>/dev/null
+	docker run --rm -e HOST_UID=$$(id -u) -e HOST_GID=$$(id -g) -v ./:/app $(TEST_IMAGE) sh -lc 'cd /app && tarantool /app/scripts/doc_localize.lua build-fr && chown -R "$$HOST_UID:$$HOST_GID" /app/doc/fr /app/po' 2>/dev/null
+
+doc-md: doc-gen doc-po-build
 
 doc-check:
 	docker build -t $(TEST_IMAGE) . 2>/dev/null

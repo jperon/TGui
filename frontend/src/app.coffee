@@ -30,6 +30,55 @@ DELETE_CUSTOM_VIEW = """
   mutation DeleteCustomView($id: ID!) { deleteCustomView(id: $id) }
 """
 
+LIST_WIDGET_PLUGINS = """
+  query {
+    widgetPlugins {
+      id
+      name
+      description
+      scriptLanguage
+      templateLanguage
+      scriptCode
+      templateCode
+      updatedAt
+    }
+  }
+"""
+
+CREATE_WIDGET_PLUGIN = """
+  mutation CreateWidgetPlugin($input: CreateWidgetPluginInput!) {
+    createWidgetPlugin(input: $input) {
+      id
+      name
+      description
+      scriptLanguage
+      templateLanguage
+      scriptCode
+      templateCode
+      updatedAt
+    }
+  }
+"""
+
+UPDATE_WIDGET_PLUGIN = """
+  mutation UpdateWidgetPlugin($id: ID!, $input: UpdateWidgetPluginInput!) {
+    updateWidgetPlugin(id: $id, input: $input) {
+      id
+      name
+      description
+      scriptLanguage
+      templateLanguage
+      scriptCode
+      templateCode
+      updatedAt
+    }
+  }
+"""
+
+DELETE_WIDGET_PLUGIN = """
+  mutation DeleteWidgetPlugin($id: ID!) { deleteWidgetPlugin(id: $id) }
+"""
+
 window.App =
   _currentSpace:     null
   _currentCustomView: null
@@ -44,6 +93,10 @@ window.App =
   _listCustomViewsQuery: LIST_CUSTOM_VIEWS
   _updateCustomViewMutation: UPDATE_CUSTOM_VIEW
   _deleteCustomViewMutation: DELETE_CUSTOM_VIEW
+  _listWidgetPluginsQuery: LIST_WIDGET_PLUGINS
+  _createWidgetPluginMutation: CREATE_WIDGET_PLUGIN
+  _updateWidgetPluginMutation: UPDATE_WIDGET_PLUGIN
+  _deleteWidgetPluginMutation: DELETE_WIDGET_PLUGIN
 
   _t: (key, vars = {}) ->
     if window.I18N?.t then window.I18N.t key, vars else key
@@ -105,6 +158,7 @@ window.App =
     yamlEditorPanel:   -> document.getElementById 'yaml-editor-panel'
     yamlViewName:      -> document.getElementById 'yaml-view-name'
     yamlEditBtn:       -> document.getElementById 'yaml-edit-btn'
+    yamlPluginsBtn:    -> document.getElementById 'yaml-plugins-btn'
     yamlDeleteBtn:     -> document.getElementById 'yaml-delete-btn'
     # YAML modal (CodeMirror)
     yamlModal:         -> document.getElementById 'yaml-modal'
@@ -112,6 +166,18 @@ window.App =
     yamlModalSaveBtn:  -> document.getElementById 'yaml-modal-save-btn'
     yamlModalCloseBtn: -> document.getElementById 'yaml-modal-close-btn'
     yamlModalPreviewBtn: -> document.getElementById 'yaml-modal-preview-btn'
+    widgetPluginModal: -> document.getElementById 'widget-plugin-modal'
+    widgetPluginModalCloseBtn: -> document.getElementById 'widget-plugin-modal-close-btn'
+    widgetPluginNewBtn: -> document.getElementById 'widget-plugin-new-btn'
+    widgetPluginDeleteBtn: -> document.getElementById 'widget-plugin-delete-btn'
+    widgetPluginSaveBtn: -> document.getElementById 'widget-plugin-save-btn'
+    widgetPluginList: -> document.getElementById 'widget-plugin-list'
+    widgetPluginName: -> document.getElementById 'widget-plugin-name'
+    widgetPluginDescription: -> document.getElementById 'widget-plugin-description'
+    widgetPluginScriptLanguage: -> document.getElementById 'widget-plugin-script-language'
+    widgetPluginTemplateLanguage: -> document.getElementById 'widget-plugin-template-language'
+    widgetPluginScriptEditor: -> document.getElementById 'widget-plugin-script-editor'
+    widgetPluginTemplateEditor: -> document.getElementById 'widget-plugin-template-editor'
     # Formula modal (CodeMirror)
     formulaModal:      -> document.getElementById 'formula-modal'
     formulaModalApplyBtn: -> document.getElementById 'formula-modal-apply-btn'
@@ -138,7 +204,7 @@ window.App =
     snapshotImportResult:    -> document.getElementById 'snapshot-import-result'
     defaultPasswordWarning: -> document.getElementById 'default-password-warning'
     warningChangePasswordBtn: -> document.getElementById 'warning-change-password-btn'
-    # Dialog: changement de mot de passe
+    # Dialog: change password
     changePasswordDialog: -> document.getElementById 'change-password-dialog'
     cpCurrent:         -> document.getElementById 'cp-current'
     cpNew:             -> document.getElementById 'cp-new'
@@ -146,7 +212,7 @@ window.App =
     cpError:           -> document.getElementById 'cp-error'
     cpSubmitBtn:       -> document.getElementById 'cp-submit-btn'
     cpCancelBtn:       -> document.getElementById 'cp-cancel-btn'
-    # Dialog: créer utilisateur
+    # Dialog: create user
     createUserDialog:  -> document.getElementById 'create-user-dialog'
     cuUsername:        -> document.getElementById 'cu-username'
     cuEmail:           -> document.getElementById 'cu-email'
@@ -154,7 +220,7 @@ window.App =
     cuError:           -> document.getElementById 'cu-error'
     cuSubmitBtn:       -> document.getElementById 'cu-submit-btn'
     cuCancelBtn:       -> document.getElementById 'cu-cancel-btn'
-    # Dialog: créer groupe
+    # Dialog: create group
     createGroupDialog: -> document.getElementById 'create-group-dialog'
     cgName:            -> document.getElementById 'cg-name'
     cgDescription:     -> document.getElementById 'cg-description'
@@ -171,6 +237,7 @@ window.App =
     @_bindDataToolbar()
     @_bindFieldsPanel()
     @_bindYamlEditor()
+    @_bindWidgetPlugins()
     @_applyI18nDynamic()
 
   _bindLocaleChange: ->
@@ -216,7 +283,7 @@ window.App =
       @el.adminSidebarSection().classList.remove 'hidden'
     else
       @el.adminSidebarSection().classList.add 'hidden'
-    # Bandeau avertissement si admin avec mot de passe par défaut
+    # Show warning banner when admin still uses the default password.
     if user.username == 'admin' and not localStorage.getItem('tdb_password_changed')
       @el.defaultPasswordWarning().classList.remove 'hidden'
     else
@@ -230,7 +297,7 @@ window.App =
   _loadAll: ->
     window.AppDataHelpers.loadAll @
 
-  # ── Panel administration ─────────────────────────────────────────────────────
+  # ── Admin panel ──────────────────────────────────────────────────────────────
   _showAdminPanel: (section = 'users') ->
     window.AppSidebarHelpers.showAdminPanel @, section
 
@@ -243,18 +310,18 @@ window.App =
   _loadAdminGroups: ->
     window.AppSidebarHelpers.loadAdminGroups @
 
-  # ── Dialog: changement de mot de passe ──────────────────────────────────────
+  # ── Dialog: change password ──────────────────────────────────────────────────
   _openChangePasswordDialog: ->
     window.AppSidebarHelpers.openChangePasswordDialog @
 
   _bindChangePasswordDialog: ->
     window.AppSidebarHelpers.bindChangePasswordDialog @
 
-  # ── Dialog: créer utilisateur ─────────────────────────────────────────────
+  # ── Dialog: create user ──────────────────────────────────────────────────────
   _bindCreateUserDialog: ->
     window.AppSidebarHelpers.bindCreateUserDialog @
 
-  # ── Dialog: créer groupe ──────────────────────────────────────────────────
+  # ── Dialog: create group ─────────────────────────────────────────────────────
   _bindCreateGroupDialog: ->
     window.AppSidebarHelpers.bindCreateGroupDialog @
 
@@ -269,7 +336,7 @@ window.App =
   _restoreFromHash: ->
     window.AppDataHelpers.restoreFromHash @
 
-  # ── Spaces (Données section) ─────────────────────────────────────────────────
+  # ── Spaces (Data section) ────────────────────────────────────────────────────
   loadSpaces: ->
     window.AppDataHelpers.loadSpaces @
 
@@ -287,7 +354,7 @@ window.App =
   _mountDataView: (space) ->
     window.AppDataHelpers.mountDataView @, space
 
-  # ── Custom views (Vues section) ──────────────────────────────────────────────
+  # ── Custom views (Views section) ─────────────────────────────────────────────
   loadCustomViews: ->
     window.AppViewHelpers.loadCustomViews @
 
@@ -306,6 +373,12 @@ window.App =
 
   _openYamlModal: ->
     window.AppViewHelpers.openYamlModal @
+
+  _bindWidgetPlugins: ->
+    window.AppViewHelpers.bindWidgetPlugins @
+
+  _openWidgetPluginModal: ->
+    window.AppViewHelpers.openWidgetPluginModal @
 
   _loadAllRelations: ->
     window.AppViewHelpers.loadAllRelations @
@@ -352,7 +425,7 @@ window.App =
 document.addEventListener 'DOMContentLoaded', ->
   GQL.loadToken()
   App.init()
-  # Le flash initial est évité par le script inline dans index.moon.
+  # Initial page flash is avoided by the inline script in index.moon.
   Auth.restoreSession()
     .then (user) ->
       if user

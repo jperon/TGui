@@ -1,5 +1,5 @@
 -- tests/test_batch_ops.moon
--- Tests d'intégration GraphQL pour insertRecords/updateRecords sur un espace temporaire.
+-- GraphQL integration tests for insertRecords/updateRecords on a temporary space.
 R = require 'tests.runner'
 spaces_mod = require 'core.spaces'
 auth = require 'core.auth'

@@ -155,9 +155,15 @@
       return app._activeCustomView.mount();
     },
     bindYamlEditor: function(app) {
+      var ref;
       app.el.yamlEditBtn().addEventListener('click', function() {
         return app._openYamlModal();
       });
+      if ((ref = app.el.yamlPluginsBtn()) != null) {
+        ref.addEventListener('click', function() {
+          return app._openWidgetPluginModal();
+        });
+      }
       app.el.yamlDeleteBtn().addEventListener('click', async function() {
         var cv;
         cv = app._currentCustomView;
@@ -172,11 +178,11 @@
         return GQL.mutate(app._deleteCustomViewMutation, {
           id: cv.id
         }).then(function() {
-          var ref;
+          var ref1;
           app._currentCustomView = null;
-          if ((ref = app._activeCustomView) != null) {
-            if (typeof ref.unmount === "function") {
-              ref.unmount();
+          if ((ref1 = app._activeCustomView) != null) {
+            if (typeof ref1.unmount === "function") {
+              ref1.unmount();
             }
           }
           app._activeCustomView = null;
@@ -218,13 +224,22 @@
       });
     },
     openYamlModal: function(app) {
-      var cv;
+      var applyValidationLayout, cv, yamlPane;
       cv = app._currentCustomView;
       if (!cv) {
         return;
       }
       app.el.yamlModalTitle().textContent = cv.name;
       app.el.yamlModal().classList.remove('hidden');
+      yamlPane = document.querySelector('.yaml-editor-pane');
+      applyValidationLayout = function() {
+        var hasError;
+        if (!(yamlPane && app._yamlValidMsg)) {
+          return;
+        }
+        hasError = !app._yamlValidMsg.classList.contains('hidden');
+        return yamlPane.classList.toggle('has-validation-error', hasError);
+      };
       if (!app._cmYaml) {
         app._cmYaml = CodeMirror(document.getElementById('yaml-cm-editor'), {
           mode: 'yaml',
@@ -243,6 +258,7 @@
             if ((ref = app._yamlValidMsg) != null) {
               ref.classList.add('hidden');
             }
+            applyValidationLayout();
             return;
           }
           if ((ref1 = app._yamlBuilder) != null) {
@@ -250,15 +266,24 @@
           }
           try {
             jsyaml.load(cm.getValue());
-            return (ref2 = app._yamlValidMsg) != null ? ref2.classList.add('hidden') : void 0;
+            if ((ref2 = app._yamlValidMsg) != null) {
+              ref2.classList.add('hidden');
+            }
+            return applyValidationLayout();
           } catch (error) {
             e = error;
             if (app._yamlValidMsg) {
               app._yamlValidMsg.textContent = `YAML invalide : ${e.message}`;
-              return app._yamlValidMsg.classList.remove('hidden');
+              app._yamlValidMsg.classList.remove('hidden');
+              return applyValidationLayout();
             }
           }
         });
+      } else {
+        if (app._yamlValidMsg == null) {
+          app._yamlValidMsg = document.getElementById('yaml-validation-msg');
+        }
+        applyValidationLayout();
       }
       app._cmYaml.setValue(cv.yaml || '');
       setTimeout((function() {
@@ -290,6 +315,213 @@
         }), []);
         return app._allRelations;
       });
+    },
+    bindWidgetPlugins: function(app) {
+      var ref, ref1, ref2, ref3, ref4, ref5;
+      if ((ref = app.el.widgetPluginModalCloseBtn()) != null) {
+        ref.addEventListener('click', function() {
+          var ref1;
+          return (ref1 = app.el.widgetPluginModal()) != null ? ref1.classList.add('hidden') : void 0;
+        });
+      }
+      if ((ref1 = app.el.widgetPluginNewBtn()) != null) {
+        ref1.addEventListener('click', function() {
+          var defaults, ref2, ref3, ref4, ref5;
+          defaults = window.AppViewHelpers._defaultWidgetPlugin();
+          app._selectedWidgetPlugin = null;
+          app.el.widgetPluginName().value = defaults.name;
+          app.el.widgetPluginDescription().value = defaults.description;
+          app.el.widgetPluginScriptLanguage().value = defaults.scriptLanguage;
+          app.el.widgetPluginTemplateLanguage().value = defaults.templateLanguage;
+          if ((ref2 = app._cmWidgetPluginScript) != null) {
+            ref2.setOption('mode', defaults.scriptLanguage);
+          }
+          if ((ref3 = app._cmWidgetPluginTemplate) != null) {
+            ref3.setOption('mode', defaults.templateLanguage);
+          }
+          if ((ref4 = app._cmWidgetPluginScript) != null) {
+            ref4.setValue(defaults.scriptCode);
+          }
+          return (ref5 = app._cmWidgetPluginTemplate) != null ? ref5.setValue(defaults.templateCode) : void 0;
+        });
+      }
+      if ((ref2 = app.el.widgetPluginSaveBtn()) != null) {
+        ref2.addEventListener('click', function() {
+          var input, mutation, name, vars;
+          name = app.el.widgetPluginName().value.trim();
+          if (!name) {
+            return tdbAlert('Nom du plugin requis', 'error');
+          }
+          input = {
+            name: name,
+            description: app.el.widgetPluginDescription().value.trim(),
+            scriptLanguage: app.el.widgetPluginScriptLanguage().value || 'coffeescript',
+            templateLanguage: app.el.widgetPluginTemplateLanguage().value || 'pug',
+            scriptCode: app._cmWidgetPluginScript ? app._cmWidgetPluginScript.getValue() : '',
+            templateCode: app._cmWidgetPluginTemplate ? app._cmWidgetPluginTemplate.getValue() : ''
+          };
+          mutation = app._selectedWidgetPlugin ? app._updateWidgetPluginMutation : app._createWidgetPluginMutation;
+          vars = app._selectedWidgetPlugin ? {
+            id: app._selectedWidgetPlugin.id,
+            input
+          } : {input};
+          return GQL.mutate(mutation, vars).then(function() {
+            return window.AppViewHelpers._loadWidgetPlugins(app);
+          }).catch(function(err) {
+            return tdbAlert(app._err(err), 'error');
+          });
+        });
+      }
+      if ((ref3 = app.el.widgetPluginDeleteBtn()) != null) {
+        ref3.addEventListener('click', async function() {
+          var plugin;
+          plugin = app._selectedWidgetPlugin;
+          if (!plugin) {
+            return;
+          }
+          if (!(await tdbConfirm(`Supprimer le plugin « ${plugin.name} » ?`))) {
+            return;
+          }
+          return GQL.mutate(app._deleteWidgetPluginMutation, {
+            id: plugin.id
+          }).then(function() {
+            app._selectedWidgetPlugin = null;
+            return window.AppViewHelpers._loadWidgetPlugins(app);
+          }).catch(function(err) {
+            return tdbAlert(app._err(err), 'error');
+          });
+        });
+      }
+      if ((ref4 = app.el.widgetPluginScriptLanguage()) != null) {
+        ref4.addEventListener('change', function() {
+          var mode, ref5;
+          mode = app.el.widgetPluginScriptLanguage().value || 'coffeescript';
+          return (ref5 = app._cmWidgetPluginScript) != null ? ref5.setOption('mode', mode) : void 0;
+        });
+      }
+      return (ref5 = app.el.widgetPluginTemplateLanguage()) != null ? ref5.addEventListener('change', function() {
+        var mode, ref6;
+        mode = app.el.widgetPluginTemplateLanguage().value || 'pug';
+        return (ref6 = app._cmWidgetPluginTemplate) != null ? ref6.setOption('mode', mode) : void 0;
+      }) : void 0;
+    },
+    _defaultWidgetPlugin: function() {
+      return {
+        name: '',
+        description: '',
+        scriptLanguage: 'coffeescript',
+        templateLanguage: 'pug',
+        templateCode: `div.plugin-root
+  h3= params.title or 'Widget'
+  .content Chargement…`,
+        scriptCode: `module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
+  rows = []
+  onInputSelection (selection) ->
+    rows = selection?.rows or []
+    emitSelection { rows }
+  title = if params?.title then params.title else 'sans titre'
+  render \"<div class='plugin-info'>Plugin prêt : ${title}</div>\"`
+      };
+    },
+    _loadWidgetPlugins: function(app) {
+      return GQL.query(app._listWidgetPluginsQuery).then(function(data) {
+        var defaults, i, len, li, p, plugins, ref, ref1, ref2, ref3, ref4, ul;
+        plugins = data.widgetPlugins || [];
+        ul = app.el.widgetPluginList();
+        ul.innerHTML = '';
+        for (i = 0, len = plugins.length; i < len; i++) {
+          p = plugins[i];
+          li = document.createElement('li');
+          li.className = 'leaf-item';
+          li.textContent = p.name;
+          li.title = p.description || p.name;
+          li.classList.toggle('active', ((ref = app._selectedWidgetPlugin) != null ? ref.id : void 0) === p.id);
+          (function(p) {
+            return li.addEventListener('click', function() {
+              var j, len1, n, ref1, ref2, ref3, ref4, ref5;
+              app._selectedWidgetPlugin = p;
+              app.el.widgetPluginName().value = p.name || '';
+              app.el.widgetPluginDescription().value = p.description || '';
+              app.el.widgetPluginScriptLanguage().value = p.scriptLanguage || 'coffeescript';
+              app.el.widgetPluginTemplateLanguage().value = p.templateLanguage || 'pug';
+              if ((ref1 = app._cmWidgetPluginScript) != null) {
+                ref1.setOption('mode', app.el.widgetPluginScriptLanguage().value);
+              }
+              if ((ref2 = app._cmWidgetPluginTemplate) != null) {
+                ref2.setOption('mode', app.el.widgetPluginTemplateLanguage().value);
+              }
+              if ((ref3 = app._cmWidgetPluginScript) != null) {
+                ref3.setValue(p.scriptCode || '');
+              }
+              if ((ref4 = app._cmWidgetPluginTemplate) != null) {
+                ref4.setValue(p.templateCode || '');
+              }
+              ref5 = ul.querySelectorAll('li');
+              for (j = 0, len1 = ref5.length; j < len1; j++) {
+                n = ref5[j];
+                n.classList.remove('active');
+              }
+              return li.classList.add('active');
+            });
+          })(p);
+          ul.appendChild(li);
+        }
+        if (!app._selectedWidgetPlugin && plugins.length === 0) {
+          defaults = window.AppViewHelpers._defaultWidgetPlugin();
+          app.el.widgetPluginName().value = defaults.name;
+          app.el.widgetPluginDescription().value = defaults.description;
+          app.el.widgetPluginScriptLanguage().value = defaults.scriptLanguage;
+          app.el.widgetPluginTemplateLanguage().value = defaults.templateLanguage;
+          if ((ref1 = app._cmWidgetPluginScript) != null) {
+            ref1.setOption('mode', defaults.scriptLanguage);
+          }
+          if ((ref2 = app._cmWidgetPluginTemplate) != null) {
+            ref2.setOption('mode', defaults.templateLanguage);
+          }
+          if ((ref3 = app._cmWidgetPluginScript) != null) {
+            ref3.setValue(defaults.scriptCode);
+          }
+          return (ref4 = app._cmWidgetPluginTemplate) != null ? ref4.setValue(defaults.templateCode) : void 0;
+        }
+      }).catch(function(err) {
+        return tdbAlert(app._err(err), 'error');
+      });
+    },
+    openWidgetPluginModal: function(app) {
+      var ref;
+      if ((ref = app.el.widgetPluginModal()) != null) {
+        ref.classList.remove('hidden');
+      }
+      if (!app._cmWidgetPluginScript) {
+        app._cmWidgetPluginScript = CodeMirror(app.el.widgetPluginScriptEditor(), {
+          mode: app.el.widgetPluginScriptLanguage().value || 'coffeescript',
+          theme: 'monokai',
+          lineNumbers: true,
+          lineWrapping: true,
+          tabSize: 2,
+          indentWithTabs: false
+        });
+      }
+      if (!app._cmWidgetPluginTemplate) {
+        app._cmWidgetPluginTemplate = CodeMirror(app.el.widgetPluginTemplateEditor(), {
+          mode: app.el.widgetPluginTemplateLanguage().value || 'pug',
+          theme: 'monokai',
+          lineNumbers: true,
+          lineWrapping: true,
+          tabSize: 2,
+          indentWithTabs: false
+        });
+      }
+      setTimeout((function() {
+        var ref1;
+        return (ref1 = app._cmWidgetPluginScript) != null ? ref1.refresh() : void 0;
+      }), 10);
+      setTimeout((function() {
+        var ref1;
+        return (ref1 = app._cmWidgetPluginTemplate) != null ? ref1.refresh() : void 0;
+      }), 10);
+      app._selectedWidgetPlugin = null;
+      return window.AppViewHelpers._loadWidgetPlugins(app);
     }
   };
 

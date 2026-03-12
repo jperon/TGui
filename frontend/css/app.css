@@ -417,10 +417,17 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
 .yaml-modal-body {
   flex: 1; display: flex; flex-direction: row; overflow: hidden; min-height: 0;
 }
+.yaml-editor-pane {
+  flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0;
+}
 #yaml-cm-editor, #formula-cm-editor {
   flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0;
 }
 #yaml-cm-editor .CodeMirror, #formula-cm-editor .CodeMirror { height: 100%; }
+.yaml-editor-pane #yaml-cm-editor { flex: 1 1 auto; min-height: 0; }
+.yaml-editor-pane.has-validation-error #yaml-cm-editor {
+  flex: 0 0 66.666%;
+}
 
 /* ── Schema browser / ERD panel (right panel of YAML modal) ──────────────── */
 .schema-browser {
@@ -428,6 +435,11 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   display: flex; flex-direction: column;
   border-left: 1px solid var(--color-border);
   background: #16161e; overflow: auto;
+}
+.schema-browser.schema-browser--pannable { cursor: grab; }
+.schema-browser.schema-browser--pannable.is-panning {
+  cursor: grabbing;
+  user-select: none;
 }
 .sb-header {
   display: flex; align-items: center; justify-content: space-between;
@@ -652,7 +664,11 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
 .yaml-validation-msg {
   background: #fef2f2; border-bottom: 1px solid #fca5a5;
   padding: .35rem .75rem; font-size: .82rem; color: #b91c1c;
-  font-family: monospace; white-space: pre-wrap; word-break: break-all;
+  font-family: monospace; white-space: pre-wrap; word-break: break-word;
+  overflow: auto; min-height: 0;
+}
+.yaml-editor-pane.has-validation-error .yaml-validation-msg {
+  flex: 0 0 33.333%;
 }
 
 /* ── Champ requis non rempli ────────────────────────────────────────────────── */

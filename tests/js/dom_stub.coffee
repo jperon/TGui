@@ -1,6 +1,6 @@
-# tests/js/dom_stub.coffee — stub DOM minimal pour Node.js
+# tests/js/dom_stub.coffee — minimal DOM stub for Node.js
 # Expose global.window, global.document, global.localStorage, global.fetch
-# (pas de dépendance jsdom)
+# (no jsdom dependency)
 
 makeElement = (tag) ->
   classes = new Set()
@@ -14,7 +14,7 @@ makeElement = (tag) ->
     dataset: {}
     _children: []
     _listeners: {}
-    children: []           # alias synchronisé par appendChild
+    children: []           # alias synchronized by appendChild
     classList:
       add: (c) ->
         classes.add c
@@ -47,10 +47,10 @@ localStorageStub =
   setItem:    (k, v) -> _lsStore[k] = String v
   removeItem: (k)    -> delete _lsStore[k]
   clear:             -> _lsStore = {}
-  _store:            -> _lsStore   # helper pour les tests
+  _store:            -> _lsStore   # helper for tests
 
 # --- fetch stub (configurable par test) -------------------------------------
-# Par défaut, retourne {} (pas d'erreurs). Remplacer global.fetch dans les tests.
+# By default returns {} (no errors). Replace global.fetch in tests as needed.
 fetchStub = (url, opts) ->
   Promise.resolve
     json: -> Promise.resolve {}
@@ -67,6 +67,6 @@ global.document =
   querySelectorAll:      -> []
   addEventListener:      ->
   removeEventListener:   ->
-  _setById: (id, el) -> _elementsById[id] = el   # helper pour les tests
+  _setById: (id, el) -> _elementsById[id] = el   # helper for tests
 
 module.exports = { makeElement, localStorageStub }

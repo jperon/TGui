@@ -22,6 +22,8 @@ class YamlBuilder
     @_widgets   = []
     @_idCounter = 1
     @_positions = {}   # spaceId -> { x, y, width, height }
+    @_panCleanup = null
+    @_suppressNextClick = false
 
     # Lookup maps
     @_spaceById  = {}
@@ -245,6 +247,67 @@ class YamlBuilder
 
   mount: -> @_render()
 
+  _bindPan: (container) ->
+    return unless container
+    @_panCleanup?()
+    container.classList.add 'schema-browser--pannable'
+
+    dragging = false
+    moved    = false
+    startX   = 0
+    startY   = 0
+    startLeft = 0
+    startTop  = 0
+
+    onPointerDown = (e) =>
+      return unless e.button == 0
+      dragging = true
+      moved = false
+      startX = e.clientX
+      startY = e.clientY
+      startLeft = container.scrollLeft
+      startTop  = container.scrollTop
+      container.classList.add 'is-panning'
+      container.setPointerCapture? e.pointerId
+
+    onPointerMove = (e) =>
+      return unless dragging
+      dx = e.clientX - startX
+      dy = e.clientY - startY
+      if !moved and (Math.abs(dx) > 3 or Math.abs(dy) > 3)
+        moved = true
+      return unless moved
+      container.scrollLeft = startLeft - dx
+      container.scrollTop  = startTop  - dy
+      e.preventDefault()
+
+    onPointerUp = (e) =>
+      return unless dragging
+      dragging = false
+      container.classList.remove 'is-panning'
+      container.releasePointerCapture? e.pointerId
+      @_suppressNextClick = moved
+
+    onClickCapture = (e) =>
+      return unless @_suppressNextClick
+      @_suppressNextClick = false
+      e.preventDefault()
+      e.stopPropagation()
+
+    container.addEventListener 'pointerdown', onPointerDown
+    container.addEventListener 'pointermove', onPointerMove
+    container.addEventListener 'pointerup', onPointerUp
+    container.addEventListener 'pointercancel', onPointerUp
+    container.addEventListener 'click', onClickCapture, true
+
+    @_panCleanup = =>
+      container.removeEventListener 'pointerdown', onPointerDown
+      container.removeEventListener 'pointermove', onPointerMove
+      container.removeEventListener 'pointerup', onPointerUp
+      container.removeEventListener 'pointercancel', onPointerUp
+      container.removeEventListener 'click', onClickCapture, true
+      container.classList.remove 'is-panning'
+
   _render: ->
     c = @container
     c.innerHTML = ''
@@ -361,6 +424,7 @@ class YamlBuilder
     svg.appendChild boxesG
 
     c.appendChild svg
+    @_bindPan c
 
   _drawBox: (sp, pos) ->
     widget   = @_widgetForSpace sp.id

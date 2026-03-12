@@ -1,6 +1,6 @@
 -- tests/test_permissions.moon
--- Tests de la couverture des permissions : require_auth, require_admin,
--- sessions, purge. S'exécute dans l'instance Tarantool.
+-- Tests permission coverage: require_auth, require_admin,
+-- sessions, purge. Runs inside Tarantool instance.
 
 R    = require 'tests.runner'
 auth = require 'core.auth'
@@ -14,55 +14,55 @@ json = require 'json'
 SUFFIX = tostring math.random 100000, 999999
 
 -- ────────────────────────────────────────────────────────────────────────────
-R.describe "require_auth — blocage sans authentification", ->
+R.describe "require_auth — blocked without authentication", ->
 
-  R.it "ctx nil → erreur Unauthorized", ->
+  R.it "ctx nil -> Unauthorized error", ->
     ok, err = pcall require_auth, nil
     R.eq ok, false
     R.ok tostring(err)\find 'Unauthorized'
 
-  R.it "ctx sans user_id → erreur Unauthorized", ->
+  R.it "ctx without user_id -> Unauthorized", ->
     ok, err = pcall require_auth, {}
     R.eq ok, false
     R.ok tostring(err)\find 'Unauthorized'
 
-  R.it "ctx avec user_id → retourne l'id", ->
+  R.it "ctx with user_id -> returns id", ->
     uid = require_auth { user_id: 'fake-uid' }
     R.eq uid, 'fake-uid'
 
 -- ────────────────────────────────────────────────────────────────────────────
-R.describe "require_admin — blocage non-admin", ->
+R.describe "require_admin — blocked for non-admin", ->
 
-  R.it "ctx nil → erreur Unauthorized (pas Forbidden)", ->
+  R.it "ctx nil -> Unauthorized (not Forbidden)", ->
     ok, err = pcall require_admin, nil
     R.eq ok, false
     R.ok tostring(err)\find 'Unauthorized'
 
-  R.it "user non-membre du groupe admin → erreur Forbidden", ->
-    -- Créer un utilisateur non-admin
+  R.it "non-admin user -> Forbidden", ->
+    -- Create a non-admin user
     ok_u, user = pcall auth.create_user, "nonadmin_#{SUFFIX}", "nonadmin_#{SUFFIX}@test.local", "pass123"
     R.ok ok_u
-    -- Créer une session pour lui
+    -- Create a session for this user
     sess = auth.create_session user.id
     ctx  = { user_id: user.id }
     ok_a, err_a = pcall require_admin, ctx
     R.eq ok_a, false
     R.ok tostring(err_a)\find 'Forbidden'
-    -- Nettoyage
+    -- Cleanup
     auth.delete_session sess.token
     box.space._tdb_users\delete user.id
 
-  R.it "utilisateur admin → succès", ->
+  R.it "admin user -> success", ->
     admin_user = auth.get_user_by_username 'admin'
     R.ok admin_user
     uid = require_admin { user_id: admin_user.id }
     R.eq uid, admin_user.id
 
 -- ────────────────────────────────────────────────────────────────────────────
-R.describe "Sessions — création, validation, expiration", ->
+R.describe "Sessions — creation, validation, expiration", ->
   local token, uid
 
-  R.it "create_session retourne un token", ->
+  R.it "create_session returns a token", ->
     user = auth.get_user_by_username 'admin'
     R.ok user
     uid = user.id
@@ -72,7 +72,7 @@ R.describe "Sessions — création, validation, expiration", ->
     R.ok #sess.token > 10
     token = sess.token
 
-  R.it "validate_session retourne la session valide", ->
+  R.it "validate_session returns valid session", ->
     sess = auth.validate_session token
     R.ok sess
     R.eq sess.user_id, uid
@@ -83,29 +83,29 @@ R.describe "Sessions — création, validation, expiration", ->
     sess = auth.validate_session token
     R.eq sess, nil
 
-  R.it "token inexistant → validate_session retourne nil", ->
+  R.it "unknown token -> validate_session returns nil", ->
     sess = auth.validate_session 'tok-that-does-not-exist'
     R.eq sess, nil
 
 -- ────────────────────────────────────────────────────────────────────────────
-R.describe "Sessions — purge des expirées", ->
+R.describe "Sessions — expired purge", ->
 
-  R.it "purge_expired_sessions retourne le nombre de sessions supprimées", ->
-    -- Insérer une session déjà expirée directement dans le space
+  R.it "purge_expired_sessions returns deleted session count", ->
+    -- Insert an already-expired session directly into the space
     fake_token = "expired_test_#{SUFFIX}"
     box.space._tdb_sessions\insert { fake_token, 'fake-user', os.time! - 7200, os.time! - 3600 }
-    -- La session est expirée
+    -- Session is expired
     sess = auth.validate_session fake_token
-    R.eq sess, nil  -- validate_session supprime et retourne nil
-    -- S'assurer qu'elle est bien absente
+    R.eq sess, nil  -- validate_session removes it and returns nil
+    -- Ensure it is gone
     t = box.space._tdb_sessions\get fake_token
     R.eq t, nil
 
-  R.it "purge_expired_sessions ne supprime pas les sessions valides", ->
+  R.it "purge_expired_sessions does not delete valid sessions", ->
     admin = auth.get_user_by_username 'admin'
     sess  = auth.create_session admin.id
     n     = auth.purge_expired_sessions!
-    -- La session active doit encore exister
+    -- Active session must still exist
     still_valid = auth.validate_session sess.token
     R.ok still_valid
     auth.delete_session sess.token
@@ -131,7 +131,7 @@ R.describe "GraphQL resolver auth policy — data/custom views", ->
     R.eq ok_q, false
     R.ok tostring(err_q)\find 'Unauthorized'
 
-  R.it "Query.record accepte un utilisateur authentifié", ->
+  R.it "Query.record accepts an authenticated user", ->
     admin_user = auth.get_user_by_username 'admin'
     sp_name = "policy_record_#{SUFFIX}"
     sp = spaces_mod.create_user_space sp_name, "policy record test"

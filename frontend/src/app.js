@@ -1,6 +1,6 @@
 (function() {
   // app.coffee — main application bootstrap and UI orchestration.
-  var CREATE_CUSTOM_VIEW, DELETE_CUSTOM_VIEW, LIST_CUSTOM_VIEWS, REMOVE_FIELD, REORDER_FIELDS, UPDATE_CUSTOM_VIEW;
+  var CREATE_CUSTOM_VIEW, CREATE_WIDGET_PLUGIN, DELETE_CUSTOM_VIEW, DELETE_WIDGET_PLUGIN, LIST_CUSTOM_VIEWS, LIST_WIDGET_PLUGINS, REMOVE_FIELD, REORDER_FIELDS, UPDATE_CUSTOM_VIEW, UPDATE_WIDGET_PLUGIN;
 
   REMOVE_FIELD = `mutation RemoveField($fieldId: ID!) { removeField(fieldId: $fieldId) }`;
 
@@ -20,6 +20,47 @@
 
   DELETE_CUSTOM_VIEW = `mutation DeleteCustomView($id: ID!) { deleteCustomView(id: $id) }`;
 
+  LIST_WIDGET_PLUGINS = `query {
+  widgetPlugins {
+    id
+    name
+    description
+    scriptLanguage
+    templateLanguage
+    scriptCode
+    templateCode
+    updatedAt
+  }
+}`;
+
+  CREATE_WIDGET_PLUGIN = `mutation CreateWidgetPlugin($input: CreateWidgetPluginInput!) {
+  createWidgetPlugin(input: $input) {
+    id
+    name
+    description
+    scriptLanguage
+    templateLanguage
+    scriptCode
+    templateCode
+    updatedAt
+  }
+}`;
+
+  UPDATE_WIDGET_PLUGIN = `mutation UpdateWidgetPlugin($id: ID!, $input: UpdateWidgetPluginInput!) {
+  updateWidgetPlugin(id: $id, input: $input) {
+    id
+    name
+    description
+    scriptLanguage
+    templateLanguage
+    scriptCode
+    templateCode
+    updatedAt
+  }
+}`;
+
+  DELETE_WIDGET_PLUGIN = `mutation DeleteWidgetPlugin($id: ID!) { deleteWidgetPlugin(id: $id) }`;
+
   window.App = {
     _currentSpace: null,
     _currentCustomView: null,
@@ -34,6 +75,10 @@
     _listCustomViewsQuery: LIST_CUSTOM_VIEWS,
     _updateCustomViewMutation: UPDATE_CUSTOM_VIEW,
     _deleteCustomViewMutation: DELETE_CUSTOM_VIEW,
+    _listWidgetPluginsQuery: LIST_WIDGET_PLUGINS,
+    _createWidgetPluginMutation: CREATE_WIDGET_PLUGIN,
+    _updateWidgetPluginMutation: UPDATE_WIDGET_PLUGIN,
+    _deleteWidgetPluginMutation: DELETE_WIDGET_PLUGIN,
     _t: function(key, vars = {}) {
       var ref;
       if ((ref = window.I18N) != null ? ref.t : void 0) {
@@ -203,6 +248,9 @@
       yamlEditBtn: function() {
         return document.getElementById('yaml-edit-btn');
       },
+      yamlPluginsBtn: function() {
+        return document.getElementById('yaml-plugins-btn');
+      },
       yamlDeleteBtn: function() {
         return document.getElementById('yaml-delete-btn');
       },
@@ -221,6 +269,42 @@
       },
       yamlModalPreviewBtn: function() {
         return document.getElementById('yaml-modal-preview-btn');
+      },
+      widgetPluginModal: function() {
+        return document.getElementById('widget-plugin-modal');
+      },
+      widgetPluginModalCloseBtn: function() {
+        return document.getElementById('widget-plugin-modal-close-btn');
+      },
+      widgetPluginNewBtn: function() {
+        return document.getElementById('widget-plugin-new-btn');
+      },
+      widgetPluginDeleteBtn: function() {
+        return document.getElementById('widget-plugin-delete-btn');
+      },
+      widgetPluginSaveBtn: function() {
+        return document.getElementById('widget-plugin-save-btn');
+      },
+      widgetPluginList: function() {
+        return document.getElementById('widget-plugin-list');
+      },
+      widgetPluginName: function() {
+        return document.getElementById('widget-plugin-name');
+      },
+      widgetPluginDescription: function() {
+        return document.getElementById('widget-plugin-description');
+      },
+      widgetPluginScriptLanguage: function() {
+        return document.getElementById('widget-plugin-script-language');
+      },
+      widgetPluginTemplateLanguage: function() {
+        return document.getElementById('widget-plugin-template-language');
+      },
+      widgetPluginScriptEditor: function() {
+        return document.getElementById('widget-plugin-script-editor');
+      },
+      widgetPluginTemplateEditor: function() {
+        return document.getElementById('widget-plugin-template-editor');
       },
       // Formula modal (CodeMirror)
       formulaModal: function() {
@@ -298,7 +382,7 @@
       warningChangePasswordBtn: function() {
         return document.getElementById('warning-change-password-btn');
       },
-      // Dialog: changement de mot de passe
+      // Dialog: change password
       changePasswordDialog: function() {
         return document.getElementById('change-password-dialog');
       },
@@ -320,7 +404,7 @@
       cpCancelBtn: function() {
         return document.getElementById('cp-cancel-btn');
       },
-      // Dialog: créer utilisateur
+      // Dialog: create user
       createUserDialog: function() {
         return document.getElementById('create-user-dialog');
       },
@@ -342,7 +426,7 @@
       cuCancelBtn: function() {
         return document.getElementById('cu-cancel-btn');
       },
-      // Dialog: créer groupe
+      // Dialog: create group
       createGroupDialog: function() {
         return document.getElementById('create-group-dialog');
       },
@@ -376,6 +460,7 @@
       this._bindDataToolbar();
       this._bindFieldsPanel();
       this._bindYamlEditor();
+      this._bindWidgetPlugins();
       return this._applyI18nDynamic();
     },
     _bindLocaleChange: function() {
@@ -434,7 +519,7 @@
       } else {
         this.el.adminSidebarSection().classList.add('hidden');
       }
-      // Bandeau avertissement si admin avec mot de passe par défaut
+      // Show warning banner when admin still uses the default password.
       if (user.username === 'admin' && !localStorage.getItem('tdb_password_changed')) {
         return this.el.defaultPasswordWarning().classList.remove('hidden');
       } else {
@@ -449,7 +534,7 @@
     _loadAll: function() {
       return window.AppDataHelpers.loadAll(this);
     },
-    // ── Panel administration ─────────────────────────────────────────────────────
+    // ── Admin panel ──────────────────────────────────────────────────────────────
     _showAdminPanel: function(section = 'users') {
       return window.AppSidebarHelpers.showAdminPanel(this, section);
     },
@@ -462,18 +547,18 @@
     _loadAdminGroups: function() {
       return window.AppSidebarHelpers.loadAdminGroups(this);
     },
-    // ── Dialog: changement de mot de passe ──────────────────────────────────────
+    // ── Dialog: change password ──────────────────────────────────────────────────
     _openChangePasswordDialog: function() {
       return window.AppSidebarHelpers.openChangePasswordDialog(this);
     },
     _bindChangePasswordDialog: function() {
       return window.AppSidebarHelpers.bindChangePasswordDialog(this);
     },
-    // ── Dialog: créer utilisateur ─────────────────────────────────────────────
+    // ── Dialog: create user ──────────────────────────────────────────────────────
     _bindCreateUserDialog: function() {
       return window.AppSidebarHelpers.bindCreateUserDialog(this);
     },
-    // ── Dialog: créer groupe ──────────────────────────────────────────────────
+    // ── Dialog: create group ─────────────────────────────────────────────────────
     _bindCreateGroupDialog: function() {
       return window.AppSidebarHelpers.bindCreateGroupDialog(this);
     },
@@ -488,7 +573,7 @@
     _restoreFromHash: function() {
       return window.AppDataHelpers.restoreFromHash(this);
     },
-    // ── Spaces (Données section) ─────────────────────────────────────────────────
+    // ── Spaces (Data section) ────────────────────────────────────────────────────
     loadSpaces: function() {
       return window.AppDataHelpers.loadSpaces(this);
     },
@@ -506,7 +591,7 @@
     _mountDataView: function(space) {
       return window.AppDataHelpers.mountDataView(this, space);
     },
-    // ── Custom views (Vues section) ──────────────────────────────────────────────
+    // ── Custom views (Views section) ─────────────────────────────────────────────
     loadCustomViews: function() {
       return window.AppViewHelpers.loadCustomViews(this);
     },
@@ -525,6 +610,12 @@
     },
     _openYamlModal: function() {
       return window.AppViewHelpers.openYamlModal(this);
+    },
+    _bindWidgetPlugins: function() {
+      return window.AppViewHelpers.bindWidgetPlugins(this);
+    },
+    _openWidgetPluginModal: function() {
+      return window.AppViewHelpers.openWidgetPluginModal(this);
     },
     _loadAllRelations: function() {
       return window.AppViewHelpers.loadAllRelations(this);
@@ -578,7 +669,7 @@
   document.addEventListener('DOMContentLoaded', function() {
     GQL.loadToken();
     App.init();
-    // Le flash initial est évité par le script inline dans index.moon.
+    // Initial page flash is avoided by the inline script in index.moon.
     return Auth.restoreSession().then(function(user) {
       if (user) {
         App.showMain(user);

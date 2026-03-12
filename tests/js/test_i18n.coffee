@@ -13,18 +13,18 @@ require '../../frontend/src/i18n'
 I18N = global.window.I18N
 
 describe 'I18N.init', ->
-  it 'prend la locale stockée si disponible', ->
+  it 'uses stored locale when available', ->
     localStorageStub.clear()
     localStorageStub.setItem 'tgui_locale', 'en'
     I18N.init()
     eq I18N.getLocale(), 'en'
 
 describe 'I18N.t', ->
-  it 'retourne une traduction dans la locale active', ->
+  it 'returns translation in active locale', ->
     I18N.setLocale 'en'
     eq I18N.t('common.cancel'), 'Cancel'
 
-  it 'retourne la traduction anglaise quand disponible', ->
+  it 'returns English translation when available', ->
     I18N.setLocale 'en'
     eq I18N.t('ui.snapshot.sectionSpacesDelete'), '⚠ Spaces to delete (data loss)'
 

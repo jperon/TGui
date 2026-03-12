@@ -1,5 +1,5 @@
-# tests/js/test_undo_helpers.coffee — tests du service global AppUndoHelpers.
-# Couvre undo/redo sur update, delete, multi-update et détection de conflits.
+# tests/js/test_undo_helpers.coffee — tests for global AppUndoHelpers service.
+# Covers undo/redo for update, delete, multi-update, and conflict detection.
 require './dom_stub'
 { describe, it, eq, assert, summary } = require './runner'
 
@@ -61,7 +61,7 @@ makeApp = ->
   { app, undoBtn, redoBtn }
 
 describe 'AppUndoHelpers', ->
-  it 'gère update, blocage conflit, et delete undo/redo', ->
+  it 'handles update, conflict blocking, and delete undo/redo', ->
     # 1) Update undo/redo
     UH.clear()
     store = { '1': { nom: 'B' } }
@@ -74,14 +74,14 @@ describe 'AppUndoHelpers', ->
       deletes: []
     { app } = makeApp()
     okUndo = await UH.undo app
-    assert okUndo, 'undo update doit réussir'
+    assert okUndo, 'undo update should succeed'
     eq store['1'].nom, 'A'
-    assert lastUpdatePayload?.length == 1, 'updateRecords doit être appelé'
+    assert lastUpdatePayload?.length == 1, 'updateRecords should be called'
     okRedo = await UH.redo app
-    assert okRedo, 'redo update doit réussir'
+    assert okRedo, 'redo update should succeed'
     eq store['1'].nom, 'B'
 
-    # 2) Régression subset: un champ non modifié peut diverger sans bloquer undo
+    # 2) Subset regression: an unchanged field can diverge without blocking undo
     UH.clear()
     store = { '1': { nom: 'B', prenom: 'Victor' } }
     UH.pushAction
@@ -92,11 +92,11 @@ describe 'AppUndoHelpers', ->
       deletes: []
     { app } = makeApp()
     okSubset = await UH.undo app
-    assert okSubset, 'undo subset doit réussir'
+    assert okSubset, 'undo subset should succeed'
     eq store['1'].nom, 'A'
     eq store['1'].prenom, 'Victor'
 
-    # 3) Multi-update dans une seule action
+    # 3) Multi-update in a single action
     UH.clear()
     store = { '1': { nom: 'B' }, '2': { nom: 'Y' } }
     UH.pushAction
@@ -110,11 +110,11 @@ describe 'AppUndoHelpers', ->
       deletes: []
     { app } = makeApp()
     okMulti = await UH.undo app
-    assert okMulti, 'undo multi-update doit réussir'
+    assert okMulti, 'undo multi-update should succeed'
     eq store['1'].nom, 'A'
     eq store['2'].nom, 'X'
 
-    # 4) Conflit serveur bloque undo
+    # 4) Server conflict blocks undo
     UH.clear()
     store = { '1': { nom: 'X' } }
     UH.pushAction
@@ -125,10 +125,10 @@ describe 'AppUndoHelpers', ->
       deletes: []
     { app, undoBtn } = makeApp()
     okBlocked = await UH.undo app
-    assert not okBlocked, 'undo doit être bloqué en conflit'
+    assert not okBlocked, 'undo should be blocked on conflict'
     await UH.refreshUI app
-    assert undoBtn.classList.contains('toolbar-btn--blocked'), 'le bouton undo doit être marqué bloqué'
-    assert String(undoBtn.title).includes('bloquée'), 'le tooltip doit expliquer le blocage'
+    assert undoBtn.classList.contains('toolbar-btn--blocked'), 'undo button should be marked blocked'
+    assert String(undoBtn.title).includes('bloqu'), 'tooltip should explain the block'
 
     # 5) Delete undo/redo
     UH.clear()
@@ -143,12 +143,12 @@ describe 'AppUndoHelpers', ->
       deletes: [{ id: '9', before: { nom: 'Supp' } }]
     { app } = makeApp()
     okUndoDelete = await UH.undo app
-    assert okUndoDelete, 'undo delete doit réussir'
+    assert okUndoDelete, 'undo delete should succeed'
     eq store['9'].nom, 'Supp'
-    assert lastRestorePayload?.length == 1, 'restoreRecords doit être appelé'
+    assert lastRestorePayload?.length == 1, 'restoreRecords should be called'
     okRedoDelete = await UH.redo app
-    assert okRedoDelete, 'redo delete doit réussir'
-    assert not store['9']?, 'record doit être supprimé à nouveau'
-    assert (lastDeleteIds or []).includes('9'), 'deleteRecords doit être appelé'
+    assert okRedoDelete, 'redo delete should succeed'
+    assert not store['9']?, 'record should be deleted again'
+    assert (lastDeleteIds or []).includes('9'), 'deleteRecords should be called'
 
 summary()

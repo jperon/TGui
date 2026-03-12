@@ -1,6 +1,6 @@
 (function() {
-  // tests/js/run.coffee — lance tous les fichiers test_*.coffee en séquence
-  // Usage : coffee tests/js/run.coffee
+  // tests/js/run.coffee — runs all test_*.coffee files sequentially
+  // Usage: coffee tests/js/run.coffee
   var dir, execFileSync, f, failed, files, fs, i, len, path;
 
   ({execFileSync} = require('child_process'));
@@ -30,10 +30,10 @@
   }
 
   if (failed > 0) {
-    console.log(`\n${failed} suite(s) en échec`);
+    console.log(`\n${failed} suite(s) failed`);
     process.exit(1);
   } else {
-    console.log("\nToutes les suites JS : SUCCÈS");
+    console.log("\nAll JS suites: SUCCESS");
   }
 
 }).call(this);

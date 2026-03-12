@@ -74,7 +74,7 @@ eq = function(actual, expected, label)
   if actual == expected then
     return _pass()
   else
-    return _fail(tostring(label and label .. ': ' or '') .. "attendu " .. tostring(fmt(expected)) .. ", reçu " .. tostring(fmt(actual)), 3)
+    return _fail(tostring(label and label .. ': ' or '') .. "expected " .. tostring(fmt(expected)) .. ", got " .. tostring(fmt(actual)), 3)
   end
 end
 local ne
@@ -82,7 +82,7 @@ ne = function(actual, expected, label)
   if actual ~= expected then
     return _pass()
   else
-    return _fail(tostring(label and label .. ': ' or '') .. "attendu une valeur différente de " .. tostring(fmt(expected)), 3)
+    return _fail(tostring(label and label .. ': ' or '') .. "expected a value different from " .. tostring(fmt(expected)), 3)
   end
 end
 local ok
@@ -90,7 +90,7 @@ ok = function(v, label)
   if v then
     return _pass()
   else
-    return _fail(tostring(label and label .. ': ' or '') .. "attendu une valeur vraie, reçu " .. tostring(fmt(v)), 3)
+    return _fail(tostring(label and label .. ': ' or '') .. "expected a truthy value, got " .. tostring(fmt(v)), 3)
   end
 end
 local nok
@@ -98,7 +98,7 @@ nok = function(v, label)
   if not v then
     return _pass()
   else
-    return _fail(tostring(label and label .. ': ' or '') .. "attendu une valeur fausse, reçu " .. tostring(fmt(v)), 3)
+    return _fail(tostring(label and label .. ': ' or '') .. "expected a falsy value, got " .. tostring(fmt(v)), 3)
   end
 end
 local is_nil
@@ -117,9 +117,9 @@ local raises
 raises = function(fn, pattern, label)
   local success, err = pcall(fn)
   if success then
-    return _fail(tostring(label and label .. ': ' or '') .. "aucune erreur levée", 3)
+    return _fail(tostring(label and label .. ': ' or '') .. "no error raised", 3)
   elseif pattern and not tostring(err):match(pattern) then
-    return _fail(tostring(label and label .. ': ' or '') .. "erreur '" .. tostring(err) .. "' ne correspond pas à '" .. tostring(pattern) .. "'", 3)
+    return _fail(tostring(label and label .. ': ' or '') .. "error '" .. tostring(err) .. "' does not match '" .. tostring(pattern) .. "'", 3)
   else
     return _pass()
   end
@@ -161,9 +161,9 @@ it = function(desc, fn)
   if not success then
     _state.errors = _state.errors + 1
     local location = loc(2)
-    print("  ✗ ERREUR " .. tostring(desc))
+    print("  ✗ ERROR " .. tostring(desc))
     print("    [" .. tostring(location) .. "] " .. tostring(err))
-    print("    Trace complète :")
+    print("    Full stack trace:")
     local level = 3
     while true do
       local info = debug.getinfo(level, 'Sl')
@@ -182,12 +182,12 @@ local summary
 summary = function()
   local total = _state.passed + _state.failed + _state.errors
   print("\n══════════════════════════════════════")
-  print(tostring(total) .. " assertions — " .. tostring(_state.passed) .. " ✓  " .. tostring(_state.failed) .. " ✗  " .. tostring(_state.errors) .. " erreurs")
+  print(tostring(total) .. " assertions — " .. tostring(_state.passed) .. " ✓  " .. tostring(_state.failed) .. " ✗  " .. tostring(_state.errors) .. " errors")
   if _state.failed > 0 or _state.errors > 0 then
-    print("RÉSULTAT: ÉCHEC")
+    print("RESULT: FAILURE")
     return 1
   end
-  print("RÉSULTAT: SUCCÈS")
+  print("RESULT: SUCCESS")
   return 0
 end
 return {

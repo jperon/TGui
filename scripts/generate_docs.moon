@@ -1,6 +1,6 @@
 #!/usr/bin/env moon
 -- scripts/generate_docs.moon
--- Génère la documentation FR/EN à partir du SDL GraphQL et des commentaires source.
+-- Generate English documentation from GraphQL SDL and source comments.
 
 shell_quote = (s) ->
   "'#{tostring(s)\gsub("'", "'\\''")}'"
@@ -72,17 +72,9 @@ get_root_dir = ->
 
 ROOT_DIR = get_root_dir!
 SCHEMA_FILE = "#{ROOT_DIR}/schema/tdb.graphql"
-DOC_FR_DIR = "#{ROOT_DIR}/doc/fr"
 DOC_EN_DIR = "#{ROOT_DIR}/doc/en"
-API_FR_DOC = "#{DOC_FR_DIR}/api.md"
 API_EN_DOC = "#{DOC_EN_DIR}/api.md"
-DEV_FR_DOC = "#{DOC_FR_DIR}/dev.md"
 DEV_EN_DOC = "#{DOC_EN_DIR}/dev.md"
-DEV_FR_ARCH_DOC = "#{DOC_FR_DIR}/dev/architecture.md"
-DEV_FR_RUNTIME_DOC = "#{DOC_FR_DIR}/dev/runtime.md"
-DEV_FR_GRAPHQL_DOC = "#{DOC_FR_DIR}/dev/graphql.md"
-DEV_FR_FRONTEND_DOC = "#{DOC_FR_DIR}/dev/frontend.md"
-DEV_FR_TESTS_DOC = "#{DOC_FR_DIR}/dev/tests.md"
 DEV_EN_ARCH_DOC = "#{DOC_EN_DIR}/dev/architecture.md"
 DEV_EN_RUNTIME_DOC = "#{DOC_EN_DIR}/dev/runtime.md"
 DEV_EN_GRAPHQL_DOC = "#{DOC_EN_DIR}/dev/graphql.md"
@@ -166,6 +158,21 @@ normalize_list_field = (line) ->
   nil_or_line = if line == '' then nil else line
   nil_or_line
 
+is_comment_line = (line) ->
+  return true if line\match '^%-%-'
+  return true if line\match '^#'
+  false
+
+comment_text = (line) ->
+  return nil unless is_comment_line line
+  if line\match '^%-%-'
+    return trim line\gsub '^%-%-%s*', ''
+  trim line\gsub '^#+%s*', ''
+
+is_hash_delimiter = (text) ->
+  return false unless text
+  text\match '^#+$'
+
 first_comment_line = (path) ->
   f = io.open path, 'r'
   return '(pas de description en tête de fichier)' unless f
@@ -179,23 +186,14 @@ first_comment_line = (path) ->
     continue if line == ''
     continue if line\match '^#!'
 
-    if line\match '^%-%-'
-      v = trim line\gsub '^%-%-%s*', ''
-      if v != ''
-        continue if is_filename_banner v
-        f\close!
-        return v
-      continue
+    break unless is_comment_line line
 
-    if line\match '^#'
-      v = trim line\gsub '^#%s*', ''
-      if v != ''
-        continue if is_filename_banner v
-        f\close!
-        return v
-      continue
-
-    break
+    v = comment_text line
+    continue if v == ''
+    continue if is_hash_delimiter v
+    continue if is_filename_banner v
+    f\close!
+    return v
 
   f\close!
   '(pas de description en tête de fichier)'
@@ -226,13 +224,11 @@ read_doc_header = (path) ->
     line = trim raw
     continue if line == ''
     continue if line\match '^#!'
-    break unless line\match '^%-%-' or line\match '^#'
+    break unless is_comment_line line
 
-    text = if line\match '^%-%-'
-      trim line\gsub '^%-%-%s*', ''
-    else
-      trim line\gsub '^#%s*', ''
+    text = comment_text line
     continue if text == ''
+    continue if is_hash_delimiter text
     continue if is_filename_banner text
 
     if text\match '^Summary:%s*'
@@ -287,43 +283,17 @@ domain_for_operation = (name) ->
   'misc'
 
 DOMAIN_LABELS =
-  fr:
-    spaces_fields: 'Espaces & Champs'
-    views: 'Vues'
-    relations: 'Relations'
-    records: 'Données (records)'
-    auth: 'Authentification'
-    users_groups: 'Utilisateurs & Groupes'
-    snapshot: 'Snapshots'
-    misc: 'Divers'
-  en:
-    spaces_fields: 'Spaces & Fields'
-    views: 'Views'
-    relations: 'Relations'
-    records: 'Data (records)'
-    auth: 'Authentication'
-    users_groups: 'Users & Groups'
-    snapshot: 'Snapshots'
-    misc: 'Misc'
+  spaces_fields: 'Spaces & Fields'
+  views: 'Views'
+  relations: 'Relations'
+  records: 'Data (records)'
+  auth: 'Authentication'
+  users_groups: 'Users & Groups'
+  snapshot: 'Snapshots'
+  misc: 'Misc'
 
-describe_operation = (op_name, kind, lang) ->
+describe_operation = (op_name, kind) ->
   domain = domain_for_operation op_name
-  if lang == 'fr'
-    if domain == 'spaces_fields'
-      return "Opération #{kind == 'query' and 'de lecture' or 'de mutation'} sur les métadonnées d’espaces/champs."
-    if domain == 'views'
-      return "Gestion des vues standard et personnalisées."
-    if domain == 'relations'
-      return "Gestion des relations inter-espaces et préférences d’affichage."
-    if domain == 'records'
-      return "Lecture/écriture des enregistrements utilisateurs."
-    if domain == 'auth'
-      return "Authentification, session et gestion du mot de passe."
-    if domain == 'users_groups'
-      return "Administration des utilisateurs, groupes et permissions."
-    if domain == 'snapshot'
-      return "Export, comparaison et import des snapshots de configuration."
-    return "Opération GraphQL exposée par le backend."
   if domain == 'spaces_fields'
     return "#{kind == 'query' and 'Read' or 'Mutation'} operation on space/field metadata."
   if domain == 'views'
@@ -348,48 +318,7 @@ rows_by_domain = (rows) ->
     table.insert grouped[domain], row
   grouped
 
-append_examples = (out, lang) ->
-  if lang == 'fr'
-    table.insert out, '## Exemples d’usage'
-    table.insert out, ''
-    table.insert out, '### 1) Authentification puis lecture des espaces'
-    table.insert out, ''
-    table.insert out, '```graphql'
-    table.insert out, 'mutation Login($u: String!, $p: String!) {'
-    table.insert out, '  login(username: $u, password: $p) { token user { id username } }'
-    table.insert out, '}'
-    table.insert out, '```'
-    table.insert out, ''
-    table.insert out, '```graphql'
-    table.insert out, 'query { spaces { id name description } }'
-    table.insert out, '```'
-    table.insert out, ''
-    table.insert out, '### 2) Lecture paginée de records avec filtre'
-    table.insert out, ''
-    table.insert out, '```graphql'
-    table.insert out, 'query Records($spaceId: ID!, $limit: Int!, $offset: Int!) {'
-    table.insert out, '  records(spaceId: $spaceId, limit: $limit, offset: $offset) {'
-    table.insert out, '    total'
-    table.insert out, '    items { id data }'
-    table.insert out, '  }'
-    table.insert out, '}'
-    table.insert out, '```'
-    table.insert out, ''
-    table.insert out, '### 3) Mutation structurelle: créer un espace puis un champ'
-    table.insert out, ''
-    table.insert out, '```graphql'
-    table.insert out, 'mutation CreateSpace($input: CreateSpaceInput!) {'
-    table.insert out, '  createSpace(input: $input) { id name }'
-    table.insert out, '}'
-    table.insert out, '```'
-    table.insert out, ''
-    table.insert out, '```graphql'
-    table.insert out, 'mutation AddField($spaceId: ID!, $input: FieldInput!) {'
-    table.insert out, '  addField(spaceId: $spaceId, input: $input) { id name fieldType }'
-    table.insert out, '}'
-    table.insert out, '```'
-    table.insert out, ''
-    return
+append_examples = (out) ->
   table.insert out, '## Usage Examples'
   table.insert out, ''
   table.insert out, '### 1) Authenticate then query spaces'
@@ -430,72 +359,28 @@ append_examples = (out, lang) ->
   table.insert out, '```'
   table.insert out, ''
 
-append_operation_groups = (out, rows, lang, kind) ->
+append_operation_groups = (out, rows, kind) ->
   grouped = rows_by_domain rows
   ordering = { 'spaces_fields', 'views', 'relations', 'records', 'auth', 'users_groups', 'snapshot', 'misc' }
   for domain in *ordering
     items = grouped[domain]
     continue unless items and #items > 0
-    label = DOMAIN_LABELS[lang][domain]
+    label = DOMAIN_LABELS[domain]
     table.insert out, "### #{label}"
     table.insert out, ''
-    table.insert out, '| Opération | Arguments | Retour | Description |'
+    table.insert out, '| Operation | Arguments | Return | Description |'
     table.insert out, '|---|---|---|---|'
     for row in *items
-      desc = describe_operation row.field, kind, lang
+      desc = describe_operation row.field, kind
       table.insert out, "| `#{row.field}` | `#{row.args}` | `#{row.returns}` | #{desc} |"
     table.insert out, ''
 
-generate_api_doc = (lang, path) ->
+generate_api_doc = (path) ->
   schema_lines = read_lines SCHEMA_FILE
   query_rows = extract_block_rows 'Query', schema_lines
   mutation_rows = extract_block_rows 'Mutation', schema_lines
   inputs = list_type_names 'input', schema_lines
   enums = list_type_names 'enum', schema_lines
-
-  if lang == 'fr'
-    out = {
-      '# API GraphQL — TGui'
-      ''
-      '> Fichier généré automatiquement. Ne pas modifier manuellement.'
-      '>'
-      "> Généré le: #{now_utc!}"
-      '>'
-      '> Source: `schema/tdb.graphql`'
-      ''
-      '## Vue d’ensemble'
-      ''
-      '- Endpoint: `/graphql`'
-      '- Transport: HTTP POST JSON'
-      '- Auth: token Bearer dans l’en-tête `Authorization`'
-      '- Source de vérité des signatures: `schema/tdb.graphql`'
-      '- Capture d’exécution du SDL: `schema/tdb.generated.graphql`'
-      ''
-      '## Queries'
-      ''
-    }
-    append_operation_groups out, query_rows, 'fr', 'query'
-    table.insert out, '## Mutations'
-    table.insert out, ''
-    append_operation_groups out, mutation_rows, 'fr', 'mutation'
-    append_examples out, 'fr'
-    table.insert out, "## Types d'entrée"
-    table.insert out, ''
-    for name in *inputs
-      table.insert out, "- `#{name}`"
-    table.insert out, ''
-    table.insert out, '## Enums'
-    table.insert out, ''
-    for name in *enums
-      table.insert out, "- `#{name}`"
-    table.insert out, ''
-    table.insert out, '## Notes'
-    table.insert out, ''
-    table.insert out, '- Les types dynamiques liés aux espaces utilisateur sont reconstruits côté backend.'
-    table.insert out, '- Pour régénérer une capture SDL d’exécution: `make sdl-gen`.'
-    table.insert out, ''
-    write_doc path, out
-    return
 
   out = {
     '# GraphQL API — TGui'
@@ -517,11 +402,11 @@ generate_api_doc = (lang, path) ->
     '## Queries'
     ''
   }
-  append_operation_groups out, query_rows, 'en', 'query'
+  append_operation_groups out, query_rows, 'query'
   table.insert out, '## Mutations'
   table.insert out, ''
-  append_operation_groups out, mutation_rows, 'en', 'mutation'
-  append_examples out, 'en'
+  append_operation_groups out, mutation_rows, 'mutation'
+  append_examples out
   table.insert out, '## Input Types'
   table.insert out, ''
   for name in *inputs
@@ -581,68 +466,32 @@ collect_modules = ->
 extract_rel = (abs_path) ->
   abs_path\gsub "^#{ROOT_DIR}/", ''
 
-emit_module_summaries = (out, files, lang) ->
-  table.insert out, '| Module | Résumé |'
+emit_module_summaries = (out, files) ->
+  table.insert out, '| Module | Summary |'
   table.insert out, '|---|---|'
   for path in *files
     rel = extract_rel path
     doc = read_doc_header path
-    sum = doc.summary\gsub '|', '\\|'
+    sum = doc.summary
+    sum = sum\gsub '|', '\\|'
     table.insert out, "| `#{rel}` | #{sum} |"
   table.insert out, ''
 
-generate_dev_detail = (path, lang, title, intro, files) ->
+generate_dev_detail = (path, title, intro, files) ->
   out = {
     "# #{title}"
     ''
-    if lang == 'fr' then '> Fichier généré automatiquement. Ne pas modifier manuellement.' else '> Auto-generated file. Do not edit manually.'
+    '> Auto-generated file. Do not edit manually.'
     '>'
-    if lang == 'fr' then "> Généré le: #{now_utc!}" else "> Generated at: #{now_utc!}"
+    "> Generated at: #{now_utc!}"
     ''
     intro
     ''
   }
-  emit_module_summaries out, files, lang
+  emit_module_summaries out, files
   write_doc path, out
 
-generate_dev_compact = (path, lang) ->
-  if lang == 'fr'
-    out = {
-      '# Documentation développeur — TGui'
-      ''
-      '> Fichier généré automatiquement. Ne pas modifier manuellement.'
-      '>'
-      "> Généré le: #{now_utc!}"
-      ''
-      'Synthèse compacte de l’architecture TGui. La référence complète est disponible dans `doc/fr/dev/*.md`.'
-      ''
-      '## Architecture (résumé)'
-      ''
-      '- Point d’entrée d’exécution: `backend/init.moon`'
-      '- Passerelle HTTP: `backend/http_server.moon`'
-      '- Exécution GraphQL: `backend/graphql/executor.moon`'
-      '- Assemblage schéma/résolveurs: `backend/resolvers/init.moon`'
-      '- Moteur métadonnées: `backend/core/spaces.moon`'
-      '- Interface SPA: `frontend/src/app.coffee`'
-      ''
-      '## Références détaillées'
-      ''
-      '- Architecture globale: `doc/fr/dev/architecture.md`'
-      '- Exécution backend: `doc/fr/dev/runtime.md`'
-      '- Chaîne GraphQL: `doc/fr/dev/graphql.md`'
-      '- Interface SPA: `doc/fr/dev/frontend.md`'
-      '- Stratégie de tests: `doc/fr/dev/tests.md`'
-      ''
-      '## Commandes'
-      ''
-      '- Génération docs: `make doc-gen`'
-      '- Vérification docs: `make doc-check`'
-      '- CI complète: `make ci`'
-      ''
-    }
-    write_doc path, out
-    return
-
+generate_dev_compact = (path) ->
   out = {
     '# Developer Documentation — TGui'
     ''
@@ -710,27 +559,17 @@ generate_all_dev_docs = ->
     'frontend/src/views/custom_view.coffee'
   }
 
-  generate_dev_compact DEV_FR_DOC, 'fr'
-  generate_dev_compact DEV_EN_DOC, 'en'
+  generate_dev_compact DEV_EN_DOC
 
-  generate_dev_detail DEV_FR_ARCH_DOC, 'fr', 'Architecture — référence détaillée', 'Vue architecturelle des modules backend/front et de leurs relations.', core_backend
-  generate_dev_detail DEV_FR_RUNTIME_DOC, 'fr', 'Exécution backend — référence détaillée', 'Détails du démarrage Tarantool, HTTP et initialisation des sous-systèmes.', modules.backend
-  generate_dev_detail DEV_FR_GRAPHQL_DOC, 'fr', 'Chaîne GraphQL — référence détaillée', 'Flux SDL/parser/executor/résolveurs (statique + dynamique).', graphql_backend
-  generate_dev_detail DEV_FR_FRONTEND_DOC, 'fr', 'Interface SPA — référence détaillée', 'Organisation des modules CoffeeScript et flux UI principaux.', modules.frontend
-  generate_dev_detail DEV_FR_TESTS_DOC, 'fr', 'Tests — référence détaillée', 'Panorama des tests backend/frontend et intention par fichier.', modules.tests
+  generate_dev_detail DEV_EN_ARCH_DOC, 'Architecture — detailed reference', 'Architecture-level view of backend/frontend modules and relationships.', core_backend
+  generate_dev_detail DEV_EN_RUNTIME_DOC, 'Backend runtime — detailed reference', 'Tarantool startup, HTTP lifecycle and subsystem initialization details.', modules.backend
+  generate_dev_detail DEV_EN_GRAPHQL_DOC, 'GraphQL pipeline — detailed reference', 'SDL/parser/executor/resolver flow (static + dynamic).', graphql_backend
+  generate_dev_detail DEV_EN_FRONTEND_DOC, 'Frontend SPA — detailed reference', 'CoffeeScript module organization and key UI flows.', frontend_core
+  generate_dev_detail DEV_EN_TESTS_DOC, 'Tests — detailed reference', 'Backend/frontend test panorama and per-file intent.', modules.tests
 
-  generate_dev_detail DEV_EN_ARCH_DOC, 'en', 'Architecture — detailed reference', 'Architecture-level view of backend/frontend modules and relationships.', core_backend
-  generate_dev_detail DEV_EN_RUNTIME_DOC, 'en', 'Backend runtime — detailed reference', 'Tarantool startup, HTTP lifecycle and subsystem initialization details.', modules.backend
-  generate_dev_detail DEV_EN_GRAPHQL_DOC, 'en', 'GraphQL pipeline — detailed reference', 'SDL/parser/executor/resolver flow (static + dynamic).', graphql_backend
-  generate_dev_detail DEV_EN_FRONTEND_DOC, 'en', 'Frontend SPA — detailed reference', 'CoffeeScript module organization and key UI flows.', frontend_core
-  generate_dev_detail DEV_EN_TESTS_DOC, 'en', 'Tests — detailed reference', 'Backend/frontend test panorama and per-file intent.', modules.tests
-
-generate_api_doc 'fr', API_FR_DOC
-generate_api_doc 'en', API_EN_DOC
+generate_api_doc API_EN_DOC
 generate_all_dev_docs!
 
-print "Generated: #{API_FR_DOC}"
 print "Generated: #{API_EN_DOC}"
-print "Generated: #{DEV_FR_DOC}"
 print "Generated: #{DEV_EN_DOC}"
 os.exit 0

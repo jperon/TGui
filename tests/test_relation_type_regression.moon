@@ -1,5 +1,5 @@
 -- tests/test_relation_type_regression.moon
--- Régression: vérifie le mapping sécurisé fieldType=Relation -> Int et la création de relation associée.
+-- Regression: verifies safe fieldType=Relation -> Int mapping and relation creation.
 R = require 'tests.runner'
 auth = require 'core.auth'
 spaces_mod = require 'core.spaces'
@@ -11,7 +11,7 @@ CTX = do
   { user_id: admin.id }
 
 R.describe "Regression: Relation type mapping", ->
-  R.it "addField avec fieldType=Relation est mappé vers Int", ->
+  R.it "addField with fieldType=Relation maps to Int", ->
     sp_name = "test_relation_regression_#{SUFFIX}"
     sp = schema_r.Mutation.createSpace nil, { input: { name: sp_name, description: 'Type mapping test' } }, CTX
     f = schema_r.Mutation.addField nil, {
@@ -26,7 +26,7 @@ R.describe "Regression: Relation type mapping", ->
     R.eq f.fieldType, 'Int'
     spaces_mod.delete_user_space sp_name
 
-  R.it "createRelation fonctionne avec un champ Int source", ->
+  R.it "createRelation works with an Int source field", ->
     source_name = "test_source_#{SUFFIX}"
     target_name = "test_target_#{SUFFIX}"
 

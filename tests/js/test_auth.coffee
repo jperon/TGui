@@ -14,10 +14,10 @@ global.GQL =
 
 require '../../frontend/src/auth'
 A = global.window.Auth
-global.Auth = A   # auth.js référence Auth directement (global navigateur)
+global.Auth = A   # auth.js references Auth directly (browser global)
 
 describe 'Auth.login', ->
-  it 'appelle GQL.mutate avec les bons arguments', ->
+  it 'calls GQL.mutate with correct arguments', ->
     captured = null
     GQL.mutate = (q, v) ->
       captured = v
@@ -26,14 +26,14 @@ describe 'Auth.login', ->
       eq captured?.username, 'alice'
       eq captured?.password, 'secret'
 
-  it 'retourne l\'utilisateur résolu', ->
+  it 'returns resolved user', ->
     GQL.mutate = (q, v) ->
       Promise.resolve { login: { token: 't', user: { id: '2', username: 'bob', email: '', groups: [] } } }
     A.login('bob', 'pass').then (user) ->
       eq user.username, 'bob'
       eq user.id, '2'
 
-  it 'appelle GQL.setToken avec le token reçu', ->
+  it 'calls GQL.setToken with received token', ->
     tokReceived = null
     GQL.setToken = (t) -> tokReceived = t; GQL._token = t
     GQL.mutate = (q, v) ->
@@ -42,44 +42,44 @@ describe 'Auth.login', ->
       eq tokReceived, 'secret-tok'
 
 describe 'Auth.restoreSession', ->
-  it 'retourne l\'utilisateur si me est défini', ->
+  it 'returns user when me is defined', ->
     GQL.query = -> Promise.resolve { me: { id: '10', username: 'dan', email: '', groups: [] } }
     A.restoreSession().then (u) ->
       eq u?.username, 'dan'
 
-  it 'retourne null si me est null', ->
+  it 'returns null when me is null', ->
     GQL.query = -> Promise.resolve { me: null }
     A.restoreSession().then (u) ->
       eq u, null
 
-  it 'retourne null sur erreur réseau', ->
+  it 'returns null on network error', ->
     GQL.query = -> Promise.reject new Error 'network error'
     A.restoreSession().then (u) ->
       eq u, null
 
 describe 'Auth.isAdmin', ->
-  it 'retourne true si currentUser est dans le groupe admin', ->
+  it 'returns true when currentUser is in admin group', ->
     A.currentUser = { id: '1', username: 'root', groups: [{ id: 'g1', name: 'admin' }] }
-    assert A.isAdmin(), 'isAdmin devrait être true'
+    assert A.isAdmin(), 'isAdmin should be true'
 
-  it 'retourne false si currentUser n\'est pas dans admin', ->
+  it 'returns false when currentUser is not in admin', ->
     A.currentUser = { id: '2', username: 'bob', groups: [{ id: 'g2', name: 'users' }] }
-    assert !A.isAdmin(), 'isAdmin devrait être false'
+    assert !A.isAdmin(), 'isAdmin should be false'
 
-  it 'retourne false si currentUser est null', ->
+  it 'returns false when currentUser is null', ->
     A.currentUser = null
-    assert !A.isAdmin(), 'isAdmin devrait être false quand currentUser est null'
+    assert !A.isAdmin(), 'isAdmin should be false when currentUser is null'
 
 describe 'Auth.changePassword', ->
-  it 'appelle mutate et retourne la valeur changePassword', ->
+  it 'calls mutate and returns changePassword value', ->
     GQL.mutate = (q, v) ->
       Promise.resolve { changePassword: true }
     A.changePassword('old', 'new').then (result) ->
       assert result, 'changePassword devrait retourner true'
 
 describe 'Auth.isAdmin (sans groupes)', ->
-  it 'retourne false si groups est undefined', ->
+  it 'returns false when groups is undefined', ->
     A.currentUser = { id: '3', username: 'ghost' }
-    assert !A.isAdmin(), 'isAdmin devrait être false si groups absent'
+    assert !A.isAdmin(), 'isAdmin should be false when groups is missing'
 
 summary()

@@ -1,0 +1,3253 @@
+# French translations for PACKAGE package
+# Copyright (C) 2026 Free Software Foundation, Inc.
+# This file is distributed under the same license as the PACKAGE package.
+# Automatically generated, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"POT-Creation-Date: 2026-03-12 20:05+0000\n"
+"PO-Revision-Date: 2026-03-12 15:14+0000\n"
+"Last-Translator: Automatically generated\n"
+"Language-Team: none\n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#. type: Plain text
+#: doc/en/README.md:2
+msgid "# TGui Documentation"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/README.md:8
+msgid ""
+"| Document | Description | |----------|-------------| | [Quick Start](get-"
+"started.md) | Installation, login, first steps | | [GraphQL API](api.md) | "
+"API reference (queries, mutations, examples) | | [Developer Documentation]"
+"(dev.md) | Technical overview and architecture |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/README.md:10
+msgid "## Screenshots"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/README.md:11
+msgid "Screenshots are located in the [`img/`](../img/) folder."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:2
+msgid "# Quick Start â TGui"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:4 doc/en/reference.md:4
+#, no-wrap
+msgid "**TGui** is inspired by [Grist](https://www.getgrist.com) â for any serious or production use, users are encouraged to consider Grist as a priority.\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:6
+#, no-wrap
+msgid "**TGui** is a graphical interface for [Tarantool](https://www.tarantool.io/) that lets you create and manage data spaces (tables), link them, define computed columns or triggers, and compose declarative custom views (YAML).\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:8
+msgid ""
+"This guide walks you step by step from zero to a fully functional **school "
+"library management** application: book catalog, physical copies, borrowers, "
+"and loans."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:9 doc/en/get-started.md:16 doc/en/get-started.md:28
+#: doc/en/get-started.md:34 doc/en/get-started.md:47 doc/en/get-started.md:93
+#: doc/en/get-started.md:174 doc/en/get-started.md:185
+#: doc/en/get-started.md:242 doc/en/get-started.md:353
+#: doc/en/get-started.md:393 doc/en/get-started.md:407
+#: doc/en/get-started.md:416 doc/en/reference.md:7 doc/en/reference.md:23
+#: doc/en/reference.md:71 doc/en/reference.md:112 doc/en/reference.md:288
+#: doc/en/reference.md:364 doc/en/reference.md:497 doc/en/reference.md:523
+#: doc/en/reference.md:693 doc/en/reference.md:736 doc/en/reference.md:790
+#: doc/en/reference.md:816 doc/en/reference.md:965
+#, no-wrap
+msgid "---\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:12
+msgid "## Prerequisites"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:15
+msgid ""
+"- [Docker](https://www.docker.com/) (or Tarantool 3.x installed locally)  - "
+"`make`, `moonc` (MoonScript compiler), `coffee` (CoffeeScript) â only needed "
+"to modify sources"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:19
+msgid "## Launch"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:25
+msgid "```bash git clone <repo> cd tgui docker compose up ```"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:27
+msgid "The interface is available at **http://localhost:8080**."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:31
+msgid "## Login"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:33
+msgid "![Login screen](../img/login-screen.png)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:37
+msgid "## Overview of the interface"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:39
+msgid "![Main interface](../img/main.png)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:41
+msgid "The interface is divided into two areas:"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:46
+msgid ""
+"| Area | Role | |------|------| | **Sidebar** (left) | Navigation between "
+"Views, Data and Administration | | **Content** (right) | Data grid, view "
+"editor or administration panel |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:50
+msgid "## Create the spaces (tables)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:52
+msgid ""
+"The library is built on 12 tables. Create them in the following order to "
+"make relations easier to define: first the reference tables, then the main "
+"tables, then the join tables, and finally the transaction table."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:54
+msgid "### 1 â Reference tables"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:56
+msgid "These tables have no dependency on other tables."
+msgstr ""
+
+#. type: Bullet: '1. '
+#: doc/en/get-started.md:60
+msgid "In the **Data** section of the sidebar, click **+**."
+msgstr ""
+
+#. type: Bullet: '2. '
+#: doc/en/get-started.md:60
+msgid "Enter the space name and confirm."
+msgstr ""
+
+#. type: Bullet: '3. '
+#: doc/en/get-started.md:60
+msgid "Repeat for each table."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:68
+msgid ""
+"| Space | Role | |--------|------| | `genres` | Literary genres (novel, "
+"comic, non-fiction, â¦) | | `auteurs` | Book authors | | `classes` | School "
+"classes | | `motscles` | Thematic keywords | | `etiquettes` | Classification "
+"labels (prize, favorites, â¦) |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:70
+msgid "![Data space with grid](../img/space-data.png)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:72
+msgid "### 2 â Main tables"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:79
+msgid ""
+"| Space | Role | |--------|------| | `livres` | Catalog of titles "
+"(bibliographic references) | | `personnes` | Students and staff who can "
+"borrow | | `exemplaires` | Physical copies of each title | | `coordonnees` | "
+"Contact details for people |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:81
+msgid "### 3 â Many-to-many join tables"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:86
+msgid ""
+"| Space | Role | |--------|------| | `livres_motscles` | Book â keyword "
+"association | | `livres_etiquettes` | Book â label association |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:88
+msgid "### 4 â Transaction table"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:92
+msgid ""
+"| Space | Role | |--------|------| | `emprunts` | Records of loans (copy + "
+"borrower + dates) |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:96
+msgid "## Add and manage fields"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:98
+msgid "Click **[#] Fields** in the toolbar to open the side panel."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:100
+msgid "![Fields panel](../img/fields-panel.png)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:102
+msgid "### Create a simple field"
+msgstr ""
+
+#. type: Bullet: '1. '
+#: doc/en/get-started.md:107
+msgid "Enter the **name** of the field."
+msgstr ""
+
+#. type: Bullet: '2. '
+#: doc/en/get-started.md:107
+msgid ""
+"Choose the **type**: `String`, `Int`, `Float`, `Boolean`, `UUID`, "
+"`Sequence`, `Any`, `Map`, `Array`, or `Relation`."
+msgstr ""
+
+#. type: Bullet: '3. '
+#: doc/en/get-started.md:107
+msgid "Check **Required** if the value cannot be null."
+msgstr ""
+
+#. type: Bullet: '4. '
+#: doc/en/get-started.md:107
+msgid "Click **Add**."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:109
+msgid "### Example: fields of the `auteurs` space"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:116
+msgid ""
+"| Field | Type | Required | |-------|------|--------| | `id` | Sequence | â "
+"| | `particule` | String | no | | `nom` | String | **yes** | | `prenom` | "
+"String | no |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:118
+msgid "### Example: fields of the `livres` space"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:128
+msgid ""
+"| Field | Type | Required | Note | |-------|------|--------|----------| | "
+"`id` | Sequence | â | | | `titre` | String | **yes** | | | `auteur_id` | "
+"Relation | no | â `auteurs` | | `genre_id` | Relation | no | â `genres` | | "
+"`cote` | String | no | Shelf mark | | `isbn` | String | no | Nullable | | "
+"`annee` | Int | no | Publication year, nullable |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:130
+msgid "### Computed column (Î»)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:133
+msgid ""
+"Select **Computed column** and enter a MoonScript or Lua expression.  The "
+"formula is the body of a function `(self, space) -> <expression>`; in "
+"MoonScript `@field` accesses `self.field`. The value is recomputed on each "
+"read and is not stored."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:135
+#, no-wrap
+msgid "**Example: `nom_complet` in `auteurs`** â combine first name, particle and last name while handling nulls:\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:143 doc/en/reference.md:149
+msgid ""
+"```moonscript parts = {} table.insert(parts, @prenom) if @prenom and "
+"@prenom != \"\" table.insert(parts, @particule) if @particule and "
+"@particule != \"\" table.insert(parts, @nom) if @nom and @nom != \"\" table."
+"concat(parts, \" \")  ```"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:145
+msgid ""
+"The `space` parameter gives access to records of another space (full scan):"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:153
+#, no-wrap
+msgid ""
+"```moonscript\n"
+"-- Count available copies for this book\n"
+"n = 0\n"
+"for e in *space(\"exemplaires\")\n"
+"  n += 1 if e.livre_id == @id and e.disponible\n"
+"n\n"
+"```\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:155
+msgid "### Trigger formula ((trigger))"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:158
+msgid ""
+"Select **Trigger formula** and optionally list the trigger fields.  The "
+"formula is executed and the result **stored** on each creation or "
+"modification of the listed fields."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:160
+#, no-wrap
+msgid "**Example: `cote_auto` in `livres`** â generate an automatic shelf mark from the first three letters of the title and the year (triggered on `titre` and `annee`):\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:167 doc/en/reference.md:162
+msgid ""
+"```moonscript -- triggerFields: [\"titre\", \"annee\"] prefix = (@titre or "
+"\"\")\\upper!\\sub(1, 3)\\gsub(\"[^%A]\", \"\")  annee = if @annee then "
+"tostring(@annee) else \"????\" \"#{prefix}-#{annee}\" ```"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:169
+msgid "### Edit an existing field"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:171
+msgid ""
+"Click the **(pencil)** icon next to a field to edit its name, type, formula "
+"or trigger."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:173
+msgid "![Edit field](../img/field-edit.png)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:177
+msgid "## Entering and editing data"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:182
+msgid ""
+"- Click a cell to edit it directly in the grid.  - Press **Enter** or Tab to "
+"move to the next cell.  - To **add a row**, click in the empty area below "
+"the last row.  - To **delete rows**, select them (checkboxes) then click the "
+"[del] âDelete selected rowsâ button."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:184
+msgid ""
+"Start by entering data in the reference tables (`genres`, `auteurs`, "
+"`classes`) before filling `livres`, `personnes` and `exemplaires`."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:188
+msgid "## Relations between spaces"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:190
+msgid "In the **Fields** panel choose the **Relation** type for `_id` fields:"
+msgstr ""
+
+#. type: Bullet: '1. '
+#: doc/en/get-started.md:193
+msgid "Select the **target** space from the dropdown."
+msgstr ""
+
+#. type: Bullet: '2. '
+#: doc/en/get-started.md:193
+msgid "The field will store the identifier of the linked record."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:195
+msgid "Here are the relations to create for the library:"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:209
+msgid ""
+"| Source field (space) | Target space | "
+"|-----------------------|-------------| | `livres.auteur_id` | `auteurs` | | "
+"`livres.genre_id` | `genres` | | `exemplaires.livre_id` | `livres` | | "
+"`emprunts.exemplaire_id` | `exemplaires` | | `emprunts.personne_id` | "
+"`personnes` | | `personnes.classe_id` | `classes` | | `coordonnees."
+"personne_id` | `personnes` | | `livres_motscles.livre_id` | `livres` | | "
+"`livres_motscles.motcle_id` | `motscles` | | `livres_etiquettes.livre_id` | "
+"`livres` | | `livres_etiquettes.etiquette_id` | `etiquettes` |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:211
+msgid ""
+"Relations can then be used to build custom views with automatic filtering "
+"(inter-widget dependencies)."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:213
+msgid "### Representation formula (reprFormula)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:215
+msgid ""
+"By default, a Relation column displays the raw identifier of the linked "
+"record. You can define a **representation formula** in MoonScript to show a "
+"human-friendly label instead."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:220
+msgid ""
+"- The syntax `@field` accesses fields of the linked record.  - FK fields are "
+"resolved automatically: `@genre_id.libelle` follows the `genre_id` relation "
+"in the linked space and returns its `libelle`.  - Multi-level chaining is "
+"supported: `@livre_id.genre_id.libelle` (copy â book â genre).  - If no "
+"formula is defined, the column uses the `_repr` field of the target space "
+"(if present), otherwise the raw id."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:222
+#, no-wrap
+msgid "**Examples:**\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:229
+msgid ""
+"| Formula | Effect | |---------|-------| | `@nom` | Shows the `nom` field of "
+"the linked record | | `@nom .. ' ' .. @prenom` | Concatenates last name and "
+"first name | | `@genre_id.libelle` | Follows the FK `genre_id` and displays "
+"the genre label | | `@livre_id.genre_id.libelle` | Chains two FKs (copy â "
+"book â genre) |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:231
+#, no-wrap
+msgid "**Concrete example â loans:**\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:233
+msgid ""
+"In the `emprunts` space, the `exemplaire_id` column can display the title of "
+"the corresponding book by chaining FKs:"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:237
+msgid "``` reprFormula : @livre_id.titre ```"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:239
+msgid "(To show the book title for this copy.)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:241
+msgid ""
+"To set the formula, click the **(pencil)** next to the Relation field in the "
+"Fields panel and enter the representation formula in the **Representation "
+"formula** field."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:245
+msgid "## Custom views (YAML)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:247
+msgid "Views let you compose multi-space dashboards."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:249
+msgid "![Custom view](../img/custom-view.png)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:251
+msgid "### Create a view"
+msgstr ""
+
+#. type: Bullet: '1. '
+#: doc/en/get-started.md:255
+msgid "In the **Views** section click **+**."
+msgstr ""
+
+#. type: Bullet: '2. '
+#: doc/en/get-started.md:255
+msgid "Give the view a name (e.g. `Loans management`)."
+msgstr ""
+
+#. type: Bullet: '3. '
+#: doc/en/get-started.md:255
+msgid "The YAML editor opens automatically."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:257
+msgid "### YAML editor with ERD schema"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:259
+msgid "Clicking **Edit** opens a fullscreen modal with two panels:"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:262
+msgid ""
+"- **Left**: CodeMirror editor (YAML syntax highlighting, monokai theme).  - "
+"**Right**: interactive ERD diagram showing all spaces and their relations."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:264
+msgid "![YAML editor modal and ERD diagram](../img/erd-modal-overview.png)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:266
+#, no-wrap
+msgid "**Use the ERD diagram to build the YAML:**\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:268
+msgid "Each box represents a space. For each field (row):"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:270
+msgid ""
+"- Click **`*`** (first row, italic) to add the space **without column "
+"restrictions**. The box lights up with the `* â` badge."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:272
+msgid "![Select with pseudo-field *](../img/erd-star-field.png)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:274
+msgid ""
+"- Click a **named field** to add it to the widget's `columns` list. If the "
+"space is not yet in the YAML it is created. If that space has a foreign key "
+"to an already-present space in the YAML, a `depends_on` is generated "
+"automatically."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:276
+msgid "![Auto-detection of depends_on](../img/erd-depends-on.png)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:280
+msgid ""
+"- Clicking a selected field again removes it. Removing all fields deletes "
+"the widget.  - The **Clear** button resets the selection.  - **Arrows** "
+"indicate foreign keys; **self-relations** (e.g. `parent_id â id`) are drawn "
+"as a loop on the right side of the box."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:282
+#, no-wrap
+msgid "**Bidirectional sync:** the ERD initializes from the existing YAML when opening the modal â spaces and fields already defined are highlighted. Editing the YAML manually in CodeMirror updates the diagram in real time. Fields not managed by the builder (like `title`, `aggregate`, `computed`) are **preserved** when editing via the diagram.\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:284
+#, no-wrap
+msgid "**Modal buttons:**\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:290
+msgid ""
+"| Button | Action | |--------|--------| | **â Save** | Save the YAML | | "
+"**â¶ Preview** | Show the rendered view | | **Ã** | Close the modal without "
+"saving |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:292
+msgid "### View âLoans managementâ"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:294
+msgid ""
+"The main library view shows books, their copies and current loans, with a "
+"summary by genre."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:328
+#, no-wrap
+msgid ""
+"```yaml\n"
+"layout:\n"
+"  direction: vertical\n"
+"  children:\n"
+"    - widget:\n"
+"        id: livres\n"
+"        title: Catalogue des livres\n"
+"        space: livres\n"
+"        columns: [titre, cote_auto, auteur_id, genre_id, isbn, annee]\n"
+"    - layout:\n"
+"        direction: horizontal\n"
+"        children:\n"
+"          - widget:\n"
+"              id: exemplaires\n"
+"              title: Exemplaires\n"
+"              space: exemplaires\n"
+"              depends_on:\n"
+"                widget: livres\n"
+"                field: livre_id\n"
+"                from_field: id\n"
+"              columns: [etat, disponible]\n"
+"              factor: 2\n"
+"          - widget:\n"
+"              id: emprunts_en_cours\n"
+"              title: Emprunts en cours\n"
+"              space: emprunts\n"
+"              depends_on:\n"
+"                widget: exemplaires\n"
+"                field: exemplaire_id\n"
+"                from_field: id\n"
+"              columns: [personne_id, date_emprunt, date_retour]\n"
+"              factor: 3\n"
+"```\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:330
+msgid "### Aggregate widget â Loans by genre"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:332
+msgid ""
+"An `aggregate` widget shows a read-only summary table â the equivalent of an "
+"SQL `GROUP BY`, computed in Lua on the server side."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:348
+#, no-wrap
+msgid ""
+"```yaml\n"
+"- widget:\n"
+"    type: aggregate\n"
+"    title: Emprunts par genre\n"
+"    space: emprunts\n"
+"    groupBy: [genre_id]\n"
+"    aggregate:\n"
+"      - fn: count\n"
+"        as: nb_emprunts\n"
+"    computed:\n"
+"      - as: label\n"
+"        expr: \"row.genre_id + ' (' + row.nb_emprunts + ')'\"\n"
+"      - as: statut\n"
+"        expr: \"row.nb_emprunts > 10 ? 'Actif' : 'Peu empruntÃ©'\"\n"
+"```\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:350
+msgid ""
+"Available functions are `sum`, `count`, `avg`, `min`, `max`. The `as` alias "
+"is optional (default name: `fn_field`, e.g. `count`)."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:352
+msgid "![Aggregate widget example](../img/aggregate-widget.png)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:356
+msgid "## User and rights management (admin)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:358
+msgid ""
+"The **Administration** section is visible only to members of the `admin` "
+"group."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:360 doc/en/reference.md:743
+msgid "### Users"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:362
+msgid "![Users panel](../img/admin-users.png)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:365
+msgid ""
+"- **+ Create**: opens a form (username, optional email, password).  - "
+"**[key]** on each row: allows the admin to force a password change for a "
+"user without knowing their current password."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:367 doc/en/reference.md:764
+msgid "### Groups"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:369
+msgid "![Groups panel](../img/admin-groups.png)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:372
+msgid ""
+"- **+ Create**: creates a new group.  - **[del]**: deletes the group (except "
+"the protected `admin` group)."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:374
+msgid ""
+"> Rights (`grant` / `revoke`) are currently manageable via the GraphQL API."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:376
+msgid "### Export and import snapshots"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:378
+msgid ""
+"The **Export / Import** section allows saving and restoring a TGui "
+"application."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:380
+#, no-wrap
+msgid "**Export:**\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:383
+msgid ""
+"- **Structure only**: downloads a `.tdb.yaml` file containing the full "
+"schema (spaces, fields, relations, views, groups, permissions) without "
+"data.  - **Structure + data**: includes all rows of each space."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:385
+#, no-wrap
+msgid "**Import:**\n"
+msgstr ""
+
+#. type: Bullet: '1. '
+#: doc/en/get-started.md:392 doc/en/reference.md:926
+msgid "Click **Choose file** and select a `.tdb.yaml` file."
+msgstr ""
+
+#. type: Bullet: '2. '
+#: doc/en/get-started.md:392
+msgid "A **diff** is shown (green = create, red = delete, orange = modify)."
+msgstr ""
+
+#. type: Bullet: '3. '
+#: doc/en/get-started.md:392
+msgid "Choose mode:"
+msgstr ""
+
+#. type: Bullet: '   - '
+#: doc/en/get-started.md:392
+msgid "**Merge**: create missing elements, leave existing ones untouched."
+msgstr ""
+
+#. type: Bullet: '   - '
+#: doc/en/get-started.md:392
+msgid ""
+"**Replace**: delete everything and recreate from the snapshot (warning: data "
+"loss)."
+msgstr ""
+
+#. type: Bullet: '4. '
+#: doc/en/get-started.md:392
+msgid "Click **Confirm import**."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:396
+msgid "## User profile"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:398
+msgid "Click your **username** (bottom left) to open the menu:"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:400
+msgid "![Profile menu](../img/user-menu.png)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:404
+msgid ""
+"- **Change password**: enter the old and the new password.  - **Logout**: "
+"invalidates the session on the server and returns to the login screen.  - "
+"**FR / EN**: changes the interface language (preference is stored locally in "
+"the browser)."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:406
+msgid "![Change password dialog](../img/change-password.png)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:410
+msgid "## Rename or delete a space"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:412
+msgid "In the space toolbar:"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:415
+msgid ""
+"- **(pencil)** (pencil icon): rename the space.  - **[del]** (trash icon "
+"next to the title): delete the space and all its data."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:419
+msgid "## Keyboard shortcuts"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/get-started.md:426
+msgid ""
+"| Key | Action | |--------|--------| | **Enter** | Confirm cell edit | | "
+"**Escape** | Cancel current edit | | **Tab** | Move to the next cell | | "
+"**Enter** on the login screen | Log in |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:2
+msgid "# Feature Reference â TGui"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:6
+msgid ""
+"TGui exposes all its features via a **GraphQL API** at `http://"
+"localhost:8080/graphql`. The web interface is a client of this same API; "
+"anything possible in the UI can also be done directly via GraphQL queries."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:10
+msgid "## Table of Contents"
+msgstr ""
+
+#. type: Bullet: '1. '
+#: doc/en/reference.md:22
+msgid "[Spaces (tables)](#1-spaces-tables)"
+msgstr ""
+
+#. type: Bullet: '2. '
+#: doc/en/reference.md:22
+msgid "[Fields](#2-fields)"
+msgstr ""
+
+#. type: Bullet: '3. '
+#: doc/en/reference.md:22
+msgid "[Relations](#3-relations)"
+msgstr ""
+
+#. type: Bullet: '4. '
+#: doc/en/reference.md:22
+msgid "[Data (records)](#4-data-records)"
+msgstr ""
+
+#. type: Bullet: '5. '
+#: doc/en/reference.md:22
+msgid "[Classic Views](#5-classic-views)"
+msgstr ""
+
+#. type: Bullet: '6. '
+#: doc/en/reference.md:22
+msgid "[Custom Views (YAML)](#6-custom-views-yaml)"
+msgstr ""
+
+#. type: Bullet: '7. '
+#: doc/en/reference.md:22
+msgid "[Authentication](#7-authentication)"
+msgstr ""
+
+#. type: Bullet: '8. '
+#: doc/en/reference.md:22
+msgid "[Users and Groups](#8-users-and-groups)"
+msgstr ""
+
+#. type: Bullet: '9. '
+#: doc/en/reference.md:22
+msgid "[Permissions](#9-permissions)"
+msgstr ""
+
+#. type: Bullet: '10. '
+#: doc/en/reference.md:22
+msgid "[Export and Import Snapshots](#10-export-and-import-snapshots)"
+msgstr ""
+
+#. type: Bullet: '11. '
+#: doc/en/reference.md:22
+msgid "[Full GraphQL API](#11-full-graphql-api)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:26
+msgid "## 1. Spaces (tables)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:28
+msgid ""
+"A **space** is a user-defined data table. It contains **fields** (columns) "
+"and **records** (rows)."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:30
+msgid "### UI Operations"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:37
+#, no-wrap
+msgid ""
+"| Action    | How |\n"
+"|-----------|-----|\n"
+"| Create    | Click **+** in the Data section |\n"
+"| Rename    | **(pencil)** button in the space toolbar |\n"
+"| Delete    | **[del]** (trash can next to the title) |\n"
+"| Navigate  | Click the name in the sidebar |\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:39 doc/en/reference.md:231 doc/en/reference.md:297
+#: doc/en/reference.md:450 doc/en/reference.md:504 doc/en/reference.md:660
+msgid "### GraphQL API"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:45
+#, no-wrap
+msgid ""
+"```graphql\n"
+"# List all spaces\n"
+"query {\n"
+"  spaces { id name description fields { id name fieldType } }\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:56
+#, no-wrap
+msgid ""
+"# Space details, including nested records\n"
+"query {\n"
+"  space(id: \"...\") {\n"
+"    id name fields { id name fieldType formula }\n"
+"    records(limit: 10, offset: 0, filter: { field: \"status\", op: EQ, value: \"active\" }) {\n"
+"      items { id data }\n"
+"      total\n"
+"    }\n"
+"  }\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:61
+#, no-wrap
+msgid ""
+"# Create\n"
+"mutation {\n"
+"  createSpace(input: { name: \"livres\", description: \"Book catalog\" }) { id }\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:66
+#, no-wrap
+msgid ""
+"# Rename\n"
+"mutation {\n"
+"  updateSpace(id: \"...\", input: { name: \"new_name\" }) { id name }\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:70
+msgid "# Delete mutation { deleteSpace(id: \"...\") } ```"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:74
+msgid "## Nested Queries (Nesting)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:76
+msgid ""
+"In addition to fetching simple relations (FK) directly within records, it is "
+"possible to **query collections of related records (back-references) with "
+"pagination and filtering directly within a parent query**."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:78
+msgid "### Back-references with pagination and filtering"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:80
+msgid ""
+"Dynamically generated back-reference fields (based on inverse relations) "
+"support `limit`, `offset`, and `filter` arguments:"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:94
+#, no-wrap
+msgid ""
+"```graphql\n"
+"# Fetch users and their tasks, filtering tasks by title\n"
+"query {\n"
+"  users {\n"
+"    id\n"
+"    username\n"
+"    groups {\n"
+"      id\n"
+"      name\n"
+"    }\n"
+"  }\n"
+"}\n"
+"```\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:96
+msgid "### Direct access to space records via `Space.records`"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:98
+msgid ""
+"The `Space` type exposes a `records` field that allows direct retrieval of "
+"records from a given space, with pagination and filtering, without going "
+"through the root `Query.records`:"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:111
+#, no-wrap
+msgid ""
+"```graphql\n"
+"# Fetch space details and its first 10 records\n"
+"query {\n"
+"  space(id: \"my_space_id\") {\n"
+"    name\n"
+"    records(limit: 10, offset: 0) {\n"
+"      items { id data }\n"
+"      total\n"
+"    }\n"
+"  }\n"
+"}\n"
+"```\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:115
+msgid "## 2. Fields"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:117
+msgid ""
+"A **field** is a column of a space. Each field has a type, a name, and may "
+"have a formula."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:119
+msgid "### Available Types"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:133
+#, no-wrap
+msgid ""
+"| Type      | Description |\n"
+"|-----------|-------------|\n"
+"| `String`  | String |\n"
+"| `Int`     | Integer |\n"
+"| `Float`   | Decimal number |\n"
+"| `Boolean` | Boolean (`true` / `false`) |\n"
+"| `UUID`    | Automatically generated UUID |\n"
+"| `Sequence`| Auto-increment integer (natural primary key) |\n"
+"| `Any`     | Free type (JSON) |\n"
+"| `Map`     | JSON object |\n"
+"| `Array`   | JSON array |\n"
+"| `Datetime`| Date and time |\n"
+"| `Relation`| Reference to a record in another space (display customizable via `reprFormula`) |\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:135
+msgid "### Computed Field (calculated column)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:137
+msgid ""
+"A computed field evaluates a **MoonScript expression** on each read. The "
+"value is **not stored**."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:139
+msgid ""
+"The formula is the body of a function `(self, space) -> <formula>`. In "
+"MoonScript, `@field` is a shortcut for `self.field`:"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:141
+#, no-wrap
+msgid "**Example: `nom_complet` in `auteurs`** â combines first name, particle, and last name, handling null values:\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:151
+msgid "### Trigger formula"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:153
+msgid ""
+"A trigger formula is evaluated and its result **stored** on each creation or "
+"modification of the record (or only when listed fields in `triggerFields` "
+"change)."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:155
+#, no-wrap
+msgid "**Example: `cote_auto` in `livres`** â generates a bibliographic code from the first three letters of the title and the year (triggered on `titre` and `annee`):\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:164
+msgid "### Formula languages"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:169
+#, no-wrap
+msgid ""
+"| Value        | Description |\n"
+"|--------------|-------------|\n"
+"| `moonscript` | MoonScript (compiled â Lua on the fly) |\n"
+"| `lua`        | Native Lua |\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:171
+msgid "### Helper `space` â access to other spaces"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:173
+msgid ""
+"Formulas and triggers receive a second parameter `space` that allows access "
+"to all records of another space (full scan):"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:183
+#, no-wrap
+msgid ""
+"```moonscript\n"
+"-- Count available copies for this book\n"
+"n = 0\n"
+"for e in *space(\"exemplaires\")\n"
+"  n += 1 if e.livre_id == @id and e.disponible\n"
+"n\n"
+"-- Get the label of a book's genre\n"
+"next(g for g in *space(\"genres\") when g._id == @genre_id)?.libelle\n"
+"```\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:185
+msgid ""
+"`space(\"name\")` returns a Lua list of all records in the space `name`, "
+"each record being an object with `_id` (identifier) plus all data fields. "
+"Returns `{}` if the space does not exist."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:187
+msgid ""
+"> **Note:** Full scan is suitable for small spaces (a few thousand records). "
+"For large volumes, prefer relations and aggregate widgets."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:189
+msgid "### Reordering"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:191
+msgid "Fields can be reordered by drag-and-drop (::) in the Fields panel."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:193
+msgid "### Custom Relation Display (`reprFormula`)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:197
+msgid ""
+"For `Relation` type fields, `reprFormula` controls how the relationship is "
+"displayed in the interface (grids, forms, etc.). The formula receives the "
+"linked record as parameter (`self`) and must return a string."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:199
+#, no-wrap
+msgid "**Example:** For an `auteur_id` field pointing to the `auteurs` space:\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:204
+msgid ""
+"```moonscript # Display \"First Last\" instead of UUID \"#{@nom} "
+"#{@prenom}\" ```"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:209
+msgid ""
+"```lua -- Equivalent Lua version return self.nom .. \" \" .. self.prenom ```"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:211
+msgid "### Field Type Conversion"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:214
+msgid ""
+"The `changeFieldType` mutation allows converting a field from one type to "
+"another, with an optional conversion formula to transform existing data."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:216
+#, no-wrap
+msgid "**Example:** Convert a `String` field to `Int`:\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:226
+#, no-wrap
+msgid ""
+"```graphql\n"
+"mutation {\n"
+"  changeFieldType(fieldId: \"...\", input: {\n"
+"    fieldType: Int,\n"
+"    conversionFormula: \"tonumber(self.amount)\",\n"
+"    language: \"lua\"\n"
+"  }) { id name fieldType }\n"
+"}\n"
+"```\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:229
+msgid ""
+"If `conversionFormula` is omitted, values are automatically converted when "
+"possible, or set to `null` otherwise."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:239
+#, no-wrap
+msgid ""
+"```graphql\n"
+"# Add a simple field\n"
+"mutation {\n"
+"  addField(spaceId: \"...\", input: {\n"
+"    name: \"age\", fieldType: Int, notNull: false\n"
+"  }) { id name }\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:248
+#, no-wrap
+msgid ""
+"# Add a computed column\n"
+"mutation {\n"
+"  addField(spaceId: \"...\", input: {\n"
+"    name: \"nom_complet\", fieldType: String,\n"
+"    formula: \"parts = {}\\ntable.insert(parts, @prenom) if @prenom and @prenom != \\\"\\\"\\ntable.insert(parts, @particule) if @particule and @particule != \\\"\\\"\\ntable.insert(parts, @nom) if @nom and @nom != \\\"\\\"\\ntable.concat(parts, \\\" \\\" )\",\n"
+"    language: \"moonscript\"\n"
+"  }) { id }\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:258
+#, no-wrap
+msgid ""
+"# Add a trigger formula (triggered on change of \"titre\" or \"annee\")\n"
+"mutation {\n"
+"  addField(spaceId: \"...\", input: {\n"
+"    name: \"cote_auto\", fieldType: String,\n"
+"    formula: \"prefix = (@titre or \\\"\\\")\\\\upper!\\\\sub(1, 3)\\\\gsub(\\\"[^%A]\\\", \\\"\\\")\\nannee  = if @annee then tostring(@annee) else \\\"????\\\"\\n\\\"#{prefix}-#{annee}\\\"\",\n"
+"    triggerFields: [\"titre\", \"annee\"],\n"
+"    language: \"moonscript\"\n"
+"  }) { id }\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:266
+#, no-wrap
+msgid ""
+"# Update an existing field\n"
+"mutation {\n"
+"  updateField(fieldId: \"...\", input: {\n"
+"    formula: \"self.prenom .. \\\" \\\" .. self.nom\",\n"
+"    language: \"lua\"\n"
+"  }) { id name formula }\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:269
+msgid "# Delete mutation { removeField(fieldId: \"...\") }"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:277
+#, no-wrap
+msgid ""
+"# Reorder\n"
+"mutation {\n"
+"  reorderFields(\n"
+"    spaceId: \"...\",\n"
+"    fieldIds: [\"id1\", \"id2\", \"id3\"]\n"
+"  ) { id position }\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:287
+#, no-wrap
+msgid ""
+"# Change field type\n"
+"mutation {\n"
+"  changeFieldType(fieldId: \"...\", input: {\n"
+"    fieldType: Int,\n"
+"    conversionFormula: \"tonumber(self.amount)\",\n"
+"    language: \"lua\"\n"
+"  }) { id name fieldType }\n"
+"}\n"
+"```\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:291
+msgid "## 3. Relations"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:293
+msgid ""
+"A **relation** links a field of a space (field of type `Relation`) to "
+"another space. It enables dependent filtering in custom views."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:295
+#, no-wrap
+msgid "**Recursive relations** (to the same space) are supported, for modeling tree structures (e.g., categories, genealogies).\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:305
+#, no-wrap
+msgid ""
+"```graphql\n"
+"# List relations of a space\n"
+"query {\n"
+"  relations(spaceId: \"...\") {\n"
+"    id name fromFieldId toSpaceId toFieldId reprFormula\n"
+"  }\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:316
+#, no-wrap
+msgid ""
+"# Create a relation livres â auteurs\n"
+"mutation {\n"
+"  createRelation(input: {\n"
+"    name: \"livre_auteur\",\n"
+"    fromSpaceId: \"livres-id\",\n"
+"    fromFieldId: \"auteur_id-field-id\",\n"
+"    toSpaceId:   \"auteurs-id\",\n"
+"    toFieldId:   \"id-field-id\"\n"
+"  }) { id }\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:327
+#, no-wrap
+msgid ""
+"# Create a relation livres â genres\n"
+"mutation {\n"
+"  createRelation(input: {\n"
+"    name: \"livre_genre\",\n"
+"    fromSpaceId: \"livres-id\",\n"
+"    fromFieldId: \"genre_id-field-id\",\n"
+"    toSpaceId:   \"genres-id\",\n"
+"    toFieldId:   \"id-field-id\"\n"
+"  }) { id }\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:338
+#, no-wrap
+msgid ""
+"# Create a relation exemplaires â livres\n"
+"mutation {\n"
+"  createRelation(input: {\n"
+"    name: \"exemplaire_livre\",\n"
+"    fromSpaceId: \"exemplaires-id\",\n"
+"    fromFieldId: \"livre_id-field-id\",\n"
+"    toSpaceId:   \"livres-id\",\n"
+"    toFieldId:   \"id-field-id\"\n"
+"  }) { id }\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:341
+msgid "# Delete mutation { deleteRelation(id: \"...\") }"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:351
+#, no-wrap
+msgid ""
+"# Set the display formula for a relation livres â auteurs\n"
+"mutation {\n"
+"  updateRelation(id: \"...\", input: {\n"
+"    reprFormula: \"(@particule and @particule .. ' ' or '') .. @nom .. (@prenom and ' ' .. @prenom or '')\"\n"
+"  }) {\n"
+"    id reprFormula\n"
+"  }\n"
+"}\n"
+"```\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:353
+msgid "### Display formula"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:355
+msgid ""
+"A relation can have a **`reprFormula`** field: a MoonScript expression "
+"evaluated on each target record to produce a readable label."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:363
+msgid ""
+"- The variable `self` (accessible via `@field`) is bound to the target "
+"record.  - Examples: `@libelle`, `@nom .. ' ' .. @prenom` - FK fields are "
+"automatically resolved: `@genre_id.libelle` follows the `genre_id` relation "
+"and returns the `libelle` field of the corresponding genres record.  - "
+"Chaining is possible over several levels: `@livre_id.genre_id.libelle` "
+"(exemplaire â livre â genre).  - When defined, FK columns in the grid "
+"display the formula result instead of the raw identifier.  - In edit mode, a "
+"dropdown lists all target records with their computed label.  - If no "
+"formula is defined, the column uses the `_repr` field of the target space "
+"(if it exists), otherwise the raw identifier."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:367
+msgid "## 4. Data (records)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:369
+msgid "### Editing in the grid"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:374
+msgid ""
+"- Click a cell to enter edit mode.  - **Enter** or **Tab** to validate and "
+"move to the next cell.  - Empty row at the bottom: type to create a new "
+"record.  - Check one or more rows then click **[del]** to delete."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:376
+msgid "### Filtering"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:378
+msgid "The API supports composable filtering:"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:397
+#, no-wrap
+msgid ""
+"```graphql\n"
+"query {\n"
+"  records(\n"
+"    spaceId: \"...\"\n"
+"    filter: {\n"
+"      or: [\n"
+"        { field: \"titre\", op: STARTS_WITH, value: \"Le\" }\n"
+"        { field: \"annee\", op: GTE, value: \"2000\" }\n"
+"      ]\n"
+"    }\n"
+"    limit: 50\n"
+"    offset: 0\n"
+"  ) {\n"
+"    items { id data }\n"
+"    total\n"
+"  }\n"
+"}\n"
+"```\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:399
+msgid "### Filter operators"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:408
+#, no-wrap
+msgid ""
+"| Operator      | Meaning |\n"
+"|---------------|---------|\n"
+"| `EQ`          | Equal to |\n"
+"| `NEQ`         | Not equal to |\n"
+"| `LT` / `GT`   | Less / greater (strict) |\n"
+"| `LTE` / `GTE` | Less / greater or equal |\n"
+"| `CONTAINS`    | Contains substring |\n"
+"| `STARTS_WITH` | Starts with |\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:410
+msgid "### Formula filters and FK traversal"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:412
+msgid ""
+"In addition to field/operator filters, you can express arbitrary conditions "
+"in **MoonScript** via `formula`. These formulas have access to the **FK "
+"proxy**: relation fields are automatically resolved to the linked record, "
+"and multi-level chaining is supported."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:424
+#, no-wrap
+msgid ""
+"```graphql\n"
+"# Filter books whose genre is 'Roman' (via FK traversal)\n"
+"query {\n"
+"  records(\n"
+"    spaceId: \"livres-id\"\n"
+"    filter: { formula: \"@genre_id.libelle == 'Roman'\", language: \"moonscript\" }\n"
+"  ) {\n"
+"    items { id data }\n"
+"    total\n"
+"  }\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:436
+#, no-wrap
+msgid ""
+"# Filter copies whose book belongs to genre 'Polar' (2 levels)\n"
+"query {\n"
+"  records(\n"
+"    spaceId: \"exemplaires-id\"\n"
+"    filter: { formula: \"@livre_id.genre_id.libelle == 'Polar'\", language: \"moonscript\" }\n"
+"  ) {\n"
+"    items { id data }\n"
+"    total\n"
+"  }\n"
+"}\n"
+"```\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:438
+msgid "FK formulas also work in **dynamic queries** generated for each space:"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:446
+#, no-wrap
+msgid ""
+"```graphql\n"
+"query {\n"
+"  livres(filter: { formula: \"@genre_id.libelle == 'Roman'\", language: \"moonscript\" }) {\n"
+"    items { titre }\n"
+"  }\n"
+"}\n"
+"```\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:448
+msgid ""
+"> **Note:** FK resolution first tries direct access by primary key "
+"(efficient), with fallback to a full scan for non-PK references. For large "
+"spaces, prefer classic field filters when possible."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:458
+#, no-wrap
+msgid ""
+"```graphql\n"
+"# Read records\n"
+"query {\n"
+"  records(spaceId: \"...\", limit: 100) {\n"
+"    items { id data } total\n"
+"  }\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:461
+msgid ""
+"# Read a single record query { record(spaceId: \"...\", id: \"42\") { id "
+"data } }"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:469
+#, no-wrap
+msgid ""
+"# Insert an author\n"
+"mutation {\n"
+"  insertRecord(\n"
+"    spaceId: \"...\",\n"
+"    data: { nom: \"Hugo\", prenom: \"Victor\", particule: \"\" }\n"
+"  ) { id data }\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:477
+#, no-wrap
+msgid ""
+"# Insert a book\n"
+"mutation {\n"
+"  insertRecord(\n"
+"    spaceId: \"...\",\n"
+"    data: { titre: \"Les MisÃ©rables\", auteur_id: 1, genre_id: 2, annee: 1862, isbn: \"978-2-07-040850-4\" }\n"
+"  ) { id data }\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:485
+#, no-wrap
+msgid ""
+"# Insert a copy\n"
+"mutation {\n"
+"  insertRecord(\n"
+"    spaceId: \"...\",\n"
+"    data: { livre_id: 1, etat: \"bon\", disponible: true }\n"
+"  ) { id data }\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:492
+#, no-wrap
+msgid ""
+"# Update\n"
+"mutation {\n"
+"  updateRecord(spaceId: \"...\", id: \"42\", data: { nom: \"Martin\" }) {\n"
+"    id data\n"
+"  }\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:496
+msgid "# Delete mutation { deleteRecord(spaceId: \"...\", id: \"42\") } ```"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:500
+msgid "## 5. Classic Views"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:502
+msgid ""
+"Classic views are named display configurations for a space (grid, form, or "
+"gallery type). Currently, only the `grid` type is fully supported."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:513
+#, no-wrap
+msgid ""
+"```graphql\n"
+"# Create a grid view on the book catalog\n"
+"mutation {\n"
+"  createView(\n"
+"    spaceId: \"...\",\n"
+"    input: { name: \"Catalog\", viewType: grid }\n"
+"  ) { id }\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:518
+#, no-wrap
+msgid ""
+"# Update\n"
+"mutation {\n"
+"  updateView(id: \"...\", input: { name: \"New name\" }) { id name }\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:522
+msgid "# Delete mutation { deleteView(id: \"...\") } ```"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:526
+msgid "## 6. Custom Views (YAML)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:528
+msgid "Custom views are multi-space dashboards declared in YAML."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:530
+msgid "### Editor"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:532
+msgid "Click **âEditâ** on a view to open a fullscreen modal composed of:"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:535
+msgid ""
+"- A **CodeMirror** editor (YAML, monokai theme) for direct YAML editing.  - "
+"An **interactive ERD diagram** on the right: clicking a field automatically "
+"generates the corresponding YAML in the editor (widget, columns, "
+"`depends_on` if FK detected)."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:538
+msgid ""
+"Each ERD box has a pseudo-field **`*`** (first row) that adds the space "
+"without column restriction (no `columns` key in YAML).  Fields are sorted "
+"**alphabetically**. Self-relations (e.g., `parent_id â id`) are shown as a "
+"loop on the right side of the box."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:540
+msgid "### Basic structure"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:548
+#, no-wrap
+msgid ""
+"```yaml\n"
+"layout:\n"
+"  direction: vertical    # or horizontal\n"
+"  children:\n"
+"    - widget: ...        # leaf widget (data grid)\n"
+"    - layout: ...        # nested area (recursive)\n"
+"```\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:550
+msgid "### Widget"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:563
+#, no-wrap
+msgid ""
+"```yaml\n"
+"widget:\n"
+"  id: unique_identifier   # required, unique in the view\n"
+"  title: \"Displayed title\"   # optional\n"
+"  space: space_name        # Tarantool space name\n"
+"  columns: [field1, field2]  # displayed columns (default: all)\n"
+"  factor: 2                  # weight in parent area (default: 1)\n"
+"  depends_on:                # dependent filtering (optional)\n"
+"    widget: parent_widget_id\n"
+"    field: join_field        # field in THIS space\n"
+"    from_field: id           # field in parent widget (default: id)\n"
+"```\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:565
+msgid "### Dependencies (inter-widget filtering)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:567
+msgid ""
+"When `depends_on` is set, the widget only displays records whose `field` "
+"matches the value of `from_field` in the selected row of the parent widget."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:569
+msgid "### Proportional factors"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:571
+msgid ""
+"The `factor` indicates the relative space taken by a child in its area. "
+"Example: if widget A has `factor: 2` and widget B `factor: 1`, A takes up "
+"2/3 of the space."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:573
+msgid "### Custom columns"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:577
+#, no-wrap
+msgid ""
+"```yaml\n"
+"columns: [prenom, nom, email]   # only these fields, in this order\n"
+"```\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:579
+msgid "If omitted, all fields of the space are displayed."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:581
+msgid "### Full example"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:583
+#, no-wrap
+msgid "**Library management** view: book catalog â copies â current loans, with an aggregate widget for loans by genre.\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:617
+#, no-wrap
+msgid ""
+"```yaml\n"
+"layout:\n"
+"  direction: vertical\n"
+"  children:\n"
+"    - widget:\n"
+"        id: livres\n"
+"        title: Book catalog\n"
+"        space: livres\n"
+"        columns: [titre, cote_auto, auteur_id, genre_id, isbn, annee]\n"
+"    - layout:\n"
+"        direction: horizontal\n"
+"        children:\n"
+"          - widget:\n"
+"              id: exemplaires\n"
+"              title: Copies\n"
+"              space: exemplaires\n"
+"              depends_on:\n"
+"                widget: livres\n"
+"                field: livre_id\n"
+"                from_field: id\n"
+"              columns: [etat, disponible]\n"
+"              factor: 2\n"
+"          - widget:\n"
+"              id: emprunts\n"
+"              title: Current loans\n"
+"              space: emprunts\n"
+"              depends_on:\n"
+"                widget: exemplaires\n"
+"                field: exemplaire_id\n"
+"                from_field: id\n"
+"              columns: [personne_id, date_emprunt, date_retour]\n"
+"              factor: 3\n"
+"```\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:619
+msgid "### Aggregate widget"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:621
+msgid ""
+"A widget of type `aggregate` displays a read-only summary table, computed "
+"server-side by iterating over the space. It is equivalent to a SQL `GROUP "
+"BY`."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:632
+#, no-wrap
+msgid ""
+"```yaml\n"
+"widget:\n"
+"  type: aggregate\n"
+"  title: \"Loans by genre\"\n"
+"  space: emprunts\n"
+"  groupBy: [genre_id]\n"
+"  aggregate:\n"
+"    - fn: count\n"
+"      as: nb_emprunts\n"
+"```\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:634
+msgid ""
+"The `as` alias is optional: if absent, the generated column name is "
+"`fn_field` (e.g., `avg_annee`) or `count` for `COUNT(*)`."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:636
+msgid "#### Computed columns"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:638
+msgid ""
+"You can add client-side computed columns via the `computed` key. Each entry "
+"provides an alias (`as`) and a JavaScript expression (`expr`) evaluated on "
+"each aggregated row. The `row` object contains all `groupBy` fields and "
+"`aggregate` aliases."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:654
+#, no-wrap
+msgid ""
+"```yaml\n"
+"widget:\n"
+"  type: aggregate\n"
+"  title: \"Loans by genre\"\n"
+"  space: emprunts\n"
+"  groupBy: [genre_id]\n"
+"  aggregate:\n"
+"    - fn: count\n"
+"      as: nb_emprunts\n"
+"  computed:\n"
+"    - as: label\n"
+"      expr: \"row.genre_id + ' (' + row.nb_emprunts + ')'\"\n"
+"    - as: status\n"
+"      expr: \"row.nb_emprunts > 10 ? 'Active' : 'Low activity'\"\n"
+"```\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:656
+msgid ""
+"> **Note:** `computed` expressions are pure JavaScript (not MoonScript); "
+"they run in the browser after receiving the aggregated data."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:658
+msgid "![Aggregate widget](../img/aggregate-widget.png)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:664
+msgid "```graphql # List query { customViews { id name yaml } }"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:672
+#, no-wrap
+msgid ""
+"# Create\n"
+"mutation {\n"
+"  createCustomView(input: {\n"
+"    name: \"Dashboard\",\n"
+"    yaml: \"layout:\\n  direction: vertical\\n  children: []\\n\"\n"
+"  }) { id }\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:677
+#, no-wrap
+msgid ""
+"# Update\n"
+"mutation {\n"
+"  updateCustomView(id: \"...\", input: { yaml: \"...\" }) { id yaml }\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:680
+msgid "# Delete mutation { deleteCustomView(id: \"...\") }"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:692
+#, no-wrap
+msgid ""
+"# Direct aggregate query: loans by genre\n"
+"query {\n"
+"  aggregateSpace(\n"
+"    spaceName: \"emprunts\",\n"
+"    groupBy: [\"genre_id\"],\n"
+"    aggregate: [\n"
+"      { fn: \"count\", as: \"nb_emprunts\" }\n"
+"    ]\n"
+"  )\n"
+"}\n"
+"```\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:696
+msgid "## 7. Authentication"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:698
+msgid ""
+"TGui uses **Bearer tokens** (SHA-256 + salt, stored in Tarantool session). "
+"The token is persisted in `localStorage` and automatically sent by the "
+"client."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:700
+msgid "### Login flow"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:709
+#, no-wrap
+msgid ""
+"```graphql\n"
+"mutation {\n"
+"  login(username: \"alice\", password: \"secret\") {\n"
+"    token\n"
+"    user { id username email groups { id name } }\n"
+"  }\n"
+"}\n"
+"```\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:711
+msgid "The token is then sent in the HTTP header:"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:715
+msgid "``` Authorization: Bearer <token> ```"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:717
+msgid "### Logout"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:721
+msgid "```graphql mutation { logout } ```"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:723
+msgid "### Current user"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:727
+msgid "```graphql query { me { id username email groups { id name } } } ```"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:729
+msgid "### Change own password"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:735
+#, no-wrap
+msgid ""
+"```graphql\n"
+"mutation {\n"
+"  changePassword(currentPassword: \"old\", newPassword: \"new\")\n"
+"}\n"
+"```\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:739
+msgid "## 8. Users and Groups"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:741
+msgid "These operations require **membership in the `admin` group**."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:747
+msgid ""
+"```graphql # List query { users { id username email groups { id name } } }"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:756
+#, no-wrap
+msgid ""
+"# Create (admin only)\n"
+"mutation {\n"
+"  createUser(input: {\n"
+"    username: \"bob\",\n"
+"    email: \"bob@ex.com\",\n"
+"    password: \"secret\"\n"
+"  }) { id }\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:762
+#, no-wrap
+msgid ""
+"# Force password change (admin only)\n"
+"mutation {\n"
+"  adminSetPassword(userId: \"...\", newPassword: \"new\")\n"
+"}\n"
+"```\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:774
+#, no-wrap
+msgid ""
+"```graphql\n"
+"# List (with members and permissions)\n"
+"query {\n"
+"  groups {\n"
+"    id name description\n"
+"    members { id username }\n"
+"    permissions { id resourceType resourceId level }\n"
+"  }\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:779
+#, no-wrap
+msgid ""
+"# Create\n"
+"mutation {\n"
+"  createGroup(input: { name: \"editors\", description: \"...\" }) { id }\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:782
+msgid "# Delete mutation { deleteGroup(id: \"...\") }"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:785
+msgid "# Add member mutation { addMember(userId: \"...\", groupId: \"...\") }"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:789
+msgid ""
+"# Remove member mutation { removeMember(userId: \"...\", groupId: \"...\") } "
+"```"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:793
+msgid "## 9. Permissions"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:795
+msgid "Permissions are granted to a **group** on a resource."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:801
+#, no-wrap
+msgid ""
+"| Level   | Description |\n"
+"|---------|-------------|\n"
+"| `read`  | Read-only |\n"
+"| `write` | Read + write |\n"
+"| `admin` | Full control of the resource |\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:811
+#, no-wrap
+msgid ""
+"```graphql\n"
+"# Grant a permission\n"
+"mutation {\n"
+"  grant(groupId: \"...\", input: {\n"
+"    resourceType: \"space\",\n"
+"    resourceId: \"...\",\n"
+"    level: write\n"
+"  }) { id }\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:815
+msgid "# Revoke mutation { revoke(permissionId: \"...\") } ```"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:819
+msgid "## 10. Export and Import Snapshots"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:821
+msgid ""
+"The **Export / Import** section of the Admin panel lets you save the entire "
+"TGui application (schema, custom views, groups, permissions, and optionally "
+"data) to a `.tdb.yaml` file, then restore it on another instance."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:823
+msgid "### Export"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:825
+msgid "Two export modes are available:"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:828
+msgid ""
+"- **Structure only** (`exportSnapshot(includeData: false)`): exports the "
+"full schema (spaces, fields, relations, custom views, groups, permissions) "
+"without data. Useful for sharing an application model.  - **Structure + "
+"data** (`exportSnapshot(includeData: true)`): also exports all rows of each "
+"space. Useful for a full backup or migration."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:830
+msgid "The produced file is readable YAML:"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:915
+#, no-wrap
+msgid ""
+"```yaml\n"
+"version: \"1\"\n"
+"exported_at: \"2026-03-08T12:00:00\"\n"
+"schema:\n"
+"  spaces:\n"
+"    - name: auteurs\n"
+"      fields:\n"
+"        - name: particule\n"
+"          fieldType: String\n"
+"          notNull: false\n"
+"        - name: nom\n"
+"          fieldType: String\n"
+"          notNull: true\n"
+"        - name: prenom\n"
+"          fieldType: String\n"
+"          notNull: false\n"
+"        - name: nom_complet\n"
+"          fieldType: String\n"
+"          formula: \"=> parts = {}\\ntable.insert(parts, @prenom) if @prenom and @prenom != \\\"\\\"\\ntable.insert(parts, @particule) if @particule and @particule != \\\"\\\"\\ntable.insert(parts, @nom) if @nom and @nom != \\\"\\\"\\ntable.concat(parts, \\\" \\\" )\"\n"
+"          language: moonscript\n"
+"    - name: genres\n"
+"      fields:\n"
+"        - name: libelle\n"
+"          fieldType: String\n"
+"          notNull: true\n"
+"    - name: livres\n"
+"      fields:\n"
+"        - name: titre\n"
+"          fieldType: String\n"
+"          notNull: true\n"
+"        - name: auteur_id\n"
+"          fieldType: Relation\n"
+"          notNull: false\n"
+"        - name: genre_id\n"
+"          fieldType: Relation\n"
+"          notNull: false\n"
+"        - name: cote\n"
+"          fieldType: String\n"
+"          notNull: false\n"
+"        - name: isbn\n"
+"          fieldType: String\n"
+"          notNull: false\n"
+"        - name: annee\n"
+"          fieldType: Int\n"
+"          notNull: false\n"
+"        - name: cote_auto\n"
+"          fieldType: String\n"
+"          formula: \"=> prefix = (@titre or \\\"\\\")\\\\upper!\\\\sub(1, 3)\\\\gsub(\\\"[^%A]\\\", \\\"\\\")\\nannee  = if @annee then tostring(@annee) else \\\"????\\\"\\n\\\"#{prefix}-#{annee}\\\"\"\n"
+"          triggerFields: [titre, annee]\n"
+"          language: moonscript\n"
+"      views:\n"
+"        - name: Catalog\n"
+"          viewType: Grid\n"
+"  relations:\n"
+"    - fromSpace: livres\n"
+"      fromField: auteur_id\n"
+"      toSpace: auteurs\n"
+"      toField: id\n"
+"    - fromSpace: livres\n"
+"      fromField: genre_id\n"
+"      toSpace: genres\n"
+"      toField: id\n"
+"    - fromSpace: exemplaires\n"
+"      fromField: livre_id\n"
+"      toSpace: livres\n"
+"      toField: id\n"
+"  custom_views:\n"
+"    - name: Library management\n"
+"      yaml: |\n"
+"        layout: â¦\n"
+"  groups:\n"
+"    - name: admin\n"
+"      members: [admin]\n"
+"      permissions:\n"
+"        - resourceType: space\n"
+"          level: admin\n"
+"data:                    # absent if structure only export\n"
+"  auteurs:\n"
+"    - {nom: Hugo, prenom: Victor}\n"
+"  genres:\n"
+"    - {libelle: Roman}\n"
+"  livres:\n"
+"    - {titre: \"Les MisÃ©rables\", auteur_id: 1, genre_id: 1, annee: 1862}\n"
+"```\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:917
+msgid ""
+"Internal identifiers are excluded; matching on import is done by **name**."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:919
+msgid "### Import"
+msgstr ""
+
+#. type: Bullet: '2. '
+#: doc/en/reference.md:926
+msgid ""
+"TGui automatically computes a **diff** between the file's schema and the "
+"current schema, and displays it with color codes:"
+msgstr ""
+
+#. type: Bullet: '   - '
+#: doc/en/reference.md:926
+msgid "green **Create**: the item will be added."
+msgstr ""
+
+#. type: Bullet: '   - '
+#: doc/en/reference.md:926
+msgid "red **Delete**: the item will be removed (Replace mode only)."
+msgstr ""
+
+#. type: Bullet: '   - '
+#: doc/en/reference.md:926
+msgid "orange **Modify**: a field's type has changed."
+msgstr ""
+
+#. type: Bullet: '3. '
+#: doc/en/reference.md:926
+msgid "Choose the **import mode** and confirm."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:928
+msgid "### Import modes"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:933
+#, no-wrap
+msgid ""
+"| Mode         | Behavior |\n"
+"|--------------|----------|\n"
+"| **Merge**    | Creates missing spaces, fields, relations, views, and groups. Existing items (same name) are left untouched. |\n"
+"| **Replace**  | First deletes all existing spaces and groups, then recreates everything from the snapshot. Warning: all existing data is lost. |\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:935
+msgid ""
+"The result indicates the number of items created, ignored, and any errors."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:937
+msgid "### Corresponding GraphQL API"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:943
+#, no-wrap
+msgid ""
+"```graphql\n"
+"# Export\n"
+"query Export($includeData: Boolean!) {\n"
+"  exportSnapshot(includeData: $includeData)\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:953
+#, no-wrap
+msgid ""
+"# Diff preview\n"
+"query Diff($yaml: String!) {\n"
+"  diffSnapshot(yaml: $yaml) {\n"
+"    spacesToCreate\n"
+"    spacesToDelete\n"
+"    customViewsToCreate\n"
+"    customViewsToUpdate\n"
+"  }\n"
+"}\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:964
+#, no-wrap
+msgid ""
+"# Import\n"
+"mutation Import($yaml: String!, $mode: ImportMode!) {\n"
+"  importSnapshot(yaml: $yaml, mode: $mode) {\n"
+"    ok\n"
+"    created\n"
+"    skipped\n"
+"    errors\n"
+"  }\n"
+"}\n"
+"```\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:968
+msgid "## 11. Full GraphQL API"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:970
+msgid "### Queries"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:990
+msgid ""
+"| Query | Description | |-------|-------------| | `spaces` | List all spaces "
+"| | `space(id)` | Space details | | `views(spaceId)` | Classic views of a "
+"space | | `view(id)` | Classic view details | | `customViews` | All custom "
+"views | | `customView(id)` | Custom view details | | `records(spaceId, "
+"filter, limit, offset)` | Paginated and filtered records | | "
+"`record(spaceId, id)` | A single record | | `relations(spaceId)` | Relations "
+"of a space | | `me` | Connected user | | `users` | All users (admin) | | "
+"`user(id)` | User details (admin) | | `groups` | All groups (admin) | | "
+"`group(id)` | Group details (admin) | | `exportSnapshot(includeData)` | YAML "
+"export of the application (admin) | | `diffSnapshot(yaml)` | Diff preview "
+"before import (admin) | | `aggregateSpace(spaceName, groupBy, aggregate)` | "
+"Aggregation query on a space |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:992
+msgid "### Mutations"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/reference.md:1010
+msgid ""
+"| Mutation | Description | |----------|-------------| | `createSpace` / "
+"`updateSpace` / `deleteSpace` | CRUD spaces | | `addField` / `updateField` / "
+"`removeField` / `reorderFields` | CRUD fields | | `createView` / "
+"`updateView` / `deleteView` | CRUD classic views | | `createRelation` / "
+"`updateRelation` / `deleteRelation` | CRUD relations | | "
+"`createCustomView` / `updateCustomView` / `deleteCustomView` | CRUD YAML "
+"views | | `insertRecord` / `updateRecord` / `deleteRecord` | Single-record "
+"CRUD | | `insertRecords` / `updateRecords` / `deleteRecords` | Batch record "
+"operations | | `addFields` | Add multiple fields at once | | `login` / "
+"`logout` | Authentication | | `createUser` | Create a user (admin) | | "
+"`changePassword` | Change own password | | `adminSetPassword` | Force a "
+"user's password (admin) | | `createGroup` / `deleteGroup` | CRUD groups "
+"(admin) | | `addMember` / `removeMember` | Manage members (admin) | | "
+"`grant` / `revoke` | Manage permissions (admin) | | `importSnapshot(yaml, "
+"mode)` | Import a YAML snapshot (admin) |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:2
+msgid "# GraphQL API â TGui"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:8
+msgid ""
+"> Auto-generated file. Do not edit manually.  > > Generated at: 2026-03-12 "
+"20:05:37 UTC > > Source: `schema/tdb.graphql`"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:10
+msgid "## Overview"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:16
+msgid ""
+"- Endpoint: `/graphql` - Transport: HTTP POST JSON - Auth: Bearer token in "
+"`Authorization` header - Signature source of truth: `schema/tdb.graphql` - "
+"Runtime SDL snapshot: `schema/tdb.generated.graphql`"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:18
+msgid "## Queries"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:20 doc/en/api.md:75
+msgid "### Spaces & Fields"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:25
+msgid ""
+"| Operation | Arguments | Return | Description | |---|---|---|---| | "
+"`spaces` | `-` | `[Space!]!` | Read operation on space/field metadata. | | "
+"`space` | `id: ID!` | `Space` | Read operation on space/field metadata. |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:27 doc/en/api.md:89
+msgid "### Views"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:34
+msgid ""
+"| Operation | Arguments | Return | Description | |---|---|---|---| | `views` "
+"| `spaceId: ID!` | `[View!]!` | Manage standard and custom views. | | `view` "
+"| `id: ID!` | `View` | Manage standard and custom views. | | `customViews` | "
+"`-` | `[CustomView!]!` | Manage standard and custom views. | | `customView` "
+"| `id: ID!` | `CustomView` | Manage standard and custom views. |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:36 doc/en/api.md:100
+msgid "### Relations"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:41
+msgid ""
+"| Operation | Arguments | Return | Description | |---|---|---|---| | "
+"`relations` | `spaceId: ID!` | `[Relation!]!` | Manage inter-space relations "
+"and column display preferences. | | `gridColumnPrefs` | `spaceId: ID!` | "
+"`JSON!` | Manage inter-space relations and column display preferences. |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:43 doc/en/api.md:109
+msgid "### Data (records)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:49
+msgid ""
+"| Operation | Arguments | Return | Description | |---|---|---|---| | "
+"`records` | `spaceId: ID!, filter: RecordFilter, limit: Int, offset: Int, "
+"reprFormula: String, reprLanguage: String` | `RecordPage!` | Read/write user "
+"records. | | `record` | `spaceId: ID!, id: ID!` | `Record` | Read/write user "
+"records. | | `aggregateSpace` | `spaceName: String! groupBy: [String!]! "
+"aggregate: [AggregateInput!]!` | `[JSON]` | Read/write user records. |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:51 doc/en/api.md:121
+msgid "### Authentication"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:55
+msgid ""
+"| Operation | Arguments | Return | Description | |---|---|---|---| | `me` | "
+"`-` | `User` | Authentication, sessions and password lifecycle. |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:57 doc/en/api.md:130
+msgid "### Users & Groups"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:64
+msgid ""
+"| Operation | Arguments | Return | Description | |---|---|---|---| | `users` "
+"| `-` | `[User!]!` | Administration for users, groups and permissions. | | "
+"`user` | `id: ID!` | `User` | Administration for users, groups and "
+"permissions. | | `groups` | `-` | `[Group!]!` | Administration for users, "
+"groups and permissions. | | `group` | `id: ID!` | `Group` | Administration "
+"for users, groups and permissions. |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:66 doc/en/api.md:142
+msgid "### Snapshots"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:71
+msgid ""
+"| Operation | Arguments | Return | Description | |---|---|---|---| | "
+"`exportSnapshot` | `includeData: Boolean!` | `String!` | Export, diff and "
+"import configuration snapshots. | | `diffSnapshot` | `yaml: String!` | "
+"`SnapshotDiff!` | Export, diff and import configuration snapshots. |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:73
+msgid "## Mutations"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:87
+msgid ""
+"| Operation | Arguments | Return | Description | |---|---|---|---| | "
+"`createSpace` | `input: CreateSpaceInput!` | `Space!` | Mutation operation "
+"on space/field metadata. | | `updateSpace` | `id: ID!, input: "
+"UpdateSpaceInput!` | `Space!` | Mutation operation on space/field metadata. "
+"| | `deleteSpace` | `id: ID!` | `Boolean!` | Mutation operation on space/"
+"field metadata. | | `addField` | `spaceId: ID!, input: FieldInput!` | `Field!"
+"` | Mutation operation on space/field metadata. | | `addFields` | `spaceId: "
+"ID!, inputs: [FieldInput!]!` | `[Field!]!` | Mutation operation on space/"
+"field metadata. | | `removeField` | `fieldId: ID!` | `Boolean!` | Mutation "
+"operation on space/field metadata. | | `reorderFields` | `spaceId: ID!, "
+"fieldIds: [ID!]!` | `[Field!]!` | Mutation operation on space/field "
+"metadata. | | `updateField` | `fieldId: ID!, input: UpdateFieldInput!` | "
+"`Field!` | Mutation operation on space/field metadata. | | `changeFieldType` "
+"| `fieldId: ID!, input: ChangeFieldTypeInput!` | `Field!` | Mutation "
+"operation on space/field metadata. |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:98
+msgid ""
+"| Operation | Arguments | Return | Description | |---|---|---|---| | "
+"`createView` | `spaceId: ID!, input: CreateViewInput!` | `View!` | Manage "
+"standard and custom views. | | `updateView` | `id: ID!, input: "
+"UpdateViewInput!` | `View!` | Manage standard and custom views. | | "
+"`deleteView` | `id: ID!` | `Boolean!` | Manage standard and custom views. | "
+"| `createCustomView` | `input: CreateCustomViewInput!` | `CustomView!` | "
+"Manage standard and custom views. | | `updateCustomView` | `id: ID!, input: "
+"UpdateCustomViewInput!` | `CustomView!` | Manage standard and custom views. "
+"| | `deleteCustomView` | `id: ID!` | `Boolean!` | Manage standard and custom "
+"views. |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:107
+msgid ""
+"| Operation | Arguments | Return | Description | |---|---|---|---| | "
+"`createRelation` | `input: CreateRelationInput!` | `Relation!` | Manage "
+"inter-space relations and column display preferences. | | `deleteRelation` | "
+"`id: ID!` | `Boolean!` | Manage inter-space relations and column display "
+"preferences. | | `updateRelation` | `id: ID!, input: UpdateRelationInput!` | "
+"`Relation!` | Manage inter-space relations and column display preferences. | "
+"| `saveGridColumnPrefs` | `spaceId: ID!, prefs: JSON!, asDefault: Boolean` | "
+"`Boolean!` | Manage inter-space relations and column display preferences. |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:119
+msgid ""
+"| Operation | Arguments | Return | Description | |---|---|---|---| | "
+"`insertRecord` | `spaceId: ID!, data: JSON!` | `Record!` | Read/write user "
+"records. | | `updateRecord` | `spaceId: ID!, id: ID!, data: JSON!` | `Record!"
+"` | Read/write user records. | | `deleteRecord` | `spaceId: ID!, id: ID!` | "
+"`Boolean!` | Read/write user records. | | `deleteRecords` | `spaceId: ID!, "
+"ids: [ID!]!` | `[Boolean!]!` | Read/write user records. | | `insertRecords` "
+"| `spaceId: ID!, data: [JSON!]!` | `[Record!]!` | Read/write user records. | "
+"| `updateRecords` | `spaceId: ID!, records: [RecordUpdateInput!]!` | "
+"`[Record!]!` | Read/write user records. | | `restoreRecords` | `spaceId: "
+"ID!, records: [RecordUpdateInput!]!` | `[Record!]!` | Read/write user "
+"records. |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:128
+msgid ""
+"| Operation | Arguments | Return | Description | |---|---|---|---| | `login` "
+"| `username: String!, password: String!` | `AuthPayload!` | Authentication, "
+"sessions and password lifecycle. | | `logout` | `-` | `Boolean!` | "
+"Authentication, sessions and password lifecycle. | | `changePassword` | "
+"`currentPassword: String!, newPassword: String!` | `Boolean!` | "
+"Authentication, sessions and password lifecycle. | | `adminSetPassword` | "
+"`userId: ID!, newPassword: String!` | `Boolean!` | Authentication, sessions "
+"and password lifecycle. |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:140
+msgid ""
+"| Operation | Arguments | Return | Description | |---|---|---|---| | "
+"`createUser` | `input: CreateUserInput!` | `User!` | Administration for "
+"users, groups and permissions. | | `createGroup` | `input: CreateGroupInput!"
+"` | `Group!` | Administration for users, groups and permissions. | | "
+"`deleteGroup` | `id: ID!` | `Boolean!` | Administration for users, groups "
+"and permissions. | | `addMember` | `userId: ID!, groupId: ID!` | `Boolean!` "
+"| Administration for users, groups and permissions. | | `removeMember` | "
+"`userId: ID!, groupId: ID!` | `Boolean!` | Administration for users, groups "
+"and permissions. | | `grant` | `groupId: ID!, input: PermissionInput!` | "
+"`Permission!` | Administration for users, groups and permissions. | | "
+"`revoke` | `permissionId: ID!` | `Boolean!` | Administration for users, "
+"groups and permissions. |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:146
+msgid ""
+"| Operation | Arguments | Return | Description | |---|---|---|---| | "
+"`importSnapshot` | `yaml: String!, mode: ImportMode!` | `ImportResult!` | "
+"Export, diff and import configuration snapshots. |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:148
+msgid "## Usage Examples"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:150
+msgid "### 1) Authenticate then query spaces"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:156
+#, no-wrap
+msgid ""
+"```graphql\n"
+"mutation Login($u: String!, $p: String!) {\n"
+"  login(username: $u, password: $p) { token user { id username } }\n"
+"}\n"
+"```\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:160
+msgid "```graphql query { spaces { id name description } } ```"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:162
+msgid "### 2) Paginated records query"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:171
+#, no-wrap
+msgid ""
+"```graphql\n"
+"query Records($spaceId: ID!, $limit: Int!, $offset: Int!) {\n"
+"  records(spaceId: $spaceId, limit: $limit, offset: $offset) {\n"
+"    total\n"
+"    items { id data }\n"
+"  }\n"
+"}\n"
+"```\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:173
+msgid "### 3) Structural mutation: create space and field"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:179
+#, no-wrap
+msgid ""
+"```graphql\n"
+"mutation CreateSpace($input: CreateSpaceInput!) {\n"
+"  createSpace(input: $input) { id name }\n"
+"}\n"
+"```\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:185
+#, no-wrap
+msgid ""
+"```graphql\n"
+"mutation AddField($spaceId: ID!, $input: FieldInput!) {\n"
+"  addField(spaceId: $spaceId, input: $input) { id name fieldType }\n"
+"}\n"
+"```\n"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:187
+msgid "## Input Types"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:205
+msgid ""
+"- `RecordUpdateInput` - `RecordFilter` - `UpdateFieldInput` - "
+"`CreateSpaceInput` - `UpdateSpaceInput` - `FieldInput` - "
+"`ChangeFieldTypeInput` - `CreateViewInput` - `UpdateViewInput` - "
+"`CreateRelationInput` - `UpdateRelationInput` - `CreateCustomViewInput` - "
+"`UpdateCustomViewInput` - `CreateUserInput` - `CreateGroupInput` - "
+"`PermissionInput` - `AggregateInput`"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:207
+msgid "## Enums"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:213
+msgid ""
+"- `FieldType` - `ViewType` - `FilterOp` - `PermissionLevel` - `ImportMode`"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:215
+msgid "## Notes"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/api.md:217
+msgid ""
+"- Dynamic user-space types are rebuilt by backend schema reinitialization.  "
+"- To refresh SDL runtime snapshot: `make sdl-gen`."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/dev.md:2
+msgid "# Developer Documentation â TGui"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/dev.md:6 doc/en/dev/architecture.md:6 doc/en/dev/runtime.md:6
+#: doc/en/dev/graphql.md:6 doc/en/dev/frontend.md:6 doc/en/dev/tests.md:6
+msgid ""
+"> Auto-generated file. Do not edit manually.  > > Generated at: 2026-03-12 "
+"20:05:37 UTC"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/dev.md:8
+msgid ""
+"Compact architecture overview for TGui. Full reference is available in `doc/"
+"en/dev/*.md`."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/dev.md:10
+msgid "## Architecture (summary)"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/dev.md:17
+msgid ""
+"- Runtime entrypoint: `backend/init.moon` - HTTP edge: `backend/http_server."
+"moon` - GraphQL execution: `backend/graphql/executor.moon` - Schema/resolver "
+"assembly: `backend/resolvers/init.moon` - Metadata engine: `backend/core/"
+"spaces.moon` - Frontend SPA shell: `frontend/src/app.coffee`"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/dev.md:19
+msgid "## Detailed references"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/dev.md:25
+msgid ""
+"- Global architecture: `doc/en/dev/architecture.md` - Backend runtime: `doc/"
+"en/dev/runtime.md` - GraphQL pipeline: `doc/en/dev/graphql.md` - Frontend "
+"SPA: `doc/en/dev/frontend.md` - Testing strategy: `doc/en/dev/tests.md`"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/dev.md:27
+msgid "## Commands"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/dev.md:30
+msgid ""
+"- Generate docs: `make doc-gen` - Check docs: `make doc-check` - Full CI: "
+"`make ci`"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/dev/architecture.md:2
+msgid "# Architecture â detailed reference"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/dev/architecture.md:8
+msgid "Architecture-level view of backend/frontend modules and relationships."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/dev/architecture.md:18
+msgid ""
+"| Module | Summary | |---|---| | `backend/init.moon` | Tarantool bootstrap "
+"entrypoint for TGui backend runtime. | | `backend/http_server.moon` | HTTP "
+"edge for TGui (index/static assets + GraphQL POST endpoint). | | `backend/"
+"core/spaces.moon` | Bootstrap and manage tdb system spaces (metadata) in "
+"Tarantool. | | `backend/core/auth.moon` | Authentication: hashing, sessions, "
+"user management. | | `backend/core/permissions.moon` | Unix-style group "
+"permissions management. | | `backend/core/triggers.moon` | Manages Tarantool "
+"before_replace triggers for trigger formula fields. | | `backend/core/views."
+"moon` | Manage view definitions: named projections over a data space. | | "
+"`backend/resolvers/init.moon` | Compose and initialize the executable "
+"GraphQL schema/resolver graph. |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/dev/runtime.md:2
+msgid "# Backend runtime â detailed reference"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/dev/runtime.md:8
+msgid "Tarantool startup, HTTP lifecycle and subsystem initialization details."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/dev/runtime.md:41
+msgid ""
+"| Module | Summary | |---|---| | `backend/core/auth.moon` | Authentication: "
+"hashing, sessions, user management. | | `backend/core/config.moon` | "
+"Centralized configuration for TGui. | | `backend/core/fk_proxy.moon` | "
+"Foreign-key proxy resolution module to simplify triggers.moon. | | `backend/"
+"core/permissions.moon` | Unix-style group permissions management. | | "
+"`backend/core/spaces.moon` | Bootstrap and manage tdb system spaces "
+"(metadata) in Tarantool. | | `backend/core/triggers.moon` | Manages "
+"Tarantool before_replace triggers for trigger formula fields. | | `backend/"
+"core/views.moon` | Manage view definitions: named projections over a data "
+"space. | | `backend/fixtures.moon` | Seed dataset for the TGui test "
+"container. | | `backend/generate_sdl.moon` | CLI entrypoint to generate "
+"passive SDL artifact. | | `backend/graphql/dynamic.moon` | Generates GraphQL "
+"SDL and resolvers dynamically from space metadata. | | `backend/graphql/"
+"executor.moon` | Executes a parsed GraphQL operation against a schema and "
+"resolvers. | | `backend/graphql/introspection.moon` | Implements GraphQL "
+"introspection: __schema, __type, __typename. | | `backend/graphql/lexer."
+"moon` | Tokenizes a GraphQL document (query or SDL) into a token stream. | | "
+"`backend/graphql/parser.moon` | Parses a GraphQL document (query or SDL) "
+"into an AST. | | `backend/graphql/schema.moon` | Type system: builds an "
+"executable schema from a parsed SDL document. | | `backend/graphql/"
+"sdl_generator.moon` | Generates a passive SDL artifact from MoonScript "
+"registry metadata. | | `backend/graphql/sdl_registry.moon` | Passive "
+"MoonScript source of truth for static root GraphQL fields. | | `backend/"
+"http_server.moon` | HTTP edge for TGui (index/static assets + GraphQL POST "
+"endpoint). | | `backend/index.moon` | Dynamically generates the main TGui "
+"HTML page. | | `backend/init.moon` | Tarantool bootstrap entrypoint for TGui "
+"backend runtime. | | `backend/resolvers/aggregate_resolvers.moon` | "
+"Aggregation query: GROUP BY via Lua iteration over tuples. | | `backend/"
+"resolvers/auth_resolvers.moon` | Resolvers for authentication, user "
+"management, groups, and permissions. | | `backend/resolvers/"
+"custom_view_resolvers.moon` | CRUD resolvers for custom YAML views "
+"(dashboard layouts). | | `backend/resolvers/data_resolvers.moon` | Resolvers "
+"for CRUD operations on user-defined data spaces. | | `backend/resolvers/"
+"export_resolvers.moon` | Snapshot export, diff and import resolvers. | | "
+"`backend/resolvers/init.moon` | Compose and initialize the executable "
+"GraphQL schema/resolver graph. | | `backend/resolvers/schema_resolvers.moon` "
+"| Resolvers for space, field, view, and relation metadata. | | `backend/"
+"resolvers/utils.moon` | Shared helpers for all resolvers. | | `backend/"
+"test_runner.moon` | Entrypoint to run tests in a Docker container. | | "
+"`backend/init.lua` | (pas de description en tÃªte de fichier) | | `backend/"
+"html.lua` | SPDX-License-Identifier: MIT |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/dev/graphql.md:2
+msgid "# GraphQL pipeline â detailed reference"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/dev/graphql.md:8
+msgid "SDL/parser/executor/resolver flow (static + dynamic)."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/dev/graphql.md:19
+msgid ""
+"| Module | Summary | |---|---| | `backend/graphql/lexer.moon` | Tokenizes a "
+"GraphQL document (query or SDL) into a token stream. | | `backend/graphql/"
+"parser.moon` | Parses a GraphQL document (query or SDL) into an AST. | | "
+"`backend/graphql/schema.moon` | Type system: builds an executable schema "
+"from a parsed SDL document. | | `backend/graphql/executor.moon` | Executes a "
+"parsed GraphQL operation against a schema and resolvers. | | `backend/"
+"graphql/dynamic.moon` | Generates GraphQL SDL and resolvers dynamically from "
+"space metadata. | | `backend/graphql/introspection.moon` | Implements "
+"GraphQL introspection: __schema, __type, __typename. | | `backend/resolvers/"
+"schema_resolvers.moon` | Resolvers for space, field, view, and relation "
+"metadata. | | `backend/resolvers/data_resolvers.moon` | Resolvers for CRUD "
+"operations on user-defined data spaces. | | `backend/resolvers/"
+"auth_resolvers.moon` | Resolvers for authentication, user management, "
+"groups, and permissions. |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/dev/frontend.md:2
+msgid "# Frontend SPA â detailed reference"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/dev/frontend.md:8
+msgid "CoffeeScript module organization and key UI flows."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/dev/frontend.md:16
+msgid ""
+"| Module | Summary | |---|---| | `frontend/src/app.coffee` | app.coffee â "
+"main application bootstrap and UI orchestration. | | `frontend/src/"
+"graphql_client.coffee` | Minimal GraphQL client backed by the browser fetch "
+"API. | | `frontend/src/spaces.coffee` | Space and field management. | | "
+"`frontend/src/auth.coffee` | Handles login, logout, current-user state, and "
+"password management. | | `frontend/src/views/data_view.coffee` | Raw data "
+"grid view using Toast UI Grid (tui.Grid). | | `frontend/src/views/"
+"custom_view.coffee` | YAML-driven layout renderer. |"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/dev/tests.md:2
+msgid "# Tests â detailed reference"
+msgstr ""
+
+#. type: Plain text
+#: doc/en/dev/tests.md:8
+msgid "Backend/frontend test panorama and per-file intent."
+msgstr ""
+
+#. type: Plain text
+#: doc/en/dev/tests.md:44
+msgid ""
+"| Module | Summary | |---|---| | `tests/run.moon` | Entrypoint for the TGui "
+"test suite. | | `tests/runner.moon` | Standalone test micro-framework (no "
+"external dependencies). | | `tests/test_batch_ops.moon` | GraphQL "
+"integration tests for insertRecords/updateRecords on a temporary space. | | "
+"`tests/test_custom_views.moon` | Tests CRUD operations on custom views "
+"(resolvers/custom_view_resolvers.moon). | | `tests/test_data_filters.moon` | "
+"Tests filter operators (matches_filter / apply_filter). | | `tests/"
+"test_executor.moon` | Tests GraphQL executor behavior (graphql/executor."
+"moon). | | `tests/test_lexer.moon` | Tests for GraphQL lexer (graphql/lexer."
+"moon). | | `tests/test_nesting.moon` | Tests nested GraphQL queries (nesting/"
+"sub-queries). | | `tests/test_parser.moon` | Tests for GraphQL parser "
+"(graphql/parser.moon). | | `tests/test_permissions.moon` | Tests permission "
+"coverage: require_auth, require_admin, | | `tests/"
+"test_relation_display_backend.moon` | Backend test to verify relation "
+"display behavior. | | `tests/test_relation_display_regression.moon` | "
+"Regression test to ensure relation rendering no longer breaks. | | `tests/"
+"test_relation_field.moon` | Ensures Relation type is not used directly and "
+"UI follows the correct mutation flow. | | `tests/test_relation_integration."
+"moon` | Full integration test for relations. | | `tests/test_relation_repr."
+"moon` | Test to verify that relations correctly use _repr. | | `tests/"
+"test_relation_type_regression.moon` | Regression: verifies safe "
+"fieldType=Relation -> Int mapping and relation creation. | | `tests/"
+"test_relations.moon` | Tests FK relation behavior: create_relation, "
+"list_relations, update_relation | | `tests/test_schema.moon` | Tests for "
+"GraphQL type system (graphql/schema.moon). | | `tests/test_snapshot.moon` | "
+"Tests exportSnapshot / diffSnapshot / importSnapshot resolvers. | | `tests/"
+"test_spaces.moon` | Tests CRUD operations on spaces (core/spaces.moon). | | "
+"`tests/test_triggers.moon` | Tests trigger formulas (core/triggers.moon). | "
+"| `tests/js/dom_stub.coffee` | tests/js/dom_stub.coffee â minimal DOM stub "
+"for Node.js | | `tests/js/run.coffee` | tests/js/run.coffee â runs all "
+"test_*.coffee files sequentially | | `tests/js/runner.coffee` | tests/js/"
+"runner.coffee â minimal test runner (no dependencies) | | `tests/js/"
+"test_auth.coffee` | tests/js/test_auth.coffee â tests pour Auth (auth.js) | "
+"| `tests/js/test_custom_view.coffee` | tests/js/test_custom_view.coffee â "
+"tests for CustomView (custom_view.js) | | `tests/js/test_data_view.coffee` | "
+"tests/js/test_data_view.coffee â tests for DataView (data_view.js) | | "
+"`tests/js/test_graphql_client.coffee` | tests/js/test_graphql_client.coffee "
+"â tests pour GQL (graphql_client.js) | | `tests/js/test_i18n.coffee` | tests/"
+"js/test_i18n.coffee â tests du runtime i18n minimal | | `tests/js/"
+"test_relation_display_frontend.coffee` | Static frontend tests (Node) for "
+"relation display. | | `tests/js/test_relation_display_frontend_regression."
+"coffee` | Targeted regressions for frontend relation rendering. | | `tests/"
+"js/test_spaces.coffee` | tests/js/test_spaces.coffee â tests for Spaces "
+"(spaces.js) | | `tests/js/test_undo_helpers.coffee` | tests/js/"
+"test_undo_helpers.coffee â tests for global AppUndoHelpers service. | | "
+"`tests/js/test_yaml_builder.coffee` | tests/js/test_yaml_builder.coffee â "
+"tests for YamlBuilder (yaml_builder.js) |"
+msgstr ""

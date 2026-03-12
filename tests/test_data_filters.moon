@@ -1,21 +1,17 @@
 -- tests/test_data_filters.moon
--- Tests des opérateurs de filtrage (matches_filter / apply_filter).
--- La fonction matches_filter est locale dans data_resolvers ;
--- on la teste en allant chercher les records via le GraphQL ou en testant
--- directement via les fonctions du module (accès par require).
+-- Tests filter operators (matches_filter / apply_filter).
+-- matches_filter is local to data_resolvers;
+-- test behavior via GraphQL records and module-level logic here.
 
 R = require 'tests.runner'
 
--- matches_filter et apply_filter sont locaux mais on peut les tester via
--- les resolvers en insérant des données et en filtrant via records().
--- On teste la logique métier en accédant aux fonctions via un require dédié.
--- Astuce : on recharge le module pour accéder aux fonctions locales via un
--- wrapper de test.
+-- matches_filter and apply_filter are local, but can be validated through
+-- resolvers by inserting data and filtering through records().
+-- Business logic is tested here with a dedicated local implementation.
 
--- Pour accéder aux fonctions locales, on les expose temporairement via un
--- patch du module ou on les re-implémente ici pour tester la logique seule.
--- Approche choisie : copier la logique de matches_filter ici et la tester
--- indépendamment (test de logique pure sans dépendance Tarantool).
+-- To test local-only helpers, re-implement matching logic here.
+-- Chosen approach: copy matches_filter logic and test it independently
+-- (pure logic tests without Tarantool dependency).
 
 triggers   = require 'core.triggers'
 spaces_mod = require 'core.spaces'
@@ -24,7 +20,7 @@ spaces_mod = require 'core.spaces'
 
 CTX_FK = { user_id: 'test-user' }
 
--- Réimplémentation fidèle de matches_filter pour test unitaire
+-- Faithful re-implementation of matches_filter for unit tests.
 matches_filter = (parsed, flt) ->
   return true unless flt
   ok = if flt.formula and flt.formula != ''
@@ -76,152 +72,152 @@ apply_filter = (tuples, filter, fk_def_map) ->
   result
 
 -- ────────────────────────────────────────────────────────────────────────────
-R.describe "matches_filter — opérateur EQ", ->
+R.describe "matches_filter — EQ operator", ->
 
-  R.it "EQ : égalité exacte → true", ->
+  R.it "EQ: exact equality -> true", ->
     R.ok matches_filter { nom: 'Dupont' }, { field: 'nom', op: 'EQ', value: 'Dupont' }
 
-  R.it "EQ : inégalité → false", ->
+  R.it "EQ: inequality -> false", ->
     R.eq matches_filter({ nom: 'Dupont' }, { field: 'nom', op: 'EQ', value: 'Martin' }), false
 
-  R.it "EQ : champ absent → compare '' à valeur", ->
+  R.it "EQ: missing field -> compares '' to value", ->
     R.eq matches_filter({}, { field: 'x', op: 'EQ', value: '' }), true
     R.eq matches_filter({}, { field: 'x', op: 'EQ', value: 'truc' }), false
 
-  R.it "EQ : comparaison numérique convertie en string", ->
+  R.it "EQ: numeric comparison converted to string", ->
     R.ok matches_filter { age: 42 }, { field: 'age', op: 'EQ', value: '42' }
 
 -- ────────────────────────────────────────────────────────────────────────────
-R.describe "matches_filter — opérateur NEQ", ->
+R.describe "matches_filter — NEQ operator", ->
 
-  R.it "NEQ : valeurs différentes → true", ->
+  R.it "NEQ: different values -> true", ->
     R.ok matches_filter { nom: 'Dupont' }, { field: 'nom', op: 'NEQ', value: 'Martin' }
 
-  R.it "NEQ : valeurs égales → false", ->
+  R.it "NEQ: equal values -> false", ->
     R.eq matches_filter({ nom: 'Dupont' }, { field: 'nom', op: 'NEQ', value: 'Dupont' }), false
 
 -- ────────────────────────────────────────────────────────────────────────────
-R.describe "matches_filter — opérateurs LT / GT / LTE / GTE", ->
+R.describe "matches_filter — LT / GT / LTE / GTE operators", ->
 
-  R.it "LT : strictement inférieur → true", ->
+  R.it "LT: strictly lower -> true", ->
     R.ok matches_filter { age: 30 }, { field: 'age', op: 'LT', value: '40' }
 
-  R.it "LT : égal → false", ->
+  R.it "LT: equal -> false", ->
     R.eq matches_filter({ age: 40 }, { field: 'age', op: 'LT', value: '40' }), false
 
-  R.it "GT : strictement supérieur → true", ->
+  R.it "GT: strictly greater -> true", ->
     R.ok matches_filter { age: 50 }, { field: 'age', op: 'GT', value: '40' }
 
-  R.it "GT : égal → false", ->
+  R.it "GT: equal -> false", ->
     R.eq matches_filter({ age: 40 }, { field: 'age', op: 'GT', value: '40' }), false
 
-  R.it "LTE : inférieur ou égal → true", ->
+  R.it "LTE: lower or equal -> true", ->
     R.ok matches_filter { age: 40 }, { field: 'age', op: 'LTE', value: '40' }
     R.ok matches_filter { age: 39 }, { field: 'age', op: 'LTE', value: '40' }
 
-  R.it "GTE : supérieur ou égal → true", ->
+  R.it "GTE: greater or equal -> true", ->
     R.ok matches_filter { age: 40 }, { field: 'age', op: 'GTE', value: '40' }
     R.ok matches_filter { age: 41 }, { field: 'age', op: 'GTE', value: '40' }
 
 -- ────────────────────────────────────────────────────────────────────────────
-R.describe "matches_filter — opérateur CONTAINS", ->
+R.describe "matches_filter — CONTAINS operator", ->
 
-  R.it "CONTAINS : sous-chaîne présente → true", ->
+  R.it "CONTAINS: substring present -> true", ->
     R.ok matches_filter { nom: 'Dupont' }, { field: 'nom', op: 'CONTAINS', value: 'pont' }
 
-  R.it "CONTAINS : sous-chaîne absente → false", ->
+  R.it "CONTAINS: substring missing -> false", ->
     R.eq matches_filter({ nom: 'Dupont' }, { field: 'nom', op: 'CONTAINS', value: 'xyz' }), false
 
-  R.it "CONTAINS : chaîne vide correspond toujours", ->
+  R.it "CONTAINS: empty string always matches", ->
     R.ok matches_filter { nom: 'Dupont' }, { field: 'nom', op: 'CONTAINS', value: '' }
 
-  R.it "CONTAINS : caractères spéciaux Lua non interprétés comme patterns", ->
-    -- Le '.' en pattern Lua correspond à tout. Avec find(plain=true) il ne doit pas.
+  R.it "CONTAINS: Lua special characters not interpreted as patterns", ->
+    -- In Lua patterns, '.' matches anything. With find(plain=true), it must not.
     R.eq matches_filter({ code: 'abc' }, { field: 'code', op: 'CONTAINS', value: 'a.c' }), false
     R.ok matches_filter  { code: 'a.c' }, { field: 'code', op: 'CONTAINS', value: 'a.c' }
 
 -- ────────────────────────────────────────────────────────────────────────────
-R.describe "matches_filter — opérateur STARTS_WITH", ->
+R.describe "matches_filter — STARTS_WITH operator", ->
 
-  R.it "STARTS_WITH : début exact → true", ->
+  R.it "STARTS_WITH: exact prefix -> true", ->
     R.ok matches_filter { nom: 'Dupont' }, { field: 'nom', op: 'STARTS_WITH', value: 'Du' }
 
-  R.it "STARTS_WITH : ne commence pas par → false", ->
+  R.it "STARTS_WITH: does not start with -> false", ->
     R.eq matches_filter({ nom: 'Dupont' }, { field: 'nom', op: 'STARTS_WITH', value: 'pont' }), false
 
-  R.it "STARTS_WITH : chaîne vide → true (tout commence par '')", ->
+  R.it "STARTS_WITH: empty string -> true (everything starts with '')", ->
     R.ok matches_filter { nom: 'Dupont' }, { field: 'nom', op: 'STARTS_WITH', value: '' }
 
 -- ────────────────────────────────────────────────────────────────────────────
-R.describe "matches_filter — combinaisons AND / OR", ->
+R.describe "matches_filter — AND / OR combinations", ->
 
-  R.it "AND : les deux conditions vraies → true", ->
+  R.it "AND: both conditions true -> true", ->
     flt = {}
     flt["and"] = { { field: 'a', op: 'EQ', value: '1' }, { field: 'b', op: 'EQ', value: '2' } }
     R.ok matches_filter { a: '1', b: '2' }, flt
 
-  R.it "AND : une condition fausse → false", ->
+  R.it "AND: one condition false -> false", ->
     flt = {}
     flt["and"] = { { field: 'a', op: 'EQ', value: '1' }, { field: 'b', op: 'EQ', value: '2' } }
     R.eq matches_filter({ a: '1', b: '99' }, flt), false
 
-  R.it "OR : au moins une condition vraie → true", ->
+  R.it "OR: at least one condition true -> true", ->
     flt = {}
     flt["or"] = { { field: 'nom', op: 'EQ', value: 'Dupont' }, { field: 'nom', op: 'EQ', value: 'Martin' } }
     R.ok matches_filter { nom: 'Martin' }, flt
 
-  R.it "OR : aucune condition vraie → false", ->
+  R.it "OR: no condition true -> false", ->
     flt = {}
     flt["or"] = { { field: 'nom', op: 'EQ', value: 'Dupont' }, { field: 'nom', op: 'EQ', value: 'Martin' } }
     R.eq matches_filter({ nom: 'Durand' }, flt), false
 
-  R.it "filtre nil → true (pas de filtre)", ->
+  R.it "nil filter -> true (no filter)", ->
     R.ok matches_filter { nom: 'Dupont' }, nil
 
-  R.it "filtre sans field ni and/or → true (filtre vide)", ->
+  R.it "filter without field or and/or -> true (empty filter)", ->
     R.ok matches_filter { nom: 'Dupont' }, {}
 
 -- ────────────────────────────────────────────────────────────────────────────
-R.describe "matches_filter — opérateur inconnu", ->
+R.describe "matches_filter — unknown operator", ->
 
-  R.it "opérateur inconnu → toujours true (non filtrant)", ->
+  R.it "unknown operator -> always true (non-filtering)", ->
     R.ok matches_filter { x: 'y' }, { field: 'x', op: 'UNKNOWN_OP', value: 'z' }
 
 -- ────────────────────────────────────────────────────────────────────────────
-R.describe "matches_filter — filtre formule Lua", ->
+R.describe "matches_filter — Lua formula filter", ->
 
-  R.it "formule vraie → true", ->
+  R.it "true formula -> true", ->
     fn = triggers.compile_formula 'self.age > 18', 'test', 'moonscript'
     flt = { formula: 'self.age > 18', language: 'moonscript', _formula_fn: fn }
     R.ok matches_filter { age: 30 }, flt
 
-  R.it "formule fausse → false", ->
+  R.it "false formula -> false", ->
     fn = triggers.compile_formula 'self.age > 18', 'test', 'moonscript'
     flt = { formula: 'self.age > 18', language: 'moonscript', _formula_fn: fn }
     R.eq matches_filter({ age: 10 }, flt), false
 
-  R.it "formule avec accès à un champ string", ->
+  R.it "formula with string-field access", ->
     fn = triggers.compile_formula 'self.nom == "Hugo"', 'test', 'moonscript'
     flt = { formula: 'self.nom == "Hugo"', language: 'moonscript', _formula_fn: fn }
     R.ok matches_filter { nom: 'Hugo' }, flt
     R.eq matches_filter({ nom: 'Balzac' }, flt), false
 
-  R.it "formule erreur de compilation → false (_formula_fn = false)", ->
-    -- _formula_fn explicitement false = compilation échouée, filtre bloquant
+  R.it "formula compilation error -> false (_formula_fn = false)", ->
+    -- Explicit _formula_fn=false means compilation failed; filter blocks.
     flt = { formula: 'syntax_error???', _formula_fn: false }
     R.eq matches_filter({ x: 1 }, flt), false
 
-  R.it "formule Lua native (sans return)", ->
+  R.it "native Lua formula (without explicit return)", ->
     fn = triggers.compile_formula 'self.score >= 5', 'filter_test', 'lua'
-    R.ok fn != nil, "compile_formula doit retourner une fonction"
+    R.ok fn != nil, "compile_formula must return a function"
     flt = { formula: 'self.score >= 5', language: 'lua', _formula_fn: fn }
     R.ok matches_filter { score: 7 }, flt
     R.eq matches_filter({ score: 3 }, flt), false
 
 -- ────────────────────────────────────────────────────────────────────────────
-R.describe "apply_filter — filtre formule (compilation auto)", ->
+R.describe "apply_filter — formula filter (auto-compilation)", ->
 
-  R.it "formule filtre une liste, ne modifie pas les enregistrements sans match", ->
+  R.it "formula filters a list and keeps non-matching rows untouched", ->
     data = { { nom: 'Alice', age: 25 }, { nom: 'Bob', age: 15 }, { nom: 'Charlie', age: 30 } }
     flt = { formula: 'self.age >= 18', language: 'moonscript' }
     result = apply_filter data, flt
@@ -229,112 +225,112 @@ R.describe "apply_filter — filtre formule (compilation auto)", ->
     R.eq result[1].nom, 'Alice'
     R.eq result[2].nom, 'Charlie'
 
-  R.it "formule vide → toutes les lignes retournées", ->
+  R.it "empty formula -> all rows returned", ->
     data = { { x: 1 }, { x: 2 } }
     flt = { formula: '' }
     result = apply_filter data, flt
     R.eq #result, 2
 
-  R.it "formule compilée une seule fois (cache _formula_fn)", ->
+  R.it "formula compiled only once (_formula_fn cache)", ->
     data = { { n: 1 }, { n: 2 }, { n: 3 } }
     flt = { formula: 'self.n > 1', language: 'moonscript' }
     result = apply_filter data, flt
     R.eq #result, 2
-    -- _formula_fn doit être mis en cache
+    -- _formula_fn must be cached
     R.ok flt._formula_fn != nil and flt._formula_fn != false
 
 
 -- ────────────────────────────────────────────────────────────────────────────
-R.describe "matches_filter — opérateur EQ", ->
+R.describe "matches_filter — EQ operator", ->
 
-  R.it "EQ : égalité exacte → true", ->
+  R.it "EQ: exact equality -> true", ->
     R.ok matches_filter { nom: 'Dupont' }, { field: 'nom', op: 'EQ', value: 'Dupont' }
 
-  R.it "EQ : inégalité → false", ->
+  R.it "EQ: inequality -> false", ->
     R.eq matches_filter({ nom: 'Dupont' }, { field: 'nom', op: 'EQ', value: 'Martin' }), false
 
-  R.it "EQ : champ absent → compare '' à valeur", ->
+  R.it "EQ: missing field -> compares '' to value", ->
     R.eq matches_filter({}, { field: 'x', op: 'EQ', value: '' }), true
     R.eq matches_filter({}, { field: 'x', op: 'EQ', value: 'truc' }), false
 
-  R.it "EQ : comparaison numérique convertie en string", ->
+  R.it "EQ: numeric comparison converted to string", ->
     R.ok matches_filter { age: 42 }, { field: 'age', op: 'EQ', value: '42' }
 
 -- ────────────────────────────────────────────────────────────────────────────
-R.describe "matches_filter — opérateur NEQ", ->
+R.describe "matches_filter — NEQ operator", ->
 
-  R.it "NEQ : valeurs différentes → true", ->
+  R.it "NEQ: different values -> true", ->
     R.ok matches_filter { nom: 'Dupont' }, { field: 'nom', op: 'NEQ', value: 'Martin' }
 
-  R.it "NEQ : valeurs égales → false", ->
+  R.it "NEQ: equal values -> false", ->
     R.eq matches_filter({ nom: 'Dupont' }, { field: 'nom', op: 'NEQ', value: 'Dupont' }), false
 
 -- ────────────────────────────────────────────────────────────────────────────
-R.describe "matches_filter — opérateur CONTAINS", ->
+R.describe "matches_filter — CONTAINS operator", ->
 
-  R.it "CONTAINS : sous-chaîne présente → true", ->
+  R.it "CONTAINS: substring present -> true", ->
     R.ok matches_filter { nom: 'Dupont' }, { field: 'nom', op: 'CONTAINS', value: 'pont' }
 
-  R.it "CONTAINS : sous-chaîne absente → false", ->
+  R.it "CONTAINS: substring missing -> false", ->
     R.eq matches_filter({ nom: 'Dupont' }, { field: 'nom', op: 'CONTAINS', value: 'xyz' }), false
 
-  R.it "CONTAINS : chaîne vide correspond toujours", ->
+  R.it "CONTAINS: empty string always matches", ->
     R.ok matches_filter { nom: 'Dupont' }, { field: 'nom', op: 'CONTAINS', value: '' }
 
-  R.it "CONTAINS : caractères spéciaux Lua non interprétés comme patterns", ->
-    -- Le '.' en pattern Lua correspond à tout. Avec find(plain=true) il ne doit pas.
+  R.it "CONTAINS: Lua special characters not interpreted as patterns", ->
+    -- In Lua patterns, '.' matches anything. With find(plain=true), it must not.
     R.eq matches_filter({ code: 'abc' }, { field: 'code', op: 'CONTAINS', value: 'a.c' }), false
     R.ok matches_filter  { code: 'a.c' }, { field: 'code', op: 'CONTAINS', value: 'a.c' }
 
 -- ────────────────────────────────────────────────────────────────────────────
-R.describe "matches_filter — opérateur STARTS_WITH", ->
+R.describe "matches_filter — STARTS_WITH operator", ->
 
-  R.it "STARTS_WITH : début exact → true", ->
+  R.it "STARTS_WITH: exact prefix -> true", ->
     R.ok matches_filter { nom: 'Dupont' }, { field: 'nom', op: 'STARTS_WITH', value: 'Du' }
 
-  R.it "STARTS_WITH : ne commence pas par → false", ->
+  R.it "STARTS_WITH: does not start with -> false", ->
     R.eq matches_filter({ nom: 'Dupont' }, { field: 'nom', op: 'STARTS_WITH', value: 'pont' }), false
 
-  R.it "STARTS_WITH : chaîne vide → true (tout commence par '')", ->
+  R.it "STARTS_WITH: empty string -> true (everything starts with '')", ->
     R.ok matches_filter { nom: 'Dupont' }, { field: 'nom', op: 'STARTS_WITH', value: '' }
 
 -- ────────────────────────────────────────────────────────────────────────────
-R.describe "matches_filter — combinaisons AND / OR", ->
+R.describe "matches_filter — AND / OR combinations", ->
 
-  R.it "AND : les deux conditions vraies → true", ->
+  R.it "AND: both conditions true -> true", ->
     flt = {}
     flt["and"] = { { field: 'a', op: 'EQ', value: '1' }, { field: 'b', op: 'EQ', value: '2' } }
     R.ok matches_filter { a: '1', b: '2' }, flt
 
-  R.it "AND : une condition fausse → false", ->
+  R.it "AND: one condition false -> false", ->
     flt = {}
     flt["and"] = { { field: 'a', op: 'EQ', value: '1' }, { field: 'b', op: 'EQ', value: '2' } }
     R.eq matches_filter({ a: '1', b: '99' }, flt), false
 
-  R.it "OR : au moins une condition vraie → true", ->
+  R.it "OR: at least one condition true -> true", ->
     flt = {}
     flt["or"] = { { field: 'nom', op: 'EQ', value: 'Dupont' }, { field: 'nom', op: 'EQ', value: 'Martin' } }
     R.ok matches_filter { nom: 'Martin' }, flt
 
-  R.it "OR : aucune condition vraie → false", ->
+  R.it "OR: no condition true -> false", ->
     flt = {}
     flt["or"] = { { field: 'nom', op: 'EQ', value: 'Dupont' }, { field: 'nom', op: 'EQ', value: 'Martin' } }
     R.eq matches_filter({ nom: 'Durand' }, flt), false
 
-  R.it "filtre nil → true (pas de filtre)", ->
+  R.it "nil filter -> true (no filter)", ->
     R.ok matches_filter { nom: 'Dupont' }, nil
 
-  R.it "filtre sans field ni and/or → true (filtre vide)", ->
+  R.it "filter without field or and/or -> true (empty filter)", ->
     R.ok matches_filter { nom: 'Dupont' }, {}
 
 -- ────────────────────────────────────────────────────────────────────────────
-R.describe "matches_filter — opérateur inconnu", ->
+R.describe "matches_filter — unknown operator", ->
 
-  R.it "opérateur inconnu → toujours true (non filtrant)", ->
+  R.it "unknown operator -> always true (non-filtering)", ->
     R.ok matches_filter { x: 'y' }, { field: 'x', op: 'UNKNOWN_OP', value: 'z' }
 
 -- ────────────────────────────────────────────────────────────────────────────
--- FK proxy — traversée de relations dans les formules
+-- FK proxy — relation traversal in formulas
 -- ────────────────────────────────────────────────────────────────────────────
 
 FKSFX = tostring math.random(100000, 999999)
@@ -356,7 +352,7 @@ do
   genre_id_f  = spaces_mod.add_field fk_livres_sp_id, 'genre_id', 'String'
   fk_genre_id_field_id = genre_id_f.id
 
-  -- Relation FK : livres.genre_id → genres (target: libelle field as reference point)
+  -- FK relation: livres.genre_id -> genres (target: libelle as reference point)
   rel = schema_Mutation.createRelation {}, {
     input: {
       name:        "fktest_rel_#{FKSFX}"
@@ -368,63 +364,63 @@ do
   }, CTX_FK
   fk_rel_id = rel.id
 
-  -- Insérer deux genres
+  -- Insert two genres
   roman_rec = data_Mutation.insertRecord {}, { spaceId: fk_genres_sp_id, data: { libelle: 'Roman' } }, CTX_FK
   polar_rec = data_Mutation.insertRecord {}, { spaceId: fk_genres_sp_id, data: { libelle: 'Polar' } }, CTX_FK
   genre_roman_uuid = roman_rec.id
   genre_polar_uuid = polar_rec.id
 
-  -- Insérer des livres ; genre_id stocke l'UUID (_id) du genre → PK lookup direct
-  data_Mutation.insertRecord {}, { spaceId: fk_livres_sp_id, data: { titre: 'Les Misérables',  genre_id: genre_roman_uuid } }, CTX_FK
+  -- Insert books; genre_id stores genre UUID (_id) -> direct PK lookup
+  data_Mutation.insertRecord {}, { spaceId: fk_livres_sp_id, data: { titre: 'Les Miserables',  genre_id: genre_roman_uuid } }, CTX_FK
   data_Mutation.insertRecord {}, { spaceId: fk_livres_sp_id, data: { titre: 'Sherlock Holmes', genre_id: genre_polar_uuid } }, CTX_FK
 
-R.describe "FK proxy — make_self_proxy résout les champs FK", ->
+R.describe "FK proxy — make_self_proxy resolves FK fields", ->
 
-  R.it "proxy.genre_id retourne un sous-proxy (table)", ->
+  R.it "proxy.genre_id returns a nested proxy (table)", ->
     fk_map = triggers.build_fk_def_map fk_livres_sp_id
     proxy  = triggers.make_self_proxy { titre: 'Test', genre_id: genre_roman_uuid }, fk_map
     genre_proxy = proxy.genre_id
-    R.ok genre_proxy != nil, "genre_id doit retourner un proxy non nil"
+    R.ok genre_proxy != nil, "genre_id should return a non-nil proxy"
     R.eq type(genre_proxy), 'table'
 
-  R.it "proxy.genre_id.libelle retourne la valeur du champ de l'enregistrement lié", ->
+  R.it "proxy.genre_id.libelle returns linked-record field value", ->
     fk_map = triggers.build_fk_def_map fk_livres_sp_id
     proxy  = triggers.make_self_proxy { titre: 'Test', genre_id: genre_roman_uuid }, fk_map
     R.eq proxy.genre_id.libelle, 'Roman'
 
-  R.it "proxy.titre retourne le champ non-FK directement", ->
+  R.it "proxy.titre returns non-FK field directly", ->
     fk_map = triggers.build_fk_def_map fk_livres_sp_id
     proxy  = triggers.make_self_proxy { titre: 'Dune', genre_id: genre_polar_uuid }, fk_map
     R.eq proxy.titre, 'Dune'
 
-  R.it "proxy FK nil → nil sans plantage", ->
+  R.it "nil FK proxy -> nil without crash", ->
     fk_map = triggers.build_fk_def_map fk_livres_sp_id
     proxy  = triggers.make_self_proxy { titre: 'Sans genre' }, fk_map
     R.is_nil proxy.genre_id
 
-R.describe "FK proxy — apply_filter avec formule @fk_field.sub_field", ->
+R.describe "FK proxy — apply_filter with @fk_field.sub_field formula", ->
 
-  R.it "filtre @genre_id.libelle == 'Roman' retourne seulement les romans", ->
+  R.it "filter @genre_id.libelle == 'Roman' returns only roman books", ->
     fk_map = triggers.build_fk_def_map fk_livres_sp_id
     tuples = {
-      { titre: 'Les Misérables',  genre_id: genre_roman_uuid }
+      { titre: 'Les Miserables',  genre_id: genre_roman_uuid }
       { titre: 'Sherlock Holmes', genre_id: genre_polar_uuid }
     }
     flt    = { formula: '@genre_id.libelle == "Roman"', language: 'moonscript' }
     result = apply_filter tuples, flt, fk_map
     R.eq #result, 1
-    R.eq result[1].titre, 'Les Misérables'
+    R.eq result[1].titre, 'Les Miserables'
 
-  R.it "filtre sans fk_def_map (nil) ne plante pas sur les tests non-FK", ->
+  R.it "filter without fk_def_map (nil) does not crash on non-FK tests", ->
     tuples = { { nom: 'Alice', age: 25 }, { nom: 'Bob', age: 15 } }
     flt    = { formula: '@age >= 18', language: 'moonscript' }
     result = apply_filter tuples, flt, nil
     R.eq #result, 1
     R.eq result[1].nom, 'Alice'
 
-R.describe "FK proxy — intégration via Query.records avec filtre formule", ->
+R.describe "FK proxy — integration via Query.records with formula filter", ->
 
-  R.it "records() filtre @genre_id.libelle == 'Roman' → 1 résultat", ->
+  R.it "records() filter @genre_id.libelle == 'Roman' -> 1 result", ->
     res = data_Query.records {}, {
       spaceId: fk_livres_sp_id
       filter:  { formula: '@genre_id.libelle == "Roman"', language: 'moonscript' }
@@ -434,9 +430,9 @@ R.describe "FK proxy — intégration via Query.records avec filtre formule", ->
     R.ok res.items[1] != nil
     import json from require 'json' if require 'json'
     d = type(res.items[1].data) == 'string' and require('json').decode(res.items[1].data) or res.items[1].data
-    R.eq d.titre, 'Les Misérables'
+    R.eq d.titre, 'Les Miserables'
 
-  R.it "records() filtre @genre_id.libelle == 'Polar' → 1 résultat", ->
+  R.it "records() filter @genre_id.libelle == 'Polar' -> 1 result", ->
     res = data_Query.records {}, {
       spaceId: fk_livres_sp_id
       filter:  { formula: '@genre_id.libelle == "Polar"', language: 'moonscript' }
@@ -445,11 +441,11 @@ R.describe "FK proxy — intégration via Query.records avec filtre formule", ->
     d = type(res.items[1].data) == 'string' and require('json').decode(res.items[1].data) or res.items[1].data
     R.eq d.titre, 'Sherlock Holmes'
 
-  R.it "records() sans filtre FK → tous les livres", ->
+  R.it "records() without FK filter -> all books", ->
     res = data_Query.records {}, { spaceId: fk_livres_sp_id }, CTX_FK
     R.eq res.total, 2
 
-R.describe "FK proxy — chaîne imbriquée @livre.auteur.nom", ->
+R.describe "FK proxy — nested chain @livre.auteur.nom", ->
   NESTSFX = tostring math.random(100000, 999999)
 
   nested_authors_sp_id = nil
@@ -508,21 +504,21 @@ R.describe "FK proxy — chaîne imbriquée @livre.auteur.nom", ->
     data_Mutation.insertRecord {}, { spaceId: nested_authors_sp_id, data: { nom: 'Hugo' } }, CTX_FK
     data_Mutation.insertRecord {}, { spaceId: nested_books_sp_id, data: { auteur: 1 } }, CTX_FK
 
-  R.it "résout une FK imbriquée quand la relation cible un champ id (non _id)", ->
+  R.it "resolves nested FK when relation targets id field (non _id)", ->
     fk_map = triggers.build_fk_def_map nested_loans_sp_id
     proxy = triggers.make_self_proxy { livre: 1 }, fk_map
     R.ok proxy.livre != nil
     R.ok proxy.livre.auteur != nil
     R.eq proxy.livre.auteur.nom, 'Hugo'
 
-  R.it "nettoie les espaces et relations du test imbriqué", ->
+  R.it "cleans nested test spaces and relations", ->
     schema_Mutation.deleteRelation {}, { id: nested_rel_loan_book_id }, CTX_FK if nested_rel_loan_book_id
     schema_Mutation.deleteRelation {}, { id: nested_rel_book_author_id }, CTX_FK if nested_rel_book_author_id
     spaces_mod.delete_user_space "fk_nested_loans_#{NESTSFX}"
     spaces_mod.delete_user_space "fk_nested_books_#{NESTSFX}"
     spaces_mod.delete_user_space "fk_nested_authors_#{NESTSFX}"
 
--- ── Nettoyage ─────────────────────────────────────────────────────────────────
+-- ── Cleanup ───────────────────────────────────────────────────────────────────
 
 schema_Mutation.deleteRelation {}, { id: fk_rel_id }, CTX_FK
 spaces_mod.delete_user_space "fktest_genres_#{FKSFX}"

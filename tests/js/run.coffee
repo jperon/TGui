@@ -1,5 +1,5 @@
-# tests/js/run.coffee — lance tous les fichiers test_*.coffee en séquence
-# Usage : coffee tests/js/run.coffee
+# tests/js/run.coffee — runs all test_*.coffee files sequentially
+# Usage: coffee tests/js/run.coffee
 
 { execFileSync } = require 'child_process'
 path = require 'path'
@@ -17,7 +17,7 @@ for f in files
     failed++
 
 if failed > 0
-  console.log "\n#{failed} suite(s) en échec"
+  console.log "\n#{failed} suite(s) failed"
   process.exit 1
 else
-  console.log "\nToutes les suites JS : SUCCÈS"
+  console.log "\nAll JS suites: SUCCESS"

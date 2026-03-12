@@ -1,4 +1,4 @@
-# i18n.coffee — Localisation légère sans dépendance externe.
+# i18n.coffee — Lightweight localization without external dependencies.
 
 I18N_KEY = 'tgui_locale'
 

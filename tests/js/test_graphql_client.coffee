@@ -14,7 +14,7 @@ describe 'GQL.setToken', ->
     eq localStorageStub.getItem('tdb_token'), 'abc123'
     eq G._token, 'abc123'
 
-  it 'clearToken supprime le token', ->
+  it 'clearToken removes token', ->
     G.setToken 'xyz'
     G.clearToken()
     eq G._token, null
@@ -33,8 +33,8 @@ describe 'GQL.loadToken', ->
     G.loadToken()
     eq G._token, null
 
-describe 'GQL.query — corps de la requête', ->
-  it 'envoie query et variables en JSON', ->
+describe 'GQL.query — request body', ->
+  it 'sends query and variables as JSON', ->
     body = null
     global.fetch = (url, opts) ->
       body = JSON.parse opts.body
@@ -44,26 +44,26 @@ describe 'GQL.query — corps de la requête', ->
       eq body.query, 'query { me { id } }'
       eq body.variables.x, 1
 
-  it 'ajoute le header Authorization quand token présent', ->
+  it 'adds Authorization header when token is present', ->
     sentHeaders = null
     global.fetch = (url, opts) ->
       sentHeaders = opts.headers
       Promise.resolve json: -> Promise.resolve { data: {} }
     G.setToken 'tok42'
     G.query('query { me { id } }').then ->
-      assert sentHeaders['Authorization']?.includes('tok42'), 'Authorization manquant'
+      assert sentHeaders['Authorization']?.includes('tok42'), 'missing Authorization'
       G.setToken null
 
-  it 'lève une erreur si result.errors non vide', ->
+  it 'throws an error when result.errors is non-empty', ->
     global.fetch = (url, opts) ->
       Promise.resolve
         json: -> Promise.resolve { errors: [{ message: 'not authorized' }] }
     G.query('query { me { id } }')
       .then -> throw new Error 'aurait dû rejeter'
-      .catch (e) -> assert e.message.includes('not authorized'), "message inattendu: #{e.message}"
+      .catch (e) -> assert e.message.includes('not authorized'), "unexpected message: #{e.message}"
 
 describe 'GQL.mutate', ->
-  it 'délègue à query', ->
+  it 'delegates to query', ->
     called = null
     orig = G.query.bind G
     G.query = (q, v) -> called = { q, v }; Promise.resolve {}

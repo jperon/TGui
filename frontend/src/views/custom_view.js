@@ -7,27 +7,28 @@
   //   layout:
   //     direction: vertical
   //     children:
-  //       - factor: 2                         # prend 2/3 de la place (optionnel, défaut: 1)
+  //       - factor: 2                         # takes 2/3 of available space (optional, default: 1)
   //         direction: horizontal
   //         children:
   //           - widget:
-  //               id: liste-chorales          # identifiant unique du widget (obligatoire si référencé)
+  //               id: choir-list               # unique widget identifier (required when referenced)
   //               title: Chorales
   //               space: chorale
-  //               columns: [annee, pupitre]   # colonnes à afficher (optionnel, défaut: toutes)
+  //               columns: [annee, pupitre]   # columns to display (optional, default: all)
   //           - widget:
   //               title: Choristes
   //               space: choristes
   //               depends_on:
-  //                 widget: liste-chorales    # id du widget source
+  //                 widget: choir-list        # source widget id
   //                 field: chorale_id         # FK field in this space
-  //                 from_field: id            # referenced field in the source widget's space (défaut: id)
+  //                 from_field: id            # referenced field in source widget space (default: id)
   //       - factor: 1
   //         widget:
   //           title: Personnes
   //           space: personnes
   var CustomView,
-    indexOf = [].indexOf;
+    indexOf = [].indexOf,
+    hasProp = {}.hasOwnProperty;
 
   window.CustomView = CustomView = class CustomView {
     constructor(container1, yamlText, allSpaces) {
@@ -36,6 +37,7 @@
       this.allSpaces = allSpaces;
       this._widgets = []; // list of { dataView, node, el }
       this._widgetsById = {}; // id -> entry
+      this._pluginStateByWidgetId = {};
     }
 
     mount() {
@@ -115,6 +117,21 @@
           dataView: null,
           node: wNode,
           el: wrapper
+        };
+        this._widgets.push(entry);
+        if (wNode.id) {
+          this._widgetsById[wNode.id] = entry;
+        }
+        return wrapper;
+      }
+      // Custom plugin widget (type = plugin name)
+      if (wNode.type) {
+        this._renderPluginWidget(body, wNode);
+        entry = {
+          dataView: null,
+          node: wNode,
+          el: wrapper,
+          plugin: true
         };
         this._widgets.push(entry);
         if (wNode.id) {
@@ -226,7 +243,7 @@
         return results;
       })();
       return Spaces.aggregateSpace(spaceName, groupBy, aggInput).then((rows) => {
-        var c, col, computed, computedFns, errDiv, formulaErrors, i, j, k, keys, l, len, len1, len2, len3, len4, len5, len6, len7, m, n, o, p, q, ref, ref1, row, tbl, tbody, td, th, thead, tr, v;
+        var c, col, computed, computedFns, errDiv, formulaErrors, i, j, k, keys, l, len, len1, len2, len3, len4, len5, len6, len7, m, n, o, p, r, ref, ref1, row, tbl, tbody, td, th, thead, tr, v;
         container.innerHTML = '';
         if (!(rows && rows.length > 0)) {
           container.innerHTML = "<p style='color:#aaa;padding:.5rem'>Aucun résultat.</p>";
@@ -304,8 +321,8 @@
         for (p = 0, len6 = rows.length; p < len6; p++) {
           row = rows[p];
           tr = document.createElement('tr');
-          for (q = 0, len7 = keys.length; q < len7; q++) {
-            k = keys[q];
+          for (r = 0, len7 = keys.length; r < len7; r++) {
+            k = keys[r];
             td = document.createElement('td');
             v = row[k];
             td.textContent = v != null ? String(v) : '';
@@ -331,38 +348,269 @@
           continue;
         }
         src = this._widgetsById[dep.widget];
-        if (!(src != null ? src.dataView : void 0)) {
-          console.warn(`depends_on: widget id '${dep.widget}' introuvable ou sans dataView`);
+        if (!src) {
+          console.warn(`depends_on: widget id '${dep.widget}' introuvable`);
           continue;
         }
-        // When a row is clicked in the source grid, filter this widget and set FK default.
+        // When a row selection is emitted by source widget, propagate to target.
         // from_field defaults to 'id' when omitted.
         results.push(((entry, dep, src) => {
           var ref1;
-          return (ref1 = src.dataView._grid) != null ? ref1.on('click', (ev) => {
-            var defaults, filterVal, ref2, ref3, rowData, rowKey;
-            rowKey = ev.rowKey;
-            if (rowKey == null) {
-              return;
-            }
-            rowData = src.dataView._currentData[rowKey];
-            if (!(rowData && !rowData.__isNew)) {
-              return;
-            }
-            filterVal = String(rowData[dep.from_field || 'id']);
-            defaults = {};
-            defaults[dep.field] = filterVal;
-            if ((ref2 = entry.dataView) != null) {
-              ref2.setDefaultValues(defaults);
-            }
-            return (ref3 = entry.dataView) != null ? ref3.setFilter({
-              field: dep.field,
-              value: filterVal
-            }) : void 0;
-          }) : void 0;
+          if (((ref1 = src.dataView) != null ? ref1._grid : void 0) != null) {
+            return src.dataView._grid.on('click', (ev) => {
+              var rowData, rowKey;
+              rowKey = ev.rowKey;
+              if (rowKey == null) {
+                return;
+              }
+              rowData = src.dataView._currentData[rowKey];
+              if (!(rowData && !rowData.__isNew)) {
+                return;
+              }
+              return this._applyDependencySelection(entry, dep, rowData);
+            });
+          } else if (src.plugin && dep.widget) {
+            return this._setPluginSelectionListener(dep.widget, (selection) => {
+              var rows;
+              rows = (selection != null ? selection.rows : void 0) || [];
+              if (!(rows.length > 0)) {
+                return;
+              }
+              return this._applyDependencySelection(entry, dep, rows[0]);
+            });
+          }
         })(entry, dep, src));
       }
       return results;
+    }
+
+    _applyDependencySelection(entry, dep, rowData) {
+      var defaults, filterVal;
+      filterVal = String(rowData[dep.from_field || 'id']);
+      defaults = {};
+      defaults[dep.field] = filterVal;
+      if (entry.dataView != null) {
+        entry.dataView.setDefaultValues(defaults);
+        return entry.dataView.setFilter({
+          field: dep.field,
+          value: filterVal
+        });
+      } else if (entry.plugin) {
+        return this._sendPluginMessage(entry.node.id, {
+          type: 'updateInputSelection',
+          selection: {
+            rows: [rowData],
+            byField: defaults
+          }
+        });
+      }
+    }
+
+    _setPluginSelectionListener(widgetId, listener) {
+      var st;
+      if (!widgetId) {
+        return;
+      }
+      st = this._pluginStateByWidgetId[widgetId];
+      if (!st) {
+        return;
+      }
+      if (st.listeners == null) {
+        st.listeners = [];
+      }
+      return st.listeners.push(listener);
+    }
+
+    _emitPluginSelection(widgetId, selection) {
+      var e, fn, i, len, ref, results, st;
+      st = this._pluginStateByWidgetId[widgetId];
+      if (!st) {
+        return;
+      }
+      ref = st.listeners || [];
+      results = [];
+      for (i = 0, len = ref.length; i < len; i++) {
+        fn = ref[i];
+        try {
+          results.push(fn(selection));
+        } catch (error) {
+          e = error;
+          results.push(console.warn('plugin selection listener error', e));
+        }
+      }
+      return results;
+    }
+
+    _renderPluginWidget(container, wNode) {
+      var pluginName, pluginParams;
+      pluginName = wNode.type;
+      pluginParams = wNode.params || {};
+      if (!pluginName) {
+        container.innerHTML = "<p style='color:#c55;padding:.5rem'>Plugin manquant (<code>type</code>).</p>";
+        return;
+      }
+      container.innerHTML = `<p style='color:#888;padding:.5rem'>Chargement du plugin ${pluginName}…</p>`;
+      return WidgetPlugins.getByName(pluginName).then((plugin) => {
+        var widgetId;
+        if (!plugin) {
+          container.innerHTML = `<p style='color:#c55;padding:.5rem'>Plugin introuvable : ${pluginName}</p>`;
+          return;
+        }
+        widgetId = wNode.id || `plugin_${Math.random().toString(36).slice(2)}`;
+        return this._mountPluginIframe(container, widgetId, plugin, pluginParams);
+      }).catch((err) => {
+        return container.innerHTML = `<p style='color:#c55;padding:.5rem'>Erreur plugin : ${err.message || err}</p>`;
+      });
+    }
+
+    _mountPluginIframe(container, widgetId, plugin, pluginParams) {
+      var compiled, iframe, listeners, onMessage, reqSeq, requestMap, srcDoc;
+      compiled = this._compilePlugin(plugin);
+      iframe = document.createElement('iframe');
+      iframe.setAttribute('sandbox', 'allow-scripts');
+      iframe.style.cssText = 'width:100%;height:100%;border:0;background:#fff;';
+      container.innerHTML = '';
+      container.appendChild(iframe);
+      requestMap = {};
+      reqSeq = 0;
+      listeners = [];
+      this._pluginStateByWidgetId[widgetId] = {iframe, listeners, requestMap, reqSeq};
+      onMessage = (ev) => {
+        var msg, q, reqId, vars;
+        if (ev.source !== iframe.contentWindow) {
+          return;
+        }
+        msg = ev.data || {};
+        if (msg.widgetId !== widgetId) {
+          return;
+        }
+        if (msg.type === 'gql_request') {
+          q = msg.query || '';
+          vars = msg.variables || {};
+          reqId = msg.requestId;
+          return GQL.query(q, vars).then((data) => {
+            var ref;
+            return (ref = iframe.contentWindow) != null ? ref.postMessage({
+              type: 'gql_response',
+              widgetId,
+              requestId: reqId,
+              data
+            }, '*') : void 0;
+          }).catch((err) => {
+            var ref;
+            return (ref = iframe.contentWindow) != null ? ref.postMessage({
+              type: 'gql_error',
+              widgetId,
+              requestId: reqId,
+              error: err.message || String(err)
+            }, '*') : void 0;
+          });
+        } else if (msg.type === 'emitSelection') {
+          return this._emitPluginSelection(widgetId, msg.selection || {});
+        }
+      };
+      window.addEventListener('message', onMessage);
+      srcDoc = this._buildPluginIframeDoc(widgetId, pluginParams, compiled);
+      iframe.srcdoc = srcDoc;
+      return this._pluginStateByWidgetId[widgetId].onMessage = onMessage;
+    }
+
+    _compilePlugin(plugin) {
+      var fn, htmlTemplate, jsScript, ref, ref1, scriptCode, scriptLanguage, templateCode, templateLanguage;
+      scriptLanguage = (plugin.scriptLanguage || 'coffeescript').toLowerCase();
+      templateLanguage = (plugin.templateLanguage || 'pug').toLowerCase();
+      scriptCode = plugin.scriptCode || '';
+      templateCode = plugin.templateCode || '';
+      jsScript = scriptCode;
+      if (scriptLanguage === 'coffeescript') {
+        if (!((ref = window.CoffeeScript) != null ? ref.compile : void 0)) {
+          throw new Error('CoffeeScript runtime indisponible');
+        }
+        jsScript = window.CoffeeScript.compile(scriptCode, {
+          bare: true
+        });
+      }
+      htmlTemplate = templateCode;
+      if (templateLanguage === 'pug') {
+        if (!((ref1 = window.pug) != null ? ref1.compile : void 0)) {
+          throw new Error('Pug runtime indisponible');
+        }
+        fn = window.pug.compile(templateCode);
+        htmlTemplate = fn({});
+      }
+      return {jsScript, htmlTemplate};
+    }
+
+    _buildPluginIframeDoc(widgetId, params, compiled) {
+      var js, paramsJson, tpl;
+      paramsJson = JSON.stringify(params || {});
+      tpl = JSON.stringify(compiled.htmlTemplate || '');
+      js = compiled.jsScript || '';
+      return `<!doctype html>
+<html>
+<head><meta charset='utf-8'><style>body{margin:0;font-family:sans-serif}.plugin-root{padding:.5rem}</style></head>
+<body>
+  <div id='root'></div>
+  <script>
+    (function() {
+      var widgetId = ${JSON.stringify(widgetId)};
+      var root = document.getElementById('root');
+      var inputSelection = null;
+      var listeners = [];
+      var pending = {};
+      var reqSeq = 1;
+      function post(msg) { parent.postMessage(Object.assign({ widgetId: widgetId }, msg), '*'); }
+      function gql(query, variables) {
+        return new Promise(function(resolve, reject) {
+          var requestId = String(reqSeq++);
+          pending[requestId] = { resolve: resolve, reject: reject };
+          post({ type: 'gql_request', requestId: requestId, query: query, variables: variables || {} });
+        });
+      }
+      function emitSelection(selection) { post({ type: 'emitSelection', selection: selection || {} }); }
+      function onInputSelection(cb) { if (typeof cb === 'function') listeners.push(cb); }
+      function render(html) { root.innerHTML = html == null ? '' : String(html); }
+
+      window.addEventListener('message', function(ev) {
+        var msg = ev.data || {};
+        if (msg.widgetId !== widgetId) return;
+        if (msg.type === 'gql_response' && pending[msg.requestId]) {
+          pending[msg.requestId].resolve(msg.data);
+          delete pending[msg.requestId];
+        } else if (msg.type === 'gql_error' && pending[msg.requestId]) {
+          pending[msg.requestId].reject(new Error(msg.error || 'GraphQL error'));
+          delete pending[msg.requestId];
+        } else if (msg.type === 'updateInputSelection') {
+          inputSelection = msg.selection || null;
+          listeners.forEach(function(fn) { try { fn(inputSelection); } catch (e) {} });
+        }
+      });
+
+      var params = ${paramsJson};
+      render(${tpl});
+      var module = { exports: null };
+      try {
+${js}
+        if (typeof module.exports === 'function') {
+          module.exports({ gql: gql, emitSelection: emitSelection, onInputSelection: onInputSelection, render: render, params: params });
+        }
+      } catch (e) {
+        render("<div style='padding:.5rem;color:#c55'>Erreur plugin: " + (e && e.message ? e.message : e) + "</div>");
+      }
+    })();
+  </script>
+</body>
+</html>`;
+    }
+
+    _sendPluginMessage(widgetId, msg) {
+      var payload, ref, st;
+      st = this._pluginStateByWidgetId[widgetId];
+      if (!(st != null ? (ref = st.iframe) != null ? ref.contentWindow : void 0 : void 0)) {
+        return;
+      }
+      payload = Object.assign({widgetId}, msg);
+      return st.iframe.contentWindow.postMessage(payload, '*');
     }
 
     _findSpace(nameOrId) {
@@ -375,18 +623,27 @@
     }
 
     unmount() {
-      var entry, i, len, ref, ref1;
-      ref = this._widgets;
-      for (i = 0, len = ref.length; i < len; i++) {
-        entry = ref[i];
-        if ((ref1 = entry.dataView) != null) {
-          if (typeof ref1.unmount === "function") {
-            ref1.unmount();
+      var entry, i, id, len, ref, ref1, ref2, st;
+      ref = this._pluginStateByWidgetId;
+      for (id in ref) {
+        if (!hasProp.call(ref, id)) continue;
+        st = ref[id];
+        if (st.onMessage) {
+          window.removeEventListener('message', st.onMessage);
+        }
+      }
+      ref1 = this._widgets;
+      for (i = 0, len = ref1.length; i < len; i++) {
+        entry = ref1[i];
+        if ((ref2 = entry.dataView) != null) {
+          if (typeof ref2.unmount === "function") {
+            ref2.unmount();
           }
         }
       }
       this.container.innerHTML = '';
       this._widgets = [];
+      this._pluginStateByWidgetId = {};
       return this._widgetsById = {};
     }
 

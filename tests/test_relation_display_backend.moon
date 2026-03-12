@@ -1,11 +1,11 @@
 -- tests/test_relation_display_backend.moon
--- Test backend pour vérifier l'affichage des relations
+-- Backend test to verify relation display behavior.
 
 import execute_mutation, execute_query from require 'tests.runner'
 
 describe "Relation display backend", ->
   before_each ->
-    -- Nettoyer
+    -- Cleanup.
     spaces = require 'core.spaces'
     all_spaces = spaces.list_spaces!
     for space in *all_spaces
@@ -13,7 +13,7 @@ describe "Relation display backend", ->
         spaces.delete_user_space space.id
 
   it "should create and list relations correctly", ->
-    -- Créer deux espaces
+    -- Create two spaces.
     source_result = execute_mutation [[
       mutation {
         createSpace(input: { name: "test_rel_display_source", description: "Source" }) { id name }
@@ -28,7 +28,7 @@ describe "Relation display backend", ->
     ]], {}
     target_id = target_result.createSpace.id
 
-    -- Ajouter des champs
+    -- Add fields.
     execute_mutation [[
       mutation AddTargetFields($spaceId: ID!) {
         f1: addField(spaceId: $spaceId, input: { name: "id", fieldType: Sequence, notNull: true, description: "ID" }) { id }
@@ -43,20 +43,20 @@ describe "Relation display backend", ->
       }
     ]], { spaceId: source_id }
 
-    -- Récupérer les champs
+    -- Fetch fields.
     source_fields = execute_mutation [[
       mutation {
         space(id: $spaceId) { fields { id name } }
       }
     ]], { spaceId: source_id }
-    
+
     target_fields = execute_mutation [[
       mutation {
         space(id: $spaceId) { fields { id name } }
       }
     ]], { spaceId: target_id }
 
-    -- Créer la relation
+    -- Create relation.
     relation_field = source_fields.data.space.fields[2].id
     target_id_field = target_fields.data.space.fields[1].id
 
@@ -78,7 +78,7 @@ describe "Relation display backend", ->
       targetFieldId: target_id_field
     }
 
-    -- Vérifier que la relation est listée
+    -- Verify relation is listed.
     relations_result = execute_mutation [[
       mutation GetRelations($spaceId: ID!) {
         relations(spaceId: $spaceId) { id name fromSpaceId fromFieldId toSpaceId toFieldId reprFormula }
@@ -87,7 +87,7 @@ describe "Relation display backend", ->
 
     assert relations_result.data.relations, "Should have relations"
     assert #relations_result.data.relations == 1, "Should have exactly one relation"
-    
+
     rel = relations_result.data.relations[1]
     assert rel.name == "test_rel", "Relation name should match"
     assert rel.fromSpaceId == source_id, "Source space should match"
@@ -95,7 +95,7 @@ describe "Relation display backend", ->
     assert rel.reprFormula == "#{@label}", "Repr formula should match"
 
   after_each ->
-    -- Nettoyer
+    -- Cleanup.
     spaces = require 'core.spaces'
     all_spaces = spaces.list_spaces!
     for space in *all_spaces

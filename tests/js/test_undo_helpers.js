@@ -1,6 +1,6 @@
 (function() {
-  // tests/js/test_undo_helpers.coffee — tests du service global AppUndoHelpers.
-  // Couvre undo/redo sur update, delete, multi-update et détection de conflits.
+  // tests/js/test_undo_helpers.coffee — tests for global AppUndoHelpers service.
+  // Covers undo/redo for update, delete, multi-update, and conflict detection.
   var UH, assert, describe, eq, it, lastDeleteIds, lastRestorePayload, lastUpdatePayload, makeApp, store, summary;
 
   require('./dom_stub');
@@ -137,7 +137,7 @@
   };
 
   describe('AppUndoHelpers', function() {
-    return it('gère update, blocage conflit, et delete undo/redo', async function() {
+    return it('handles update, conflict blocking, and delete undo/redo', async function() {
       var app, okBlocked, okMulti, okRedo, okRedoDelete, okSubset, okUndo, okUndoDelete, undoBtn;
       // 1) Update undo/redo
       UH.clear();
@@ -168,13 +168,13 @@
       });
       ({app} = makeApp());
       okUndo = (await UH.undo(app));
-      assert(okUndo, 'undo update doit réussir');
+      assert(okUndo, 'undo update should succeed');
       eq(store['1'].nom, 'A');
-      assert((lastUpdatePayload != null ? lastUpdatePayload.length : void 0) === 1, 'updateRecords doit être appelé');
+      assert((lastUpdatePayload != null ? lastUpdatePayload.length : void 0) === 1, 'updateRecords should be called');
       okRedo = (await UH.redo(app));
-      assert(okRedo, 'redo update doit réussir');
+      assert(okRedo, 'redo update should succeed');
       eq(store['1'].nom, 'B');
-      // 2) Régression subset: un champ non modifié peut diverger sans bloquer undo
+      // 2) Subset regression: an unchanged field can diverge without blocking undo
       UH.clear();
       store = {
         '1': {
@@ -203,10 +203,10 @@
       });
       ({app} = makeApp());
       okSubset = (await UH.undo(app));
-      assert(okSubset, 'undo subset doit réussir');
+      assert(okSubset, 'undo subset should succeed');
       eq(store['1'].nom, 'A');
       eq(store['1'].prenom, 'Victor');
-      // 3) Multi-update dans une seule action
+      // 3) Multi-update in a single action
       UH.clear();
       store = {
         '1': {
@@ -246,10 +246,10 @@
       });
       ({app} = makeApp());
       okMulti = (await UH.undo(app));
-      assert(okMulti, 'undo multi-update doit réussir');
+      assert(okMulti, 'undo multi-update should succeed');
       eq(store['1'].nom, 'A');
       eq(store['2'].nom, 'X');
-      // 4) Conflit serveur bloque undo
+      // 4) Server conflict blocks undo
       UH.clear();
       store = {
         '1': {
@@ -277,10 +277,10 @@
       });
       ({app, undoBtn} = makeApp());
       okBlocked = (await UH.undo(app));
-      assert(!okBlocked, 'undo doit être bloqué en conflit');
+      assert(!okBlocked, 'undo should be blocked on conflict');
       await UH.refreshUI(app);
-      assert(undoBtn.classList.contains('toolbar-btn--blocked'), 'le bouton undo doit être marqué bloqué');
-      assert(String(undoBtn.title).includes('bloquée'), 'le tooltip doit expliquer le blocage');
+      assert(undoBtn.classList.contains('toolbar-btn--blocked'), 'undo button should be marked blocked');
+      assert(String(undoBtn.title).includes('bloqu'), 'tooltip should explain the block');
       // 5) Delete undo/redo
       UH.clear();
       store = {};
@@ -304,13 +304,13 @@
       });
       ({app} = makeApp());
       okUndoDelete = (await UH.undo(app));
-      assert(okUndoDelete, 'undo delete doit réussir');
+      assert(okUndoDelete, 'undo delete should succeed');
       eq(store['9'].nom, 'Supp');
-      assert((lastRestorePayload != null ? lastRestorePayload.length : void 0) === 1, 'restoreRecords doit être appelé');
+      assert((lastRestorePayload != null ? lastRestorePayload.length : void 0) === 1, 'restoreRecords should be called');
       okRedoDelete = (await UH.redo(app));
-      assert(okRedoDelete, 'redo delete doit réussir');
-      assert(store['9'] == null, 'record doit être supprimé à nouveau');
-      return assert((lastDeleteIds || []).includes('9'), 'deleteRecords doit être appelé');
+      assert(okRedoDelete, 'redo delete should succeed');
+      assert(store['9'] == null, 'record should be deleted again');
+      return assert((lastDeleteIds || []).includes('9'), 'deleteRecords should be called');
     });
   });
 

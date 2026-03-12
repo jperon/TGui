@@ -1,11 +1,11 @@
 -- tests/test_relation_integration.moon
--- Test d'intégration complet pour les relations
+-- Full integration test for relations.
 
 import execute_mutation, execute_query from require 'tests.runner'
 
 describe "Relation integration test", ->
   before_each ->
-    -- Nettoyer
+    -- Cleanup.
     spaces = require 'core.spaces'
     all_spaces = spaces.list_spaces!
     for space in *all_spaces
@@ -13,7 +13,7 @@ describe "Relation integration test", ->
         spaces.delete_user_space space.id
 
   it "should create relation and verify frontend display format", ->
-    -- Créer deux espaces
+    -- Create two spaces.
     source_result = execute_mutation [[
       mutation {
         createSpace(input: { name: "test_rel_int_source", description: "Source" }) { id name }
@@ -28,7 +28,7 @@ describe "Relation integration test", ->
     ]], {}
     target_id = target_result.createSpace.id
 
-    -- Ajouter des champs
+    -- Add fields.
     execute_mutation [[
       mutation AddTargetFields($spaceId: ID!) {
         f1: addField(spaceId: $spaceId, input: { name: "id", fieldType: Sequence, notNull: true, description: "ID" }) { id }
@@ -43,20 +43,20 @@ describe "Relation integration test", ->
       }
     ]], { spaceId: source_id }
 
-    -- Récupérer les champs
+    -- Fetch fields.
     source_fields = execute_mutation [[
       mutation {
         space(id: $spaceId) { fields { id name } }
       }
     ]], { spaceId: source_id }
-    
+
     target_fields = execute_mutation [[
       mutation {
         space(id: $spaceId) { fields { id name } }
       }
     ]], { spaceId: target_id }
 
-    -- Créer la relation
+    -- Create relation.
     relation_field = source_fields.data.space.fields[2].id
     target_id_field = target_fields.data.space.fields[1].id
 
@@ -78,27 +78,27 @@ describe "Relation integration test", ->
       targetFieldId: target_id_field
     }
 
-    -- Vérifier que la relation est listée
+    -- Verify relation is listed.
     relations_result = execute_mutation [[
       mutation GetRelations($spaceId: ID!) {
         relations(spaceId: $spaceId) { id name fromSpaceId fromFieldId toSpaceId toFieldId reprFormula }
       }
     ]], { spaceId: source_id }
 
-    -- Le frontend devrait afficher "→ test_rel_int_target" pour ce champ
+    -- Frontend should display "→ test_rel_int_target" for this field.
     assert relations_result.data.relations, "Should have relations"
     assert #relations_result.data.relations == 1, "Should have exactly one relation"
-    
+
     rel = relations_result.data.relations[1]
     assert rel.name == "test_rel", "Relation name should match"
-    
-    -- Vérifier le format d'affichage attendu par le frontend
-    -- Le code frontend fait: badge.textContent = "→ #{targetName}"
+
+    -- Verify expected frontend display format.
+    -- Frontend code uses: badge.textContent = "→ #{targetName}"
     expected_display = "→ test_rel_int_target"
     assert expected_display\match("^→"), "Should display arrow format"
 
   after_each ->
-    -- Nettoyer
+    -- Cleanup.
     spaces = require 'core.spaces'
     all_spaces = spaces.list_spaces!
     for space in *all_spaces

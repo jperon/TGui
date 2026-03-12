@@ -47,6 +47,14 @@ sansfont: "Linux Biolinum G"
 monofont: "DejaVu Sans Mono"
 monofontoptions:
   - Scale=0.86
+mainfontfallback:
+  - "TeX Gyre Heros:"
+  - "DejaVu Serif:"
+sansfontfallback:
+  - "TeX Gyre Heros:"
+  - "DejaVu Sans:"
+monofontfallback:
+  - "DejaVu Sans Mono:"
 
 # ── Table des matières ────────────────────────────────────────────────────────
 toc: true
@@ -62,6 +70,11 @@ citecolor: "NavyBlue"
 
 # ── Inclusions LaTeX supplémentaires ─────────────────────────────────────────
 header-includes:
+  # Font fallback helpers (LuaLaTeX/fontspec, TeX Live fonts)
+  - \usepackage{fontspec}
+  - \newfontfamily\TGuiFallbackSans{TeX Gyre Heros}
+  - \newfontfamily\TGuiFallbackMono{DejaVu Sans Mono}
+
   # En-têtes et pieds de page (paquet fancyhdr, inclus dans texlive-latex-extra)
   - \usepackage{fancyhdr}
   - \pagestyle{fancy}

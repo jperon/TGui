@@ -2,11 +2,11 @@
 
 > Auto-generated file. Do not edit manually.
 >
-> Generated at: 2026-03-12 10:33:27 UTC
+> Generated at: 2026-03-12 20:58:48 UTC
 
 Architecture-level view of backend/frontend modules and relationships.
 
-| Module | Résumé |
+| Module | Summary |
 |---|---|
 | `backend/init.moon` | Tarantool bootstrap entrypoint for TGui backend runtime. |
 | `backend/http_server.moon` | HTTP edge for TGui (index/static assets + GraphQL POST endpoint). |

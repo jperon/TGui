@@ -11,7 +11,7 @@ do
   }
 end
 return R.describe("Regression: Relation type mapping", function()
-  R.it("addField avec fieldType=Relation est mappé vers Int", function()
+  R.it("addField with fieldType=Relation maps to Int", function()
     local sp_name = "test_relation_regression_" .. tostring(SUFFIX)
     local sp = schema_r.Mutation.createSpace(nil, {
       input = {
@@ -31,7 +31,7 @@ return R.describe("Regression: Relation type mapping", function()
     R.eq(f.fieldType, 'Int')
     return spaces_mod.delete_user_space(sp_name)
   end)
-  return R.it("createRelation fonctionne avec un champ Int source", function()
+  return R.it("createRelation works with an Int source field", function()
     local source_name = "test_source_" .. tostring(SUFFIX)
     local target_name = "test_target_" .. tostring(SUFFIX)
     local source = schema_r.Mutation.createSpace(nil, {

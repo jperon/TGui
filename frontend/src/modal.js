@@ -1,9 +1,9 @@
 (function() {
-  // modal.coffee — Remplaçants promisifiés pour alert(), confirm(), prompt()
-  // Usage :
-  //   await tdbAlert "Message d'erreur", 'error'
-  //   if await tdbConfirm "Supprimer ?"
-  //   name = await tdbPrompt "Nom :", "valeur par défaut"
+  // modal.coffee — Promise-based async replacements for alert(), confirm(), prompt().
+  // Usage:
+  //   await tdbAlert "Error message", 'error'
+  //   if await tdbConfirm "Delete?"
+  //   name = await tdbPrompt "Name:", "default value"
   var _box, _cancelBtn, _hide, _init, _input, _msg, _okBtn, _overlay, _show, _t;
 
   _overlay = null;
@@ -89,7 +89,7 @@
     return _input.value = '';
   };
 
-  // alert-like : affiche un message, résout quand l'utilisateur clique OK
+  // alert-like: shows a message and resolves when the user clicks OK.
   window.tdbAlert = function(msg, type = 'info') {
     return new Promise(function(resolve) {
       var handler;
@@ -98,7 +98,7 @@
         _hide();
         return resolve();
       };
-      // Fermer aussi avec Escape
+      // Also close on Escape.
       handler = function(e) {
         if (e.key === 'Escape' || e.key === 'Enter') {
           document.removeEventListener('keydown', handler);
@@ -110,7 +110,7 @@
     });
   };
 
-  // confirm-like : résout true/false
+  // confirm-like: resolves true/false.
   window.tdbConfirm = function(msg, type = 'warn') {
     return new Promise(function(resolve) {
       var handler;
@@ -138,7 +138,7 @@
     });
   };
 
-  // prompt-like : résout avec la chaîne saisie ou null si annulé
+  // prompt-like: resolves with input string or null if canceled.
   window.tdbPrompt = function(msg, defaultVal = '', type = 'info') {
     return new Promise(function(resolve) {
       var handler;

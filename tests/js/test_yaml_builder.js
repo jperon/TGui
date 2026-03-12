@@ -1,6 +1,6 @@
 (function() {
-  // tests/js/test_yaml_builder.coffee — tests pour YamlBuilder (yaml_builder.js)
-  // Teste : génération YAML, clic champ, clic en-tête (aggregate), badges, dépendances.
+  // tests/js/test_yaml_builder.coffee — tests for YamlBuilder (yaml_builder.js)
+  // Covers YAML generation, field click, header click (aggregate), badges, dependencies.
   var YB, assert, deepEq, describe, eq, it, makeContainer, makeRelations, makeSpaces, makeYB, summary, yamlFromObj,
     indexOf = [].indexOf;
 
@@ -11,7 +11,7 @@
   // --- stubs ------------------------------------------------------------------
   global.jsyaml = {
     dump: function(obj) {
-      return JSON.stringify(obj); // simplifie les comparaisons
+      return JSON.stringify(obj); // simplifies comparisons
     },
     load: function(src) {
       var e;
@@ -25,7 +25,7 @@
     }
   };
 
-  // Chargement du module sous test (expose window.YamlBuilder)
+  // Load module under test (exposes window.YamlBuilder)
   require('../../frontend/src/yaml_builder');
 
   YB = global.window.YamlBuilder;
@@ -98,29 +98,29 @@
       initialYaml: opts.initialYaml || null,
       onChange: opts.onChange || function() {}
     });
-    yb._render = function() {}; // no-op: tests d'état uniquement, pas de DOM SVG
+    yb._render = function() {}; // no-op: state-only tests, no SVG DOM assertions
     return yb;
   };
 
-  // --- YamlBuilder : état initial ---------------------------------------------
+  // --- YamlBuilder: initial state ----------------------------------------------
   describe('YamlBuilder — initial', function() {
-    it('pas de widgets au démarrage', function() {
+    it('no widgets on startup', function() {
       var yb;
       yb = makeYB();
       return eq(yb._widgets.length, 0);
     });
-    return it('toYaml() vide retourne squelette', function() {
+    return it('empty toYaml() returns skeleton', function() {
       var yaml, yb;
       yb = makeYB();
       yaml = yb.toYaml();
-      assert(yaml.indexOf('layout') !== -1, 'contient layout');
-      return assert(yaml.indexOf('children') !== -1, 'contient children');
+      assert(yaml.indexOf('layout') !== -1, 'contains layout');
+      return assert(yaml.indexOf('children') !== -1, 'contains children');
     });
   });
 
-  // --- YamlBuilder : clic champ -----------------------------------------------
-  describe('YamlBuilder — clic champ', function() {
-    it('ajouter un champ crée un widget régulier', function() {
+  // --- YamlBuilder: field click ------------------------------------------------
+  describe('YamlBuilder — field click', function() {
+    it('adding a field creates a regular widget', function() {
       var yb;
       yb = makeYB();
       yb._onFieldClick('sp1', 'nom');
@@ -129,28 +129,28 @@
       eq(yb._widgets[0].columns.length, 1);
       return eq(yb._widgets[0].columns[0], 'nom');
     });
-    it('clic * crée un widget sans restriction de colonnes', function() {
+    it('clicking * creates a widget without column restriction', function() {
       var yb;
       yb = makeYB();
       yb._onFieldClick('sp1', '*');
       eq(yb._widgets[0].columns.length, 0);
-      return assert(yb._widgets[0].type !== 'aggregate', 'widget régulier, pas agrégat');
+      return assert(yb._widgets[0].type !== 'aggregate', 'regular widget, not aggregate');
     });
-    it('reclic * en mode all-columns supprime le widget', function() {
+    it('clicking * again in all-columns mode removes widget', function() {
       var yb;
       yb = makeYB();
       yb._onFieldClick('sp1', '*');
       yb._onFieldClick('sp1', '*');
       return eq(yb._widgets.length, 0);
     });
-    it('reclic même champ le retire', function() {
+    it('clicking same field again removes it', function() {
       var yb;
       yb = makeYB();
       yb._onFieldClick('sp1', 'nom');
       yb._onFieldClick('sp1', 'nom');
       return eq(yb._widgets.length, 0);
     });
-    return it('plusieurs champs dans un même widget', function() {
+    return it('multiple fields in same widget', function() {
       var yb;
       yb = makeYB();
       yb._onFieldClick('sp1', 'nom');
@@ -160,9 +160,9 @@
     });
   });
 
-  // --- YamlBuilder : clic en-tête (aggregate) ---------------------------------
-  describe('YamlBuilder — clic en-tête (aggregate)', function() {
-    it('crée un widget de type aggregate', function() {
+  // --- YamlBuilder: header click (aggregate) -----------------------------------
+  describe('YamlBuilder — header click (aggregate)', function() {
+    it('creates an aggregate widget', function() {
       var yb;
       yb = makeYB();
       yb._onHeaderClick('sp1');
@@ -170,7 +170,7 @@
       eq(yb._widgets[0].type, 'aggregate');
       return eq(yb._widgets[0].spaceName, 'personnes');
     });
-    it('groupBy contient tous les champs (pas de FK pour sp1)', function() {
+    it('groupBy contains all fields (no FK for sp1)', function() {
       var yb;
       yb = makeYB();
       yb._onHeaderClick('sp1');
@@ -180,24 +180,24 @@
         'prenom' // alphabetical
       ]);
     });
-    it('groupBy exclut les champs FK', function() {
+    it('groupBy excludes FK fields', function() {
       var yb;
       yb = makeYB({
         spaces: makeSpaces(),
         relations: makeRelations()
       });
       yb._onHeaderClick('sp2');
-      // client_id est FK → exclus ; seul total reste
+      // client_id is FK -> excluded; only total remains
       return deepEq(yb._widgets[0].groupBy, ['total']);
     });
-    it('deuxième clic en-tête supprime le widget agrégat', function() {
+    it('second header click removes aggregate widget', function() {
       var yb;
       yb = makeYB();
       yb._onHeaderClick('sp1');
       yb._onHeaderClick('sp1');
       return eq(yb._widgets.length, 0);
     });
-    it('widget agrégat et widget régulier peuvent coexister', function() {
+    it('aggregate and regular widgets can coexist', function() {
       var yb;
       yb = makeYB();
       yb._onHeaderClick('sp1'); // aggregate
@@ -210,18 +210,18 @@
         return w.type !== 'aggregate';
       })).length, 1);
     });
-    return it('_widgetForSpace n\'est pas sensible aux widgets agrégats', function() {
+    return it('_widgetForSpace ignores aggregate widgets', function() {
       var yb;
       yb = makeYB();
       yb._onHeaderClick('sp1');
-      assert(!yb._widgetForSpace('sp1'), 'pas de widget régulier pour sp1');
-      return assert(yb._aggWidgetForSpace('sp1'), 'widget agrégat présent');
+      assert(!yb._widgetForSpace('sp1'), 'no regular widget for sp1');
+      return assert(yb._aggWidgetForSpace('sp1'), 'aggregate widget present');
     });
   });
 
-  // --- YamlBuilder : toYaml avec aggregate ------------------------------------
+  // --- YamlBuilder: toYaml with aggregate --------------------------------------
   describe('YamlBuilder — toYaml aggregate', function() {
-    it('génère type:aggregate avec groupBy', function() {
+    it('generates type:aggregate with groupBy', function() {
       var parsed, ref, wObj, yb;
       yb = makeYB();
       yb._onHeaderClick('sp1');
@@ -229,11 +229,11 @@
       wObj = parsed.layout.children[0].widget;
       eq(wObj.type, 'aggregate');
       eq(wObj.space, 'personnes');
-      assert(Array.isArray(wObj.groupBy), 'groupBy est un tableau');
-      assert(((ref = wObj.aggregate) != null ? ref.length : void 0) > 0, 'aggregate a au moins une entrée');
+      assert(Array.isArray(wObj.groupBy), 'groupBy is an array');
+      assert(((ref = wObj.aggregate) != null ? ref.length : void 0) > 0, 'aggregate has at least one entry');
       return eq(wObj.aggregate[0].fn, 'count');
     });
-    return it('génère le widget régulier correctement en présence d\'un agrégat', function() {
+    return it('generates regular widget correctly when aggregate is present', function() {
       var parsed, types, yb;
       yb = makeYB();
       yb._onHeaderClick('sp1');
@@ -243,22 +243,22 @@
       types = parsed.layout.children.map(function(c) {
         return c.widget.type;
       });
-      return assert(indexOf.call(types, 'aggregate') >= 0, 'agrégat présent');
+      return assert(indexOf.call(types, 'aggregate') >= 0, 'aggregate present');
     });
   });
 
-  // --- YamlBuilder : depends_on automatique -----------------------------------
+  // --- YamlBuilder: automatic depends_on ---------------------------------------
   describe('YamlBuilder — depends_on', function() {
-    return it('détecte FK et génère depends_on', function() {
+    return it('detects FK and generates depends_on', function() {
       var child, yb;
       yb = makeYB({
         spaces: makeSpaces(),
         relations: makeRelations()
       });
       yb._onFieldClick('sp1', 'nom'); // parent
-      yb._onFieldClick('sp2', 'total'); // enfant (a FK vers sp1)
+      yb._onFieldClick('sp2', 'total'); // child (has FK to sp1)
       child = yb._widgets[1];
-      assert(child.dependsOn != null, 'depends_on détecté');
+      assert(child.dependsOn != null, 'depends_on detected');
       return eq(child.dependsOn.field, 'client_id');
     });
   });
@@ -268,9 +268,9 @@
     return JSON.stringify(obj);
   };
 
-  // --- YamlBuilder : hydratation depuis YAML existant -------------------------
+  // --- YamlBuilder: hydration from existing YAML -------------------------------
   describe('YamlBuilder — _loadFromYaml (initialYaml)', function() {
-    it('charge un widget régulier', function() {
+    it('loads a regular widget', function() {
       var yaml, yb;
       yaml = yamlFromObj({
         layout: {
@@ -293,7 +293,7 @@
       deepEq(yb._widgets[0].columns, ['nom']);
       return eq(yb._widgets[0].id, 'w1');
     });
-    it('charge un widget agrégat', function() {
+    it('loads an aggregate widget', function() {
       var yaml, yb;
       yaml = yamlFromObj({
         layout: {
@@ -316,7 +316,7 @@
       eq(yb._widgets[0].spaceName, 'commandes');
       return deepEq(yb._widgets[0].groupBy, ['total']);
     });
-    it('charge depends_on', function() {
+    it('loads depends_on', function() {
       var dep, yaml, yb;
       yaml = yamlFromObj({
         layout: {
@@ -346,18 +346,18 @@
       });
       eq(yb._widgets.length, 2);
       dep = yb._widgets[1].dependsOn;
-      assert(dep != null, 'depends_on présent');
+      assert(dep != null, 'depends_on present');
       eq(dep.widgetId, 'p');
       return eq(dep.field, 'client_id');
     });
-    it('ignore les espaces inconnus', function() {
+    it('ignores unknown spaces', function() {
       var yaml, yb;
       yaml = yamlFromObj({
         layout: {
           children: [
             {
               widget: {
-                space: 'inexistant'
+                space: 'unknown'
               }
             }
           ]
@@ -368,7 +368,7 @@
       });
       return eq(yb._widgets.length, 0);
     });
-    it('ne duplique pas lors d\'un clic sur espace déjà chargé', function() {
+    it('does not duplicate when clicking already-loaded space', function() {
       var yaml, yb;
       yaml = yamlFromObj({
         layout: {
@@ -388,9 +388,9 @@
       // Clicking another field should ADD to existing widget, not create a new one
       yb._onFieldClick('sp1', 'age');
       eq(yb._widgets.length, 1);
-      return assert(indexOf.call(yb._widgets[0].columns, 'age') >= 0, 'age ajouté');
+      return assert(indexOf.call(yb._widgets[0].columns, 'age') >= 0, 'age added');
     });
-    return it('reloadFromYaml reset et re-hydrate le state', function() {
+    return it('reloadFromYaml resets and re-hydrates state', function() {
       var newYaml, yb;
       yb = makeYB();
       yb._onFieldClick('sp1', 'nom');

@@ -1,152 +1,152 @@
-# API GraphQL — TGui
+# GraphQL API — TGui
 
-> Fichier généré automatiquement. Ne pas modifier manuellement.
+> Auto-generated file. Do not edit manually.
 >
-> Généré le: 2026-03-12 10:33:27 UTC
+> Generated at: 2026-03-12 20:58:48 UTC
 >
 > Source: `schema/tdb.graphql`
 
-## Vue d’ensemble
+## Overview
 
 - Endpoint: `/graphql`
 - Transport: HTTP POST JSON
-- Auth: token Bearer dans l’en-tête `Authorization`
-- Source de vérité des signatures: `schema/tdb.graphql`
-- Capture d’exécution du SDL: `schema/tdb.generated.graphql`
+- Auth: Bearer token in `Authorization` header
+- Signature source of truth: `schema/tdb.graphql`
+- Runtime SDL snapshot: `schema/tdb.generated.graphql`
 
 ## Queries
 
-### Espaces & Champs
+### Spaces & Fields
 
-| Opération | Arguments | Retour | Description |
+| Operation | Arguments | Return | Description |
 |---|---|---|---|
-| `spaces` | `-` | `[Space!]!` | Opération de lecture sur les métadonnées d’espaces/champs. |
-| `space` | `id: ID!` | `Space` | Opération de lecture sur les métadonnées d’espaces/champs. |
+| `spaces` | `-` | `[Space!]!` | Read operation on space/field metadata. |
+| `space` | `id: ID!` | `Space` | Read operation on space/field metadata. |
 
-### Vues
+### Views
 
-| Opération | Arguments | Retour | Description |
+| Operation | Arguments | Return | Description |
 |---|---|---|---|
-| `views` | `spaceId: ID!` | `[View!]!` | Gestion des vues standard et personnalisées. |
-| `view` | `id: ID!` | `View` | Gestion des vues standard et personnalisées. |
-| `customViews` | `-` | `[CustomView!]!` | Gestion des vues standard et personnalisées. |
-| `customView` | `id: ID!` | `CustomView` | Gestion des vues standard et personnalisées. |
+| `views` | `spaceId: ID!` | `[View!]!` | Manage standard and custom views. |
+| `view` | `id: ID!` | `View` | Manage standard and custom views. |
+| `customViews` | `-` | `[CustomView!]!` | Manage standard and custom views. |
+| `customView` | `id: ID!` | `CustomView` | Manage standard and custom views. |
 
 ### Relations
 
-| Opération | Arguments | Retour | Description |
+| Operation | Arguments | Return | Description |
 |---|---|---|---|
-| `relations` | `spaceId: ID!` | `[Relation!]!` | Gestion des relations inter-espaces et préférences d’affichage. |
-| `gridColumnPrefs` | `spaceId: ID!` | `JSON!` | Gestion des relations inter-espaces et préférences d’affichage. |
+| `relations` | `spaceId: ID!` | `[Relation!]!` | Manage inter-space relations and column display preferences. |
+| `gridColumnPrefs` | `spaceId: ID!` | `JSON!` | Manage inter-space relations and column display preferences. |
 
-### Données (records)
+### Data (records)
 
-| Opération | Arguments | Retour | Description |
+| Operation | Arguments | Return | Description |
 |---|---|---|---|
-| `records` | `spaceId: ID!, filter: RecordFilter, limit: Int, offset: Int, reprFormula: String, reprLanguage: String` | `RecordPage!` | Lecture/écriture des enregistrements utilisateurs. |
-| `record` | `spaceId: ID!, id: ID!` | `Record` | Lecture/écriture des enregistrements utilisateurs. |
-| `aggregateSpace` | `spaceName: String! groupBy: [String!]! aggregate: [AggregateInput!]!` | `[JSON]` | Lecture/écriture des enregistrements utilisateurs. |
+| `records` | `spaceId: ID!, filter: RecordFilter, limit: Int, offset: Int, reprFormula: String, reprLanguage: String` | `RecordPage!` | Read/write user records. |
+| `record` | `spaceId: ID!, id: ID!` | `Record` | Read/write user records. |
+| `aggregateSpace` | `spaceName: String! groupBy: [String!]! aggregate: [AggregateInput!]!` | `[JSON]` | Read/write user records. |
 
-### Authentification
+### Authentication
 
-| Opération | Arguments | Retour | Description |
+| Operation | Arguments | Return | Description |
 |---|---|---|---|
-| `me` | `-` | `User` | Authentification, session et gestion du mot de passe. |
+| `me` | `-` | `User` | Authentication, sessions and password lifecycle. |
 
-### Utilisateurs & Groupes
+### Users & Groups
 
-| Opération | Arguments | Retour | Description |
+| Operation | Arguments | Return | Description |
 |---|---|---|---|
-| `users` | `-` | `[User!]!` | Administration des utilisateurs, groupes et permissions. |
-| `user` | `id: ID!` | `User` | Administration des utilisateurs, groupes et permissions. |
-| `groups` | `-` | `[Group!]!` | Administration des utilisateurs, groupes et permissions. |
-| `group` | `id: ID!` | `Group` | Administration des utilisateurs, groupes et permissions. |
+| `users` | `-` | `[User!]!` | Administration for users, groups and permissions. |
+| `user` | `id: ID!` | `User` | Administration for users, groups and permissions. |
+| `groups` | `-` | `[Group!]!` | Administration for users, groups and permissions. |
+| `group` | `id: ID!` | `Group` | Administration for users, groups and permissions. |
 
 ### Snapshots
 
-| Opération | Arguments | Retour | Description |
+| Operation | Arguments | Return | Description |
 |---|---|---|---|
-| `exportSnapshot` | `includeData: Boolean!` | `String!` | Export, comparaison et import des snapshots de configuration. |
-| `diffSnapshot` | `yaml: String!` | `SnapshotDiff!` | Export, comparaison et import des snapshots de configuration. |
+| `exportSnapshot` | `includeData: Boolean!` | `String!` | Export, diff and import configuration snapshots. |
+| `diffSnapshot` | `yaml: String!` | `SnapshotDiff!` | Export, diff and import configuration snapshots. |
 
 ## Mutations
 
-### Espaces & Champs
+### Spaces & Fields
 
-| Opération | Arguments | Retour | Description |
+| Operation | Arguments | Return | Description |
 |---|---|---|---|
-| `createSpace` | `input: CreateSpaceInput!` | `Space!` | Opération de mutation sur les métadonnées d’espaces/champs. |
-| `updateSpace` | `id: ID!, input: UpdateSpaceInput!` | `Space!` | Opération de mutation sur les métadonnées d’espaces/champs. |
-| `deleteSpace` | `id: ID!` | `Boolean!` | Opération de mutation sur les métadonnées d’espaces/champs. |
-| `addField` | `spaceId: ID!, input: FieldInput!` | `Field!` | Opération de mutation sur les métadonnées d’espaces/champs. |
-| `addFields` | `spaceId: ID!, inputs: [FieldInput!]!` | `[Field!]!` | Opération de mutation sur les métadonnées d’espaces/champs. |
-| `removeField` | `fieldId: ID!` | `Boolean!` | Opération de mutation sur les métadonnées d’espaces/champs. |
-| `reorderFields` | `spaceId: ID!, fieldIds: [ID!]!` | `[Field!]!` | Opération de mutation sur les métadonnées d’espaces/champs. |
-| `updateField` | `fieldId: ID!, input: UpdateFieldInput!` | `Field!` | Opération de mutation sur les métadonnées d’espaces/champs. |
-| `changeFieldType` | `fieldId: ID!, input: ChangeFieldTypeInput!` | `Field!` | Opération de mutation sur les métadonnées d’espaces/champs. |
+| `createSpace` | `input: CreateSpaceInput!` | `Space!` | Mutation operation on space/field metadata. |
+| `updateSpace` | `id: ID!, input: UpdateSpaceInput!` | `Space!` | Mutation operation on space/field metadata. |
+| `deleteSpace` | `id: ID!` | `Boolean!` | Mutation operation on space/field metadata. |
+| `addField` | `spaceId: ID!, input: FieldInput!` | `Field!` | Mutation operation on space/field metadata. |
+| `addFields` | `spaceId: ID!, inputs: [FieldInput!]!` | `[Field!]!` | Mutation operation on space/field metadata. |
+| `removeField` | `fieldId: ID!` | `Boolean!` | Mutation operation on space/field metadata. |
+| `reorderFields` | `spaceId: ID!, fieldIds: [ID!]!` | `[Field!]!` | Mutation operation on space/field metadata. |
+| `updateField` | `fieldId: ID!, input: UpdateFieldInput!` | `Field!` | Mutation operation on space/field metadata. |
+| `changeFieldType` | `fieldId: ID!, input: ChangeFieldTypeInput!` | `Field!` | Mutation operation on space/field metadata. |
 
-### Vues
+### Views
 
-| Opération | Arguments | Retour | Description |
+| Operation | Arguments | Return | Description |
 |---|---|---|---|
-| `createView` | `spaceId: ID!, input: CreateViewInput!` | `View!` | Gestion des vues standard et personnalisées. |
-| `updateView` | `id: ID!, input: UpdateViewInput!` | `View!` | Gestion des vues standard et personnalisées. |
-| `deleteView` | `id: ID!` | `Boolean!` | Gestion des vues standard et personnalisées. |
-| `createCustomView` | `input: CreateCustomViewInput!` | `CustomView!` | Gestion des vues standard et personnalisées. |
-| `updateCustomView` | `id: ID!, input: UpdateCustomViewInput!` | `CustomView!` | Gestion des vues standard et personnalisées. |
-| `deleteCustomView` | `id: ID!` | `Boolean!` | Gestion des vues standard et personnalisées. |
+| `createView` | `spaceId: ID!, input: CreateViewInput!` | `View!` | Manage standard and custom views. |
+| `updateView` | `id: ID!, input: UpdateViewInput!` | `View!` | Manage standard and custom views. |
+| `deleteView` | `id: ID!` | `Boolean!` | Manage standard and custom views. |
+| `createCustomView` | `input: CreateCustomViewInput!` | `CustomView!` | Manage standard and custom views. |
+| `updateCustomView` | `id: ID!, input: UpdateCustomViewInput!` | `CustomView!` | Manage standard and custom views. |
+| `deleteCustomView` | `id: ID!` | `Boolean!` | Manage standard and custom views. |
 
 ### Relations
 
-| Opération | Arguments | Retour | Description |
+| Operation | Arguments | Return | Description |
 |---|---|---|---|
-| `createRelation` | `input: CreateRelationInput!` | `Relation!` | Gestion des relations inter-espaces et préférences d’affichage. |
-| `deleteRelation` | `id: ID!` | `Boolean!` | Gestion des relations inter-espaces et préférences d’affichage. |
-| `updateRelation` | `id: ID!, input: UpdateRelationInput!` | `Relation!` | Gestion des relations inter-espaces et préférences d’affichage. |
-| `saveGridColumnPrefs` | `spaceId: ID!, prefs: JSON!, asDefault: Boolean` | `Boolean!` | Gestion des relations inter-espaces et préférences d’affichage. |
+| `createRelation` | `input: CreateRelationInput!` | `Relation!` | Manage inter-space relations and column display preferences. |
+| `deleteRelation` | `id: ID!` | `Boolean!` | Manage inter-space relations and column display preferences. |
+| `updateRelation` | `id: ID!, input: UpdateRelationInput!` | `Relation!` | Manage inter-space relations and column display preferences. |
+| `saveGridColumnPrefs` | `spaceId: ID!, prefs: JSON!, asDefault: Boolean` | `Boolean!` | Manage inter-space relations and column display preferences. |
 
-### Données (records)
+### Data (records)
 
-| Opération | Arguments | Retour | Description |
+| Operation | Arguments | Return | Description |
 |---|---|---|---|
-| `insertRecord` | `spaceId: ID!, data: JSON!` | `Record!` | Lecture/écriture des enregistrements utilisateurs. |
-| `updateRecord` | `spaceId: ID!, id: ID!, data: JSON!` | `Record!` | Lecture/écriture des enregistrements utilisateurs. |
-| `deleteRecord` | `spaceId: ID!, id: ID!` | `Boolean!` | Lecture/écriture des enregistrements utilisateurs. |
-| `deleteRecords` | `spaceId: ID!, ids: [ID!]!` | `[Boolean!]!` | Lecture/écriture des enregistrements utilisateurs. |
-| `insertRecords` | `spaceId: ID!, data: [JSON!]!` | `[Record!]!` | Lecture/écriture des enregistrements utilisateurs. |
-| `updateRecords` | `spaceId: ID!, records: [RecordUpdateInput!]!` | `[Record!]!` | Lecture/écriture des enregistrements utilisateurs. |
-| `restoreRecords` | `spaceId: ID!, records: [RecordUpdateInput!]!` | `[Record!]!` | Lecture/écriture des enregistrements utilisateurs. |
+| `insertRecord` | `spaceId: ID!, data: JSON!` | `Record!` | Read/write user records. |
+| `updateRecord` | `spaceId: ID!, id: ID!, data: JSON!` | `Record!` | Read/write user records. |
+| `deleteRecord` | `spaceId: ID!, id: ID!` | `Boolean!` | Read/write user records. |
+| `deleteRecords` | `spaceId: ID!, ids: [ID!]!` | `[Boolean!]!` | Read/write user records. |
+| `insertRecords` | `spaceId: ID!, data: [JSON!]!` | `[Record!]!` | Read/write user records. |
+| `updateRecords` | `spaceId: ID!, records: [RecordUpdateInput!]!` | `[Record!]!` | Read/write user records. |
+| `restoreRecords` | `spaceId: ID!, records: [RecordUpdateInput!]!` | `[Record!]!` | Read/write user records. |
 
-### Authentification
+### Authentication
 
-| Opération | Arguments | Retour | Description |
+| Operation | Arguments | Return | Description |
 |---|---|---|---|
-| `login` | `username: String!, password: String!` | `AuthPayload!` | Authentification, session et gestion du mot de passe. |
-| `logout` | `-` | `Boolean!` | Authentification, session et gestion du mot de passe. |
-| `changePassword` | `currentPassword: String!, newPassword: String!` | `Boolean!` | Authentification, session et gestion du mot de passe. |
-| `adminSetPassword` | `userId: ID!, newPassword: String!` | `Boolean!` | Authentification, session et gestion du mot de passe. |
+| `login` | `username: String!, password: String!` | `AuthPayload!` | Authentication, sessions and password lifecycle. |
+| `logout` | `-` | `Boolean!` | Authentication, sessions and password lifecycle. |
+| `changePassword` | `currentPassword: String!, newPassword: String!` | `Boolean!` | Authentication, sessions and password lifecycle. |
+| `adminSetPassword` | `userId: ID!, newPassword: String!` | `Boolean!` | Authentication, sessions and password lifecycle. |
 
-### Utilisateurs & Groupes
+### Users & Groups
 
-| Opération | Arguments | Retour | Description |
+| Operation | Arguments | Return | Description |
 |---|---|---|---|
-| `createUser` | `input: CreateUserInput!` | `User!` | Administration des utilisateurs, groupes et permissions. |
-| `createGroup` | `input: CreateGroupInput!` | `Group!` | Administration des utilisateurs, groupes et permissions. |
-| `deleteGroup` | `id: ID!` | `Boolean!` | Administration des utilisateurs, groupes et permissions. |
-| `addMember` | `userId: ID!, groupId: ID!` | `Boolean!` | Administration des utilisateurs, groupes et permissions. |
-| `removeMember` | `userId: ID!, groupId: ID!` | `Boolean!` | Administration des utilisateurs, groupes et permissions. |
-| `grant` | `groupId: ID!, input: PermissionInput!` | `Permission!` | Administration des utilisateurs, groupes et permissions. |
-| `revoke` | `permissionId: ID!` | `Boolean!` | Administration des utilisateurs, groupes et permissions. |
+| `createUser` | `input: CreateUserInput!` | `User!` | Administration for users, groups and permissions. |
+| `createGroup` | `input: CreateGroupInput!` | `Group!` | Administration for users, groups and permissions. |
+| `deleteGroup` | `id: ID!` | `Boolean!` | Administration for users, groups and permissions. |
+| `addMember` | `userId: ID!, groupId: ID!` | `Boolean!` | Administration for users, groups and permissions. |
+| `removeMember` | `userId: ID!, groupId: ID!` | `Boolean!` | Administration for users, groups and permissions. |
+| `grant` | `groupId: ID!, input: PermissionInput!` | `Permission!` | Administration for users, groups and permissions. |
+| `revoke` | `permissionId: ID!` | `Boolean!` | Administration for users, groups and permissions. |
 
 ### Snapshots
 
-| Opération | Arguments | Retour | Description |
+| Operation | Arguments | Return | Description |
 |---|---|---|---|
-| `importSnapshot` | `yaml: String!, mode: ImportMode!` | `ImportResult!` | Export, comparaison et import des snapshots de configuration. |
+| `importSnapshot` | `yaml: String!, mode: ImportMode!` | `ImportResult!` | Export, diff and import configuration snapshots. |
 
-## Exemples d’usage
+## Usage Examples
 
-### 1) Authentification puis lecture des espaces
+### 1) Authenticate then query spaces
 
 ```graphql
 mutation Login($u: String!, $p: String!) {
@@ -158,7 +158,7 @@ mutation Login($u: String!, $p: String!) {
 query { spaces { id name description } }
 ```
 
-### 2) Lecture paginée de records avec filtre
+### 2) Paginated records query
 
 ```graphql
 query Records($spaceId: ID!, $limit: Int!, $offset: Int!) {
@@ -169,7 +169,7 @@ query Records($spaceId: ID!, $limit: Int!, $offset: Int!) {
 }
 ```
 
-### 3) Mutation structurelle: créer un espace puis un champ
+### 3) Structural mutation: create space and field
 
 ```graphql
 mutation CreateSpace($input: CreateSpaceInput!) {
@@ -183,7 +183,7 @@ mutation AddField($spaceId: ID!, $input: FieldInput!) {
 }
 ```
 
-## Types d'entrée
+## Input Types
 
 - `RecordUpdateInput`
 - `RecordFilter`
@@ -213,5 +213,5 @@ mutation AddField($spaceId: ID!, $input: FieldInput!) {
 
 ## Notes
 
-- Les types dynamiques liés aux espaces utilisateur sont reconstruits côté backend.
-- Pour régénérer une capture SDL d’exécution: `make sdl-gen`.
+- Dynamic user-space types are rebuilt by backend schema reinitialization.
+- To refresh SDL runtime snapshot: `make sdl-gen`.

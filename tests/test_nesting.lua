@@ -22,7 +22,7 @@ GQL = {
     return GQL.query(q, v)
   end
 }
-return R.describe("GraphQL — Requêtes imbriquées (Nesting)", function()
+return R.describe("GraphQL — Nested queries (Nesting)", function()
   local user_sp, task_sp
   local user_fid, task_user_fid
   R.before_all(function()
@@ -59,7 +59,7 @@ return R.describe("GraphQL — Requêtes imbriquées (Nesting)", function()
       return spaces.delete_user_space(task_sp.name)
     end
   end)
-  R.it("peut requêter un enregistrement lié (FK resolution)", function()
+  R.it("can query a linked record (FK resolution)", function()
     local tname = require('graphql.dynamic').gql_name(task_sp.name)
     local uname = require('graphql.dynamic').gql_name(user_sp.name)
     local q = "{ " .. tostring(tname) .. " { items { title user_id { name } } } }"
@@ -77,7 +77,7 @@ return R.describe("GraphQL — Requêtes imbriquées (Nesting)", function()
     R.eq(items[3].title, "Task 3")
     return R.eq(items[3].user_id.name, "Alice")
   end)
-  R.it("peut requêter des back-references avec pagination/filtrage", function()
+  R.it("can query back-references with pagination/filtering", function()
     local tname = require('graphql.dynamic').gql_name(task_sp.name)
     local uname = require('graphql.dynamic').gql_name(user_sp.name)
     local q = "{ " .. tostring(uname) .. "(filter: { field: \"name\", op: EQ, value: \"Alice\" }) { items { name owner(limit: 1) { items { title } total } } } }"
@@ -85,10 +85,10 @@ return R.describe("GraphQL — Requêtes imbriquées (Nesting)", function()
     R.ok(res[uname])
     local alice = res[uname].items[1]
     R.eq(alice.name, "Alice")
-    R.eq(alice.owner.total, 2, "Alice doit avoir 2 tâches")
-    return R.eq(#alice.owner.items, 1, "Limit doit être respecté")
+    R.eq(alice.owner.total, 2, "Alice should have 2 tasks")
+    return R.eq(#alice.owner.items, 1, "limit should be respected")
   end)
-  return R.it("peut requêter records depuis Space (nested records)", function()
+  return R.it("can query records from Space (nested records)", function()
     local q = "{ space(id: \"" .. tostring(task_sp.id) .. "\") { name records(limit: 2) { items { id } total } } }"
     local res = GQL.query(q)
     R.ok(res.space)

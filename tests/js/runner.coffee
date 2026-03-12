@@ -1,8 +1,8 @@
-# tests/js/runner.coffee — minimal test runner (aucune dépendance)
+# tests/js/runner.coffee — minimal test runner (no dependencies)
 
 passed  = 0
 failed  = 0
-_pending = []   # promesses en attente (it() async)
+_pending = []   # pending promises (async it())
 currentSuite = ''
 
 describe = (name, fn) ->
@@ -20,7 +20,7 @@ it = (desc, fn) ->
     return
 
   if result and typeof result.then is 'function'
-    # it() asynchrone : on suit la promesse
+    # async it(): track the promise
     _pending.push result.then(
       -> passed++
       (e) ->
@@ -32,17 +32,17 @@ it = (desc, fn) ->
     passed++
 
 assert = (cond, msg) ->
-  throw new Error(msg or 'assertion échouée') unless cond
+  throw new Error(msg or 'assertion failed') unless cond
 
 eq = (a, b, msg) ->
   unless a is b
-    throw new Error msg or "attendu #{JSON.stringify b}, obtenu #{JSON.stringify a}"
+    throw new Error msg or "expected #{JSON.stringify b}, got #{JSON.stringify a}"
 
 deepEq = (a, b, msg) ->
   sa = JSON.stringify a
   sb = JSON.stringify b
   unless sa is sb
-    throw new Error msg or "attendu #{sb}, obtenu #{sa}"
+    throw new Error msg or "expected #{sb}, got #{sa}"
 
 raises = (fn, pattern) ->
   threw = false
@@ -52,18 +52,18 @@ raises = (fn, pattern) ->
     threw = true
     if pattern
       ok = if pattern instanceof RegExp then pattern.test e.message else e.message.includes pattern
-      throw new Error "erreur attendue contenant \"#{pattern}\", obtenu: #{e.message}" unless ok
-  throw new Error 'une erreur était attendue mais aucune levée' unless threw
+      throw new Error "expected error containing \"#{pattern}\", got: #{e.message}" unless ok
+  throw new Error 'an error was expected but none was raised' unless threw
 
 summary = ->
   finish = ->
     total = passed + failed
     console.log "#{total} assertions — #{passed} ✓  #{failed} ✗"
     if failed > 0
-      console.log 'RÉSULTAT: ÉCHEC'
+      console.log 'RESULT: FAILURE'
       process.exit 1
     else
-      console.log 'RÉSULTAT: SUCCÈS'
+      console.log 'RESULT: SUCCESS'
 
   if _pending.length > 0
     Promise.all(_pending).then finish

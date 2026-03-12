@@ -115,6 +115,8 @@ window.AppViewHelpers =
   bindYamlEditor: (app) ->
     app.el.yamlEditBtn().addEventListener 'click', ->
       app._openYamlModal()
+    app.el.yamlPluginsBtn()?.addEventListener 'click', ->
+      app._openWidgetPluginModal()
 
     app.el.yamlDeleteBtn().addEventListener 'click', ->
       cv = app._currentCustomView
@@ -155,6 +157,11 @@ window.AppViewHelpers =
     return unless cv
     app.el.yamlModalTitle().textContent = cv.name
     app.el.yamlModal().classList.remove 'hidden'
+    yamlPane = document.querySelector '.yaml-editor-pane'
+    applyValidationLayout = ->
+      return unless yamlPane and app._yamlValidMsg
+      hasError = !app._yamlValidMsg.classList.contains 'hidden'
+      yamlPane.classList.toggle 'has-validation-error', hasError
     unless app._cmYaml
       app._cmYaml = CodeMirror document.getElementById('yaml-cm-editor'),
         mode: 'yaml'
@@ -168,15 +175,21 @@ window.AppViewHelpers =
           app._yamlValidMsg = document.getElementById 'yaml-validation-msg'
         if change.origin == 'setValue'
           app._yamlValidMsg?.classList.add 'hidden'
+          applyValidationLayout()
           return
         app._yamlBuilder?.reloadFromYaml cm.getValue()
         try
           jsyaml.load cm.getValue()
           app._yamlValidMsg?.classList.add 'hidden'
+          applyValidationLayout()
         catch e
           if app._yamlValidMsg
             app._yamlValidMsg.textContent = "YAML invalide : #{e.message}"
             app._yamlValidMsg.classList.remove 'hidden'
+            applyValidationLayout()
+    else
+      app._yamlValidMsg ?= document.getElementById 'yaml-validation-msg'
+      applyValidationLayout()
     app._cmYaml.setValue cv.yaml or ''
     setTimeout (-> app._cmYaml.refresh()), 10
     app._loadAllRelations().then (relations) ->
@@ -194,3 +207,139 @@ window.AppViewHelpers =
       .then (results) ->
         app._allRelations = results.reduce ((a, b) -> a.concat b), []
         app._allRelations
+
+  bindWidgetPlugins: (app) ->
+    app.el.widgetPluginModalCloseBtn()?.addEventListener 'click', ->
+      app.el.widgetPluginModal()?.classList.add 'hidden'
+
+    app.el.widgetPluginNewBtn()?.addEventListener 'click', ->
+      defaults = window.AppViewHelpers._defaultWidgetPlugin()
+      app._selectedWidgetPlugin = null
+      app.el.widgetPluginName().value = defaults.name
+      app.el.widgetPluginDescription().value = defaults.description
+      app.el.widgetPluginScriptLanguage().value = defaults.scriptLanguage
+      app.el.widgetPluginTemplateLanguage().value = defaults.templateLanguage
+      app._cmWidgetPluginScript?.setOption 'mode', defaults.scriptLanguage
+      app._cmWidgetPluginTemplate?.setOption 'mode', defaults.templateLanguage
+      app._cmWidgetPluginScript?.setValue defaults.scriptCode
+      app._cmWidgetPluginTemplate?.setValue defaults.templateCode
+
+    app.el.widgetPluginSaveBtn()?.addEventListener 'click', ->
+      name = app.el.widgetPluginName().value.trim()
+      return tdbAlert('Nom du plugin requis', 'error') unless name
+      input =
+        name: name
+        description: app.el.widgetPluginDescription().value.trim()
+        scriptLanguage: app.el.widgetPluginScriptLanguage().value or 'coffeescript'
+        templateLanguage: app.el.widgetPluginTemplateLanguage().value or 'pug'
+        scriptCode: if app._cmWidgetPluginScript then app._cmWidgetPluginScript.getValue() else ''
+        templateCode: if app._cmWidgetPluginTemplate then app._cmWidgetPluginTemplate.getValue() else ''
+      mutation = if app._selectedWidgetPlugin then app._updateWidgetPluginMutation else app._createWidgetPluginMutation
+      vars = if app._selectedWidgetPlugin then { id: app._selectedWidgetPlugin.id, input } else { input }
+      GQL.mutate(mutation, vars)
+        .then ->
+          window.AppViewHelpers._loadWidgetPlugins app
+        .catch (err) -> tdbAlert app._err(err), 'error'
+
+    app.el.widgetPluginDeleteBtn()?.addEventListener 'click', ->
+      plugin = app._selectedWidgetPlugin
+      return unless plugin
+      return unless await tdbConfirm "Supprimer le plugin « #{plugin.name} » ?"
+      GQL.mutate(app._deleteWidgetPluginMutation, { id: plugin.id })
+        .then ->
+          app._selectedWidgetPlugin = null
+          window.AppViewHelpers._loadWidgetPlugins app
+        .catch (err) -> tdbAlert app._err(err), 'error'
+
+    app.el.widgetPluginScriptLanguage()?.addEventListener 'change', ->
+      mode = app.el.widgetPluginScriptLanguage().value or 'coffeescript'
+      app._cmWidgetPluginScript?.setOption 'mode', mode
+
+    app.el.widgetPluginTemplateLanguage()?.addEventListener 'change', ->
+      mode = app.el.widgetPluginTemplateLanguage().value or 'pug'
+      app._cmWidgetPluginTemplate?.setOption 'mode', mode
+
+  _defaultWidgetPlugin: ->
+    name: ''
+    description: ''
+    scriptLanguage: 'coffeescript'
+    templateLanguage: 'pug'
+    templateCode: """
+div.plugin-root
+  h3= params.title or 'Widget'
+  .content Chargement…
+"""
+    scriptCode: """
+module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
+  rows = []
+  onInputSelection (selection) ->
+    rows = selection?.rows or []
+    emitSelection { rows }
+  title = if params?.title then params.title else 'sans titre'
+  render \"<div class='plugin-info'>Plugin prêt : #{title}</div>\"
+"""
+
+  _loadWidgetPlugins: (app) ->
+    GQL.query(app._listWidgetPluginsQuery)
+      .then (data) ->
+        plugins = data.widgetPlugins or []
+        ul = app.el.widgetPluginList()
+        ul.innerHTML = ''
+        for p in plugins
+          li = document.createElement 'li'
+          li.className = 'leaf-item'
+          li.textContent = p.name
+          li.title = p.description or p.name
+          li.classList.toggle 'active', app._selectedWidgetPlugin?.id == p.id
+          do (p) ->
+            li.addEventListener 'click', ->
+              app._selectedWidgetPlugin = p
+              app.el.widgetPluginName().value = p.name or ''
+              app.el.widgetPluginDescription().value = p.description or ''
+              app.el.widgetPluginScriptLanguage().value = p.scriptLanguage or 'coffeescript'
+              app.el.widgetPluginTemplateLanguage().value = p.templateLanguage or 'pug'
+              app._cmWidgetPluginScript?.setOption 'mode', app.el.widgetPluginScriptLanguage().value
+              app._cmWidgetPluginTemplate?.setOption 'mode', app.el.widgetPluginTemplateLanguage().value
+              app._cmWidgetPluginScript?.setValue p.scriptCode or ''
+              app._cmWidgetPluginTemplate?.setValue p.templateCode or ''
+              for n in ul.querySelectorAll('li')
+                n.classList.remove 'active'
+              li.classList.add 'active'
+          ul.appendChild li
+
+        if not app._selectedWidgetPlugin and plugins.length == 0
+          defaults = window.AppViewHelpers._defaultWidgetPlugin()
+          app.el.widgetPluginName().value = defaults.name
+          app.el.widgetPluginDescription().value = defaults.description
+          app.el.widgetPluginScriptLanguage().value = defaults.scriptLanguage
+          app.el.widgetPluginTemplateLanguage().value = defaults.templateLanguage
+          app._cmWidgetPluginScript?.setOption 'mode', defaults.scriptLanguage
+          app._cmWidgetPluginTemplate?.setOption 'mode', defaults.templateLanguage
+          app._cmWidgetPluginScript?.setValue defaults.scriptCode
+          app._cmWidgetPluginTemplate?.setValue defaults.templateCode
+      .catch (err) -> tdbAlert app._err(err), 'error'
+
+  openWidgetPluginModal: (app) ->
+    app.el.widgetPluginModal()?.classList.remove 'hidden'
+
+    unless app._cmWidgetPluginScript
+      app._cmWidgetPluginScript = CodeMirror app.el.widgetPluginScriptEditor(),
+        mode: (app.el.widgetPluginScriptLanguage().value or 'coffeescript')
+        theme: 'monokai'
+        lineNumbers: true
+        lineWrapping: true
+        tabSize: 2
+        indentWithTabs: false
+    unless app._cmWidgetPluginTemplate
+      app._cmWidgetPluginTemplate = CodeMirror app.el.widgetPluginTemplateEditor(),
+        mode: (app.el.widgetPluginTemplateLanguage().value or 'pug')
+        theme: 'monokai'
+        lineNumbers: true
+        lineWrapping: true
+        tabSize: 2
+        indentWithTabs: false
+
+    setTimeout (-> app._cmWidgetPluginScript?.refresh()), 10
+    setTimeout (-> app._cmWidgetPluginTemplate?.refresh()), 10
+    app._selectedWidgetPlugin = null
+    window.AppViewHelpers._loadWidgetPlugins app

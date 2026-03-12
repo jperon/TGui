@@ -56,7 +56,7 @@ return describe("Relation field creation", function()
           fromSpaceId: $sourceSpaceId
           fromFieldId: $fieldId
           toSpaceId: $targetSpaceId
-          toFieldId: "id"  # Utiliser l'ID par défaut
+          toFieldId: "id"  # Use default ID field
           reprFormula: "#{@name}"
         }) { id name }
       }

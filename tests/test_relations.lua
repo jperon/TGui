@@ -11,10 +11,10 @@ local SP_TGT = "rel_tgt_" .. tostring(SUFFIX)
 local CTX = {
   user_id = 'test-user'
 }
-local src_id, tgt_id, src_fk_field_id, tgt_seq_field_id, rel_id
+local src_id, tgt_id, src_fk_field_id, tgt_seq_field_id, rel_id = nil, nil, nil, nil, nil
 do
-  local src = spaces_mod.create_user_space(SP_SRC, 'Espace source')
-  local tgt = spaces_mod.create_user_space(SP_TGT, 'Espace cible')
+  local src = spaces_mod.create_user_space(SP_SRC, 'Source space')
+  local tgt = spaces_mod.create_user_space(SP_TGT, 'Target space')
   src_id = src.id
   tgt_id = tgt.id
   local seq = spaces_mod.add_field(tgt_id, 'seq_id', 'Sequence')
@@ -23,7 +23,7 @@ do
   src_fk_field_id = fk.id
 end
 R.describe("Relations — createRelation", function()
-  R.it("crée une relation et retourne les métadonnées", function()
+  R.it("creates a relation and returns metadata", function()
     local res = Mutation.createRelation({ }, {
       input = {
         name = 'src_vers_tgt',
@@ -42,7 +42,7 @@ R.describe("Relations — createRelation", function()
     R.eq(res.reprFormula, '@nom')
     rel_id = res.id
   end)
-  return R.it("sans reprFormula → reprFormula vide", function()
+  return R.it("without reprFormula -> empty reprFormula", function()
     local tmp = Mutation.createRelation({ }, {
       input = {
         name = 'tmp_rel',
@@ -60,7 +60,7 @@ R.describe("Relations — createRelation", function()
   end)
 end)
 R.describe("Relations — Query.relations", function()
-  R.it("retourne les relations de l'espace source", function()
+  R.it("returns relations for source space", function()
     local rels = Query.relations({ }, {
       spaceId = src_id
     }, CTX)
@@ -74,20 +74,20 @@ R.describe("Relations — Query.relations", function()
         R.eq(r.reprFormula, '@nom')
       end
     end
-    return R.ok(found, "relation créée doit être listée")
+    return R.ok(found, "created relation must be listed")
   end)
-  return R.it("ne retourne pas les relations d'un autre espace", function()
+  return R.it("does not return relations for another space", function()
     local rels = Query.relations({ }, {
       spaceId = tgt_id
     }, CTX)
     for _index_0 = 1, #rels do
       local r = rels[_index_0]
-      R.nok((r.id == rel_id), "relation de src ne doit pas apparaître pour tgt")
+      R.nok((r.id == rel_id), "source relation must not appear for target")
     end
   end)
 end)
 R.describe("Relations — updateRelation (reprFormula)", function()
-  R.it("met à jour reprFormula", function()
+  R.it("updates reprFormula", function()
     local res = Mutation.updateRelation({ }, {
       id = rel_id,
       input = {
@@ -98,7 +98,7 @@ R.describe("Relations — updateRelation (reprFormula)", function()
     R.eq(res.id, rel_id)
     return R.eq(res.reprFormula, '@prenom .. " " .. @nom')
   end)
-  R.it("la nouvelle valeur est persistée (relecture)", function()
+  R.it("new value is persisted (readback)", function()
     local rels = Query.relations({ }, {
       spaceId = src_id
     }, CTX)
@@ -109,9 +109,9 @@ R.describe("Relations — updateRelation (reprFormula)", function()
         return 
       end
     end
-    return R.ok(false, "relation introuvable après update")
+    return R.ok(false, "relation not found after update")
   end)
-  R.it("passer reprFormula vide efface la formule", function()
+  R.it("passing empty reprFormula clears formula", function()
     local res = Mutation.updateRelation({ }, {
       id = rel_id,
       input = {
@@ -120,9 +120,9 @@ R.describe("Relations — updateRelation (reprFormula)", function()
     }, CTX)
     return R.eq(res.reprFormula, '')
   end)
-  return R.it("id inconnu → retourne nil sans planter", function()
+  return R.it("unknown id -> returns nil without crashing", function()
     local res = Mutation.updateRelation({ }, {
-      id = 'inconnu-00000000-0000-0000-0000-000000000000',
+      id = 'unknown-00000000-0000-0000-0000-000000000000',
       input = {
         reprFormula = '@x'
       }
@@ -131,19 +131,19 @@ R.describe("Relations — updateRelation (reprFormula)", function()
   end)
 end)
 R.describe("Relations — deleteRelation", function()
-  R.it("supprime la relation", function()
+  R.it("deletes relation", function()
     local ok = Mutation.deleteRelation({ }, {
       id = rel_id
     }, CTX)
     return R.ok(ok)
   end)
-  return R.it("la relation n'apparaît plus dans la liste", function()
+  return R.it("relation no longer appears in list", function()
     local rels = Query.relations({ }, {
       spaceId = src_id
     }, CTX)
     for _index_0 = 1, #rels do
       local r = rels[_index_0]
-      R.nok((r.id == rel_id), "relation supprimée ne doit plus être listée")
+      R.nok((r.id == rel_id), "deleted relation must no longer be listed")
     end
   end)
 end)

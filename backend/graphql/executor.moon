@@ -4,8 +4,8 @@
 { :parse }        = require 'graphql.parser'
 { :build_schema } = require 'graphql.schema'
 
--- Sentinel JSON null : représente "null" en JSON sans supprimer la clé du tableau Lua.
--- json.encode(json.NULL) → "null" ; indispensable pour les champs nullables.
+-- JSON null sentinel: represents "null" in JSON without dropping the Lua table key.
+-- json.encode(json.NULL) -> "null"; required for nullable GraphQL fields.
 json_null = (require 'json').NULL
 
 -- Active schema (set via init)
@@ -172,8 +172,8 @@ class Executor
       ok, val = pcall ->
         @resolve_field type_name, f.name, f.node, parent_obj, path
       if ok
-        -- Utiliser json_null pour les valeurs nil : garantit que la clé est présente
-        -- dans le résultat JSON ("field": null) et non absente (ce qui donnerait []).
+        -- Use json_null for nil values so the key stays present in JSON output
+        -- ("field": null) instead of being omitted.
         result[rkey] = if val == nil then json_null else val
       else
         @add_error tostring(val), extend(path, rkey)

@@ -9,7 +9,7 @@ local ADMIN_CTX = {
   user_id = admin_user and admin_user.id
 }
 R.describe("exportSnapshot — structure", function()
-  R.it("retourne une chaîne YAML non vide", function()
+  R.it("returns a non-empty YAML string", function()
     local result = export_r.Query.exportSnapshot(nil, {
       includeData = false
     }, ADMIN_CTX)
@@ -48,15 +48,15 @@ R.describe("exportSnapshot — structure", function()
     return R.ok(result)
   end)
 end)
-R.describe("diffSnapshot — aucune différence", function()
+R.describe("diffSnapshot — no difference", function()
   local current_yaml
-  R.it("exporte le schéma courant", function()
+  R.it("exports current schema", function()
     current_yaml = export_r.Query.exportSnapshot(nil, {
       includeData = false
     }, ADMIN_CTX)
     return R.ok(current_yaml)
   end)
-  return R.it("diff sur le schéma courant → aucune divergence", function()
+  return R.it("diff on current schema -> no divergence", function()
     local diff = export_r.Query.diffSnapshot(nil, {
       yaml = current_yaml
     }, ADMIN_CTX)
@@ -69,7 +69,7 @@ R.describe("diffSnapshot — aucune différence", function()
 end)
 R.describe("importSnapshot — mode merge", function()
   local SP = "snap_test_" .. tostring(SUFFIX)
-  R.it("crée un snapshot YAML minimal avec un nouvel espace", function()
+  R.it("creates a minimal YAML snapshot with a new space", function()
     local snap = {
       version = "1",
       schema = {
@@ -106,7 +106,7 @@ R.describe("importSnapshot — mode merge", function()
     R.ok(result.created > 0)
     return R.eq(#result.errors, 0)
   end)
-  R.it("l'espace importé est visible dans list_spaces", function()
+  R.it("imported space is visible in list_spaces", function()
     local found = false
     local _list_0 = spaces.list_spaces()
     for _index_0 = 1, #_list_0 do
@@ -118,7 +118,7 @@ R.describe("importSnapshot — mode merge", function()
     end
     return R.ok(found)
   end)
-  R.it("les champs importés sont présents", function()
+  R.it("imported fields are present", function()
     local sp = nil
     local _list_0 = spaces.list_spaces()
     for _index_0 = 1, #_list_0 do
@@ -154,7 +154,7 @@ R.describe("importSnapshot — mode merge", function()
     R.ok(has_titre)
     return R.ok(has_valeur)
   end)
-  R.it("deuxième import identique → tout ignoré, aucune erreur", function()
+  R.it("second identical import -> all skipped, no error", function()
     local snap = {
       version = "1",
       schema = {
@@ -192,7 +192,7 @@ R.describe("importSnapshot — mode merge", function()
     R.ok(result.skipped > 0)
     return R.eq(#result.errors, 0)
   end)
-  return R.it("suppression de l'espace de test", function()
+  return R.it("delete test space", function()
     local sp = nil
     local _list_0 = spaces.list_spaces()
     for _index_0 = 1, #_list_0 do
@@ -217,7 +217,7 @@ end)
 R.describe("importSnapshot — mode replace", function()
   local SP_A = "replace_a_" .. tostring(SUFFIX)
   local SP_B = "replace_b_" .. tostring(SUFFIX)
-  R.it("crée deux espaces initiaux", function()
+  R.it("creates two initial spaces", function()
     local _list_0 = {
       SP_A,
       SP_B
@@ -230,7 +230,7 @@ R.describe("importSnapshot — mode replace", function()
       R.ok(ok)
     end
   end)
-  R.it("mode replace supprime les espaces existants et recrée depuis snapshot", function()
+  R.it("replace mode removes existing spaces and recreates from snapshot", function()
     local snap = {
       version = "1",
       schema = {
@@ -260,7 +260,7 @@ R.describe("importSnapshot — mode replace", function()
     R.ok(result)
     return R.eq(#result.errors, 0)
   end)
-  R.it("SP_B existe toujours (recréé par replace)", function()
+  R.it("SP_B still exists (recreated by replace)", function()
     local found = false
     local _list_0 = spaces.list_spaces()
     for _index_0 = 1, #_list_0 do
@@ -271,7 +271,7 @@ R.describe("importSnapshot — mode replace", function()
     end
     return R.ok(found)
   end)
-  R.it("SP_B a le champ val importé", function()
+  R.it("SP_B has imported val field", function()
     local sp = nil
     local _list_0 = spaces.list_spaces()
     for _index_0 = 1, #_list_0 do
@@ -291,7 +291,7 @@ R.describe("importSnapshot — mode replace", function()
     end
     return R.ok(has_val)
   end)
-  return R.it("nettoyage des espaces replace_*", function()
+  return R.it("cleanup replace_* spaces", function()
     local _list_0 = {
       SP_A,
       SP_B
@@ -321,8 +321,8 @@ R.describe("importSnapshot — mode replace", function()
     return R.eq(found, false)
   end)
 end)
-return R.describe("importSnapshot — YAML invalide", function()
-  R.it("erreur sur YAML vide", function()
+return R.describe("importSnapshot — invalid YAML", function()
+  R.it("error on empty YAML", function()
     local ok, err = pcall(function()
       return export_r.Mutation.importSnapshot(nil, {
         yaml = '',
@@ -331,7 +331,7 @@ return R.describe("importSnapshot — YAML invalide", function()
     end)
     return R.eq(ok, false)
   end)
-  return R.it("import avec YAML non-table → erreur", function()
+  return R.it("import with non-table YAML -> error", function()
     local ok, err = pcall(function()
       return export_r.Mutation.importSnapshot(nil, {
         yaml = '42',

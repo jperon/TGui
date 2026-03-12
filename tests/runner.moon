@@ -1,11 +1,11 @@
 -- tests/runner.moon
--- Micro-framework de test autonome (aucune dépendance externe).
--- Usage :
+-- Standalone test micro-framework (no external dependencies).
+-- Usage:
 --   R = require 'tests.runner'
---   R.describe "Mon module", ->
---     R.it "fait quelque chose", ->
---       R.eq maValeur, 42
---   R.summary!   -- affiche le bilan et quitte avec code 1 si échec
+--   R.describe "My module", ->
+--     R.it "does something", ->
+--       R.eq myValue, 42
+--   R.summary!   -- prints summary and exits with code 1 on failure
 
 _state =
   passed:  0
@@ -16,7 +16,7 @@ _state =
   after_all_fn:  nil
   before_all_done: false
 
--- Formatage de valeur pour l'affichage des échecs
+-- Value formatter for failure output
 fmt = (v) ->
   t = type v
   if t == 'string'
@@ -56,7 +56,7 @@ _fail = (msg, depth) ->
   location = loc (depth or 3) + 1
   print "  ✗ [#{location}] #{msg}"
 
-  -- Ajouter une trace d'appel pour aider au débogage
+  -- Add a stack trace to help debugging
   print "    Trace d'appel :"
   level = (depth or 3) + 2
   while true
@@ -72,52 +72,52 @@ _pass = ->
 
 -- ── Assertions ───────────────────────────────────────────────────────────────
 
--- Égalité stricte
+-- Strict equality
 eq = (actual, expected, label) ->
   if actual == expected
     _pass!
   else
-    _fail "#{label and label .. ': ' or ''}attendu #{fmt expected}, reçu #{fmt actual}", 3
+    _fail "#{label and label .. ': ' or ''}expected #{fmt expected}, got #{fmt actual}", 3
 
--- Différence
+-- Difference
 ne = (actual, expected, label) ->
   if actual != expected
     _pass!
   else
-    _fail "#{label and label .. ': ' or ''}attendu une valeur différente de #{fmt expected}", 3
+    _fail "#{label and label .. ': ' or ''}expected a value different from #{fmt expected}", 3
 
--- Vrai (truthy)
+-- True (truthy)
 ok = (v, label) ->
   if v
     _pass!
   else
-    _fail "#{label and label .. ': ' or ''}attendu une valeur vraie, reçu #{fmt v}", 3
+    _fail "#{label and label .. ': ' or ''}expected a truthy value, got #{fmt v}", 3
 
--- Faux (falsy)
+-- False (falsy)
 nok = (v, label) ->
   if not v
     _pass!
   else
-    _fail "#{label and label .. ': ' or ''}attendu une valeur fausse, reçu #{fmt v}", 3
+    _fail "#{label and label .. ': ' or ''}expected a falsy value, got #{fmt v}", 3
 
 -- Nil
 is_nil = (v, label) ->
   eq v, nil, label
 
--- Correspond à un pattern Lua
+-- Matches a Lua pattern
 matches = (s, pattern, label) ->
   if type(s) == 'string' and s\match pattern
     _pass!
   else
     _fail "#{label and label .. ': ' or ''}'#{tostring s}' ne correspond pas au pattern '#{pattern}'", 3
 
--- Lève une erreur (optionnellement vérifie le message)
+-- Raises an error (optionally checks message)
 raises = (fn, pattern, label) ->
   success, err = pcall fn
   if success
-    _fail "#{label and label .. ': ' or ''}aucune erreur levée", 3
+    _fail "#{label and label .. ': ' or ''}no error raised", 3
   elseif pattern and not tostring(err)\match pattern
-    _fail "#{label and label .. ': ' or ''}erreur '#{err}' ne correspond pas à '#{pattern}'", 3
+    _fail "#{label and label .. ': ' or ''}error '#{err}' does not match '#{pattern}'", 3
   else
     _pass!
 
@@ -155,11 +155,11 @@ it = (desc, fn) ->
   if not success
     _state.errors += 1
     location = loc 2
-    print "  ✗ ERREUR #{desc}"
+    print "  ✗ ERROR #{desc}"
     print "    [#{location}] #{err}"
 
-    -- Afficher la trace complète pour les erreurs
-    print "    Trace complète :"
+    -- Print the full stack trace for errors
+    print "    Full stack trace:"
     level = 3
     while true
       info = debug.getinfo level, 'Sl'
@@ -172,16 +172,16 @@ it = (desc, fn) ->
     -- all assertions in this 'it' passed
     print "  ✓ #{desc}"
 
--- ── Bilan ─────────────────────────────────────────────────────────────────────
+-- ── Summary ───────────────────────────────────────────────────────────────────
 
 summary = ->
   total = _state.passed + _state.failed + _state.errors
   print "\n══════════════════════════════════════"
-  print "#{total} assertions — #{_state.passed} ✓  #{_state.failed} ✗  #{_state.errors} erreurs"
+  print "#{total} assertions — #{_state.passed} ✓  #{_state.failed} ✗  #{_state.errors} errors"
   if _state.failed > 0 or _state.errors > 0
-    print "RÉSULTAT: ÉCHEC"
+    print "RESULT: FAILURE"
     return 1
-  print "RÉSULTAT: SUCCÈS"
+  print "RESULT: SUCCESS"
   return 0
 
 { :describe, :it, :before_all, :after_all, :eq, :ne, :ok, :nok, :is_nil, :matches, :raises, :summary }
