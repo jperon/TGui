@@ -235,6 +235,12 @@ make_content = ->
         H.div {class: 'snapshot-export-box',
           H.h3 {'Exporter'}
           H.p {'Téléchargez la définition complète de l\'application sous forme de fichier YAML.'}
+          H.div {class: 'snapshot-export-options',
+            H.label {
+              H.input {id: 'snapshot-compress-checkbox', type: 'checkbox', value: 'compress'}
+              H.span {' Compresser (zstd) - recommandé pour les exports avec données'}
+            }
+          }
           H.div {class: 'snapshot-export-btns',
             H.button {id: 'snapshot-export-schema-btn', class: 'toolbar-btn', '⬇ Structure seule'}
             H.button {id: 'snapshot-export-full-btn',   class: 'toolbar-btn', '⬇ Structure + données'}
@@ -242,10 +248,10 @@ make_content = ->
         }
         H.div {class: 'snapshot-import-box',
           H.h3 {'Importer'}
-          H.p {'Importez un fichier .tdb.yaml exporté depuis TGui.'}
+          H.p {'Importez un fichier .tdb.yaml exporté depuis TGui. Les fichiers compressés (.gz, .zst) sont automatiquement détectés.'}
           H.div {class: 'snapshot-import-file-row',
             H.label {for: 'snapshot-file-input', class: 'toolbar-btn', '📂 Choisir un fichier'}
-            H.input {id: 'snapshot-file-input', type: 'file', accept: '.yaml,.yml,.tdb.yaml', class: 'hidden'}
+            H.input {id: 'snapshot-file-input', type: 'file', accept: '.yaml,.yml,.tdb.yaml,.gz,.tdb.yaml.gz,.zst,.tdb.yaml.zst', class: 'hidden'}
             H.span {id: 'snapshot-file-name', class: 'snapshot-file-name', ''}
           }
           H.div {id: 'snapshot-diff-box', class: 'hidden snapshot-diff-box',
