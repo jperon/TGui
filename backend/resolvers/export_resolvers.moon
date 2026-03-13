@@ -12,6 +12,45 @@ json        = require 'json'
 clock       = require 'clock'
 { :require_auth, :require_admin } = require 'resolvers.utils'
 
+-- Import ZSTD compression wrapper
+ZstdWrapper = require 'zstd_wrapper'
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- Compression utilities
+-- ────────────────────────────────────────────────────────────────────────────
+
+-- Compress YAML string if compression is enabled
+compress_yaml_if_needed = (yaml_string, enable_compression) ->
+  return yaml_string unless enable_compression
+
+  compressed, err = ZstdWrapper.compress_zstd yaml_string, {level: 1}
+  if err
+    error "Compression failed: #{err}"
+
+  -- Return as base64 for JSON-safe transmission (unavoidable with GraphQL)
+  json.encode {
+    compressed: true,
+    data: require('base64').encode(compressed),
+    original_size: #yaml_string,
+    compressed_size: #compressed
+  }
+
+-- Detect and decompress YAML if needed
+decompress_yaml_if_needed = (yaml_or_compressed) ->
+  -- Fast check: if it starts with '{' it's likely JSON compressed format
+  if type(yaml_or_compressed) == 'string' and yaml_or_compressed\sub(1, 1) == '{'
+    -- Try to parse as compressed format
+    ok, parsed = pcall json.decode, yaml_or_compressed
+    if ok and type(parsed) == 'table' and parsed.compressed
+      -- Decode base64 and decompress using ZSTD
+      compressed_data = require('base64').decode parsed.data
+      decompressed, err = ZstdWrapper.decompress_zstd compressed_data
+      if err
+        error "Decompression failed: #{err}"
+      return decompressed
+  -- Return as-is (uncompressed YAML)
+  return yaml_or_compressed
+
 -- Stored in schema_resolvers, reproduced here to avoid circular imports
 list_relations_for_space = (space_id) ->
   result = {}
@@ -444,20 +483,25 @@ Query =
   exportSnapshot: (_, args, ctx) ->
     require_admin ctx
     snap = build_snapshot args.includeData
-    yaml.encode snap
+    yaml_str = yaml.encode snap
+    compress_yaml_if_needed yaml_str, args.compress or false
 
   diffSnapshot: (_, args, ctx) ->
     require_auth ctx
-    ok, snap = pcall -> yaml.decode args.yaml
+    -- Decompress YAML if needed before parsing
+    yaml_str = decompress_yaml_if_needed args.yaml
+    ok, snap = pcall -> yaml.decode yaml_str
     error "Invalid YAML: #{snap}" unless ok and snap
     diff_snapshot snap
 
 Mutation =
   importSnapshot: (_, args, ctx) ->
     require_admin ctx
-    ok, snap = pcall -> yaml.decode args.yaml
+    -- Decompress YAML if needed before parsing
+    yaml_str = decompress_yaml_if_needed args.yaml
+    ok, snap = pcall -> yaml.decode yaml_str
     error "Invalid YAML: #{snap}" unless ok and snap
     error "Invalid YAML: expected a mapping" unless type(snap) == 'table'
     do_import snap, args.mode
 
-{ :Query, :Mutation }
+{ :Query, :Mutation, :compress_yaml_if_needed, :decompress_yaml_if_needed, :build_snapshot }
