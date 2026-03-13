@@ -273,9 +273,8 @@ do_import = (snap, mode) ->
       if ok
         sid = sp_or_err.id
         spaces_by_name[isp.name] = sid
-        -- Add fields (skip 'id' Sequence which is auto-added)
+        -- Add fields (including 'id' Sequence fields)
         for f in *(isp.fields or {})
-          continue if f.name == 'id' and f.fieldType == 'Sequence'
           ok2, ferr = pcall ->
             spaces_mod.add_field sid, f.name, f.fieldType, f.notNull or false,
               f.description, f.formula, f.triggerFields, f.language
@@ -289,6 +288,12 @@ do_import = (snap, mode) ->
         created += 1
       else
         table.insert errors, "create space #{isp.name}: #{sp_or_err}"
+
+  -- Reinitialize schema after all spaces and fields are created
+  -- This ensures all Sequence fields and their metadata are properly set up
+  ok_reinit, reinit_err = pcall -> executor.reinit_schema!
+  unless ok_reinit
+    table.insert errors, "schema reinitialization: #{reinit_err}"
 
   -- Relations
   for rel in *(snap.schema and snap.schema.relations or {})
@@ -410,12 +415,17 @@ do_import = (snap, mode) ->
       user_sp = box.space["data_#{sp_name}"]
       continue unless user_sp
       fields = spaces_mod.list_fields sp.id
+
+      -- Validate that all required fields exist before importing data
       for row in *rows
         ok4, err4 = pcall ->
-          tuple = {}
+          -- Validate that all fields have values in the row data
           for f in *fields
-            table.insert tuple, row[f.name]
-          user_sp\insert tuple
+            if row[f.name] == nil and f.notNull
+              error "Missing required field '#{f.name}' in row data"
+          -- Use proper JSON format: {id, json.encode(row)} like other CRUD operations
+          id = tostring uuid_mod.new!
+          user_sp\insert { id, json.encode(row) }
         if ok4
           created += 1
         else

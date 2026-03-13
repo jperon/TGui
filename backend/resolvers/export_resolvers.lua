@@ -409,23 +409,12 @@ do_import = function(snap, mode)
         spaces_by_name[isp.name] = sid
         local _list_2 = (isp.fields or { })
         for _index_1 = 1, #_list_2 do
-          local _continue_0 = false
-          repeat
-            local f = _list_2[_index_1]
-            if f.name == 'id' and f.fieldType == 'Sequence' then
-              _continue_0 = true
-              break
-            end
-            local ok2, ferr = pcall(function()
-              return spaces_mod.add_field(sid, f.name, f.fieldType, f.notNull or false, f.description, f.formula, f.triggerFields, f.language)
-            end)
-            if not (ok2) then
-              table.insert(errors, "add field " .. tostring(isp.name) .. "." .. tostring(f.name) .. ": " .. tostring(ferr))
-            end
-            _continue_0 = true
-          until true
-          if not _continue_0 then
-            break
+          local f = _list_2[_index_1]
+          local ok2, ferr = pcall(function()
+            return spaces_mod.add_field(sid, f.name, f.fieldType, f.notNull or false, f.description, f.formula, f.triggerFields, f.language)
+          end)
+          if not (ok2) then
+            table.insert(errors, "add field " .. tostring(isp.name) .. "." .. tostring(f.name) .. ": " .. tostring(ferr))
           end
         end
         local _list_3 = (isp.views or { })
@@ -443,6 +432,12 @@ do_import = function(snap, mode)
         table.insert(errors, "create space " .. tostring(isp.name) .. ": " .. tostring(sp_or_err))
       end
     end
+  end
+  local ok_reinit, reinit_err = pcall(function()
+    return executor.reinit_schema()
+  end)
+  if not (ok_reinit) then
+    table.insert(errors, "schema reinitialization: " .. tostring(reinit_err))
   end
   local _list_1 = (snap.schema and snap.schema.relations or { })
   for _index_0 = 1, #_list_1 do
@@ -674,12 +669,17 @@ do_import = function(snap, mode)
         for _index_0 = 1, #rows do
           local row = rows[_index_0]
           local ok4, err4 = pcall(function()
-            local tuple = { }
             for _index_1 = 1, #fields do
               local f = fields[_index_1]
-              table.insert(tuple, row[f.name])
+              if row[f.name] == nil and f.notNull then
+                error("Missing required field '" .. tostring(f.name) .. "' in row data")
+              end
             end
-            return user_sp:insert(tuple)
+            local id = tostring(uuid_mod.new())
+            return user_sp:insert({
+              id,
+              json.encode(row)
+            })
           end)
           if ok4 then
             created = created + 1
