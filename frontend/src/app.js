@@ -285,8 +285,8 @@
       widgetPluginSaveBtn: function() {
         return document.getElementById('widget-plugin-save-btn');
       },
-      widgetPluginList: function() {
-        return document.getElementById('widget-plugin-list');
+      widgetPluginSelect: function() {
+        return document.getElementById('widget-plugin-select');
       },
       widgetPluginName: function() {
         return document.getElementById('widget-plugin-name');

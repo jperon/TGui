@@ -916,7 +916,7 @@
     }
 
     async load() {
-      var data, e, f, fieldList, fields, focus, focusedRow, formulaNames, gqlFilter, msg, nm, ref, ref1, ref2, reprNames, spaceQuery, tname;
+      var data, e, f, fieldList, fields, focus, focusedRow, formulaNames, gqlFilter, msg, nm, ref, ref1, ref2, ref3, ref4, reprNames, spaceQuery, tname;
       if (!this._mounted) {
         return;
       }
@@ -1011,16 +1011,22 @@
             row.__rowId = r.id;
             return row;
           });
-          if ((ref1 = document.getElementById('formula-filter-input')) != null) {
+          if ((ref1 = this._formulaInputEl) != null) {
             ref1.classList.remove('input-error');
+          }
+          if ((ref2 = document.getElementById('formula-filter-input')) != null) {
+            ref2.classList.remove('input-error');
           }
         } catch (error) {
           e = error;
           msg = this._formulaFilter ? `Erreur de filtre : ${e.message}` : `Erreur de chargement : ${e.message}`;
           this._showError(msg);
           if (this._formulaFilter) {
-            if ((ref2 = document.getElementById('formula-filter-input')) != null) {
-              ref2.classList.add('input-error');
+            if ((ref3 = this._formulaInputEl) != null) {
+              ref3.classList.add('input-error');
+            }
+            if ((ref4 = document.getElementById('formula-filter-input')) != null) {
+              ref4.classList.add('input-error');
             }
           }
           this._rows = [];

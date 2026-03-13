@@ -220,16 +220,16 @@ describe 'CustomView — plugin widgets', ->
           { widget: { id: 'dst', space: 'personnes', depends_on: { widget: 'src', field: 'age', from_field: 'id' } } }
         ]
     cv = new CV makeContainer(), yamlJSON(layout), makeSpaces()
-    try
-      cv.mount()
+    cv.mount()
+    flush().then ->
       cv._emitPluginSelection 'src', { rows: [{ id: 7 }] }
       dv = cv._widgetsById['dst'].dataView
       eq dv.lastDefaults.age, '7'
       deepEq dv.lastFilter, { field: 'age', value: '7' }
-    catch e
+      global.document.createElement = oldCreate
+    .catch (e) ->
       global.document.createElement = oldCreate
       throw e
-    global.document.createElement = oldCreate
 
   it 'shows a fallback error when CoffeeScript runtime is missing', ->
     delete global.window.CoffeeScript

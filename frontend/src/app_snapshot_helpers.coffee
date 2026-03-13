@@ -39,6 +39,7 @@ window.AppSnapshotHelpers =
             fieldsToDelete { space field oldType newType }
             fieldsToChange { space field oldType newType }
             customViewsToCreate customViewsToUpdate
+            widgetPluginsToCreate widgetPluginsToUpdate
           } }
         """, { y: app._snapshotYaml })
         .then (data) ->
@@ -110,7 +111,8 @@ window.AppSnapshotHelpers =
     noop = diff.spacesToCreate.length == 0 and diff.spacesToDelete.length == 0 and
            diff.fieldsToCreate.length == 0 and diff.fieldsToDelete.length == 0 and
            diff.fieldsToChange.length == 0 and diff.customViewsToCreate.length == 0 and
-           diff.customViewsToUpdate.length == 0
+           diff.customViewsToUpdate.length == 0 and
+           diff.widgetPluginsToCreate.length == 0 and diff.widgetPluginsToUpdate.length == 0
 
     if noop
       p = document.createElement 'p'
@@ -125,3 +127,5 @@ window.AppSnapshotHelpers =
       section app._t('ui.snapshot.sectionFieldsCreate'), diff.fieldsToCreate, 'diff-list diff-create'
       section app._t('ui.snapshot.sectionCustomViewsCreate'), diff.customViewsToCreate, 'diff-list diff-create'
       section app._t('ui.snapshot.sectionCustomViewsUpdate'), diff.customViewsToUpdate, 'diff-list diff-change'
+      section app._t('ui.snapshot.sectionWidgetPluginsCreate'), diff.widgetPluginsToCreate, 'diff-list diff-create'
+      section app._t('ui.snapshot.sectionWidgetPluginsUpdate'), diff.widgetPluginsToUpdate, 'diff-list diff-change'

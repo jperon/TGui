@@ -46,6 +46,7 @@ build_snapshot = (include_data) ->
       spaces: {}
       relations: {}
       custom_views: {}
+      widget_plugins: {}
       groups: {}
     }
   }
@@ -97,6 +98,18 @@ build_snapshot = (include_data) ->
     entry.description = cv[3] if cv[3] and cv[3] != ''
     table.insert snap.schema.custom_views, entry
 
+  -- Widget plugins
+  for wp in *box.space._tdb_widget_plugins\select {}
+    entry = {
+      name: wp[2]
+      scriptLanguage: wp[4] or 'coffeescript'
+      templateLanguage: wp[5] or 'pug'
+      scriptCode: wp[6] or ''
+      templateCode: wp[7] or ''
+    }
+    entry.description = wp[3] if wp[3] and wp[3] != ''
+    table.insert snap.schema.widget_plugins, entry
+
   -- Groups + members + permissions
   for g in *box.space._tdb_groups\select {}
     members = {}
@@ -118,7 +131,7 @@ build_snapshot = (include_data) ->
   if include_data
     snap.data = {}
     for sp in *spaces_mod.list_spaces!
-      user_sp = box.space[sp.name]
+      user_sp = box.space["data_#{sp.name}"]
       continue unless user_sp
       rows = {}
       for tuple in *user_sp\select {}
@@ -139,6 +152,7 @@ diff_snapshot = (snap) ->
     spacesToCreate: {}, spacesToDelete: {}
     fieldsToCreate: {}, fieldsToDelete: {}, fieldsToChange: {}
     customViewsToCreate: {}, customViewsToUpdate: {}
+    widgetPluginsToCreate: {}, widgetPluginsToUpdate: {}
   }
 
   -- Index current spaces by name
@@ -151,8 +165,20 @@ diff_snapshot = (snap) ->
   for cv in *box.space._tdb_custom_views\select {}
     current_cvs[cv[2]] = cv[4]  -- name → yaml
 
+  -- Index current widget plugins by name
+  current_wps = {}
+  for wp in *box.space._tdb_widget_plugins\select {}
+    current_wps[wp[2]] = {
+      description: wp[3] or ''
+      scriptLanguage: wp[4] or 'coffeescript'
+      templateLanguage: wp[5] or 'pug'
+      scriptCode: wp[6] or ''
+      templateCode: wp[7] or ''
+    }
+
   incoming_spaces = snap.schema and snap.schema.spaces or {}
   incoming_cvs    = snap.schema and snap.schema.custom_views or {}
+  incoming_wps    = snap.schema and snap.schema.widget_plugins or {}
 
   -- Spaces to create / check fields
   incoming_names = {}
@@ -188,6 +214,24 @@ diff_snapshot = (snap) ->
     elseif current_cvs[icv.name] != icv.yaml
       table.insert result.customViewsToUpdate, icv.name
 
+  -- Widget plugins diff
+  for iwp in *incoming_wps
+    cur = current_wps[iwp.name]
+    if not cur
+      table.insert result.widgetPluginsToCreate, iwp.name
+    else
+      inc_desc = iwp.description or ''
+      inc_script_lang = iwp.scriptLanguage or 'coffeescript'
+      inc_tpl_lang = iwp.templateLanguage or 'pug'
+      inc_script = iwp.scriptCode or ''
+      inc_tpl = iwp.templateCode or ''
+      if cur.description != inc_desc or
+         cur.scriptLanguage != inc_script_lang or
+         cur.templateLanguage != inc_tpl_lang or
+         cur.scriptCode != inc_script or
+         cur.templateCode != inc_tpl
+        table.insert result.widgetPluginsToUpdate, iwp.name
+
   result
 
 -- ────────────────────────────────────────────────────────────────────────────
@@ -208,6 +252,8 @@ do_import = (snap, mode) ->
         table.insert errors, "delete space #{sp.name}: #{err}"
     for cv in *box.space._tdb_custom_views\select {}
       box.space._tdb_custom_views\delete cv[1]
+    for wp in *box.space._tdb_widget_plugins\select {}
+      box.space._tdb_widget_plugins\delete wp[1]
     -- Delete groups except 'admin' (keep users, keep admin group for safety)
     for g in *box.space._tdb_groups\select {}
       perms_mod.delete_group g[1] unless g[2] == 'admin'
@@ -290,6 +336,28 @@ do_import = (snap, mode) ->
         box.space._tdb_custom_views\insert { id, icv.name, icv.description or '', icv.yaml or '', now, now }
       if ok then created += 1 else table.insert errors, "custom_view #{icv.name}: #{err}"
 
+  -- Widget plugins
+  for iwp in *(snap.schema and snap.schema.widget_plugins or {})
+    existing_wp = box.space._tdb_widget_plugins.index.by_name\get iwp.name
+    if existing_wp
+      skipped += 1
+    else
+      ok, err = pcall ->
+        id  = tostring uuid_mod.new!
+        now = clock.time!
+        box.space._tdb_widget_plugins\insert {
+          id
+          iwp.name
+          iwp.description or ''
+          iwp.scriptLanguage or 'coffeescript'
+          iwp.templateLanguage or 'pug'
+          iwp.scriptCode or ''
+          iwp.templateCode or ''
+          now
+          now
+        }
+      if ok then created += 1 else table.insert errors, "widget_plugin #{iwp.name}: #{err}"
+
   -- Groups + members + permissions
   for ig in *(snap.schema and snap.schema.groups or {})
     existing_g = nil
@@ -339,7 +407,7 @@ do_import = (snap, mode) ->
       for s in *spaces_mod.list_spaces!
         sp = s if s.name == sp_name
       continue unless sp
-      user_sp = box.space[sp_name]
+      user_sp = box.space["data_#{sp_name}"]
       continue unless user_sp
       fields = spaces_mod.list_fields sp.id
       for row in *rows

@@ -75,7 +75,9 @@
           sectionFieldsChange: '~ Champs à modifier (type)',
           sectionFieldsCreate: '+ Champs à créer',
           sectionCustomViewsCreate: '+ Vues personnalisées à créer',
-          sectionCustomViewsUpdate: '~ Vues personnalisées à mettre à jour'
+          sectionCustomViewsUpdate: '~ Vues personnalisées à mettre à jour',
+          sectionWidgetPluginsCreate: '+ Plugins widget à créer',
+          sectionWidgetPluginsUpdate: '~ Plugins widget à mettre à jour'
         }
       }
     },
@@ -149,7 +151,9 @@
           sectionFieldsChange: '~ Fields to modify (type)',
           sectionFieldsCreate: '+ Fields to create',
           sectionCustomViewsCreate: '+ Custom views to create',
-          sectionCustomViewsUpdate: '~ Custom views to update'
+          sectionCustomViewsUpdate: '~ Custom views to update',
+          sectionWidgetPluginsCreate: '+ Widget plugins to create',
+          sectionWidgetPluginsUpdate: '~ Widget plugins to update'
         }
       }
     }

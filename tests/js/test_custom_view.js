@@ -407,7 +407,7 @@
       return global.document.createElement = oldCreate;
     });
     it('propagates depends_on from plugin selection to DataView target', function() {
-      var cv, dv, e, layout, oldCreate;
+      var cv, layout, oldCreate;
       global.window.CoffeeScript = {
         compile: function() {
           return "module.exports = function(api){}";
@@ -473,8 +473,9 @@
         }
       };
       cv = new CV(makeContainer(), yamlJSON(layout), makeSpaces());
-      try {
-        cv.mount();
+      cv.mount();
+      return flush().then(function() {
+        var dv;
         cv._emitPluginSelection('src', {
           rows: [
             {
@@ -488,12 +489,11 @@
           field: 'age',
           value: '7'
         });
-      } catch (error) {
-        e = error;
+        return global.document.createElement = oldCreate;
+      }).catch(function(e) {
         global.document.createElement = oldCreate;
         throw e;
-      }
-      return global.document.createElement = oldCreate;
+      });
     });
     return it('shows a fallback error when CoffeeScript runtime is missing', function() {
       var body, cv, e, layout, oldCreate;

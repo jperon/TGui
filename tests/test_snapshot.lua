@@ -40,12 +40,27 @@ R.describe("exportSnapshot — structure", function()
     local snap = yaml.decode(result)
     return R.eq(snap.data, nil)
   end)
-  return R.it("contient une section data en mode include_data", function()
+  R.it("contient une section data en mode include_data", function()
     local result = export_r.Query.exportSnapshot(nil, {
       includeData = true
     }, ADMIN_CTX)
     local snap = yaml.decode(result)
-    return R.ok(result)
+    R.ok(result)
+    R.ok(type(snap.data) == 'table')
+    local expected_count = #spaces.list_spaces()
+    local exported_count = 0
+    for _k, _v in pairs(snap.data) do
+      exported_count = exported_count + 1
+    end
+    return R.eq(exported_count, expected_count)
+  end)
+  return R.it("contient une section schema.widget_plugins", function()
+    local result = export_r.Query.exportSnapshot(nil, {
+      includeData = false
+    }, ADMIN_CTX)
+    local snap = yaml.decode(result)
+    R.ok(snap.schema)
+    return R.ok(type(snap.schema.widget_plugins) == 'table')
   end)
 end)
 R.describe("diffSnapshot — no difference", function()
@@ -212,6 +227,45 @@ R.describe("importSnapshot — mode merge", function()
       end
     end
     return R.eq(found, false)
+  end)
+end)
+R.describe("importSnapshot — widget plugins", function()
+  local PLUGIN = "snap_plugin_" .. tostring(SUFFIX)
+  R.it("imports widget plugin definitions from snapshot schema", function()
+    local snap = {
+      version = "1",
+      schema = {
+        spaces = { },
+        relations = { },
+        custom_views = { },
+        widget_plugins = {
+          {
+            name = PLUGIN,
+            description = "plugin from snapshot",
+            scriptLanguage = "coffeescript",
+            templateLanguage = "pug",
+            scriptCode = "module.exports = ({ render }) -> render '<div>ok</div>'",
+            templateCode = "div ok"
+          }
+        },
+        groups = { }
+      }
+    }
+    local snap_yaml = yaml.encode(snap)
+    local result = export_r.Mutation.importSnapshot(nil, {
+      yaml = snap_yaml,
+      mode = 'merge'
+    }, ADMIN_CTX)
+    R.ok(result)
+    R.ok(result.ok)
+    local tuple = box.space._tdb_widget_plugins.index.by_name:get(PLUGIN)
+    return R.ok(tuple)
+  end)
+  return R.it("cleanup imported widget plugin", function()
+    local tuple = box.space._tdb_widget_plugins.index.by_name:get(PLUGIN)
+    if tuple then
+      return box.space._tdb_widget_plugins:delete(tuple[1])
+    end
   end)
 end)
 R.describe("importSnapshot — mode replace", function()

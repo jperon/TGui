@@ -43,9 +43,19 @@ R.describe "exportSnapshot — structure", ->
   R.it "contient une section data en mode include_data", ->
     result = export_r.Query.exportSnapshot nil, { includeData: true }, ADMIN_CTX
     snap = yaml.decode result
-    -- data can be nil if no spaces contain rows, but key is still valid
-    -- (just verify no error)
     R.ok result
+    R.ok type(snap.data) == 'table'
+    expected_count = #spaces.list_spaces!
+    exported_count = 0
+    for _k, _v in pairs snap.data
+      exported_count += 1
+    R.eq exported_count, expected_count
+
+  R.it "contient une section schema.widget_plugins", ->
+    result = export_r.Query.exportSnapshot nil, { includeData: false }, ADMIN_CTX
+    snap = yaml.decode result
+    R.ok snap.schema
+    R.ok type(snap.schema.widget_plugins) == 'table'
 
 -- ────────────────────────────────────────────────────────────────────────────
 R.describe "diffSnapshot — no difference", ->
@@ -154,6 +164,41 @@ R.describe "importSnapshot — mode merge", ->
     for s in *spaces.list_spaces!
       found = true if s.name == SP
     R.eq found, false
+
+-- ────────────────────────────────────────────────────────────────────────────
+R.describe "importSnapshot — widget plugins", ->
+  PLUGIN = "snap_plugin_#{SUFFIX}"
+
+  R.it "imports widget plugin definitions from snapshot schema", ->
+    snap = {
+      version: "1"
+      schema: {
+        spaces: {}
+        relations: {}
+        custom_views: {}
+        widget_plugins: {
+          {
+            name: PLUGIN
+            description: "plugin from snapshot"
+            scriptLanguage: "coffeescript"
+            templateLanguage: "pug"
+            scriptCode: "module.exports = ({ render }) -> render '<div>ok</div>'"
+            templateCode: "div ok"
+          }
+        }
+        groups: {}
+      }
+    }
+    snap_yaml = yaml.encode snap
+    result = export_r.Mutation.importSnapshot nil, { yaml: snap_yaml, mode: 'merge' }, ADMIN_CTX
+    R.ok result
+    R.ok result.ok
+    tuple = box.space._tdb_widget_plugins.index.by_name\get PLUGIN
+    R.ok tuple
+
+  R.it "cleanup imported widget plugin", ->
+    tuple = box.space._tdb_widget_plugins.index.by_name\get PLUGIN
+    box.space._tdb_widget_plugins\delete tuple[1] if tuple
 
 -- ────────────────────────────────────────────────────────────────────────────
 R.describe "importSnapshot — mode replace", ->
