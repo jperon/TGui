@@ -195,6 +195,7 @@ window.App =
     adminNavSnapshot:  -> document.getElementById 'admin-nav-snapshot'
     snapshotExportSchemaBtn: -> document.getElementById 'snapshot-export-schema-btn'
     snapshotExportFullBtn:   -> document.getElementById 'snapshot-export-full-btn'
+    snapshotCompressCheckbox: -> document.getElementById 'snapshot-compress-checkbox'
     snapshotFileInput:       -> document.getElementById 'snapshot-file-input'
     snapshotFileName:        -> document.getElementById 'snapshot-file-name'
     snapshotDiffBox:         -> document.getElementById 'snapshot-diff-box'

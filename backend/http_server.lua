@@ -8,13 +8,16 @@ local index = require('index')
 local FRONTEND_DIR
 FRONTEND_DIR = require('core.config').FRONTEND_DIR
 local mime_types = {
-  html = 'text/html; charset=utf-8',
-  css = 'text/css; charset=utf-8',
-  js = 'application/javascript; charset=utf-8',
-  json = 'application/json; charset=utf-8',
+  txt = 'text/plain',
+  html = 'text/html',
+  css = 'text/css',
+  js = 'application/javascript',
+  json = 'application/json',
+  yaml = 'application/x-yaml',
   ico = 'image/x-icon',
   png = 'image/png',
-  svg = 'image/svg+xml'
+  svg = 'image/svg+xml',
+  zst = 'application/zstd'
 }
 local ext_of
 ext_of = function(path)
@@ -117,6 +120,103 @@ serve_index = function(req)
     body = index.render()
   }
 end
+local handle_export
+handle_export = function(req)
+  local query_params = {
+    compress = 'false',
+    includeData = 'false'
+  }
+  local full_url = nil
+  log.info("Export request: path=" .. tostring(req.path) .. ", method=" .. tostring(req.method) .. ", headers available=" .. tostring(req.headers and 'yes' or 'no'))
+  query_params = {
+    compress = 'false',
+    includeData = 'false'
+  }
+  if req.query and type(req.query) == 'string' then
+    log.info("Export request: query=" .. tostring(req.query))
+    for pair in req.query:gmatch('[^&]+') do
+      local key, value = pair:match('([^=]+)=([^=]*)')
+      if key and value then
+        query_params[key] = value
+        log.info("Export request: parsed " .. tostring(key) .. "=" .. tostring(value))
+      end
+    end
+  end
+  log.info("Export request: using compress=" .. tostring(query_params.compress) .. ", includeData=" .. tostring(query_params.includeData))
+  local include_data = query_params.includeData == 'true'
+  local compress = query_params.compress == 'true'
+  local token = extract_token(req)
+  if not (token) then
+    return {
+      status = 401,
+      headers = { },
+      body = 'Unauthorized'
+    }
+  end
+  local session = auth_mod.validate_session(token)
+  if not (session) then
+    return {
+      status = 401,
+      headers = { },
+      body = 'Invalid token'
+    }
+  end
+  local user = auth_mod.get_user_by_id(session.user_id)
+  if not (user and user.username == 'admin') then
+    return {
+      status = 403,
+      headers = { },
+      body = 'Admin access required'
+    }
+  end
+  local export_resolvers = require('resolvers.export_resolvers')
+  local snap = export_resolvers.build_snapshot(include_data)
+  local yaml_str = require('yaml').encode(snap)
+  if compress then
+    local ZstdWrapper = require('zstd_wrapper')
+    local compressed, err = ZstdWrapper.compress_zstd(yaml_str, {
+      level = 1
+    })
+    if err then
+      return {
+        status = 500,
+        headers = { },
+        body = "Compression failed: " .. tostring(err)
+      }
+    end
+    local filename
+    if include_data then
+      filename = 'backup.tdb.yaml.zst'
+    else
+      filename = 'schema.tdb.yaml.zst'
+    end
+    return {
+      status = 200,
+      headers = {
+        ['content-type'] = 'application/zstd',
+        ['content-disposition'] = "attachment; filename=\"" .. tostring(filename) .. "\"",
+        ['content-length'] = #compressed
+      },
+      body = compressed
+    }
+  else
+    local filename
+    if include_data then
+      filename = 'backup.tdb.yaml'
+    else
+      filename = 'schema.tdb.yaml'
+    end
+    return {
+      status = 200,
+      headers = {
+        ['content-type'] = 'text/yaml; charset=utf-8',
+        ['content-disposition'] = "attachment; filename=\"" .. tostring(filename) .. "\"",
+        ['content-length'] = #yaml_str
+      },
+      body = yaml_str
+    }
+  end
+end
 local start
 start = function(opts)
   if opts == nil then
@@ -131,6 +231,10 @@ start = function(opts)
     path = '/graphql',
     method = 'POST'
   }, handle_graphql)
+  server:route({
+    path = '/export',
+    method = 'GET'
+  }, handle_export)
   server:route({
     path = '/'
   }, serve_index)

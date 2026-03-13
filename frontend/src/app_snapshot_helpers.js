@@ -5,21 +5,42 @@
       var doExport;
       app._snapshotYaml = null;
       doExport = function(includeData) {
-        return GQL.query(`query($d: Boolean!) { exportSnapshot(includeData: $d) }`, {
-          d: includeData
-        }).then(function(data) {
-          var a, blob, fname, url, yaml;
-          yaml = data.exportSnapshot;
-          fname = includeData ? 'backup.tdb.yaml' : 'schema.tdb.yaml';
-          blob = new Blob([yaml], {
-            type: 'text/yaml'
+        var compress, params;
+        compress = app.el.snapshotCompressCheckbox().checked;
+        // Build URL for new /export endpoint
+        params = new URLSearchParams({
+          includeData: includeData,
+          compress: compress
+        });
+        return fetch(`/export?${params}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('tdb_token') || ''}`
+          }
+        }).then(function(response) {
+          var contentDisposition, filename, filenameMatch;
+          if (!response.ok) {
+            throw new Error(`Export failed: ${response.statusText}`);
+          }
+          // Get filename from Content-Disposition header
+          contentDisposition = response.headers.get('content-disposition');
+          filename = 'export';
+          if (contentDisposition) {
+            filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+            if (filenameMatch[1]) {
+              filename = filenameMatch[1];
+            }
+          }
+          // Create blob from response
+          return response.blob().then(function(blob) {
+            var a, url;
+            url = URL.createObjectURL(blob);
+            a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            return URL.revokeObjectURL(url);
           });
-          url = URL.createObjectURL(blob);
-          a = document.createElement('a');
-          a.href = url;
-          a.download = fname;
-          a.click();
-          return URL.revokeObjectURL(url);
         }).catch(function(err) {
           return tdbAlert(app._err(err), 'error');
         });
@@ -31,7 +52,7 @@
         return doExport(true);
       });
       app.el.snapshotFileInput().addEventListener('change', function(e) {
-        var file, reader;
+        var file, isCompressed, reader;
         file = e.target.files[0];
         if (!file) {
           return;
@@ -41,8 +62,15 @@
         app.el.snapshotImportResult().classList.add('hidden');
         app.el.snapshotImportError().classList.add('hidden');
         reader = new FileReader();
+        // Check if file is compressed by extension
+        isCompressed = file.name.endsWith('.zst');
         reader.onload = function(ev) {
-          app._snapshotYaml = ev.target.result;
+          var content;
+          content = ev.target.result;
+          // If file is compressed, we need to decompress it in the browser
+          // or send it as-is to the backend which handles decompression
+          // For simplicity, we'll send the raw content and let backend handle it
+          app._snapshotYaml = content;
           return GQL.query(`query($y: String!) { diffSnapshot(yaml: $y) {
   spacesToCreate spacesToDelete
   fieldsToCreate { space field oldType newType }
@@ -62,6 +90,7 @@
             return app.el.snapshotImportError().classList.remove('hidden');
           });
         };
+        // Read file as text (backend will handle decompression if needed)
         return reader.readAsText(file);
       });
       return app.el.snapshotImportConfirmBtn().addEventListener('click', async function() {

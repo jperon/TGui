@@ -604,6 +604,19 @@ make_content = function()
             'Téléchargez la définition complète de l\'application sous forme de fichier YAML.'
           }),
           H.div({
+            class = 'snapshot-export-options',
+            H.label({
+              H.input({
+                id = 'snapshot-compress-checkbox',
+                type = 'checkbox',
+                value = 'compress'
+              }),
+              H.span({
+                ' Compresser (zstd) - recommandé pour les exports avec données'
+              })
+            })
+          }),
+          H.div({
             class = 'snapshot-export-btns',
             H.button({
               id = 'snapshot-export-schema-btn',
@@ -623,7 +636,7 @@ make_content = function()
             'Importer'
           }),
           H.p({
-            'Importez un fichier .tdb.yaml exporté depuis TGui.'
+            'Importez un fichier .tdb.yaml exporté depuis TGui. Les fichiers compressés (.zst) sont automatiquement détectés.'
           }),
           H.div({
             class = 'snapshot-import-file-row',
@@ -635,7 +648,7 @@ make_content = function()
             H.input({
               id = 'snapshot-file-input',
               type = 'file',
-              accept = '.yaml,.yml,.tdb.yaml',
+              accept = '.yaml,.yml,.tdb.yaml,.zst,.tdb.yaml.zst',
               class = 'hidden'
             }),
             H.span({

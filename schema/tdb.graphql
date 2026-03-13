@@ -52,7 +52,7 @@ type Query {
   group(id: ID!):  Group
 
   # Snapshot export / diff
-  exportSnapshot(includeData: Boolean!): String!
+  exportSnapshot(includeData: Boolean!, compress: Boolean): String!
   diffSnapshot(yaml: String!):           SnapshotDiff!
 }
 

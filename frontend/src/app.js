@@ -355,6 +355,9 @@
       snapshotExportFullBtn: function() {
         return document.getElementById('snapshot-export-full-btn');
       },
+      snapshotCompressCheckbox: function() {
+        return document.getElementById('snapshot-compress-checkbox');
+      },
       snapshotFileInput: function() {
         return document.getElementById('snapshot-file-input');
       },

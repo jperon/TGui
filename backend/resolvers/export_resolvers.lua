@@ -12,6 +12,40 @@ do
   local _obj_0 = require('resolvers.utils')
   require_auth, require_admin = _obj_0.require_auth, _obj_0.require_admin
 end
+local ZstdWrapper = require('zstd_wrapper')
+local compress_yaml_if_needed
+compress_yaml_if_needed = function(yaml_string, enable_compression)
+  if not (enable_compression) then
+    return yaml_string
+  end
+  local compressed, err = ZstdWrapper.compress_zstd(yaml_string, {
+    level = 1
+  })
+  if err then
+    error("Compression failed: " .. tostring(err))
+  end
+  return json.encode({
+    compressed = true,
+    data = require('base64').encode(compressed),
+    original_size = #yaml_string,
+    compressed_size = #compressed
+  })
+end
+local decompress_yaml_if_needed
+decompress_yaml_if_needed = function(yaml_or_compressed)
+  if type(yaml_or_compressed) == 'string' and yaml_or_compressed:sub(1, 1) == '{' then
+    local ok, parsed = pcall(json.decode, yaml_or_compressed)
+    if ok and type(parsed) == 'table' and parsed.compressed then
+      local compressed_data = require('base64').decode(parsed.data)
+      local decompressed, err = ZstdWrapper.decompress_zstd(compressed_data)
+      if err then
+        error("Decompression failed: " .. tostring(err))
+      end
+      return decompressed
+    end
+  end
+  return yaml_or_compressed
+end
 local list_relations_for_space
 list_relations_for_space = function(space_id)
   local result = { }
@@ -706,12 +740,14 @@ local Query = {
   exportSnapshot = function(_, args, ctx)
     require_admin(ctx)
     local snap = build_snapshot(args.includeData)
-    return yaml.encode(snap)
+    local yaml_str = yaml.encode(snap)
+    return compress_yaml_if_needed(yaml_str, args.compress or false)
   end,
   diffSnapshot = function(_, args, ctx)
     require_auth(ctx)
+    local yaml_str = decompress_yaml_if_needed(args.yaml)
     local ok, snap = pcall(function()
-      return yaml.decode(args.yaml)
+      return yaml.decode(yaml_str)
     end)
     if not (ok and snap) then
       error("Invalid YAML: " .. tostring(snap))
@@ -722,8 +758,9 @@ local Query = {
 local Mutation = {
   importSnapshot = function(_, args, ctx)
     require_admin(ctx)
+    local yaml_str = decompress_yaml_if_needed(args.yaml)
     local ok, snap = pcall(function()
-      return yaml.decode(args.yaml)
+      return yaml.decode(yaml_str)
     end)
     if not (ok and snap) then
       error("Invalid YAML: " .. tostring(snap))
@@ -736,5 +773,8 @@ local Mutation = {
 }
 return {
   Query = Query,
-  Mutation = Mutation
+  Mutation = Mutation,
+  compress_yaml_if_needed = compress_yaml_if_needed,
+  decompress_yaml_if_needed = decompress_yaml_if_needed,
+  build_snapshot = build_snapshot
 }
