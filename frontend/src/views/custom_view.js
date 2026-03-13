@@ -42,11 +42,61 @@
     }
 
     mount() {
-      var e, el, parsed, root;
+      var btnHoriz, btnVert, e, el, palette, parsed, root;
       this.container.innerHTML = '';
       this._widgets = [];
       this._widgetsById = {};
       this._mountPromises = [];
+      // Palette d'insertion de layouts
+      palette = document.createElement('div');
+      palette.className = 'cv-layout-palette';
+      palette.style.cssText = 'display:flex;gap:8px;padding:8px 0;';
+      btnVert = document.createElement('button');
+      btnVert.textContent = 'Ajouter layout vertical';
+      btnVert.className = 'cv-layout-btn';
+      btnHoriz = document.createElement('button');
+      btnHoriz.textContent = 'Ajouter layout horizontal';
+      btnHoriz.className = 'cv-layout-btn';
+      palette.appendChild(btnVert);
+      palette.appendChild(btnHoriz);
+      this.container.appendChild(palette);
+      btnVert.addEventListener('click', () => {
+        return this._insertLayout('vertical');
+      });
+      btnHoriz.addEventListener('click', () => {
+        return this._insertLayout('horizontal');
+      });
+      // Méthode d'insertion de layout
+      this._insertLayout = (direction) => {
+        var cm, e, newLayout, newYaml, parsed;
+        // Parse YAML
+        parsed = null;
+        try {
+          parsed = jsyaml.load(this.yamlText);
+        } catch (error) {
+          e = error;
+          parsed = {};
+        }
+        // Crée un layout de base
+        newLayout = {
+          direction: direction,
+          children: []
+        };
+        // Remplace ou ajoute la racine layout
+        parsed.layout = newLayout;
+        // Met à jour YAML
+        newYaml = jsyaml.dump(parsed);
+        // Met à jour l'éditeur YAML si présent
+        if (window.CodeMirror != null) {
+          cm = document.querySelector('.CodeMirror');
+          if ((cm != null) && (cm.CodeMirror != null)) {
+            cm.CodeMirror.setValue(newYaml);
+          }
+        }
+        // Sinon, met à jour @yamlText et rerend
+        this.yamlText = newYaml;
+        return this.mount();
+      };
       try {
         parsed = jsyaml.load(this.yamlText);
       } catch (error) {

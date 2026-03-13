@@ -38,6 +38,49 @@ window.CustomView = class CustomView
     @_widgets     = []
     @_widgetsById = {}
     @_mountPromises = []
+
+    # Palette d'insertion de layouts
+    palette = document.createElement 'div'
+    palette.className = 'cv-layout-palette'
+    palette.style.cssText = 'display:flex;gap:8px;padding:8px 0;'
+    btnVert = document.createElement 'button'
+    btnVert.textContent = 'Ajouter layout vertical'
+    btnVert.className = 'cv-layout-btn'
+    btnHoriz = document.createElement 'button'
+    btnHoriz.textContent = 'Ajouter layout horizontal'
+    btnHoriz.className = 'cv-layout-btn'
+    palette.appendChild btnVert
+    palette.appendChild btnHoriz
+    @container.appendChild palette
+
+    btnVert.addEventListener 'click', => @_insertLayout('vertical')
+    btnHoriz.addEventListener 'click', => @_insertLayout('horizontal')
+
+    # Méthode d'insertion de layout
+    @_insertLayout = (direction) =>
+      # Parse YAML
+      parsed = null
+      try
+        parsed = jsyaml.load @yamlText
+      catch e
+        parsed = {}
+      # Crée un layout de base
+      newLayout =
+        direction: direction
+        children: []
+      # Remplace ou ajoute la racine layout
+      parsed.layout = newLayout
+      # Met à jour YAML
+      newYaml = jsyaml.dump parsed
+      # Met à jour l'éditeur YAML si présent
+      if window.CodeMirror?
+        cm = document.querySelector('.CodeMirror')
+        if cm? and cm.CodeMirror?
+          cm.CodeMirror.setValue newYaml
+      # Sinon, met à jour @yamlText et rerend
+      @yamlText = newYaml
+      @mount()
+
     try
       parsed = jsyaml.load @yamlText
     catch e
