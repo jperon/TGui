@@ -922,86 +922,107 @@ make_content = function()
           })
         }),
         H.div({
-          class = 'yaml-modal-body',
+          class = 'yaml-modal-body widget-plugin-modal-body',
           H.div({
             class = 'yaml-editor-pane',
-            H.label({
-              class = 'formula-hint',
-              ['for'] = 'widget-plugin-name',
-              'Nom'
-            }),
-            H.input({
-              id = 'widget-plugin-name',
-              type = 'text',
-              placeholder = 'my_widget_plugin'
-            }),
-            H.label({
-              class = 'formula-hint',
-              ['for'] = 'widget-plugin-description',
-              'Description'
-            }),
-            H.input({
-              id = 'widget-plugin-description',
-              type = 'text',
-              placeholder = 'Description'
-            }),
             H.div({
-              class = 'formula-lang-row',
-              H.label({
-                class = 'formula-hint',
-                ['for'] = 'widget-plugin-script-language',
-                'Script'
-              }),
-              H.select({
-                id = 'widget-plugin-script-language',
-                H.option({
-                  value = 'coffeescript',
-                  'CoffeeScript'
+              class = 'widget-plugin-meta-row',
+              H.div({
+                class = 'widget-plugin-meta-col',
+                H.label({
+                  class = 'formula-hint',
+                  ['for'] = 'widget-plugin-select',
+                  'Plugins existants'
                 }),
-                H.option({
-                  value = 'javascript',
-                  'JavaScript'
+                H.select({
+                  id = 'widget-plugin-select',
+                  ''
                 })
               }),
-              H.label({
-                class = 'formula-hint',
-                ['for'] = 'widget-plugin-template-language',
-                'Template'
-              }),
-              H.select({
-                id = 'widget-plugin-template-language',
-                H.option({
-                  value = 'pug',
-                  'Pug'
+              H.div({
+                class = 'widget-plugin-meta-col',
+                H.label({
+                  class = 'formula-hint',
+                  ['for'] = 'widget-plugin-name',
+                  'Nom'
                 }),
-                H.option({
-                  value = 'html',
-                  'HTML'
+                H.input({
+                  id = 'widget-plugin-name',
+                  type = 'text',
+                  placeholder = 'my_widget_plugin'
+                })
+              }),
+              H.div({
+                class = 'widget-plugin-meta-col',
+                H.label({
+                  class = 'formula-hint',
+                  ['for'] = 'widget-plugin-description',
+                  'Description'
+                }),
+                H.input({
+                  id = 'widget-plugin-description',
+                  type = 'text',
+                  placeholder = 'Description'
                 })
               })
             }),
-            H.label({
-              class = 'formula-hint',
-              'Template'
-            }),
             H.div({
-              id = 'widget-plugin-template-editor',
-              style = 'height: 180px; border: 1px solid #2a2a2a;'
-            }),
-            H.label({
-              class = 'formula-hint',
-              style = 'margin-top: .5rem;',
-              'Script'
-            }),
-            H.div({
-              id = 'widget-plugin-script-editor',
-              style = 'height: 220px; border: 1px solid #2a2a2a;'
+              class = 'widget-plugin-editors-row',
+              H.div({
+                class = 'widget-plugin-editor-col',
+                H.label({
+                  class = 'formula-hint',
+                  ['for'] = 'widget-plugin-template-language',
+                  'Template language'
+                }),
+                H.select({
+                  id = 'widget-plugin-template-language',
+                  H.option({
+                    value = 'pug',
+                    'Pug'
+                  }),
+                  H.option({
+                    value = 'html',
+                    'HTML'
+                  })
+                }),
+                H.label({
+                  class = 'formula-hint',
+                  'Template'
+                }),
+                H.div({
+                  id = 'widget-plugin-template-editor',
+                  style = 'border: 1px solid #2a2a2a;'
+                })
+              }),
+              H.div({
+                class = 'widget-plugin-editor-col',
+                H.label({
+                  class = 'formula-hint',
+                  ['for'] = 'widget-plugin-script-language',
+                  'Script language'
+                }),
+                H.select({
+                  id = 'widget-plugin-script-language',
+                  H.option({
+                    value = 'coffeescript',
+                    'CoffeeScript'
+                  }),
+                  H.option({
+                    value = 'javascript',
+                    'JavaScript'
+                  })
+                }),
+                H.label({
+                  class = 'formula-hint',
+                  'Script'
+                }),
+                H.div({
+                  id = 'widget-plugin-script-editor',
+                  style = 'border: 1px solid #2a2a2a;'
+                })
+              })
             })
-          }),
-          H.div({
-            id = 'widget-plugin-list',
-            class = 'schema-browser',
-            ''
           })
         })
       })

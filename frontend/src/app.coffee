@@ -171,7 +171,7 @@ window.App =
     widgetPluginNewBtn: -> document.getElementById 'widget-plugin-new-btn'
     widgetPluginDeleteBtn: -> document.getElementById 'widget-plugin-delete-btn'
     widgetPluginSaveBtn: -> document.getElementById 'widget-plugin-save-btn'
-    widgetPluginList: -> document.getElementById 'widget-plugin-list'
+    widgetPluginSelect: -> document.getElementById 'widget-plugin-select'
     widgetPluginName: -> document.getElementById 'widget-plugin-name'
     widgetPluginDescription: -> document.getElementById 'widget-plugin-description'
     widgetPluginScriptLanguage: -> document.getElementById 'widget-plugin-script-language'

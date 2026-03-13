@@ -103,8 +103,9 @@ window.CustomView = class CustomView
 
     # Custom plugin widget (type = plugin name)
     if wNode.type
-      @_renderPluginWidget body, wNode
-      entry = { dataView: null, node: wNode, el: wrapper, plugin: true }
+      runtimeWidgetId = wNode.id or "plugin_#{Math.random().toString(36).slice(2)}"
+      @_renderPluginWidget body, wNode, runtimeWidgetId
+      entry = { dataView: null, node: wNode, el: wrapper, plugin: true, runtimeWidgetId }
       @_widgets.push entry
       @_widgetsById[wNode.id] = entry if wNode.id
       return wrapper
@@ -115,7 +116,6 @@ window.CustomView = class CustomView
     delBtn.className = 'cv-widget-delete-btn'
     delBtn.title = 'Supprimer les enregistrements sélectionnés'
     delBtn.textContent = '🗑'
-    titleBar.appendChild delBtn
 
     unless sp
       body.innerHTML = "<p style='color:#aaa;padding:.5rem'>Espace « #{wNode.space} » introuvable.</p>"
@@ -132,11 +132,37 @@ window.CustomView = class CustomView
       sp.fields = (fieldMap[col] for col in wNode.columns when fieldMap[col])
 
     dv = new DataView body, sp
+    filterFormula = ''
     # Apply formula filter from YAML widget config
     if wNode.filter
-      formula = if typeof wNode.filter == 'string' then wNode.filter else (wNode.filter.formula or '')
-      lang    = if typeof wNode.filter == 'object' then (wNode.filter.language or 'moonscript') else 'moonscript'
-      dv._formulaFilter = formula if formula
+      filterFormula = if typeof wNode.filter == 'string' then wNode.filter else (wNode.filter.formula or '')
+      lang          = if typeof wNode.filter == 'object' then (wNode.filter.language or 'moonscript') else 'moonscript'
+      dv._formulaFilter = filterFormula if filterFormula
+
+    filterWrap = document.createElement 'div'
+    filterWrap.className = 'cv-widget-filter toolbar-filter'
+    filterLabel = document.createElement 'span'
+    filterLabel.className = 'toolbar-filter-label'
+    filterLabel.textContent = 'λ'
+    filterInput = document.createElement 'input'
+    filterInput.type = 'text'
+    filterInput.className = 'toolbar-filter-input'
+    filterInput.placeholder = 'Filtre (MoonScript)'
+    filterInput.value = filterFormula
+    filterInput.classList.toggle 'active', filterFormula != ''
+    filterWrap.appendChild filterLabel
+    filterWrap.appendChild filterInput
+    titleBar.appendChild filterWrap
+    titleBar.appendChild delBtn
+
+    filterTimer = null
+    filterInput.addEventListener 'input', (ev) =>
+      val = ev.target.value.trim()
+      ev.target.classList.toggle 'active', val != ''
+      clearTimeout filterTimer
+      filterTimer = setTimeout (=> dv.setFormulaFilter val), 400
+    dv._formulaInputEl = filterInput
+
     @_mountPromises.push dv.mount()
     delBtn.addEventListener 'click', => dv.deleteSelected()
     entry = { dataView: dv, node: wNode, el: wrapper }
@@ -241,9 +267,10 @@ window.CustomView = class CustomView
       do (entry, dep, src) =>
         if src.dataView?._grid?
           src.dataView._grid.on 'click', (ev) =>
+            return if ev?.nativeEvent?.detail and ev.nativeEvent.detail > 1
             rowKey = ev.rowKey
             return unless rowKey?
-            rowData = src.dataView._currentData[rowKey]
+            rowData = src.dataView._grid.getRow rowKey
             return unless rowData and not rowData.__isNew
             @_applyDependencySelection entry, dep, rowData
         else if src.plugin and dep.widget
@@ -260,7 +287,9 @@ window.CustomView = class CustomView
       entry.dataView.setDefaultValues defaults
       entry.dataView.setFilter { field: dep.field, value: filterVal }
     else if entry.plugin
-      @_sendPluginMessage entry.node.id, {
+      targetWidgetId = entry.runtimeWidgetId or entry.node.id
+      return unless targetWidgetId
+      @_sendPluginMessage targetWidgetId, {
         type: 'updateInputSelection'
         selection: {
           rows: [rowData]
@@ -286,7 +315,7 @@ window.CustomView = class CustomView
       catch e
         console.warn 'plugin selection listener error', e
 
-  _renderPluginWidget: (container, wNode) ->
+  _renderPluginWidget: (container, wNode, runtimeWidgetId = null) ->
     pluginName = wNode.type
     pluginParams = wNode.params or {}
     unless pluginName
@@ -297,13 +326,13 @@ window.CustomView = class CustomView
       unless plugin
         container.innerHTML = "<p style='color:#c55;padding:.5rem'>Plugin introuvable : #{pluginName}</p>"
         return
-      widgetId = wNode.id or "plugin_#{Math.random().toString(36).slice(2)}"
+      widgetId = runtimeWidgetId or wNode.id or "plugin_#{Math.random().toString(36).slice(2)}"
       @_mountPluginIframe container, widgetId, plugin, pluginParams
     .catch (err) =>
       container.innerHTML = "<p style='color:#c55;padding:.5rem'>Erreur plugin : #{err.message or err}</p>"
 
   _mountPluginIframe: (container, widgetId, plugin, pluginParams) ->
-    compiled = @_compilePlugin plugin
+    compiled = @_compilePlugin plugin, pluginParams
     iframe = document.createElement 'iframe'
     iframe.setAttribute 'sandbox', 'allow-scripts'
     iframe.style.cssText = 'width:100%;height:100%;border:0;background:#fff;'
@@ -333,34 +362,59 @@ window.CustomView = class CustomView
         @_emitPluginSelection widgetId, msg.selection or {}
 
     window.addEventListener 'message', onMessage
-    srcDoc = @_buildPluginIframeDoc widgetId, pluginParams, compiled
+    srcDoc = @_buildPluginIframeDoc widgetId, pluginParams, compiled, plugin
     iframe.srcdoc = srcDoc
     @_pluginStateByWidgetId[widgetId].onMessage = onMessage
 
-  _compilePlugin: (plugin) ->
+  _compilePlugin: (plugin, pluginParams = {}) ->
     scriptLanguage = (plugin.scriptLanguage or 'coffeescript').toLowerCase()
     templateLanguage = (plugin.templateLanguage or 'pug').toLowerCase()
     scriptCode = plugin.scriptCode or ''
     templateCode = plugin.templateCode or ''
+    pluginName = plugin.name or plugin.id or '(sans nom)'
+
+    makeCompileError = (source, language, err) ->
+      msg = err?.message or String(err)
+      line = err?.location?.first_line
+      col = err?.location?.first_column
+      if line?
+        line += 1
+        col = (col or 0) + 1
+      else
+        line = err?.line
+        col = err?.column
+      loc = if line? then " (ligne #{line}#{if col? then ", colonne #{col}" else ''})" else ''
+      new Error "Plugin #{pluginName} — #{source} #{language} invalide#{loc} : #{msg}"
 
     jsScript = scriptCode
     if scriptLanguage == 'coffeescript'
-      unless window.CoffeeScript?.compile
-        throw new Error 'CoffeeScript runtime indisponible'
-      jsScript = window.CoffeeScript.compile scriptCode, { bare: true }
+      csRuntime = window.CoffeeScript
+      csCompile = csRuntime?.compile or csRuntime?.default?.compile or csRuntime?.CoffeeScript?.compile
+      unless csCompile
+        throw new Error "Plugin #{pluginName} — runtime CoffeeScript indisponible"
+      try
+        jsScript = csCompile scriptCode, { bare: true }
+      catch err
+        throw makeCompileError 'script', 'CoffeeScript', err
 
     htmlTemplate = templateCode
     if templateLanguage == 'pug'
-      unless window.pug?.compile
-        throw new Error 'Pug runtime indisponible'
-      fn = window.pug.compile templateCode
-      htmlTemplate = fn {}
+      pugRuntime = window.pug
+      pugCompile = pugRuntime?.compile or pugRuntime?.default?.compile
+      unless pugCompile
+        throw new Error "Plugin #{pluginName} — runtime Pug indisponible"
+      try
+        fn = pugCompile templateCode
+        htmlTemplate = fn { params: pluginParams or {} }
+      catch err
+        throw makeCompileError 'template', 'Pug', err
     { jsScript, htmlTemplate }
 
-  _buildPluginIframeDoc: (widgetId, params, compiled) ->
+  _buildPluginIframeDoc: (widgetId, params, compiled, plugin) ->
     paramsJson = JSON.stringify params or {}
     tpl = JSON.stringify compiled.htmlTemplate or ''
     js = compiled.jsScript or ''
+    pluginName = JSON.stringify plugin?.name or plugin?.id or '(sans nom)'
     """
 <!doctype html>
 <html>
@@ -370,11 +424,35 @@ window.CustomView = class CustomView
   <script>
     (function() {
       var widgetId = #{JSON.stringify(widgetId)};
+      var pluginName = #{pluginName};
       var root = document.getElementById('root');
       var inputSelection = null;
       var listeners = [];
       var pending = {};
       var reqSeq = 1;
+      function escapeHtml(txt) {
+        return String(txt == null ? '' : txt)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+      }
+      function formatRuntimeError(err) {
+        var msg = err && err.message ? err.message : String(err);
+        var stack = err && err.stack ? String(err.stack) : '';
+        var line = null;
+        var col = null;
+        var m = stack.match(/<anonymous>:(\\d+):(\\d+)/);
+        if (m) {
+          line = Number(m[1]);
+          col = Number(m[2]);
+        }
+        var loc = line ? (" (ligne " + line + (col ? ", colonne " + col : "") + ")") : "";
+        return "Plugin " + pluginName + " — exécution JavaScript invalide" + loc + " : " + msg;
+      }
+      function renderRuntimeError(err) {
+        var txt = formatRuntimeError(err);
+        root.innerHTML = "<div style='padding:.5rem;color:#c55;white-space:pre-wrap'>" + escapeHtml(txt) + "</div>";
+      }
       function post(msg) { parent.postMessage(Object.assign({ widgetId: widgetId }, msg), '*'); }
       function gql(query, variables) {
         return new Promise(function(resolve, reject) {
@@ -411,7 +489,7 @@ window.CustomView = class CustomView
           module.exports({ gql: gql, emitSelection: emitSelection, onInputSelection: onInputSelection, render: render, params: params });
         }
       } catch (e) {
-        render("<div style='padding:.5rem;color:#c55'>Erreur plugin: " + (e && e.message ? e.message : e) + "</div>");
+        renderRuntimeError(e);
       }
     })();
   </script>

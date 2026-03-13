@@ -350,6 +350,69 @@ Available functions are `sum`, `count`, `avg`, `min`, `max`. The `as` alias is o
 
 ![Aggregate widget example](../img/aggregate-widget.png)
 
+### Custom widget plugins
+
+You can add custom widgets to a YAML view with a plugin (`CoffeeScript` or `JavaScript` for logic, `Pug` or `HTML` for template).
+
+#### Create a plugin
+
+1. Open a custom view.
+2. Click **🧩 Plugins** in the view toolbar.
+3. Click **+ New**.
+4. Fill:
+   - `name` (used as widget `type` in YAML)
+   - `description` (optional)
+   - script language + code
+   - template language + code
+5. Click **💾 Save**.
+6. Close the modal (`✕`) to refresh views using modified plugins.
+
+#### Plugin script contract
+
+Your script must export a function:
+
+```coffeescript
+module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
+  render "<div>Ready</div>"
+```
+
+- `render(html)`: updates widget HTML inside the sandboxed iframe.
+- `params`: widget params from YAML (`widget.params`).
+- `gql(query, variables)`: runs GraphQL requests through the parent app.
+- `emitSelection({ rows, byField })`: emits selection for dependent widgets.
+- `onInputSelection(cb)`: receives selection from `depends_on` upstream widgets.
+
+#### Use plugin in YAML
+
+Set the widget `type` to the plugin name:
+
+```yaml
+- widget:
+    id: books_plugin
+    type: test
+    title: Books plugin
+    params:
+      title: "Books"
+```
+
+`depends_on` works with plugin widgets the same way as for space widgets:
+
+```yaml
+- widget:
+    id: books_plugin
+    type: test
+    depends_on:
+      widget: livres
+      field: livre_id
+      from_field: id
+```
+
+#### Troubleshooting
+
+- If script/template compilation fails, TGui shows a detailed message with plugin name, source (`script` or `template`), language, and line/column when available.
+- If runtime execution fails inside the iframe, TGui shows `Plugin <name> — exécution JavaScript invalide ...` with the error details.
+- Runtime availability errors (`runtime CoffeeScript indisponible`, `runtime Pug indisponible`) indicate a missing or broken frontend vendor bundle.
+
 ---
 
 ## User and rights management (admin)

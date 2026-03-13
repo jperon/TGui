@@ -619,11 +619,14 @@ window.DataView = class DataView
           row         = Object.assign {}, parsed
           row.__rowId = r.id
           row
+        @_formulaInputEl?.classList.remove 'input-error'
         document.getElementById('formula-filter-input')?.classList.remove 'input-error'
       catch e
         msg = if @_formulaFilter then "Erreur de filtre : #{e.message}" else "Erreur de chargement : #{e.message}"
         @_showError msg
-        document.getElementById('formula-filter-input')?.classList.add 'input-error' if @_formulaFilter
+        if @_formulaFilter
+          @_formulaInputEl?.classList.add 'input-error'
+          document.getElementById('formula-filter-input')?.classList.add 'input-error'
         @_rows = []
 
     @_applyData()

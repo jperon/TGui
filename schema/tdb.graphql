@@ -456,4 +456,6 @@ type SnapshotDiff {
   fieldsToChange:       [FieldDiff!]!
   customViewsToCreate:  [String!]!
   customViewsToUpdate:  [String!]!
+  widgetPluginsToCreate: [String!]!
+  widgetPluginsToUpdate: [String!]!
 }

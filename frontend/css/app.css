@@ -235,11 +235,11 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
 }
 
 /* ── Custom view container ────────────────────────────────────────────────── */
-#custom-view-container { flex: 1; overflow: hidden; padding: 1rem; display: flex; flex-direction: column; }
+#custom-view-container { flex: 1; overflow: hidden; padding: 0; display: flex; flex-direction: column; }
 #custom-view-container.hidden { display: none; }
 
 .cv-zone {
-  display: flex; gap: 8px; flex: 1; min-height: 0;
+  display: flex; gap: 0; flex: 1; min-height: 0;
 }
 .cv-zone.vertical { flex-direction: column; }
 .cv-zone.horizontal { flex-direction: row; }
@@ -262,6 +262,13 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
 .cv-widget-delete-btn:hover { opacity: 1; color: var(--color-error, #e74c3c); }
 .cv-widget-body { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
 .cv-widget-body > div { flex: 1; min-height: 0; }
+.cv-widget-filter {
+  flex: 1;
+  margin: 0 .5rem 0 .75rem;
+}
+.cv-widget-filter .toolbar-filter-label {
+  font-size: .75rem;
+}
 
 /* Aggregate widget table */
 .agg-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
@@ -404,6 +411,13 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   border: 1px solid var(--color-border); border-radius: 4px;
   padding: .2rem .7rem; cursor: pointer; font-size: .85rem;
   background: var(--color-surface); color: var(--color-text);
+  transition: transform .08s ease, filter .08s ease, box-shadow .08s ease;
+}
+.modal-editor-actions button:active,
+.modal-editor-actions button.is-pressed {
+  transform: translateY(1px);
+  filter: brightness(.95);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.22);
 }
 .btn-primary {
   background: var(--color-accent) !important; color: #fff !important;
@@ -416,6 +430,65 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
 /* Two-column layout inside YAML modal */
 .yaml-modal-body {
   flex: 1; display: flex; flex-direction: row; overflow: hidden; min-height: 0;
+}
+.widget-plugin-modal-body {
+  flex-direction: column;
+}
+.widget-plugin-modal-body .yaml-editor-pane {
+  max-width: 100%;
+  padding: .75rem;
+  gap: .25rem;
+  flex: 1;
+  min-height: 0;
+}
+.widget-plugin-meta-row {
+  display: flex;
+  gap: .75rem;
+  align-items: flex-start;
+  flex-wrap: nowrap;
+  flex: 0 0 auto;
+}
+.widget-plugin-meta-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+}
+.widget-plugin-meta-col:first-child {
+  flex: 1.35;
+}
+.widget-plugin-meta-row #widget-plugin-select,
+.widget-plugin-meta-row #widget-plugin-name,
+.widget-plugin-meta-row #widget-plugin-description {
+  height: 30px;
+  box-sizing: border-box;
+}
+.widget-plugin-editors-row {
+  display: flex;
+  gap: .75rem;
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+}
+.widget-plugin-editor-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  min-height: 0;
+}
+#widget-plugin-template-editor,
+#widget-plugin-script-editor {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+#widget-plugin-template-editor .CodeMirror,
+#widget-plugin-script-editor .CodeMirror {
+  height: 100%;
 }
 .yaml-editor-pane {
   flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0;

@@ -101,7 +101,7 @@
     }
 
     _renderWidget(wNode) {
-      var body, col, delBtn, dv, entry, f, fieldMap, formula, i, lang, len, ref, sp, titleBar, titleText, wrapper;
+      var body, col, delBtn, dv, entry, f, fieldMap, filterFormula, filterInput, filterLabel, filterTimer, filterWrap, i, lang, len, ref, runtimeWidgetId, sp, titleBar, titleText, wrapper;
       wrapper = document.createElement('div');
       wrapper.className = 'cv-widget';
       // Title bar
@@ -130,12 +130,14 @@
       }
       // Custom plugin widget (type = plugin name)
       if (wNode.type) {
-        this._renderPluginWidget(body, wNode);
+        runtimeWidgetId = wNode.id || `plugin_${Math.random().toString(36).slice(2)}`;
+        this._renderPluginWidget(body, wNode, runtimeWidgetId);
         entry = {
           dataView: null,
           node: wNode,
           el: wrapper,
-          plugin: true
+          plugin: true,
+          runtimeWidgetId
         };
         this._widgets.push(entry);
         if (wNode.id) {
@@ -149,7 +151,6 @@
       delBtn.className = 'cv-widget-delete-btn';
       delBtn.title = 'Supprimer les enregistrements sélectionnés';
       delBtn.textContent = '🗑';
-      titleBar.appendChild(delBtn);
       if (!sp) {
         body.innerHTML = `<p style='color:#aaa;padding:.5rem'>Espace « ${wNode.space} » introuvable.</p>`;
         entry = {
@@ -186,14 +187,41 @@
         })();
       }
       dv = new DataView(body, sp);
+      filterFormula = '';
       // Apply formula filter from YAML widget config
       if (wNode.filter) {
-        formula = typeof wNode.filter === 'string' ? wNode.filter : wNode.filter.formula || '';
+        filterFormula = typeof wNode.filter === 'string' ? wNode.filter : wNode.filter.formula || '';
         lang = typeof wNode.filter === 'object' ? wNode.filter.language || 'moonscript' : 'moonscript';
-        if (formula) {
-          dv._formulaFilter = formula;
+        if (filterFormula) {
+          dv._formulaFilter = filterFormula;
         }
       }
+      filterWrap = document.createElement('div');
+      filterWrap.className = 'cv-widget-filter toolbar-filter';
+      filterLabel = document.createElement('span');
+      filterLabel.className = 'toolbar-filter-label';
+      filterLabel.textContent = 'λ';
+      filterInput = document.createElement('input');
+      filterInput.type = 'text';
+      filterInput.className = 'toolbar-filter-input';
+      filterInput.placeholder = 'Filtre (MoonScript)';
+      filterInput.value = filterFormula;
+      filterInput.classList.toggle('active', filterFormula !== '');
+      filterWrap.appendChild(filterLabel);
+      filterWrap.appendChild(filterInput);
+      titleBar.appendChild(filterWrap);
+      titleBar.appendChild(delBtn);
+      filterTimer = null;
+      filterInput.addEventListener('input', (ev) => {
+        var val;
+        val = ev.target.value.trim();
+        ev.target.classList.toggle('active', val !== '');
+        clearTimeout(filterTimer);
+        return filterTimer = setTimeout((() => {
+          return dv.setFormulaFilter(val);
+        }), 400);
+      });
+      dv._formulaInputEl = filterInput;
       this._mountPromises.push(dv.mount());
       delBtn.addEventListener('click', () => {
         return dv.deleteSelected();
@@ -362,12 +390,15 @@
           var ref1;
           if (((ref1 = src.dataView) != null ? ref1._grid : void 0) != null) {
             return src.dataView._grid.on('click', (ev) => {
-              var rowData, rowKey;
+              var ref2, rowData, rowKey;
+              if ((ev != null ? (ref2 = ev.nativeEvent) != null ? ref2.detail : void 0 : void 0) && ev.nativeEvent.detail > 1) {
+                return;
+              }
               rowKey = ev.rowKey;
               if (rowKey == null) {
                 return;
               }
-              rowData = src.dataView._currentData[rowKey];
+              rowData = src.dataView._grid.getRow(rowKey);
               if (!(rowData && !rowData.__isNew)) {
                 return;
               }
@@ -389,7 +420,7 @@
     }
 
     _applyDependencySelection(entry, dep, rowData) {
-      var defaults, filterVal;
+      var defaults, filterVal, targetWidgetId;
       filterVal = String(rowData[dep.from_field || 'id']);
       defaults = {};
       defaults[dep.field] = filterVal;
@@ -400,7 +431,11 @@
           value: filterVal
         });
       } else if (entry.plugin) {
-        return this._sendPluginMessage(entry.node.id, {
+        targetWidgetId = entry.runtimeWidgetId || entry.node.id;
+        if (!targetWidgetId) {
+          return;
+        }
+        return this._sendPluginMessage(targetWidgetId, {
           type: 'updateInputSelection',
           selection: {
             rows: [rowData],
@@ -448,7 +483,7 @@
       return results;
     }
 
-    _renderPluginWidget(container, wNode) {
+    _renderPluginWidget(container, wNode, runtimeWidgetId = null) {
       var pluginName, pluginParams;
       pluginName = wNode.type;
       pluginParams = wNode.params || {};
@@ -463,7 +498,7 @@
           container.innerHTML = `<p style='color:#c55;padding:.5rem'>Plugin introuvable : ${pluginName}</p>`;
           return;
         }
-        widgetId = wNode.id || `plugin_${Math.random().toString(36).slice(2)}`;
+        widgetId = runtimeWidgetId || wNode.id || `plugin_${Math.random().toString(36).slice(2)}`;
         return this._mountPluginIframe(container, widgetId, plugin, pluginParams);
       }).catch((err) => {
         return container.innerHTML = `<p style='color:#c55;padding:.5rem'>Erreur plugin : ${err.message || err}</p>`;
@@ -472,7 +507,7 @@
 
     _mountPluginIframe(container, widgetId, plugin, pluginParams) {
       var compiled, fn, i, iframe, len, listeners, onMessage, ref, reqSeq, requestMap, srcDoc;
-      compiled = this._compilePlugin(plugin);
+      compiled = this._compilePlugin(plugin, pluginParams);
       iframe = document.createElement('iframe');
       iframe.setAttribute('sandbox', 'allow-scripts');
       iframe.style.cssText = 'width:100%;height:100%;border:0;background:#fff;';
@@ -522,42 +557,75 @@
         }
       };
       window.addEventListener('message', onMessage);
-      srcDoc = this._buildPluginIframeDoc(widgetId, pluginParams, compiled);
+      srcDoc = this._buildPluginIframeDoc(widgetId, pluginParams, compiled, plugin);
       iframe.srcdoc = srcDoc;
       return this._pluginStateByWidgetId[widgetId].onMessage = onMessage;
     }
 
-    _compilePlugin(plugin) {
-      var fn, htmlTemplate, jsScript, ref, ref1, scriptCode, scriptLanguage, templateCode, templateLanguage;
+    _compilePlugin(plugin, pluginParams = {}) {
+      var csCompile, csRuntime, err, fn, htmlTemplate, jsScript, makeCompileError, pluginName, pugCompile, pugRuntime, ref, ref1, ref2, scriptCode, scriptLanguage, templateCode, templateLanguage;
       scriptLanguage = (plugin.scriptLanguage || 'coffeescript').toLowerCase();
       templateLanguage = (plugin.templateLanguage || 'pug').toLowerCase();
       scriptCode = plugin.scriptCode || '';
       templateCode = plugin.templateCode || '';
+      pluginName = plugin.name || plugin.id || '(sans nom)';
+      makeCompileError = function(source, language, err) {
+        var col, line, loc, msg, ref, ref1;
+        msg = (err != null ? err.message : void 0) || String(err);
+        line = err != null ? (ref = err.location) != null ? ref.first_line : void 0 : void 0;
+        col = err != null ? (ref1 = err.location) != null ? ref1.first_column : void 0 : void 0;
+        if (line != null) {
+          line += 1;
+          col = (col || 0) + 1;
+        } else {
+          line = err != null ? err.line : void 0;
+          col = err != null ? err.column : void 0;
+        }
+        loc = line != null ? ` (ligne ${line}${col != null ? `, colonne ${col}` : ''})` : '';
+        return new Error(`Plugin ${pluginName} — ${source} ${language} invalide${loc} : ${msg}`);
+      };
       jsScript = scriptCode;
       if (scriptLanguage === 'coffeescript') {
-        if (!((ref = window.CoffeeScript) != null ? ref.compile : void 0)) {
-          throw new Error('CoffeeScript runtime indisponible');
+        csRuntime = window.CoffeeScript;
+        csCompile = (csRuntime != null ? csRuntime.compile : void 0) || (csRuntime != null ? (ref = csRuntime.default) != null ? ref.compile : void 0 : void 0) || (csRuntime != null ? (ref1 = csRuntime.CoffeeScript) != null ? ref1.compile : void 0 : void 0);
+        if (!csCompile) {
+          throw new Error(`Plugin ${pluginName} — runtime CoffeeScript indisponible`);
         }
-        jsScript = window.CoffeeScript.compile(scriptCode, {
-          bare: true
-        });
+        try {
+          jsScript = csCompile(scriptCode, {
+            bare: true
+          });
+        } catch (error) {
+          err = error;
+          throw makeCompileError('script', 'CoffeeScript', err);
+        }
       }
       htmlTemplate = templateCode;
       if (templateLanguage === 'pug') {
-        if (!((ref1 = window.pug) != null ? ref1.compile : void 0)) {
-          throw new Error('Pug runtime indisponible');
+        pugRuntime = window.pug;
+        pugCompile = (pugRuntime != null ? pugRuntime.compile : void 0) || (pugRuntime != null ? (ref2 = pugRuntime.default) != null ? ref2.compile : void 0 : void 0);
+        if (!pugCompile) {
+          throw new Error(`Plugin ${pluginName} — runtime Pug indisponible`);
         }
-        fn = window.pug.compile(templateCode);
-        htmlTemplate = fn({});
+        try {
+          fn = pugCompile(templateCode);
+          htmlTemplate = fn({
+            params: pluginParams || {}
+          });
+        } catch (error) {
+          err = error;
+          throw makeCompileError('template', 'Pug', err);
+        }
       }
       return {jsScript, htmlTemplate};
     }
 
-    _buildPluginIframeDoc(widgetId, params, compiled) {
-      var js, paramsJson, tpl;
+    _buildPluginIframeDoc(widgetId, params, compiled, plugin) {
+      var js, paramsJson, pluginName, tpl;
       paramsJson = JSON.stringify(params || {});
       tpl = JSON.stringify(compiled.htmlTemplate || '');
       js = compiled.jsScript || '';
+      pluginName = JSON.stringify((plugin != null ? plugin.name : void 0) || (plugin != null ? plugin.id : void 0) || '(sans nom)');
       return `<!doctype html>
 <html>
 <head><meta charset='utf-8'><style>body{margin:0;font-family:sans-serif}.plugin-root{padding:.5rem}</style></head>
@@ -566,11 +634,35 @@
   <script>
     (function() {
       var widgetId = ${JSON.stringify(widgetId)};
+      var pluginName = ${pluginName};
       var root = document.getElementById('root');
       var inputSelection = null;
       var listeners = [];
       var pending = {};
       var reqSeq = 1;
+      function escapeHtml(txt) {
+        return String(txt == null ? '' : txt)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+      }
+      function formatRuntimeError(err) {
+        var msg = err && err.message ? err.message : String(err);
+        var stack = err && err.stack ? String(err.stack) : '';
+        var line = null;
+        var col = null;
+        var m = stack.match(/<anonymous>:(\\d+):(\\d+)/);
+        if (m) {
+          line = Number(m[1]);
+          col = Number(m[2]);
+        }
+        var loc = line ? (" (ligne " + line + (col ? ", colonne " + col : "") + ")") : "";
+        return "Plugin " + pluginName + " — exécution JavaScript invalide" + loc + " : " + msg;
+      }
+      function renderRuntimeError(err) {
+        var txt = formatRuntimeError(err);
+        root.innerHTML = "<div style='padding:.5rem;color:#c55;white-space:pre-wrap'>" + escapeHtml(txt) + "</div>";
+      }
       function post(msg) { parent.postMessage(Object.assign({ widgetId: widgetId }, msg), '*'); }
       function gql(query, variables) {
         return new Promise(function(resolve, reject) {
@@ -607,7 +699,7 @@ ${js}
           module.exports({ gql: gql, emitSelection: emitSelection, onInputSelection: onInputSelection, render: render, params: params });
         }
       } catch (e) {
-        render("<div style='padding:.5rem;color:#c55'>Erreur plugin: " + (e && e.message ? e.message : e) + "</div>");
+        renderRuntimeError(e);
       }
     })();
   </script>
