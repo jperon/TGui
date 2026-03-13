@@ -21,15 +21,18 @@ graphql = require 'graphql.executor'
 index  = require 'index'
 { :FRONTEND_DIR } = require 'core.config'
 
-mime_types =
-  html: 'text/html; charset=utf-8'
-  css:  'text/css; charset=utf-8'
-  js:   'application/javascript; charset=utf-8'
-  json: 'application/json; charset=utf-8'
+mime_types = {
+  txt:  'text/plain'
+  html: 'text/html'
+  css:  'text/css'
+  js:   'application/javascript'
+  json: 'application/json'
+  yaml: 'application/x-yaml'
   ico:  'image/x-icon'
   png:  'image/png'
   svg:  'image/svg+xml'
-  gz:   'application/gzip'
+  zst:  'application/zstd'
+}
 
 ext_of = (path) ->
   path\match('[^.]+$') or ''

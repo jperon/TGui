@@ -5,18 +5,38 @@ window.AppSnapshotHelpers =
     app._snapshotYaml = null
 
     doExport = (includeData) ->
-      GQL.query("""
-        query($d: Boolean!) { exportSnapshot(includeData: $d) }
-      """, { d: includeData }).then (data) ->
-        yaml   = data.exportSnapshot
-        fname  = if includeData then 'backup.tdb.yaml' else 'schema.tdb.yaml'
-        blob   = new Blob [yaml], { type: 'text/yaml' }
-        url    = URL.createObjectURL blob
-        a      = document.createElement 'a'
-        a.href = url
-        a.download = fname
-        a.click()
-        URL.revokeObjectURL url
+      compress = app.el.snapshotCompressCheckbox().checked
+
+      # Build URL for new /export endpoint
+      params = new URLSearchParams({
+        includeData: includeData,
+        compress: compress
+      })
+
+      fetch("/export?#{params}", {
+        method: 'GET',
+        headers: {
+          'Authorization': "Bearer #{localStorage.getItem('tdb_token') or ''}"
+        }
+      }).then (response) ->
+        if not response.ok
+          throw new Error("Export failed: #{response.statusText}")
+
+        # Get filename from Content-Disposition header
+        contentDisposition = response.headers.get('content-disposition')
+        filename = 'export'
+        if contentDisposition
+          filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/)
+          filename = filenameMatch[1] if filenameMatch[1]
+
+        # Create blob from response
+        response.blob().then (blob) ->
+          url = URL.createObjectURL blob
+          a = document.createElement 'a'
+          a.href = url
+          a.download = filename
+          a.click()
+          URL.revokeObjectURL url
       .catch (err) -> tdbAlert app._err(err), 'error'
 
     app.el.snapshotExportSchemaBtn().addEventListener 'click', -> doExport false
@@ -30,8 +50,18 @@ window.AppSnapshotHelpers =
       app.el.snapshotImportResult().classList.add 'hidden'
       app.el.snapshotImportError().classList.add 'hidden'
       reader = new FileReader()
+
+      # Check if file is compressed by extension
+      isCompressed = file.name.endsWith('.zst')
+
       reader.onload = (ev) ->
-        app._snapshotYaml = ev.target.result
+        content = ev.target.result
+
+        # If file is compressed, we need to decompress it in the browser
+        # or send it as-is to the backend which handles decompression
+        # For simplicity, we'll send the raw content and let backend handle it
+        app._snapshotYaml = content
+
         GQL.query("""
           query($y: String!) { diffSnapshot(yaml: $y) {
             spacesToCreate spacesToDelete
@@ -49,6 +79,8 @@ window.AppSnapshotHelpers =
         .catch (err) ->
           app.el.snapshotImportError().textContent = app._err(err)
           app.el.snapshotImportError().classList.remove 'hidden'
+
+      # Read file as text (backend will handle decompression if needed)
       reader.readAsText file
 
     app.el.snapshotImportConfirmBtn().addEventListener 'click', ->

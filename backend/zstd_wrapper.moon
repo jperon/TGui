@@ -1,15 +1,16 @@
 -- ZSTD-FFI Wrapper
--- Based on yuweizzz/zstd-ffi API
+-- Optimized ZSTD compression/decompression with proper memory management
 
 ffi = require('ffi')
 
--- ZSTD FFI definitions
+-- ZSTD FFI definitions with additional functions for better decompression
 ffi.cdef[[
     typedef struct ZSTD_CCtx_s ZSTD_CCtx;
     typedef struct ZSTD_DCtx_s ZSTD_DCtx;
 
     size_t ZSTD_compress(void* dst, size_t dstCapacity, const void* src, size_t srcSize, int compressionLevel);
     size_t ZSTD_decompress(void* dst, size_t dstCapacity, const void* src, size_t compressedSize);
+    unsigned long long ZSTD_getFrameContentSize(const void* src, size_t srcSize);
     unsigned ZSTD_isError(size_t code);
     const char* ZSTD_getErrorName(size_t code);
     int ZSTD_maxCLevel(void);
@@ -18,9 +19,12 @@ ffi.cdef[[
 
 zstd = ffi.load('zstd')
 
+-- Constants for error handling (ZSTD_CONTENTSIZE_ERROR = (1ULL<<63))
+ZSTD_CONTENTSIZE_ERROR = tonumber('9223372036854775808')
+
 ZstdWrapper = {}
 
--- Compress data using ZSTD-FFI
+-- Compress data using ZSTD-FFI with optimized memory usage
 ZstdWrapper.compress_zstd = (data, options = {}) ->
   level = options.level or 1
 
@@ -49,15 +53,25 @@ ZstdWrapper.compress_zstd = (data, options = {}) ->
   result = ffi.string(compressed_buf, compressed_size)
   return result
 
--- Decompress ZSTD compressed data
+-- Decompress ZSTD compressed data with proper size detection
 ZstdWrapper.decompress_zstd = (compressed_data) ->
   -- Validate input
   unless type(compressed_data) == 'string'
     return nil, "Input must be a string"
 
-  -- Get decompressed size (ZSTD doesn't store it, we need to try with a large buffer)
-  -- For now, let's use a reasonable size and adjust if needed
-  max_decompressed_size = #compressed_data * 10  -- Start with 10x compressed size
+  -- Get exact decompressed size from frame header
+  content_size = zstd.ZSTD_getFrameContentSize(compressed_data, #compressed_data)
+
+  -- Handle errors in size detection
+  if content_size == ZSTD_CONTENTSIZE_ERROR
+    return nil, "Invalid ZSTD frame"
+
+  -- If size is unknown, use fallback with reasonable limit
+  if content_size == 0
+    -- Fallback: estimate based on compression ratio (max 20x)
+    max_decompressed_size = math.min(#compressed_data * 20, 50 * 1024 * 1024) -- 50MB max
+  else
+    max_decompressed_size = content_size
 
   -- Allocate buffer for decompressed data
   decompressed_buf = ffi.new('char[?]', max_decompressed_size)
@@ -90,10 +104,38 @@ ZstdWrapper.get_compression_info = (compressed_data) ->
   unless ZstdWrapper.is_zstd_compressed(compressed_data)
     return nil, "Data is not ZSTD compressed"
 
+  -- Try to get original size
+  content_size = zstd.ZSTD_getFrameContentSize(compressed_data, #compressed_data)
+  original_size = if content_size > 0 then content_size else 'unknown'
+
   return {
     format: 'ZSTD'
     compressed_size: #compressed_data
+    original_size: original_size
     is_compressed: true
+  }
+
+-- Test function with validation
+ZstdWrapper.test = ->
+  test_data = "Hello World - ZSTD compression test"
+  compressed, err = ZstdWrapper.compress_zstd(test_data, {level: 1})
+  if err
+    return "Compression error: #{err}"
+
+  decompressed, err2 = ZstdWrapper.decompress_zstd(compressed)
+  if err2
+    return "Decompression error: #{err2}"
+
+  is_zstd = ZstdWrapper.is_zstd_compressed(compressed)
+  info = ZstdWrapper.get_compression_info(compressed)
+
+  return {
+    original: test_data
+    compressed_size: #compressed
+    decompressed: decompressed
+    is_zstd: is_zstd
+    success: decompressed == test_data
+    info: info
   }
 
 ZstdWrapper
