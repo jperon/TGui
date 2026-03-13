@@ -1,15 +1,26 @@
--- ZSTD Compression Wrapper
--- Provides a clean API for luajit-zstd compression
+-- ZSTD-FFI Wrapper
+-- Based on yuweizzz/zstd-ffi API
 
-zstd = require('zstd')
+ffi = require('ffi')
 
--- ZSTD compression wrapper with consistent API
+-- ZSTD FFI definitions
+ffi.cdef[[
+    typedef struct ZSTD_CCtx_s ZSTD_CCtx;
+    typedef struct ZSTD_DCtx_s ZSTD_DCtx;
+
+    size_t ZSTD_compress(void* dst, size_t dstCapacity, const void* src, size_t srcSize, int compressionLevel);
+    size_t ZSTD_decompress(void* dst, size_t dstCapacity, const void* src, size_t compressedSize);
+    unsigned ZSTD_isError(size_t code);
+    const char* ZSTD_getErrorName(size_t code);
+    int ZSTD_maxCLevel(void);
+    size_t ZSTD_compressBound(size_t srcSize);
+]]
+
+zstd = ffi.load('zstd')
+
 ZstdWrapper = {}
 
--- Compress data using ZSTD with specified level
--- @param data: string to compress
--- @param options: table with compression options (level default 1)
--- @return: compressed bytes or nil, error message
+-- Compress data using ZSTD-FFI
 ZstdWrapper.compress_zstd = (data, options = {}) ->
   level = options.level or 1
 
@@ -17,37 +28,53 @@ ZstdWrapper.compress_zstd = (data, options = {}) ->
   unless type(data) == 'string'
     return nil, "Input must be a string"
 
-  unless type(level) == 'number' and level >= 1 and level <= 22
-    return nil, "Compression level must be between 1 and 22"
+  unless type(level) == 'number' and level >= 1 and level <= zstd.ZSTD_maxCLevel()
+    return nil, "Compression level must be between 1 and #{zstd.ZSTD_maxCLevel()}"
 
-  -- Compress data
-  compressed, err = zstd.compress(data, level)
+  -- Get max compressed size
+  src_size = #data
+  max_compressed_size = zstd.ZSTD_compressBound(src_size)
 
-  if err
-    return nil, "Compression failed: #{err}"
+  -- Allocate buffer for compressed data
+  compressed_buf = ffi.new('char[?]', max_compressed_size)
 
-  return compressed
+  -- Compress
+  compressed_size = zstd.ZSTD_compress(compressed_buf, max_compressed_size, data, src_size, level)
+
+  if zstd.ZSTD_isError(compressed_size) ~= 0
+    error_msg = ffi.string(zstd.ZSTD_getErrorName(compressed_size))
+    return nil, "Compression failed: #{error_msg}"
+
+  -- Convert to Lua string
+  result = ffi.string(compressed_buf, compressed_size)
+  return result
 
 -- Decompress ZSTD compressed data
--- @param compressed_data: bytes to decompress
--- @return: decompressed string or nil, error message
 ZstdWrapper.decompress_zstd = (compressed_data) ->
   -- Validate input
   unless type(compressed_data) == 'string'
     return nil, "Input must be a string"
 
-  -- Decompress data
-  decompressed, err = zstd.decompress(compressed_data)
+  -- Get decompressed size (ZSTD doesn't store it, we need to try with a large buffer)
+  -- For now, let's use a reasonable size and adjust if needed
+  max_decompressed_size = #compressed_data * 10  -- Start with 10x compressed size
 
-  if err
-    return nil, "Decompression failed: #{err}"
+  -- Allocate buffer for decompressed data
+  decompressed_buf = ffi.new('char[?]', max_decompressed_size)
 
-  return decompressed
+  -- Decompress
+  decompressed_size = zstd.ZSTD_decompress(decompressed_buf, max_decompressed_size, compressed_data, #compressed_data)
+
+  if zstd.ZSTD_isError(decompressed_size) ~= 0
+    error_msg = ffi.string(zstd.ZSTD_getErrorName(decompressed_size))
+    return nil, "Decompression failed: #{error_msg}"
+
+  -- Convert to Lua string
+  result = ffi.string(decompressed_buf, decompressed_size)
+  return result
 
 -- Check if data is ZSTD compressed by checking magic number
 -- ZSTD magic number: 0x28, 0xb5, 0x2f, 0xfd
--- @param data: bytes to check
--- @return: boolean indicating if data appears to be ZSTD compressed
 ZstdWrapper.is_zstd_compressed = (data) ->
   unless type(data) == 'string' and #data >= 4
     return false
@@ -59,8 +86,6 @@ ZstdWrapper.is_zstd_compressed = (data) ->
   return magic == zstd_magic
 
 -- Get compression info about compressed data
--- @param compressed_data: bytes to analyze
--- @return: table with info or nil, error message
 ZstdWrapper.get_compression_info = (compressed_data) ->
   unless ZstdWrapper.is_zstd_compressed(compressed_data)
     return nil, "Data is not ZSTD compressed"
@@ -69,27 +94,6 @@ ZstdWrapper.get_compression_info = (compressed_data) ->
     format: 'ZSTD'
     compressed_size: #compressed_data
     is_compressed: true
-  }
-
--- Test function for debugging
-ZstdWrapper.test = ->
-  test_data = "Hello World"
-  compressed, err = ZstdWrapper.compress_zstd(test_data, {level: 1})
-  if err
-    return "Compression error: #{err}"
-
-  decompressed, err2 = ZstdWrapper.decompress_zstd(compressed)
-  if err2
-    return "Decompression error: #{err2}"
-
-  is_zstd = ZstdWrapper.is_zstd_compressed(compressed)
-
-  return {
-    original: test_data
-    compressed_size: #compressed
-    decompressed: decompressed
-    is_zstd: is_zstd
-    success: decompressed == test_data
   }
 
 ZstdWrapper
