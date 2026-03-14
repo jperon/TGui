@@ -84,9 +84,11 @@ backend/
 │   ├── schema.moon          # Système de types (build_schema)
 │   ├── executor.moon        # Résolution queries/mutations/subscriptions
 │   ├── dynamic.moon         # SDL + resolvers générés par espace (champs calculés)
+│   ├── data_views_executor.moon # Moteur d'exécution des Data Views (aggregations, filters)
 │   └── introspection.moon   # __schema / __type / __typename
 ├── core/
 │   ├── spaces.moon          # Bootstrap des espaces système, CRUD espaces/champs
+│   ├── data_views.moon      # CRUD pour les Data Views
 │   ├── triggers.moon        # Trigger formulas (Lua et MoonScript)
 │   ├── auth.moon            # Sessions, PBKDF2-HMAC-SHA256 (100k itérations), tokens
 │   ├── permissions.moon     # Groupes & droits read/write/admin
@@ -95,6 +97,7 @@ backend/
     ├── init.moon            # Agrège resolvers, construit le schéma, gère reinit
     ├── schema_resolvers.moon
     ├── data_resolvers.moon
+    ├── data_view_resolvers.moon # Résolveurs pour les Data Views
     ├── auth_resolvers.moon
     └── custom_view_resolvers.moon
 ```
@@ -116,6 +119,7 @@ Tarantool stocke les métadonnées dans des espaces système préfixés `_tdb_` 
 |---|---|
 | `_tdb_spaces` | Espaces utilisateur (id, name, description, …) |
 | `_tdb_fields` | Champs (id, space_id, name, type, not_null, pos, desc, formula?, trigger_json?, language?) |
+| `_tdb_data_views` | Vues de données (id, name, description, source_space, config, …) |
 | `_tdb_sessions` | Tokens d'authentification |
 | `_tdb_users` | Utilisateurs (PBKDF2-HMAC-SHA256, 100k itérations) |
 | `_tdb_groups` | Groupes |
@@ -149,6 +153,7 @@ frontend/
     ├── spaces.coffee          # Requêtes GraphQL espaces/champs
     └── views/
         ├── data_view.coffee   # Grille de données (Toast UI Grid)
+        ├── data_views_view.coffee # Éditeur et liste des Data Views
         └── custom_view.coffee # Vues YAML personnalisées
 ```
 
@@ -177,28 +182,29 @@ Pour ajouter un champ au schéma :
 - SDL généré (snapshot runtime): `schema/tdb.generated.graphql`
 - Commandes associées: `make doc-gen`, `make doc-check`, `make sdl-gen`, `make sdl-check`
 
-## Vérification dans le navigateur
+## Vérification dans le navigateur (shot-scraper)
 
 Utiliser pour cela l’instance de tests, sur le port 8081. Ne jamais toucher à l’instance de production sur le port 8080. Après tout changement dans le backend, relancer l’instance de test avec `make test-down; make test-up`.
 
-L'outil `chrome-devtools` permet d'inspecter l'application dans Chrome sans quitter
-l'agent. Utiliser systématiquement pour valider les changements frontend :
+L’outil `shot-scraper` (utilisé via `uvx`) permet d’automatiser les captures et les interactions dans un navigateur sans quitter l’agent.
 
+### Commandes fréquentes
+
+```bash
+# Prendre une capture d'écran (avec délai pour rendu)
+uvx shot-scraper http://localhost:8081 -o debug.png --wait 2000
+
+# Exécuter du JavaScript et récupérer un résultat JSON
+uvx shot-scraper javascript http://localhost:8081 "
+  (() => {
+    return {
+      title: document.title,
+      isHidden: document.getElementById('login-overlay').classList.contains('hidden')
+    };
+  })()
+"
 ```
-# Prendre un snapshot de la page courante (arbre d'accessibilité)
-→ chrome-devtools-take_snapshot
 
-# Naviguer vers l'application
-→ chrome-devtools-navigate_page  url: "http://localhost:8081"
-
-# Vérifier les erreurs console après un changement
-→ chrome-devtools-list_console_messages  types: ["error", "warn"]
-
-# Inspecter les requêtes réseau (GraphQL)
-→ chrome-devtools-list_network_requests  resourceTypes: ["fetch", "xhr"]
-```
-
-L'application tourne sur **http://localhost:8081**.
 Identifiants par défaut : `admin` / `adminadmin`.
 
 ## Commandes utiles
