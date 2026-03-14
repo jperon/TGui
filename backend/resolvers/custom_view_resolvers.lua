@@ -103,29 +103,67 @@ add_widget_to_view = function(viewId, widget)
   if not (t) then
     error("CustomView not found: " .. tostring(viewId))
   end
-  local yaml_content = t[4] or 'widgets: {}'
+  local yaml_content = t[4] or 'layout:\n  direction: vertical\n  children: []'
   local config = yaml.decode(yaml_content)
-  if not (config.widgets) then
-    config.widgets = { }
+  if not (config.layout) then
+    config.layout = {
+      direction = 'vertical',
+      children = { }
+    }
   end
   local widget_id = uuid_mod()
+  local space_record = box.space._tdb_spaces:get(widget.spaceId)
+  local space_name
+  if space_record then
+    space_name = space_record[2]
+  else
+    space_name = widget.spaceId
+  end
   local new_widget = {
     id = widget_id,
     title = widget.title,
-    type = widget.type,
-    spaceId = widget.spaceId,
-    fields = widget.fields or { },
-    groupBy = widget.groupBy,
-    params = widget.params or { },
-    position = widget.position or {
-      x = 0,
-      y = 0,
-      w = 6,
-      h = 4
-    }
+    space = space_name
   }
-  config.widgets[widget_id] = new_widget
-  local updated_yaml = yaml.encode(config)
+  if widget.fields and #widget.fields > 0 then
+    new_widget.columns = widget.fields
+  end
+  if widget.groupBy then
+    new_widget.groupBy = widget.groupBy
+  end
+  if widget.params and next(widget.params) then
+    for key, value in pairs(widget.params) do
+      new_widget[key] = value
+    end
+  end
+  table.insert(config.layout.children, {
+    widget = new_widget
+  })
+  yaml_content = "layout:\n"
+  yaml_content = yaml_content .. ("  direction: " .. (config.layout.direction or 'vertical') .. "\n")
+  yaml_content = yaml_content .. "  children:\n"
+  for _, child in ipairs(config.layout.children) do
+    if child.widget then
+      yaml_content = yaml_content .. "    - widget:\n"
+      yaml_content = yaml_content .. ("        id: " .. tostring(child.widget.id) .. "\n")
+      yaml_content = yaml_content .. ("        title: " .. child.widget.title .. "\n")
+      yaml_content = yaml_content .. ("        space: " .. tostring(child.widget.space) .. "\n")
+      if child.widget.columns and #child.widget.columns > 0 then
+        yaml_content = yaml_content .. "        columns:\n"
+        for _, col in ipairs(child.widget.columns) do
+          yaml_content = yaml_content .. ("          - " .. col .. "\n")
+        end
+      end
+      if child.widget.groupBy then
+        yaml_content = yaml_content .. ("        groupBy: " .. tostring(child.widget.groupBy) .. "\n")
+      end
+      for key, value in pairs(child.widget) do
+        if key ~= 'id' and key ~= 'title' and key ~= 'space' and key ~= 'columns' and key ~= 'groupBy' then
+          yaml_content = yaml_content .. ("        " .. key .. ": " .. tostring(value) .. "\n")
+        end
+      end
+    end
+  end
+  local updated_yaml = yaml_content
   box.space._tdb_custom_views:update(viewId, {
     {
       '=',
@@ -160,7 +198,10 @@ local Query = {
 local Mutation = {
   createCustomView = function(_, args, ctx)
     require_auth(ctx)
-    local i = args.input
+    local i = args.input or args
+    if not (i.name) then
+      error("name is required")
+    end
     return create_custom_view(i.name, i.description, i.yaml)
   end,
   updateCustomView = function(_, args, ctx)

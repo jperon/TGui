@@ -223,91 +223,134 @@
       });
     },
     openYamlModal: function(app) {
-      var applyValidationLayout, cv, ref, yamlPane;
+      var cv, query;
       cv = app._currentCustomView;
       if (!cv) {
         return;
       }
-      app.el.yamlModalTitle().textContent = cv.name;
-      app.el.yamlModal().classList.remove('hidden');
-      // Ajouter la palette d'insertion de layouts dans le header de la modale YAML
-      this.setupLayoutPalette(app);
-      // Configurer le listener global d'insertion de layouts
-      if ((ref = window.CustomView) != null) {
-        if (typeof ref.setupLayoutInsertion === "function") {
-          ref.setupLayoutInsertion();
-        }
-      }
-      yamlPane = document.querySelector('.yaml-editor-pane');
-      applyValidationLayout = function() {
-        var hasError;
-        if (!(yamlPane && app._yamlValidMsg)) {
-          return;
-        }
-        hasError = !app._yamlValidMsg.classList.contains('hidden');
-        return yamlPane.classList.toggle('has-validation-error', hasError);
-      };
-      if (!app._cmYaml) {
-        app._cmYaml = CodeMirror(document.getElementById('yaml-cm-editor'), {
-          mode: 'yaml',
-          theme: 'monokai',
-          lineNumbers: true,
-          lineWrapping: true,
-          tabSize: 2,
-          indentWithTabs: false
-        });
-        app._cmYaml.on('change', function(cm, change) {
-          var e, ref1, ref2, ref3;
-          if (!app._yamlValidMsg) {
-            app._yamlValidMsg = document.getElementById('yaml-validation-msg');
+      // Recharger la vue depuis la base pour avoir le YAML à jour
+      query = `query GetView($viewId: ID!) {
+  customView(id: $viewId) {
+    id
+    name
+    yaml
+  }
+}`;
+      return window.GQL.query(query, {
+        viewId: cv.id
+      }).then(function(data) {
+        var applyValidationLayout, ref, yamlPane;
+        if (data.customView) {
+          // Mettre à jour la vue courante avec les données fraîches
+          app._currentCustomView = data.customView;
+          cv = data.customView;
+          app.el.yamlModalTitle().textContent = cv.name;
+          app.el.yamlModal().classList.remove('hidden');
+          // Ajouter la palette d'insertion de layouts dans le header de la modale YAML
+          window.AppViewHelpers.setupLayoutPalette(app);
+          // Configurer le listener global d'insertion de layouts
+          if ((ref = window.CustomView) != null) {
+            if (typeof ref.setupLayoutInsertion === "function") {
+              ref.setupLayoutInsertion();
+            }
           }
-          if (change.origin === 'setValue') {
-            if ((ref1 = app._yamlValidMsg) != null) {
-              ref1.classList.add('hidden');
+          yamlPane = document.querySelector('.yaml-editor-pane');
+          applyValidationLayout = function() {
+            var hasError;
+            if (!(yamlPane && app._yamlValidMsg)) {
+              return;
+            }
+            hasError = !app._yamlValidMsg.classList.contains('hidden');
+            return yamlPane.classList.toggle('has-validation-error', hasError);
+          };
+          if (!app._cmYaml) {
+            app._cmYaml = CodeMirror(document.getElementById('yaml-cm-editor'), {
+              mode: 'yaml',
+              theme: 'monokai',
+              lineNumbers: true,
+              lineWrapping: true,
+              tabSize: 2,
+              indentWithTabs: false
+            });
+            app._cmYaml.on('change', function(cm, change) {
+              var e, ref1, ref2, ref3;
+              if (!app._yamlValidMsg) {
+                app._yamlValidMsg = document.getElementById('yaml-validation-msg');
+              }
+              if (change.origin === 'setValue') {
+                if ((ref1 = app._yamlValidMsg) != null) {
+                  ref1.classList.add('hidden');
+                }
+                applyValidationLayout();
+                return;
+              }
+              if ((ref2 = app._yamlBuilder) != null) {
+                ref2.reloadFromYaml(cm.getValue());
+              }
+              try {
+                jsyaml.load(cm.getValue());
+                if ((ref3 = app._yamlValidMsg) != null) {
+                  ref3.classList.add('hidden');
+                }
+                return applyValidationLayout();
+              } catch (error1) {
+                e = error1;
+                if (app._yamlValidMsg) {
+                  app._yamlValidMsg.textContent = `YAML invalide : ${e.message}`;
+                  app._yamlValidMsg.classList.remove('hidden');
+                  return applyValidationLayout();
+                }
+              }
+            });
+          } else {
+            if (app._yamlValidMsg == null) {
+              app._yamlValidMsg = document.getElementById('yaml-validation-msg');
             }
             applyValidationLayout();
-            return;
           }
-          if ((ref2 = app._yamlBuilder) != null) {
-            ref2.reloadFromYaml(cm.getValue());
-          }
-          try {
-            jsyaml.load(cm.getValue());
-            if ((ref3 = app._yamlValidMsg) != null) {
-              ref3.classList.add('hidden');
+          // Recharger le YAML depuis la base pour avoir la version à jour
+          window.GQL.query(`query GetView($viewId: ID!) {
+  customView(id: $viewId) {
+    id
+    name
+    yaml
+  }
+}`, {
+            viewId: cv.id
+          }).then(function(data) {
+            var freshYaml;
+            if (data.customView) {
+              freshYaml = data.customView.yaml;
+              app._currentCustomView.yaml = freshYaml;
+              app._cmYaml.setValue(freshYaml || '');
+              return setTimeout((function() {
+                return app._cmYaml.refresh();
+              }), 10);
             }
-            return applyValidationLayout();
-          } catch (error1) {
-            e = error1;
-            if (app._yamlValidMsg) {
-              app._yamlValidMsg.textContent = `YAML invalide : ${e.message}`;
-              app._yamlValidMsg.classList.remove('hidden');
-              return applyValidationLayout();
-            }
-          }
-        });
-      } else {
-        if (app._yamlValidMsg == null) {
-          app._yamlValidMsg = document.getElementById('yaml-validation-msg');
+          }).catch(function(error) {
+            console.error('Erreur lors du rechargement du YAML:', error);
+            // Utiliser le YAML existant en cas d'erreur
+            app._cmYaml.setValue(cv.yaml || '');
+            return setTimeout((function() {
+              return app._cmYaml.refresh();
+            }), 10);
+          });
+          return app._loadAllRelations().then(function(relations) {
+            app._yamlBuilder = new YamlBuilder({
+              container: document.getElementById('schema-browser'),
+              allSpaces: app._allSpaces,
+              allRelations: relations,
+              initialYaml: cv.yaml || '',
+              onChange: function(yaml) {
+                var ref1;
+                return (ref1 = app._cmYaml) != null ? ref1.setValue(yaml) : void 0;
+              }
+            });
+            return app._yamlBuilder.mount();
+          });
         }
-        applyValidationLayout();
-      }
-      app._cmYaml.setValue(cv.yaml || '');
-      setTimeout((function() {
-        return app._cmYaml.refresh();
-      }), 10);
-      return app._loadAllRelations().then(function(relations) {
-        app._yamlBuilder = new YamlBuilder({
-          container: document.getElementById('schema-browser'),
-          allSpaces: app._allSpaces,
-          allRelations: relations,
-          initialYaml: cv.yaml || '',
-          onChange: function(yaml) {
-            var ref1;
-            return (ref1 = app._cmYaml) != null ? ref1.setValue(yaml) : void 0;
-          }
-        });
-        return app._yamlBuilder.mount();
+      }).catch(function(error) {
+        return console.error('Erreur lors du chargement de la vue:', error);
       });
     },
     loadAllRelations: function(app) {
@@ -1220,7 +1263,7 @@
       // Valider le formulaire
       errors = window.AppViewHelpers._validateWidgetForm();
       if (errors.length > 0) {
-        alert('Erreurs de validation:\n' + errors.join('\n'));
+        tdbAlert('Erreurs de validation:\n' + errors.join('\n'), 'error');
         return;
       }
       // Collecter les données
@@ -1228,7 +1271,7 @@
       // Récupérer l'ID de la vue actuelle depuis l'URL
       viewId = (ref = window.location.hash.match(/view\/([a-f0-9-]+)/)) != null ? ref[1] : void 0;
       if (!viewId) {
-        alert('Erreur: impossible de déterminer l\'ID de la vue actuelle');
+        tdbAlert('Erreur: impossible de déterminer l\'ID de la vue actuelle', 'error');
         return;
       }
       // Préparer la mutation GraphQL
@@ -1261,16 +1304,16 @@
       return window.GQL.mutate(mutation, variables).then(function(result) {
         if (result.errors) {
           console.error('GraphQL errors:', result.errors);
-          return alert('Erreur lors de la création du widget: ' + result.errors[0].message);
+          return tdbAlert('Erreur lors de la création du widget: ' + result.errors[0].message, 'error');
         } else {
           console.log('Widget créé avec succès:', result.addWidgetToView);
           window.AppViewHelpers._closeWidgetModal(app);
-          return alert('Widget créé avec succès!');
+          // Rafraîchir la vue pour afficher le nouveau widget
+          return window.AppViewHelpers._renderCustomViewPreview(app, result.addWidgetToView.yaml);
         }
-      // TODO: Recharger la vue pour afficher le nouveau widget
       }).catch(function(error) {
         console.error('Network error:', error);
-        return alert('Erreur réseau lors de la création du widget: ' + error.message);
+        return tdbAlert('Erreur réseau lors de la création du widget: ' + error.message, 'error');
       });
     }
   };
@@ -1543,8 +1586,21 @@
           return jsyaml.dump([widget]);
         },
         _renderCustomViewPreview: function(app, yaml) {
-          // Cette fonction sera implémentée plus tard pour rafraîchir l'aperçu
-          return console.log("Preview refreshed with YAML:", yaml);
+          // Utiliser la fonction renderCustomViewPreview existante
+          window.AppViewHelpers.renderCustomViewPreview(app, yaml);
+          // Mettre à jour le YAML dans la vue courante pour que l'éditeur soit synchronisé
+          if (app._currentCustomView) {
+            return app._currentCustomView.yaml = yaml;
+          }
+        },
+        _closeWidgetModal: function(app) {
+          var modal;
+          modal = document.getElementById('add-widget-modal');
+          if (!modal) {
+            return;
+          }
+          modal.classList.add('hidden');
+          return app._selectedWidget = null;
         },
         _closeAddWidgetModal: function(app) {
           app.el.addWidgetModal().classList.add('hidden');
@@ -1564,6 +1620,22 @@
     return app.el.addWidgetCancelBtn().addEventListener('click', function() {
       return window.AppViewHelpers._closeAddWidgetModal(app);
     });
+  };
+
+  // Ajouter les fonctions manquantes à window.AppViewHelpers
+  window.AppViewHelpers._closeWidgetModal = function(app) {
+    var modal;
+    modal = document.getElementById('add-widget-modal');
+    if (!modal) {
+      return;
+    }
+    modal.classList.add('hidden');
+    return app._selectedWidget = null;
+  };
+
+  window.AppViewHelpers._renderCustomViewPreview = function(app, yaml) {
+    // Utiliser la fonction renderCustomViewPreview existante
+    return window.AppViewHelpers.renderCustomViewPreview(app, yaml);
   };
 
 }).call(this);

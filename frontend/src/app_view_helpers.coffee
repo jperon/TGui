@@ -156,58 +156,97 @@ window.AppViewHelpers =
   openYamlModal: (app) ->
     cv = app._currentCustomView
     return unless cv
-    app.el.yamlModalTitle().textContent = cv.name
-    app.el.yamlModal().classList.remove 'hidden'
 
-    # Ajouter la palette d'insertion de layouts dans le header de la modale YAML
-    @setupLayoutPalette app
+    # Recharger la vue depuis la base pour avoir le YAML à jour
+    query = """
+      query GetView($viewId: ID!) {
+        customView(id: $viewId) {
+          id
+          name
+          yaml
+        }
+      }
+    """
 
-    # Configurer le listener global d'insertion de layouts
-    window.CustomView?.setupLayoutInsertion?()
+    window.GQL.query(query, {viewId: cv.id}).then (data) ->
+      if data.customView
+        # Mettre à jour la vue courante avec les données fraîches
+        app._currentCustomView = data.customView
+        cv = data.customView
 
-    yamlPane = document.querySelector '.yaml-editor-pane'
-    applyValidationLayout = ->
-      return unless yamlPane and app._yamlValidMsg
-      hasError = !app._yamlValidMsg.classList.contains 'hidden'
-      yamlPane.classList.toggle 'has-validation-error', hasError
-    unless app._cmYaml
-      app._cmYaml = CodeMirror document.getElementById('yaml-cm-editor'),
-        mode: 'yaml'
-        theme: 'monokai'
-        lineNumbers: true
-        lineWrapping: true
-        tabSize: 2
-        indentWithTabs: false
-      app._cmYaml.on 'change', (cm, change) ->
-        unless app._yamlValidMsg
-          app._yamlValidMsg = document.getElementById 'yaml-validation-msg'
-        if change.origin == 'setValue'
-          app._yamlValidMsg?.classList.add 'hidden'
+        app.el.yamlModalTitle().textContent = cv.name
+        app.el.yamlModal().classList.remove 'hidden'
+
+        # Ajouter la palette d'insertion de layouts dans le header de la modale YAML
+        window.AppViewHelpers.setupLayoutPalette app
+
+        # Configurer le listener global d'insertion de layouts
+        window.CustomView?.setupLayoutInsertion?()
+
+        yamlPane = document.querySelector '.yaml-editor-pane'
+        applyValidationLayout = ->
+          return unless yamlPane and app._yamlValidMsg
+          hasError = !app._yamlValidMsg.classList.contains 'hidden'
+          yamlPane.classList.toggle 'has-validation-error', hasError
+        unless app._cmYaml
+          app._cmYaml = CodeMirror document.getElementById('yaml-cm-editor'),
+            mode: 'yaml'
+            theme: 'monokai'
+            lineNumbers: true
+            lineWrapping: true
+            tabSize: 2
+            indentWithTabs: false
+          app._cmYaml.on 'change', (cm, change) ->
+            unless app._yamlValidMsg
+              app._yamlValidMsg = document.getElementById 'yaml-validation-msg'
+            if change.origin == 'setValue'
+              app._yamlValidMsg?.classList.add 'hidden'
+              applyValidationLayout()
+              return
+            app._yamlBuilder?.reloadFromYaml cm.getValue()
+            try
+              jsyaml.load cm.getValue()
+              app._yamlValidMsg?.classList.add 'hidden'
+              applyValidationLayout()
+            catch e
+              if app._yamlValidMsg
+                app._yamlValidMsg.textContent = "YAML invalide : #{e.message}"
+                app._yamlValidMsg.classList.remove 'hidden'
+                applyValidationLayout()
+        else
+          app._yamlValidMsg ?= document.getElementById 'yaml-validation-msg'
           applyValidationLayout()
-          return
-        app._yamlBuilder?.reloadFromYaml cm.getValue()
-        try
-          jsyaml.load cm.getValue()
-          app._yamlValidMsg?.classList.add 'hidden'
-          applyValidationLayout()
-        catch e
-          if app._yamlValidMsg
-            app._yamlValidMsg.textContent = "YAML invalide : #{e.message}"
-            app._yamlValidMsg.classList.remove 'hidden'
-            applyValidationLayout()
-    else
-      app._yamlValidMsg ?= document.getElementById 'yaml-validation-msg'
-      applyValidationLayout()
-    app._cmYaml.setValue cv.yaml or ''
-    setTimeout (-> app._cmYaml.refresh()), 10
-    app._loadAllRelations().then (relations) ->
-      app._yamlBuilder = new YamlBuilder
-        container:    document.getElementById 'schema-browser'
-        allSpaces:    app._allSpaces
-        allRelations: relations
-        initialYaml:  cv.yaml or ''
-        onChange:     (yaml) -> app._cmYaml?.setValue yaml
-      app._yamlBuilder.mount()
+
+        # Recharger le YAML depuis la base pour avoir la version à jour
+        window.GQL.query("""
+          query GetView($viewId: ID!) {
+            customView(id: $viewId) {
+              id
+              name
+              yaml
+            }
+          }
+        """, {viewId: cv.id}).then (data) ->
+          if data.customView
+            freshYaml = data.customView.yaml
+            app._currentCustomView.yaml = freshYaml
+            app._cmYaml.setValue freshYaml or ''
+            setTimeout (-> app._cmYaml.refresh()), 10
+        .catch (error) ->
+          console.error 'Erreur lors du rechargement du YAML:', error
+          # Utiliser le YAML existant en cas d'erreur
+          app._cmYaml.setValue cv.yaml or ''
+          setTimeout (-> app._cmYaml.refresh()), 10
+        app._loadAllRelations().then (relations) ->
+          app._yamlBuilder = new YamlBuilder
+            container:    document.getElementById 'schema-browser'
+            allSpaces:    app._allSpaces
+            allRelations: relations
+            initialYaml:  cv.yaml or ''
+            onChange:     (yaml) -> app._cmYaml?.setValue yaml
+          app._yamlBuilder.mount()
+    .catch (error) ->
+      console.error 'Erreur lors du chargement de la vue:', error
 
   loadAllRelations: (app) ->
     return Promise.resolve app._allRelations if app._allRelations
@@ -903,7 +942,7 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
     errors = window.AppViewHelpers._validateWidgetForm()
 
     if errors.length > 0
-      alert 'Erreurs de validation:\n' + errors.join('\n')
+      tdbAlert 'Erreurs de validation:\n' + errors.join('\n'), 'error'
       return
 
     # Collecter les données
@@ -913,7 +952,7 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
     viewId = window.location.hash.match(/view\/([a-f0-9-]+)/)?[1]
 
     unless viewId
-      alert 'Erreur: impossible de déterminer l\'ID de la vue actuelle'
+      tdbAlert 'Erreur: impossible de déterminer l\'ID de la vue actuelle', 'error'
       return
 
     # Préparer la mutation GraphQL
@@ -951,15 +990,15 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
       .then (result) ->
         if result.errors
           console.error 'GraphQL errors:', result.errors
-          alert 'Erreur lors de la création du widget: ' + result.errors[0].message
+          tdbAlert 'Erreur lors de la création du widget: ' + result.errors[0].message, 'error'
         else
           console.log 'Widget créé avec succès:', result.addWidgetToView
           window.AppViewHelpers._closeWidgetModal app
-          alert 'Widget créé avec succès!'
-          # TODO: Recharger la vue pour afficher le nouveau widget
+          # Rafraîchir la vue pour afficher le nouveau widget
+          window.AppViewHelpers._renderCustomViewPreview app, result.addWidgetToView.yaml
       .catch (error) ->
         console.error 'Network error:', error
-        alert 'Erreur réseau lors de la création du widget: ' + error.message
+        tdbAlert 'Erreur réseau lors de la création du widget: ' + error.message, 'error'
 
 _getWidgetConfig: (app) ->
   # Récupérer la configuration complète du widget
@@ -1205,8 +1244,18 @@ _getWidgetConfig: (app) ->
     return jsyaml.dump([widget])
 
   _renderCustomViewPreview: (app, yaml) ->
-    # Cette fonction sera implémentée plus tard pour rafraîchir l'aperçu
-    console.log "Preview refreshed with YAML:", yaml
+    # Utiliser la fonction renderCustomViewPreview existante
+    window.AppViewHelpers.renderCustomViewPreview app, yaml
+
+    # Mettre à jour le YAML dans la vue courante pour que l'éditeur soit synchronisé
+    if app._currentCustomView
+      app._currentCustomView.yaml = yaml
+
+  _closeWidgetModal: (app) ->
+    modal = document.getElementById 'add-widget-modal'
+    return unless modal
+    modal.classList.add 'hidden'
+    app._selectedWidget = null
 
   _closeAddWidgetModal: (app) ->
     app.el.addWidgetModal().classList.add 'hidden'
@@ -1221,3 +1270,14 @@ window.AppViewHelpers._bindAddWidgetModal = (app) ->
   # Bouton d'annulation
   app.el.addWidgetCancelBtn().addEventListener 'click', ->
     window.AppViewHelpers._closeAddWidgetModal app
+
+# Ajouter les fonctions manquantes à window.AppViewHelpers
+window.AppViewHelpers._closeWidgetModal = (app) ->
+  modal = document.getElementById 'add-widget-modal'
+  return unless modal
+  modal.classList.add 'hidden'
+  app._selectedWidget = null
+
+window.AppViewHelpers._renderCustomViewPreview = (app, yaml) ->
+  # Utiliser la fonction renderCustomViewPreview existante
+  window.AppViewHelpers.renderCustomViewPreview app, yaml

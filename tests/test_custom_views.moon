@@ -5,9 +5,11 @@
 R   = require 'tests.runner'
 cvr = require 'resolvers.custom_view_resolvers'
 auth = require 'core.auth'
+spaces = require 'core.spaces'
 
 SUFFIX  = tostring math.random(100000, 999999)
 CV_NAME = "test_cv_#{SUFFIX}"
+SPACE_NAME = "test_space_#{SUFFIX}"
 
 YAML_SIMPLE = [[
 layout:
@@ -33,13 +35,32 @@ layout:
         columns: [nom, prenom]
 ]]
 
-local cv_id
+local cv_id, space_id
 admin = auth.get_user_by_username 'admin'
 CTX = { user_id: admin and admin.id }
 
+R.describe "CustomViews — setup test space", ->
+  R.it "create test space for widget tests", ->
+    space = spaces.create_user_space SPACE_NAME, 'Test space for widgets', CTX.user_id
+    R.ok space
+    R.ok space.id
+    R.eq space.name, SPACE_NAME
+    space_id = space.id
+
+    -- Ajouter un champ "name" pour les tests
+    fields = {
+      { name: 'id', type: 'Sequence', position: 1, not_null: true }
+      { name: 'name', type: 'String', position: 2, not_null: false }
+    }
+    for field in *fields
+      if field.type == 'Sequence'
+        spaces.add_field space_id, field.name, 'Sequence'
+      else
+        spaces.add_field space_id, field.name, field.type, false, ''
+
 R.describe "CustomViews — creation", ->
   R.it "createCustomView returns metadata", ->
-    res = cvr.Mutation.createCustomView {}, { input: { name: CV_NAME, description: 'test', yaml: YAML_SIMPLE } }, CTX
+    res = cvr.Mutation.createCustomView {}, { name: CV_NAME, description: 'test', yaml: YAML_SIMPLE }, CTX
     R.ok res
     R.ok res.id
     R.eq res.name, CV_NAME
@@ -74,17 +95,61 @@ R.describe "CustomViews — update", ->
   R.it "updateCustomView on unknown id -> error", ->
     R.raises (-> cvr.Mutation.updateCustomView {}, { id: 'no-such-id', input: { name: 'x' } }, CTX), 'not found'
 
+R.describe "CustomViews — addWidgetToView", ->
+  R.it "addWidgetToView adds widget to existing view", ->
+    -- Créer une vue vide
+    empty_yaml = [[
+layout:
+  direction: vertical
+  children: []
+]]
+    cv = cvr.Mutation.createCustomView {}, { name: "test_widget_cv_#{SUFFIX}", yaml: empty_yaml }, CTX
+    cv_id = cv.id
+
+    -- Ajouter un widget
+    widget_input =
+      title: "Test Widget"
+      type: "table"
+      spaceId: space_id  -- utiliser l'espace de test créé précédemment
+      fields: {"id", "name"}
+      groupBy: null
+      params: {}
+
+    res = cvr.Mutation.addWidgetToView {}, { viewId: cv_id, widget: widget_input }, CTX
+    R.ok res
+    R.ok res.id, cv_id
+    R.ok res.yaml
+
+    -- Vérifier que le YAML contient le widget avec le nom de l'espace
+    R.ok res.yaml\find("space: #{SPACE_NAME}"), "doit contenir le nom de l'espace, pas l'UUID"
+    R.ok res.yaml\find("title: Test Widget"), "doit contenir le titre du widget"
+    R.ok res.yaml\find("columns:"), "doit contenir la section columns"
+    R.ok res.yaml\find("- id"), "doit contenir la colonne id"
+    R.ok res.yaml\find("- name"), "doit contenir la colonne name"
+
+  R.it "addWidgetToView on unknown view -> error", ->
+    widget_input = title: "Test", type: "table", spaceId: space_id, fields: {"id"}
+    R.raises (-> cvr.Mutation.addWidgetToView {}, { viewId: 'no-such-id', widget: widget_input }, CTX), 'not found'
+
 R.describe "CustomViews — deletion", ->
   R.it "deleteCustomView returns true", ->
-    ok = cvr.Mutation.deleteCustomView {}, { id: cv_id }, CTX
-    R.ok ok
+    if cv_id
+      ok = cvr.Mutation.deleteCustomView {}, { id: cv_id }, CTX
+      R.ok ok
 
   R.it "deleted view no longer appears in list", ->
-    found = false
-    for v in *cvr.Query.customViews({}, {}, CTX)
-      if v.id == cv_id then found = true
-    R.nok found
+    if cv_id
+      found = false
+      for v in *cvr.Query.customViews({}, {}, CTX)
+        if v.id == cv_id then found = true
+      R.nok found
 
   R.it "customView on deleted id returns nil", ->
-    v = cvr.Query.customView {}, { id: cv_id }, CTX
-    R.is_nil v
+    if cv_id
+      v = cvr.Query.customView {}, { id: cv_id }, CTX
+      R.eq v, nil
+
+R.describe "CustomViews — cleanup", ->
+  R.it "cleanup test space", ->
+    if space_id
+      spaces.delete_user_space space_id

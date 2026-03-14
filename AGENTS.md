@@ -179,6 +179,8 @@ Pour ajouter un champ au schéma :
 
 ## Vérification dans le navigateur
 
+Utiliser pour cela l’instance de tests, sur le port 8081. Ne jamais toucher à l’instance de production sur le port 8080. Après tout changement dans le backend, relancer l’instance de test avec `make test-down; make test-up`.
+
 L'outil `chrome-devtools` permet d'inspecter l'application dans Chrome sans quitter
 l'agent. Utiliser systématiquement pour valider les changements frontend :
 
@@ -187,7 +189,7 @@ l'agent. Utiliser systématiquement pour valider les changements frontend :
 → chrome-devtools-take_snapshot
 
 # Naviguer vers l'application
-→ chrome-devtools-navigate_page  url: "http://localhost:8080"
+→ chrome-devtools-navigate_page  url: "http://localhost:8081"
 
 # Vérifier les erreurs console après un changement
 → chrome-devtools-list_console_messages  types: ["error", "warn"]
@@ -196,7 +198,7 @@ l'agent. Utiliser systématiquement pour valider les changements frontend :
 → chrome-devtools-list_network_requests  resourceTypes: ["fetch", "xhr"]
 ```
 
-L'application tourne sur **http://localhost:8080**.
+L'application tourne sur **http://localhost:8081**.
 Identifiants par défaut : `admin` / `adminadmin`.
 
 ## Commandes utiles
@@ -212,14 +214,14 @@ make test-down      # Arrête le container de test
 make vendor         # Régénère le bundle Univer (rare)
 
 # Inspecter la base en live
-docker exec -it tdb-tarantool-1 tt connect localhost:3301
+docker exec -it tdb-tarantool-test tt connect localhost:3301
 
 # Appeler du code Lua directement
 echo "return require('core.spaces').list_spaces()" | \
-  docker exec -i tdb-tarantool-1 tt connect localhost:3301 -x lua -f -
+  docker exec -i tdb-tarantool-test tt connect localhost:3301 -x lua -f -
 
 # Tester l'API GraphQL
-curl -s -X POST http://localhost:8080/graphql \
+curl -s -X POST http://localhost:8081/graphql \
   -H 'Content-Type: application/json' \
   -d '{"query":"{ spaces { id name } }"}'
 ```

@@ -52,37 +52,75 @@ add_widget_to_view = (viewId, widget) ->
   error "CustomView not found: #{viewId}" unless t
 
   -- Parser le YAML existant
-  yaml_content = t[4] or 'widgets: {}'
+  yaml_content = t[4] or 'layout:\n  direction: vertical\n  children: []'
   config = yaml.decode(yaml_content)
 
-  -- Initialiser la section widgets si elle n'existe pas
-  config.widgets = {} unless config.widgets
+  -- Initialiser la structure layout si elle n'existe pas
+  unless config.layout
+    config.layout =
+      direction: 'vertical'
+      children: {}
 
   -- Générer un ID unique pour le widget
   widget_id = uuid_mod()
 
-  -- Créer le widget avec les données fournies
-  new_widget = {
+  -- Créer le widget avec les données fournies au format CustomView
+  -- Récupérer le nom de l'espace au lieu de l'UUID pour plus de convivialité
+  space_record = box.space._tdb_spaces\get widget.spaceId
+  space_name = if space_record then space_record[2] else widget.spaceId -- fallback sur l'UUID si non trouvé
+
+  new_widget =
     id: widget_id
     title: widget.title
-    type: widget.type
-    spaceId: widget.spaceId
-    fields: widget.fields or {}
-    groupBy: widget.groupBy
-    params: widget.params or {}
-    position: widget.position or {
-      x: 0
-      y: 0
-      w: 6
-      h: 4
-    }
-  }
+    space: space_name  -- Utiliser le nom de l'espace, pas l'UUID
 
-  -- Ajouter le widget à la configuration
-  config.widgets[widget_id] = new_widget
+  -- Ajouter les colonnes si spécifiées
+  if widget.fields and #widget.fields > 0
+    new_widget.columns = widget.fields
 
-  -- Re-encoder le YAML
-  updated_yaml = yaml.encode(config)
+  -- Ajouter le groupement si spécifié
+  if widget.groupBy
+    new_widget.groupBy = widget.groupBy
+
+  -- Ajouter les paramètres si spécifiés
+  if widget.params and next(widget.params)
+    for key, value in pairs(widget.params)
+      new_widget[key] = value
+
+  -- Ajouter le widget à la structure layout
+  table.insert(config.layout.children, {
+    widget: new_widget
+  })
+
+  -- Re-encoder le YAML avec un format propre
+  yaml_content = "layout:\n"
+  yaml_content ..= "  direction: " .. (config.layout.direction or 'vertical') .. "\n"
+  yaml_content ..= "  children:\n"
+
+  -- Ajouter chaque widget au format YAML correct
+  for _, child in ipairs(config.layout.children)
+    if child.widget
+      yaml_content ..= "    - widget:\n"
+      yaml_content ..= "        id: " .. tostring(child.widget.id) .. "\n"
+      yaml_content ..= "        title: " .. child.widget.title .. "\n"
+      yaml_content ..= "        space: " .. tostring(child.widget.space) .. "\n"
+
+      -- Ajouter les colonnes si présentes
+      if child.widget.columns and #child.widget.columns > 0
+        yaml_content ..= "        columns:\n"
+        for _, col in ipairs(child.widget.columns)
+          yaml_content ..= "          - " .. col .. "\n"
+
+      -- Ajouter le groupement si présent
+      if child.widget.groupBy
+        yaml_content ..= "        groupBy: " .. tostring(child.widget.groupBy) .. "\n"
+
+      -- Ajouter les autres propriétés
+      for key, value in pairs(child.widget)
+        if key ~= 'id' and key ~= 'title' and key ~= 'space' and key ~= 'columns' and key ~= 'groupBy'
+          yaml_content ..= "        " .. key .. ": " .. tostring(value) .. "\n"
+
+  updated_yaml = yaml_content
 
   -- Mettre à jour la vue dans la base de données
   box.space._tdb_custom_views\update viewId, {
@@ -111,7 +149,8 @@ Query =
 Mutation =
   createCustomView: (_, args, ctx) ->
     require_auth ctx
-    i = args.input
+    i = args.input or args  -- accepter les deux formats
+    error "name is required" unless i.name
     create_custom_view i.name, i.description, i.yaml
   updateCustomView: (_, args, ctx) ->
     require_auth ctx
