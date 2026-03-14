@@ -84,6 +84,9 @@ window.AppSidebarHelpers =
     app.el.adminNavSnapshot().addEventListener 'click', ->
       app._showAdminPanel 'snapshot'
 
+    app.el.pluginsNavManage().addEventListener 'click', ->
+      app._openWidgetPluginModal()
+
     app.el.warningChangePasswordBtn().addEventListener 'click', ->
       app._openChangePasswordDialog()
 

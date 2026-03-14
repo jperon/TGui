@@ -158,7 +158,6 @@ window.App =
     yamlEditorPanel:   -> document.getElementById 'yaml-editor-panel'
     yamlViewName:      -> document.getElementById 'yaml-view-name'
     yamlEditBtn:       -> document.getElementById 'yaml-edit-btn'
-    yamlPluginsBtn:    -> document.getElementById 'yaml-plugins-btn'
     yamlDeleteBtn:     -> document.getElementById 'yaml-delete-btn'
     # YAML modal (CodeMirror)
     yamlModal:         -> document.getElementById 'yaml-modal'
@@ -166,6 +165,17 @@ window.App =
     yamlModalSaveBtn:  -> document.getElementById 'yaml-modal-save-btn'
     yamlModalCloseBtn: -> document.getElementById 'yaml-modal-close-btn'
     yamlModalPreviewBtn: -> document.getElementById 'yaml-modal-preview-btn'
+    yamlAddWidgetBtn: -> document.getElementById 'yaml-add-widget-btn'
+    # Add widget modal
+    addWidgetModal:    -> document.getElementById 'add-widget-modal'
+    addWidgetConfirmBtn: -> document.getElementById 'add-widget-confirm-btn'
+    addWidgetCancelBtn: -> document.getElementById 'add-widget-cancel-btn'
+    availableSpaces:  -> document.getElementById 'available-spaces'
+    availablePlugins: -> document.getElementById 'available-plugins'
+    widgetConfigForm: -> document.getElementById 'widget-config-form'
+    # Plugins sidebar section
+    pluginsSidebarSection: -> document.getElementById 'plugins-sidebar-section'
+    pluginsNavManage: -> document.getElementById 'plugins-nav-manage'
     widgetPluginModal: -> document.getElementById 'widget-plugin-modal'
     widgetPluginModalCloseBtn: -> document.getElementById 'widget-plugin-modal-close-btn'
     widgetPluginNewBtn: -> document.getElementById 'widget-plugin-new-btn'
@@ -282,8 +292,10 @@ window.App =
     @el.currentUserBtn().textContent = user.username
     if Auth.isAdmin()
       @el.adminSidebarSection().classList.remove 'hidden'
+      @el.pluginsSidebarSection().classList.remove 'hidden'
     else
       @el.adminSidebarSection().classList.add 'hidden'
+      @el.pluginsSidebarSection().classList.add 'hidden'
     # Show warning banner when admin still uses the default password.
     if user.username == 'admin' and not localStorage.getItem('tdb_password_changed')
       @el.defaultPasswordWarning().classList.remove 'hidden'
