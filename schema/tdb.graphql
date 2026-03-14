@@ -24,6 +24,11 @@ type Query {
   # Custom views (YAML dashboard layouts)
   customViews:            [CustomView!]!
   customView(id: ID!):    CustomView
+
+  # Data views (saved queries)
+  dataViews:              [DataView!]!
+  dataView(id: ID!):      DataView
+  executeDataView(id: ID!, limit: Int, offset: Int): [JSON!]!
   widgetPlugins:          [WidgetPlugin!]!
   widgetPlugin(id: ID, name: String): WidgetPlugin
 
@@ -88,6 +93,11 @@ type Mutation {
   addWidgetToView(viewId: ID!, widget: WidgetInput!): CustomView!
   updateWidgetInView(viewId: ID!, widgetId: String!, widget: WidgetInput!): CustomView!
   removeWidgetFromView(viewId: ID!, widgetId: String!): CustomView!
+
+  # Data views
+  createDataView(input: DataViewInput!): DataView!
+  updateDataView(id: ID!, input: DataViewInput!): DataView!
+  deleteDataView(id: ID!):               Boolean!
   createWidgetPlugin(input: CreateWidgetPluginInput!): WidgetPlugin!
   updateWidgetPlugin(id: ID!, input: UpdateWidgetPluginInput!): WidgetPlugin!
   deleteWidgetPlugin(id: ID!): Boolean!
@@ -199,6 +209,14 @@ type CustomView {
   yaml:        String!
   createdAt:   String!
   updatedAt:   String!
+}
+
+type DataView {
+  id:           ID!
+  name:         String!
+  description:  String
+  sourceSpace:  String!
+  config:       String!
 }
 
 type WidgetPlugin {
@@ -389,6 +407,13 @@ input UpdateCustomViewInput {
   name:        String
   description: String
   yaml:        String
+}
+
+input DataViewInput {
+  name:         String!
+  description:  String
+  sourceSpace:  String!
+  config:       String
 }
 
 input CreateWidgetPluginInput {

@@ -473,5 +473,7 @@ local Query = {
 }
 return {
   Query = Query,
-  Mutation = Mutation
+  Mutation = Mutation,
+  matches_filter = matches_filter,
+  apply_filter = apply_filter
 }

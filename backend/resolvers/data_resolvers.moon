@@ -292,4 +292,4 @@ Query =
     return nil unless t
     { id: t[1], spaceId: args.spaceId, data: t[2] }
 
-{ :Query, :Mutation }
+{ :Query, :Mutation, :matches_filter, :apply_filter }

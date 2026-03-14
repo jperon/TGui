@@ -85,6 +85,21 @@ SYSTEM_SPACES =
       primary: { parts: {'id'},   unique: true,  type: 'HASH' }
       by_name: { parts: {'name'}, unique: true,  type: 'TREE' }
 
+  -- Data Views: persisted queries with joins, groupBy, aggregates, computed fields
+  _tdb_data_views:
+    format: {
+      { name: 'id',           type: 'string' }
+      { name: 'name',         type: 'string' }
+      { name: 'description',  type: 'string' }
+      { name: 'source_space', type: 'string' }
+      { name: 'config',       type: 'string' }
+      { name: 'created_at',   type: 'number' }
+      { name: 'updated_at',   type: 'number' }
+    }
+    indexes:
+      primary: { parts: {'id'},   unique: true,  type: 'HASH' }
+      by_name: { parts: {'name'}, unique: true,  type: 'TREE' }
+
   -- Custom widget plugins (script/template code used by custom views)
   _tdb_widget_plugins:
     format: {
