@@ -85,6 +85,9 @@ type Mutation {
   createCustomView(input: CreateCustomViewInput!): CustomView!
   updateCustomView(id: ID!, input: UpdateCustomViewInput!): CustomView!
   deleteCustomView(id: ID!):                       Boolean!
+  addWidgetToView(viewId: ID!, widget: WidgetInput!): CustomView!
+  updateWidgetInView(viewId: ID!, widgetId: String!, widget: WidgetInput!): CustomView!
+  removeWidgetFromView(viewId: ID!, widgetId: String!): CustomView!
   createWidgetPlugin(input: CreateWidgetPluginInput!): WidgetPlugin!
   updateWidgetPlugin(id: ID!, input: UpdateWidgetPluginInput!): WidgetPlugin!
   deleteWidgetPlugin(id: ID!): Boolean!
@@ -208,6 +211,24 @@ type WidgetPlugin {
   templateCode:     String!
   createdAt:        String!
   updatedAt:        String!
+}
+
+# Widget definition for custom views
+input WidgetInput {
+  title:       String!
+  type:        String!
+  spaceId:     ID!
+  fields:      [String!]!
+  groupBy:     String
+  params:      JSON
+  position:    PositionInput
+}
+
+input PositionInput {
+  x: Int!
+  y: Int!
+  w: Int!
+  h: Int!
 }
 
 # ────────────────────────────────────────────────────────────────────────────

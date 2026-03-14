@@ -18,11 +18,24 @@ generate = ->
     '# GENERATED FILE - passive SDL projection from MoonScript registry'
     '# Source: backend/graphql/sdl_registry.moon'
     ''
-    emit_block 'Query', registry.Query
-    ''
-    emit_block 'Mutation', registry.Mutation
-    ''
   }
+
+  -- Ajouter les types d'input
+  for input_type in *registry.InputTypes
+    table.insert parts, input_type.definition
+    table.insert parts, ''
+
+  -- Ajouter les types d'objets
+  for object_type in *registry.ObjectTypes
+    table.insert parts, object_type.definition
+    table.insert parts, ''
+
+  -- Ajouter les types Query et Mutation
+  table.insert parts, emit_block 'Query', registry.Query
+  table.insert parts, ''
+  table.insert parts, emit_block 'Mutation', registry.Mutation
+  table.insert parts, ''
+
   table.concat parts, '\n'
 
 write_file = (out_path) ->

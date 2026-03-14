@@ -45,6 +45,9 @@ Mutation = {
   { name: 'createWidgetPlugin', args: 'input: CreateWidgetPluginInput!', returns: 'WidgetPlugin!' }
   { name: 'updateWidgetPlugin', args: 'id: ID!, input: UpdateWidgetPluginInput!', returns: 'WidgetPlugin!' }
   { name: 'deleteWidgetPlugin', args: 'id: ID!',                         returns: 'Boolean!' }
+  { name: 'addWidgetToView',   args: 'viewId: ID!, widget: WidgetInput!',   returns: 'CustomView!' }
+  { name: 'updateWidgetInView', args: 'viewId: ID!, widgetId: String!, widget: WidgetInput!', returns: 'CustomView!' }
+  { name: 'removeWidgetFromView', args: 'viewId: ID!, widgetId: String!', returns: 'CustomView!' }
   { name: 'insertRecord',     args: 'spaceId: ID!, data: JSON!',         returns: 'Record!' }
   { name: 'updateRecord',     args: 'spaceId: ID!, id: ID!, data: JSON!', returns: 'Record!' }
   { name: 'deleteRecord',     args: 'spaceId: ID!, id: ID!',             returns: 'Boolean!' }
@@ -66,4 +69,57 @@ Mutation = {
   { name: 'importSnapshot',   args: 'yaml: String!, mode: ImportMode!',   returns: 'ImportResult!' }
 }
 
-{ :Query, :Mutation }
+-- Types additionnels pour les widgets
+InputTypes = {
+  {
+    name: 'WidgetInput',
+    definition: 'input WidgetInput {
+  title:       String!
+  type:        String!
+  spaceId:     ID!
+  fields:      [String!]!
+  groupBy:     String
+  params:      JSON
+  position:    PositionInput
+}'
+  }
+  {
+    name: 'PositionInput',
+    definition: 'input PositionInput {
+  x: Int!
+  y: Int!
+  w: Int!
+  h: Int!
+}'
+  }
+}
+
+ObjectTypes = {
+  {
+    name: 'CustomView',
+    definition: 'type CustomView {
+  id:          ID!
+  name:        String!
+  description: String
+  yaml:        String
+  createdAt:   String!
+  updatedAt:   String!
+}'
+  }
+  {
+    name: 'WidgetPlugin',
+    definition: 'type WidgetPlugin {
+  id:              ID!
+  name:            String!
+  description:     String
+  templateCode:    String!
+  templateLanguage: String!
+  scriptCode:      String!
+  scriptLanguage:  String!
+  createdAt:       String!
+  updatedAt:       String!
+}'
+  }
+}
+
+{ :Query, :Mutation, :InputTypes, :ObjectTypes }
