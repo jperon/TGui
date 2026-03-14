@@ -656,6 +656,7 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
       dataSourceConfig.appendChild groupBySection
 
   _initializeWidgetModal: (app) ->
+    console.log '_initializeWidgetModal called'
     # Charger les espaces disponibles
     window.AppViewHelpers._loadAvailableSpaces app
 
@@ -663,8 +664,10 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
     window.AppViewHelpers._bindBasicWidgetEvents app
 
   _loadAvailableSpaces: (app) ->
-    # Charger la liste des espaces dans le select
+    console.log '_loadAvailableSpaces called'
+    # Charger la liste des espaces avec la fonction existante
     window.Spaces.list().then (spaces) ->
+      console.log 'spaces loaded:', spaces
       select = document.getElementById 'widget-space-select'
       return unless select
 
@@ -672,6 +675,10 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
 
       # Stocker les données pour utilisation ultérieure
       app._spacesData = spaces
+
+      # Stocker aussi globalement pour accès dans les événements
+      window._currentSpacesData = spaces
+      console.log 'spaces stored in window._currentSpacesData'
 
       for space in spaces
         option = document.createElement 'option'
@@ -684,10 +691,38 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
         spaceId = @value
         return unless spaceId
 
-        # Trouver l'espace correspondant
-        selectedSpace = app._spacesData.find (space) -> space.id == spaceId
-        window.AppViewHelpers._populateFieldsLists selectedSpace if selectedSpace
-        window.AppViewHelpers._populateGroupByOptions selectedSpace if selectedSpace
+        # Trouver l'espace correspondant (utiliser les données globales)
+        spacesData = window._currentSpacesData or []
+        selectedSpace = spacesData.find (space) -> space.id == spaceId
+        console.log 'selected space:', selectedSpace
+
+        # Charger les champs de l'espace sélectionné
+        if selectedSpace
+          window.AppViewHelpers._loadSpaceFields selectedSpace, ->
+            window.AppViewHelpers._populateFieldsLists selectedSpace
+            window.AppViewHelpers._populateGroupByOptions selectedSpace
+
+  _loadSpaceFields: (space, callback) ->
+    # Charger les champs d'un espace spécifique
+    query = """
+      query GetSpaceFields($spaceId: ID!) {
+        space(id: $spaceId) {
+          id name
+          fields {
+            id name fieldType notNull position description formula triggerFields language reprFormula
+          }
+        }
+      }
+    """
+    window.GQL.query(query, {spaceId: space.id}).then (result) ->
+      if result.space and result.space.fields
+        space.fields = result.space.fields
+        console.log 'fields loaded for space:', space.name, space.fields
+      callback()
+    .catch (error) ->
+      console.error 'Error loading fields:', error
+      # En cas d'erreur, continuer sans champs
+      callback()
 
   _toggleFieldSelection: (fieldItem) ->
     isSelected = fieldItem.classList.contains 'selected'
@@ -704,21 +739,29 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
       selectedContainer.appendChild fieldItem
 
   _populateFieldsLists: (space) ->
+    console.log 'populateFieldsLists called with space:', space
     availableContainer = document.getElementById 'available-fields'
     selectedContainer = document.getElementById 'selected-fields'
 
     return unless availableContainer and selectedContainer and space
 
+    console.log 'space fields:', space.fields
+
     # Vider les conteneurs
     availableContainer.innerHTML = ''
     selectedContainer.innerHTML = ''
 
+    # Si pas de champs, afficher un message
+    unless space.fields
+      availableContainer.innerHTML = '<div class="field-item">Cet espace n\'a pas de champs configurés</div>'
+      return
+
     # Ajouter les champs disponibles
-    for field in space.fields
+    for field in space.fields or []
+      console.log 'creating field item for:', field
       fieldItem = document.createElement 'div'
       fieldItem.className = 'field-item'
       fieldItem.textContent = "#{field.name} (#{field.fieldType})"
-      fieldItem.dataset.fieldId = field.id
       fieldItem.dataset.fieldName = field.name
       fieldItem.dataset.fieldType = field.fieldType
 

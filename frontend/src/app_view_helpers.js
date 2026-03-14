@@ -944,15 +944,18 @@
       }
     },
     _initializeWidgetModal: function(app) {
+      console.log('_initializeWidgetModal called');
       // Charger les espaces disponibles
       window.AppViewHelpers._loadAvailableSpaces(app);
       // Lier les événements de base
       return window.AppViewHelpers._bindBasicWidgetEvents(app);
     },
     _loadAvailableSpaces: function(app) {
-      // Charger la liste des espaces dans le select
+      console.log('_loadAvailableSpaces called');
+      // Charger la liste des espaces avec la fonction existante
       return window.Spaces.list().then(function(spaces) {
         var i, len, option, select, space;
+        console.log('spaces loaded:', spaces);
         select = document.getElementById('widget-space-select');
         if (!select) {
           return;
@@ -960,6 +963,9 @@
         select.innerHTML = '<option value="">Sélectionner un espace...</option>';
         // Stocker les données pour utilisation ultérieure
         app._spacesData = spaces;
+        // Stocker aussi globalement pour accès dans les événements
+        window._currentSpacesData = spaces;
+        console.log('spaces stored in window._currentSpacesData');
         for (i = 0, len = spaces.length; i < len; i++) {
           space = spaces[i];
           option = document.createElement('option');
@@ -969,22 +975,50 @@
         }
         // Écouter les changements pour charger les champs
         return select.addEventListener('change', function() {
-          var selectedSpace, spaceId;
+          var selectedSpace, spaceId, spacesData;
           spaceId = this.value;
           if (!spaceId) {
             return;
           }
-          // Trouver l'espace correspondant
-          selectedSpace = app._spacesData.find(function(space) {
+          // Trouver l'espace correspondant (utiliser les données globales)
+          spacesData = window._currentSpacesData || [];
+          selectedSpace = spacesData.find(function(space) {
             return space.id === spaceId;
           });
+          console.log('selected space:', selectedSpace);
+          // Charger les champs de l'espace sélectionné
           if (selectedSpace) {
-            window.AppViewHelpers._populateFieldsLists(selectedSpace);
-          }
-          if (selectedSpace) {
-            return window.AppViewHelpers._populateGroupByOptions(selectedSpace);
+            return window.AppViewHelpers._loadSpaceFields(selectedSpace, function() {
+              window.AppViewHelpers._populateFieldsLists(selectedSpace);
+              return window.AppViewHelpers._populateGroupByOptions(selectedSpace);
+            });
           }
         });
+      });
+    },
+    _loadSpaceFields: function(space, callback) {
+      var query;
+      // Charger les champs d'un espace spécifique
+      query = `query GetSpaceFields($spaceId: ID!) {
+  space(id: $spaceId) {
+    id name
+    fields {
+      id name fieldType notNull position description formula triggerFields language reprFormula
+    }
+  }
+}`;
+      return window.GQL.query(query, {
+        spaceId: space.id
+      }).then(function(result) {
+        if (result.space && result.space.fields) {
+          space.fields = result.space.fields;
+          console.log('fields loaded for space:', space.name, space.fields);
+        }
+        return callback();
+      }).catch(function(error) {
+        console.error('Error loading fields:', error);
+        // En cas d'erreur, continuer sans champs
+        return callback();
       });
     },
     _toggleFieldSelection: function(fieldItem) {
@@ -1004,23 +1038,30 @@
     },
     _populateFieldsLists: function(space) {
       var availableContainer, field, fieldItem, i, len, ref, results1, selectedContainer;
+      console.log('populateFieldsLists called with space:', space);
       availableContainer = document.getElementById('available-fields');
       selectedContainer = document.getElementById('selected-fields');
       if (!(availableContainer && selectedContainer && space)) {
         return;
       }
+      console.log('space fields:', space.fields);
       // Vider les conteneurs
       availableContainer.innerHTML = '';
       selectedContainer.innerHTML = '';
-      ref = space.fields;
+      // Si pas de champs, afficher un message
+      if (!space.fields) {
+        availableContainer.innerHTML = '<div class="field-item">Cet espace n\'a pas de champs configurés</div>';
+        return;
+      }
+      ref = space.fields || [];
       // Ajouter les champs disponibles
       results1 = [];
       for (i = 0, len = ref.length; i < len; i++) {
         field = ref[i];
+        console.log('creating field item for:', field);
         fieldItem = document.createElement('div');
         fieldItem.className = 'field-item';
         fieldItem.textContent = `${field.name} (${field.fieldType})`;
-        fieldItem.dataset.fieldId = field.id;
         fieldItem.dataset.fieldName = field.name;
         fieldItem.dataset.fieldType = field.fieldType;
         fieldItem.addEventListener('click', function() {
