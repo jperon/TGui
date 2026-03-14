@@ -16,6 +16,16 @@ window.AppSidebarHelpers =
       spList.classList.remove 'hidden'
       spBtn?.classList.remove 'collapsed'
 
+    # Data Views section
+    dvList = app.el.dataViewList()
+    dvBtn  = document.getElementById 'data-views-toggle-btn'
+    if localStorage.getItem('tdb_views_collapsed') == 'true'
+      dvList.classList.add 'hidden'
+      dvBtn?.classList.add 'collapsed'
+    else
+      dvList.classList.remove 'hidden'
+      dvBtn?.classList.remove 'collapsed'
+
     # Admin section: collapsed by default
     adminSection = document.getElementById 'admin-sidebar-section'
     adminBtn = document.getElementById 'admin-toggle-btn'
@@ -48,6 +58,9 @@ window.AppSidebarHelpers =
             cv = data.createCustomView
             app.selectPage cv
         .catch (err) -> tdbAlert app._err(err), 'error'
+
+    app.el.newDataViewBtn().addEventListener 'click', ->
+      app._openDataViewConfigModal() # to be implemented
 
     document.getElementById('sidebar-toggle')?.addEventListener 'click', ->
       mainEl = app.el.main()
@@ -88,6 +101,19 @@ window.AppSidebarHelpers =
         adminList.classList.add 'hidden'
         adminBtn.textContent = '▸'
         localStorage.setItem 'tdb_admin_collapsed', 'true'
+
+    document.getElementById('data-views-toggle-btn')?.addEventListener 'click', ->
+      dvList = app.el.dataViewList()
+      dvBtn  = document.getElementById('data-views-toggle-btn')
+      isHidden = dvList.classList.contains 'hidden'
+      if isHidden
+        dvList.classList.remove 'hidden'
+        dvBtn.classList.remove 'collapsed'
+        localStorage.setItem 'tdb_views_collapsed', 'false'
+      else
+        dvList.classList.add 'hidden'
+        dvBtn.classList.add 'collapsed'
+        localStorage.setItem 'tdb_views_collapsed', 'true'
 
     app._applySidebarState()
 

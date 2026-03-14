@@ -31,10 +31,11 @@
     hasProp = {}.hasOwnProperty;
 
   window.CustomView = CustomView = class CustomView {
-    constructor(container1, yamlText, allSpaces) {
+    constructor(container1, yamlText, allSpaces, allDataViews = []) {
       this.container = container1;
       this.yamlText = yamlText;
       this.allSpaces = allSpaces;
+      this.allDataViews = allDataViews;
       this._widgets = []; // list of { dataView, node, el }
       this._widgetsById = {}; // id -> entry
       this._pluginStateByWidgetId = {};
@@ -824,12 +825,36 @@ ${js}
     }
 
     _findSpace(nameOrId) {
+      var dv, ref, ref1, sp;
       if (!nameOrId) {
         return null;
       }
-      return this.allSpaces.find(function(sp) {
-        return sp.name === nameOrId || sp.id === nameOrId;
+      sp = this.allSpaces.find(function(s) {
+        return s.name === nameOrId || s.id === nameOrId;
       });
+      if (sp) {
+        return sp;
+      }
+      // Search in Data Views if not found in regular spaces
+      dv = this.allDataViews.find(function(v) {
+        return v.name === nameOrId || v.id === nameOrId;
+      });
+      if (dv) {
+        return {
+          // Create a virtual space object for DataView class compatibility
+          id: dv.id,
+          name: dv.name,
+          isView: true,
+          viewId: dv.id,
+          fields: (ref = dv.config) != null ? (ref1 = ref.columns) != null ? ref1.map(function(c) {
+            return {
+              name: c,
+              fieldType: 'String'
+            } || [];
+          }) : void 0 : void 0
+        };
+      }
+      return null;
     }
 
     unmount() {

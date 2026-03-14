@@ -14,11 +14,12 @@ TGui exposes all its features via a **GraphQL API** at `http://localhost:8080/gr
 4. [Data (records)](#4-data-records)
 5. [Classic Views](#5-classic-views)
 6. [Custom Views (YAML)](#6-custom-views-yaml)
-7. [Authentication](#7-authentication)
-8. [Users and Groups](#8-users-and-groups)
-9. [Permissions](#9-permissions)
-10. [Export and Import Snapshots](#10-export-and-import-snapshots)
-11. [Full GraphQL API](#11-full-graphql-api)
+7. [Data Views (Saved Queries)](#7-data-views-saved-queries)
+8. [Authentication](#8-authentication)
+9. [Users and Groups](#9-users-and-groups)
+10. [Permissions](#10-permissions)
+11. [Export and Import Snapshots](#11-export-and-import-snapshots)
+12. [Full GraphQL API](#12-full-graphql-api)
 
 ---
 
@@ -692,7 +693,100 @@ query {
 
 ---
 
-## 7. Authentication
+## 7. Data Views (Saved Queries)
+
+**Data Views** allow saving a specific configuration of a space (filtering, sorting, grouping, and column selection) as a reusable entity.
+
+### Features
+
+- **Filtering**: Persistent filter (MoonScript or UI-based) applied to the source space.
+- **Grouping & Aggregation**: Server-side grouping (GROUP BY) and aggregations (COUNT, SUM, AVG, MIN, MAX).
+- **Column Mapping**: Custom selection and naming of output columns.
+- **Ordering**: Default sort order.
+- **Widget Source**: Data Views can be used as sources for widgets in **Custom Views**, allowing dashboards to display pre-processed or aggregated data.
+
+### GraphQL API
+
+```graphql
+# List all data views
+query {
+  dataViews {
+    id
+    name
+    sourceSpace
+    config {
+      columns
+      filter { field op value }
+      groupBy
+      aggregates { fn field as }
+      sort { field order }
+      limit
+    }
+  }
+}
+
+# Execute a data view (returns raw JSON objects)
+query {
+  executeDataView(id: "view_id", limit: 50, offset: 0)
+}
+
+# Create a filtered Data View
+mutation {
+  createDataView(input: {
+    name: "Active Tasks",
+    sourceSpace: "tasks",
+    config: {
+      filter: { field: "status", op: EQ, value: "active" },
+      columns: ["title", "due_date", "assigned_to"]
+    }
+  }) { id name }
+}
+
+# Create an aggregated Data View (Stats by Category)
+mutation {
+  createDataView(input: {
+    name: "Revenue by Category",
+    sourceSpace: "sales",
+    config: {
+      groupBy: ["category"],
+      aggregates: [
+        { fn: "sum", field: "amount", as: "total_revenue" },
+        { fn: "count", as: "count" }
+      ],
+      sort: { field: "total_revenue", order: "desc" }
+    }
+  }) { id name }
+}
+
+# Update
+mutation {
+  updateDataView(id: "...", input: { name: "New Name" }) { id name }
+}
+
+# Delete
+mutation {
+  deleteDataView(id: "...")
+}
+```
+
+### Usage in Widgets
+
+When adding a widget to a **Custom View** (Page), you can select a **Data View** instead of a raw **Space**. 
+
+In the YAML layout, the `space` key refers either to a Space name or a Data View name:
+
+```yaml
+# Widget displaying an aggregated Data View
+- widget:
+    id: stats_widget
+    title: Monthly Revenue
+    space: revenue_by_month  # Name of a Data View
+    columns: [month, total_revenue]
+```
+
+---
+
+## 8. Authentication
 
 TGui uses **Bearer tokens** (SHA-256 + salt, stored in Tarantool session). The token is persisted in `localStorage` and automatically sent by the client.
 

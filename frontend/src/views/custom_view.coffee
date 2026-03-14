@@ -27,7 +27,7 @@
 #           space: personnes
 
 window.CustomView = class CustomView
-  constructor: (@container, @yamlText, @allSpaces) ->
+  constructor: (@container, @yamlText, @allSpaces, @allDataViews = []) ->
     @_widgets   = []   # list of { dataView, node, el }
     @_widgetsById = {} # id -> entry
     @_pluginStateByWidgetId = {}
@@ -609,7 +609,21 @@ window.CustomView = class CustomView
 
   _findSpace: (nameOrId) ->
     return null unless nameOrId
-    @allSpaces.find (sp) -> sp.name == nameOrId or sp.id == nameOrId
+    sp = @allSpaces.find (s) -> s.name == nameOrId or s.id == nameOrId
+    return sp if sp
+
+    # Search in Data Views if not found in regular spaces
+    dv = @allDataViews.find (v) -> v.name == nameOrId or v.id == nameOrId
+    if dv
+      # Create a virtual space object for DataView class compatibility
+      return {
+        id: dv.id
+        name: dv.name
+        isView: true
+        viewId: dv.id
+        fields: dv.config?.columns?.map (c) -> { name: c, fieldType: 'String' } or []
+      }
+    null
 
   unmount: ->
     for own id, st of @_pluginStateByWidgetId

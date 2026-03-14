@@ -240,6 +240,22 @@ window.App =
     cgError:           -> document.getElementById 'cg-error'
     cgSubmitBtn:       -> document.getElementById 'cg-submit-btn'
     cgCancelBtn:       -> document.getElementById 'cg-cancel-btn'
+    # Data View Config Modal
+    dataViewModal:     -> document.getElementById 'data-view-modal'
+    dataViewModalTitle: -> document.getElementById 'data-view-modal-title'
+    dataViewSaveBtn:   -> document.getElementById 'data-view-save-btn'
+    dataViewModalCloseBtn: -> document.getElementById 'data-view-modal-close-btn'
+    dvName:            -> document.getElementById 'dv-name'
+    dvSource:          -> document.getElementById 'dv-source'
+    dvTabColumns:      -> document.getElementById 'dv-tab-columns'
+    dvTabFilter:       -> document.getElementById 'dv-tab-filter'
+    dvTabGroup:        -> document.getElementById 'dv-tab-group'
+    dvColumnsList:     -> document.getElementById 'dv-columns-list'
+    dvAddColBtn:       -> document.getElementById 'dv-add-col-btn'
+    dvFilterFormula:   -> document.getElementById 'dv-filter-formula'
+    dvGroupBy:         -> document.getElementById 'dv-group-by'
+    dvAggregatesList:  -> document.getElementById 'dv-aggregates-list'
+    dvAddAggBtn:       -> document.getElementById 'dv-add-agg-btn'
 
   # ── Bootstrap ───────────────────────────────────────────────────────────────
   init: ->
@@ -251,6 +267,7 @@ window.App =
     @_bindFieldsPanel()
     @_bindYamlEditor()
     @_bindWidgetPlugins()
+    @_bindDataViewModal()
     @_applyI18nDynamic()
 
   _bindLocaleChange: ->
@@ -369,6 +386,19 @@ window.App =
   _mountDataView: (space) ->
     window.AppDataHelpers.mountDataView @, space
 
+  # ── Data Views ─────────────────────────────────────────────────────────────
+  loadDataViews: ->
+    window.AppDataHelpers.loadDataViews @
+
+  renderDataViewList: (views) ->
+    window.AppDataHelpers.renderDataViewList @, views
+
+  selectDataView: (view) ->
+    window.AppDataHelpers.selectDataView @, view
+
+  _mountDataViewFromView: (view) ->
+    window.AppDataHelpers.mountDataViewFromView @, view
+
   # ── Pages (formerly Custom views) ─────────────────────────────────────────
   loadPages: ->
     window.AppViewHelpers.loadPages @
@@ -380,7 +410,14 @@ window.App =
     window.AppViewHelpers.selectPage @, cv
 
   _renderCustomViewPreview: (yamlText) ->
-    window.AppViewHelpers.renderCustomViewPreview @, yamlText
+    window.AppViewHelpers.renderCustomViewPreview @, yamlText, @_allSpaces, @_allDataViews
+
+  # ── Data View Config ───────────────────────────────────────────────────────
+  _bindDataViewModal: ->
+    window.AppViewConfigHelpers.bindDataViewModal @
+
+  _openDataViewConfigModal: (view = null) ->
+    window.AppViewConfigHelpers.openDataViewConfigModal @, view
 
   # ── YAML editor ─────────────────────────────────────────────────────────────
   _bindYamlEditor: ->

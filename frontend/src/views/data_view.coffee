@@ -361,6 +361,7 @@ window.DataView = class DataView
             if toBool(displayVal) then '☑' else '☐'
         else
           col.editor = 'text' unless seqNames.has(f.name) or formulaNames.has(f.name)
+          if @opts.readOnly then col.editor = null
           # Highlight formula errors in normal text columns
           col.formatter = do (fieldName = f.name) => (props) =>
             row = props.row
@@ -588,7 +589,19 @@ window.DataView = class DataView
     formulaNames = new Set (f.name for f in fields when f.formula and f.formula != '' and not f.triggerFields)
     reprNames    = new Set (f.name for f in fields when f.reprFormula and f.reprFormula != '')
 
-    if (formulaNames.size > 0 or reprNames.size > 0) and not @_formulaFilter
+    if @space.isView
+      try
+        # For Data Views, we use the specialized execution query
+        data = await DataViews.execute(@space.viewId, 2000, 0)
+        return unless @_mounted
+        @_rows = data.map (r) ->
+          row = Object.assign {}, r
+          row.__rowId = r.id
+          row
+      catch e
+        @_showError "Erreur d'exécution de la vue : #{e.message}"
+        @_rows = []
+    else if (formulaNames.size > 0 or reprNames.size > 0) and not @_formulaFilter
       # Use the space-specific dynamic resolver so formula fields are evaluated.
       tname      = gqlName @space.name
       fieldList  = for f in fields
@@ -622,11 +635,9 @@ window.DataView = class DataView
         @_formulaInputEl?.classList.remove 'input-error'
         document.getElementById('formula-filter-input')?.classList.remove 'input-error'
       catch e
-        msg = if @_formulaFilter then "Erreur de filtre : #{e.message}" else "Erreur de chargement : #{e.message}"
-        @_showError msg
-        if @_formulaFilter
-          @_formulaInputEl?.classList.add 'input-error'
-          document.getElementById('formula-filter-input')?.classList.add 'input-error'
+        @_formulaInputEl?.classList.add 'input-error'
+        document.getElementById('formula-filter-input')?.classList.add 'input-error'
+        @_rows = []
         @_rows = []
 
     @_applyData()

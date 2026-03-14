@@ -2,7 +2,7 @@
   // app_sidebar_helpers.coffee — sidebar/admin/dialog helpers extracted from app.coffee
   window.AppSidebarHelpers = {
     applySidebarState: function(app) {
-      var adminBtn, adminExpanded, adminList, adminSection, spBtn, spList;
+      var adminBtn, adminExpanded, adminList, adminSection, dvBtn, dvList, spBtn, spList;
       if (localStorage.getItem('tdb_menu_state') === 'collapsed') {
         app.el.main().classList.add('sidebar-collapsed');
       } else {
@@ -19,6 +19,20 @@
         spList.classList.remove('hidden');
         if (spBtn != null) {
           spBtn.classList.remove('collapsed');
+        }
+      }
+      // Data Views section
+      dvList = app.el.dataViewList();
+      dvBtn = document.getElementById('data-views-toggle-btn');
+      if (localStorage.getItem('tdb_views_collapsed') === 'true') {
+        dvList.classList.add('hidden');
+        if (dvBtn != null) {
+          dvBtn.classList.add('collapsed');
+        }
+      } else {
+        dvList.classList.remove('hidden');
+        if (dvBtn != null) {
+          dvBtn.classList.remove('collapsed');
         }
       }
       // Admin section: collapsed by default
@@ -39,7 +53,7 @@
       }
     },
     bindSidebar: function(app) {
-      var ref, ref1, ref2, ref3, ref4;
+      var ref, ref1, ref2, ref3, ref4, ref5;
       app.el.newSpaceBtn().addEventListener('click', async function() {
         var name;
         name = (await tdbPrompt(app._t('ui.prompts.newSpace')));
@@ -72,6 +86,9 @@
         }).catch(function(err) {
           return tdbAlert(app._err(err), 'error');
         });
+      });
+      app.el.newDataViewBtn().addEventListener('click', function() {
+        return app._openDataViewConfigModal(); // to be implemented
       });
       if ((ref = document.getElementById('sidebar-toggle')) != null) {
         ref.addEventListener('click', function() {
@@ -127,6 +144,23 @@
           }
         });
       }
+      if ((ref3 = document.getElementById('data-views-toggle-btn')) != null) {
+        ref3.addEventListener('click', function() {
+          var dvBtn, dvList, isHidden;
+          dvList = app.el.dataViewList();
+          dvBtn = document.getElementById('data-views-toggle-btn');
+          isHidden = dvList.classList.contains('hidden');
+          if (isHidden) {
+            dvList.classList.remove('hidden');
+            dvBtn.classList.remove('collapsed');
+            return localStorage.setItem('tdb_views_collapsed', 'false');
+          } else {
+            dvList.classList.add('hidden');
+            dvBtn.classList.add('collapsed');
+            return localStorage.setItem('tdb_views_collapsed', 'true');
+          }
+        });
+      }
       app._applySidebarState();
       app.el.currentUserBtn().addEventListener('click', function() {
         var menu;
@@ -145,16 +179,16 @@
       app.el.logoutBtn().addEventListener('click', function() {
         return Auth.logout();
       });
-      if ((ref3 = app.el.langFrBtn()) != null) {
-        ref3.addEventListener('click', function() {
-          var ref4;
-          return (ref4 = window.I18N) != null ? ref4.setLocale('fr') : void 0;
-        });
-      }
-      if ((ref4 = app.el.langEnBtn()) != null) {
+      if ((ref4 = app.el.langFrBtn()) != null) {
         ref4.addEventListener('click', function() {
           var ref5;
-          return (ref5 = window.I18N) != null ? ref5.setLocale('en') : void 0;
+          return (ref5 = window.I18N) != null ? ref5.setLocale('fr') : void 0;
+        });
+      }
+      if ((ref5 = app.el.langEnBtn()) != null) {
+        ref5.addEventListener('click', function() {
+          var ref6;
+          return (ref6 = window.I18N) != null ? ref6.setLocale('en') : void 0;
         });
       }
       app.el.adminNavUsers().addEventListener('click', function() {

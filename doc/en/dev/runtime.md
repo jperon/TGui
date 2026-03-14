@@ -2,7 +2,7 @@
 
 > Auto-generated file. Do not edit manually.
 >
-> Generated at: 2026-03-12 20:58:48 UTC
+> Generated at: 2026-03-14 15:20:38 UTC
 
 Tarantool startup, HTTP lifecycle and subsystem initialization details.
 
@@ -10,6 +10,8 @@ Tarantool startup, HTTP lifecycle and subsystem initialization details.
 |---|---|
 | `backend/core/auth.moon` | Authentication: hashing, sessions, user management. |
 | `backend/core/config.moon` | Centralized configuration for TGui. |
+| `backend/core/data_views.moon` | (pas de description en tête de fichier) |
+| `backend/core/data_views_executor.moon` | Execution engine for Data Views queries. |
 | `backend/core/fk_proxy.moon` | Foreign-key proxy resolution module to simplify triggers.moon. |
 | `backend/core/permissions.moon` | Unix-style group permissions management. |
 | `backend/core/spaces.moon` | Bootstrap and manage tdb system spaces (metadata) in Tarantool. |
@@ -32,10 +34,13 @@ Tarantool startup, HTTP lifecycle and subsystem initialization details.
 | `backend/resolvers/auth_resolvers.moon` | Resolvers for authentication, user management, groups, and permissions. |
 | `backend/resolvers/custom_view_resolvers.moon` | CRUD resolvers for custom YAML views (dashboard layouts). |
 | `backend/resolvers/data_resolvers.moon` | Resolvers for CRUD operations on user-defined data spaces. |
+| `backend/resolvers/data_view_resolvers.moon` | CRUD resolvers for data views (persisted queries). |
 | `backend/resolvers/export_resolvers.moon` | Snapshot export, diff and import resolvers. |
 | `backend/resolvers/init.moon` | Compose and initialize the executable GraphQL schema/resolver graph. |
 | `backend/resolvers/schema_resolvers.moon` | Resolvers for space, field, view, and relation metadata. |
 | `backend/resolvers/utils.moon` | Shared helpers for all resolvers. |
+| `backend/resolvers/widget_plugin_resolvers.moon` | CRUD resolvers for custom widget plugins used by custom views. |
 | `backend/test_runner.moon` | Entrypoint to run tests in a Docker container. |
+| `backend/zstd_wrapper.moon` | ZSTD-FFI Wrapper |
 | `backend/init.lua` | (pas de description en tête de fichier) |
 | `backend/html.lua` | SPDX-License-Identifier: MIT |

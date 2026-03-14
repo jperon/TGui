@@ -103,26 +103,41 @@ add_widget_to_view = function(viewId, widget)
   if not (t) then
     error("CustomView not found: " .. tostring(viewId))
   end
-  local yaml_content = t[4] or 'layout:\n  direction: vertical\n  children: []'
-  local config = yaml.decode(yaml_content)
-  if not (config.layout) then
+  local yaml_raw = t[4]
+  if not yaml_raw or yaml_raw == '' then
+    yaml_raw = 'layout:\n  direction: vertical\n  children: []'
+  end
+  local config = yaml.decode(yaml_raw)
+  if not config or type(config) ~= 'table' then
+    config = {
+      layout = {
+        direction = 'vertical',
+        children = { }
+      }
+    }
+  elseif not config.layout then
     config.layout = {
       direction = 'vertical',
       children = { }
     }
+  elseif not config.layout.children then
+    config.layout.children = { }
   end
   local widget_id = uuid_mod()
+  local source_name = widget.spaceId
   local space_record = box.space._tdb_spaces:get(widget.spaceId)
-  local space_name
   if space_record then
-    space_name = space_record[2]
+    source_name = space_record[2]
   else
-    space_name = widget.spaceId
+    local dv_record = box.space._tdb_data_views:get(widget.spaceId)
+    if dv_record then
+      source_name = dv_record[2]
+    end
   end
   local new_widget = {
     id = widget_id,
     title = widget.title,
-    space = space_name
+    space = source_name
   }
   if widget.fields and #widget.fields > 0 then
     new_widget.columns = widget.fields
@@ -138,7 +153,7 @@ add_widget_to_view = function(viewId, widget)
   table.insert(config.layout.children, {
     widget = new_widget
   })
-  yaml_content = "layout:\n"
+  local yaml_content = "layout:\n"
   yaml_content = yaml_content .. ("  direction: " .. (config.layout.direction or 'vertical') .. "\n")
   yaml_content = yaml_content .. "  children:\n"
   for _, child in ipairs(config.layout.children) do

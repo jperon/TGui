@@ -85,6 +85,7 @@ build_snapshot = (include_data) ->
       spaces: {}
       relations: {}
       custom_views: {}
+      data_views: {}
       widget_plugins: {}
       groups: {}
     }
@@ -136,6 +137,12 @@ build_snapshot = (include_data) ->
     entry = { name: cv[2], yaml: cv[4] }
     entry.description = cv[3] if cv[3] and cv[3] != ''
     table.insert snap.schema.custom_views, entry
+
+  -- Data views
+  for dv in *box.space._tdb_data_views\select {}
+    entry = { name: dv[2], sourceSpace: space_name_by_id(dv[4]), config: dv[5] }
+    entry.description = dv[3] if dv[3] and dv[3] != ''
+    table.insert snap.schema.data_views, entry
 
   -- Widget plugins
   for wp in *box.space._tdb_widget_plugins\select {}
@@ -191,6 +198,7 @@ diff_snapshot = (snap) ->
     spacesToCreate: {}, spacesToDelete: {}
     fieldsToCreate: {}, fieldsToDelete: {}, fieldsToChange: {}
     pagesToCreate: {}, pagesToUpdate: {}
+    dataViewsToCreate: {}, dataViewsToUpdate: {}
     widgetPluginsToCreate: {}, widgetPluginsToUpdate: {}
   }
 
@@ -203,6 +211,11 @@ diff_snapshot = (snap) ->
   current_cvs = {}
   for cv in *box.space._tdb_custom_views\select {}
     current_cvs[cv[2]] = cv[4]  -- name → yaml
+
+  -- Index current data views by name
+  current_dvs = {}
+  for dv in *box.space._tdb_data_views\select {}
+    current_dvs[dv[2]] = { sourceSpace: space_name_by_id(dv[4]), config: dv[5] }
 
   -- Index current widget plugins by name
   current_wps = {}
@@ -217,6 +230,7 @@ diff_snapshot = (snap) ->
 
   incoming_spaces = snap.schema and snap.schema.spaces or {}
   incoming_cvs    = snap.schema and snap.schema.custom_views or {}
+  incoming_dvs    = snap.schema and snap.schema.data_views or {}
   incoming_wps    = snap.schema and snap.schema.widget_plugins or {}
 
   -- Spaces to create / check fields
@@ -252,6 +266,14 @@ diff_snapshot = (snap) ->
       table.insert result.pagesToCreate, icv.name
     elseif current_cvs[icv.name] != icv.yaml
       table.insert result.pagesToUpdate, icv.name
+
+  -- Data views diff
+  for idv in *incoming_dvs
+    cur = current_dvs[idv.name]
+    if not cur
+      table.insert result.dataViewsToCreate, idv.name
+    elseif cur.sourceSpace != idv.sourceSpace or cur.config != idv.config
+      table.insert result.dataViewsToUpdate, idv.name
 
   -- Widget plugins diff
   for iwp in *incoming_wps
@@ -291,6 +313,8 @@ do_import = (snap, mode) ->
         table.insert errors, "delete space #{sp.name}: #{err}"
     for cv in *box.space._tdb_custom_views\select {}
       box.space._tdb_custom_views\delete cv[1]
+    for dv in *box.space._tdb_data_views\select {}
+      box.space._tdb_data_views\delete dv[1]
     for wp in *box.space._tdb_widget_plugins\select {}
       box.space._tdb_widget_plugins\delete wp[1]
     -- Delete groups except 'admin' (keep users, keep admin group for safety)
@@ -379,6 +403,23 @@ do_import = (snap, mode) ->
         now = clock.time!
         box.space._tdb_custom_views\insert { id, icv.name, icv.description or '', icv.yaml or '', now, now }
       if ok then created += 1 else table.insert errors, "custom_view #{icv.name}: #{err}"
+
+  -- Data views
+  for idv in *(snap.schema and snap.schema.data_views or {})
+    existing_dv = nil
+    for dv in *box.space._tdb_data_views\select {}
+      if dv[2] == idv.name
+        existing_dv = dv
+        break
+    if existing_dv
+      skipped += 1
+    else
+      ok, err = pcall ->
+        id  = tostring uuid_mod.new!
+        sid = spaces_by_name[idv.sourceSpace]
+        error "source space #{idv.sourceSpace} not found" unless sid
+        box.space._tdb_data_views\insert { id, idv.name, idv.description or '', sid, idv.config or '{}' }
+      if ok then created += 1 else table.insert errors, "data_view #{idv.name}: #{err}"
 
   -- Widget plugins
   for iwp in *(snap.schema and snap.schema.widget_plugins or {})

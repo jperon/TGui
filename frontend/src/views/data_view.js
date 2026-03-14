@@ -571,6 +571,9 @@
               if (!(seqNames.has(f.name) || formulaNames.has(f.name))) {
                 col.editor = 'text';
               }
+              if (this.opts.readOnly) {
+                col.editor = null;
+              }
               // Highlight formula errors in normal text columns
               col.formatter = ((fieldName) => {
                 return (props) => {
@@ -916,7 +919,7 @@
     }
 
     async load() {
-      var data, e, f, fieldList, fields, focus, focusedRow, formulaNames, gqlFilter, msg, nm, ref, ref1, ref2, ref3, ref4, reprNames, spaceQuery, tname;
+      var data, e, f, fieldList, fields, focus, focusedRow, formulaNames, gqlFilter, nm, ref, ref1, ref2, ref3, ref4, reprNames, spaceQuery, tname;
       if (!this._mounted) {
         return;
       }
@@ -955,7 +958,25 @@
         }
         return results1;
       })());
-      if ((formulaNames.size > 0 || reprNames.size > 0) && !this._formulaFilter) {
+      if (this.space.isView) {
+        try {
+          // For Data Views, we use the specialized execution query
+          data = (await DataViews.execute(this.space.viewId, 2000, 0));
+          if (!this._mounted) {
+            return;
+          }
+          this._rows = data.map(function(r) {
+            var row;
+            row = Object.assign({}, r);
+            row.__rowId = r.id;
+            return row;
+          });
+        } catch (error) {
+          e = error;
+          this._showError(`Erreur d'exécution de la vue : ${e.message}`);
+          this._rows = [];
+        }
+      } else if ((formulaNames.size > 0 || reprNames.size > 0) && !this._formulaFilter) {
         // Use the space-specific dynamic resolver so formula fields are evaluated.
         tname = gqlName(this.space.name);
         fieldList = (function() {
@@ -1019,16 +1040,13 @@
           }
         } catch (error) {
           e = error;
-          msg = this._formulaFilter ? `Erreur de filtre : ${e.message}` : `Erreur de chargement : ${e.message}`;
-          this._showError(msg);
-          if (this._formulaFilter) {
-            if ((ref3 = this._formulaInputEl) != null) {
-              ref3.classList.add('input-error');
-            }
-            if ((ref4 = document.getElementById('formula-filter-input')) != null) {
-              ref4.classList.add('input-error');
-            }
+          if ((ref3 = this._formulaInputEl) != null) {
+            ref3.classList.add('input-error');
           }
+          if ((ref4 = document.getElementById('formula-filter-input')) != null) {
+            ref4.classList.add('input-error');
+          }
+          this._rows = [];
           this._rows = [];
         }
       }

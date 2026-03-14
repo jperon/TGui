@@ -52,27 +52,37 @@ add_widget_to_view = (viewId, widget) ->
   error "CustomView not found: #{viewId}" unless t
 
   -- Parser le YAML existant
-  yaml_content = t[4] or 'layout:\n  direction: vertical\n  children: []'
-  config = yaml.decode(yaml_content)
-
-  -- Initialiser la structure layout si elle n'existe pas
-  unless config.layout
-    config.layout =
-      direction: 'vertical'
-      children: {}
+  yaml_raw = t[4]
+  if not yaml_raw or yaml_raw == ''
+    yaml_raw = 'layout:\n  direction: vertical\n  children: []'
+  
+  config = yaml.decode(yaml_raw)
+  if not config or type(config) != 'table'
+    config = { layout: { direction: 'vertical', children: {} } }
+  elseif not config.layout
+    config.layout = { direction: 'vertical', children: {} }
+  elseif not config.layout.children
+    config.layout.children = {}
 
   -- Générer un ID unique pour le widget
   widget_id = uuid_mod()
 
   -- Créer le widget avec les données fournies au format CustomView
-  -- Récupérer le nom de l'espace au lieu de l'UUID pour plus de convivialité
+  -- Récupérer le nom de la source (espace ou vue)
+  source_name = widget.spaceId
   space_record = box.space._tdb_spaces\get widget.spaceId
-  space_name = if space_record then space_record[2] else widget.spaceId -- fallback sur l'UUID si non trouvé
+  if space_record
+    source_name = space_record[2]
+  else
+    -- Essayer de trouver une Data View
+    dv_record = box.space._tdb_data_views\get widget.spaceId
+    if dv_record
+      source_name = dv_record[2]
 
   new_widget =
     id: widget_id
     title: widget.title
-    space: space_name  -- Utiliser le nom de l'espace, pas l'UUID
+    space: source_name
 
   -- Ajouter les colonnes si spécifiées
   if widget.fields and #widget.fields > 0

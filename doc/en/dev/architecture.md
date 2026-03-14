@@ -2,7 +2,7 @@
 
 > Auto-generated file. Do not edit manually.
 >
-> Generated at: 2026-03-12 20:58:48 UTC
+> Generated at: 2026-03-14 15:20:38 UTC
 
 Architecture-level view of backend/frontend modules and relationships.
 

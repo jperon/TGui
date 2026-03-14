@@ -2,7 +2,7 @@
 
 > Auto-generated file. Do not edit manually.
 >
-> Generated at: 2026-03-12 20:58:48 UTC
+> Generated at: 2026-03-14 15:20:38 UTC
 
 Compact architecture overview for TGui. Full reference is available in `doc/en/dev/*.md`.
 

@@ -2,7 +2,7 @@
 
 > Auto-generated file. Do not edit manually.
 >
-> Generated at: 2026-03-12 20:58:48 UTC
+> Generated at: 2026-03-14 15:20:38 UTC
 >
 > Source: `schema/tdb.graphql`
 
@@ -66,8 +66,18 @@
 
 | Operation | Arguments | Return | Description |
 |---|---|---|---|
-| `exportSnapshot` | `includeData: Boolean!` | `String!` | Export, diff and import configuration snapshots. |
+| `exportSnapshot` | `includeData: Boolean!, compress: Boolean` | `String!` | Export, diff and import configuration snapshots. |
 | `diffSnapshot` | `yaml: String!` | `SnapshotDiff!` | Export, diff and import configuration snapshots. |
+
+### Misc
+
+| Operation | Arguments | Return | Description |
+|---|---|---|---|
+| `dataViews` | `-` | `[DataView!]!` | GraphQL operation exposed by the backend. |
+| `dataView` | `id: ID!` | `DataView` | GraphQL operation exposed by the backend. |
+| `executeDataView` | `id: ID!, limit: Int, offset: Int` | `[JSON!]!` | GraphQL operation exposed by the backend. |
+| `widgetPlugins` | `-` | `[WidgetPlugin!]!` | GraphQL operation exposed by the backend. |
+| `widgetPlugin` | `id: ID, name: String` | `WidgetPlugin` | GraphQL operation exposed by the backend. |
 
 ## Mutations
 
@@ -144,6 +154,20 @@
 |---|---|---|---|
 | `importSnapshot` | `yaml: String!, mode: ImportMode!` | `ImportResult!` | Export, diff and import configuration snapshots. |
 
+### Misc
+
+| Operation | Arguments | Return | Description |
+|---|---|---|---|
+| `addWidgetToView` | `viewId: ID!, widget: WidgetInput!` | `CustomView!` | GraphQL operation exposed by the backend. |
+| `updateWidgetInView` | `viewId: ID!, widgetId: String!, widget: WidgetInput!` | `CustomView!` | GraphQL operation exposed by the backend. |
+| `removeWidgetFromView` | `viewId: ID!, widgetId: String!` | `CustomView!` | GraphQL operation exposed by the backend. |
+| `createDataView` | `input: DataViewInput!` | `DataView!` | GraphQL operation exposed by the backend. |
+| `updateDataView` | `id: ID!, input: DataViewInput!` | `DataView!` | GraphQL operation exposed by the backend. |
+| `deleteDataView` | `id: ID!` | `Boolean!` | GraphQL operation exposed by the backend. |
+| `createWidgetPlugin` | `input: CreateWidgetPluginInput!` | `WidgetPlugin!` | GraphQL operation exposed by the backend. |
+| `updateWidgetPlugin` | `id: ID!, input: UpdateWidgetPluginInput!` | `WidgetPlugin!` | GraphQL operation exposed by the backend. |
+| `deleteWidgetPlugin` | `id: ID!` | `Boolean!` | GraphQL operation exposed by the backend. |
+
 ## Usage Examples
 
 ### 1) Authenticate then query spaces
@@ -185,6 +209,8 @@ mutation AddField($spaceId: ID!, $input: FieldInput!) {
 
 ## Input Types
 
+- `WidgetInput`
+- `PositionInput`
 - `RecordUpdateInput`
 - `RecordFilter`
 - `UpdateFieldInput`
@@ -198,6 +224,9 @@ mutation AddField($spaceId: ID!, $input: FieldInput!) {
 - `UpdateRelationInput`
 - `CreateCustomViewInput`
 - `UpdateCustomViewInput`
+- `DataViewInput`
+- `CreateWidgetPluginInput`
+- `UpdateWidgetPluginInput`
 - `CreateUserInput`
 - `CreateGroupInput`
 - `PermissionInput`
