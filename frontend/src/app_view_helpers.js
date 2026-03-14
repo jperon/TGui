@@ -1263,7 +1263,7 @@
           console.error('GraphQL errors:', result.errors);
           return alert('Erreur lors de la création du widget: ' + result.errors[0].message);
         } else {
-          console.log('Widget créé avec succès:', result.data.addWidgetToView);
+          console.log('Widget créé avec succès:', result.addWidgetToView);
           window.AppViewHelpers._closeWidgetModal(app);
           return alert('Widget créé avec succès!');
         }

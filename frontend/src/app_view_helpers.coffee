@@ -953,7 +953,7 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
           console.error 'GraphQL errors:', result.errors
           alert 'Erreur lors de la création du widget: ' + result.errors[0].message
         else
-          console.log 'Widget créé avec succès:', result.data.addWidgetToView
+          console.log 'Widget créé avec succès:', result.addWidgetToView
           window.AppViewHelpers._closeWidgetModal app
           alert 'Widget créé avec succès!'
           # TODO: Recharger la vue pour afficher le nouveau widget
