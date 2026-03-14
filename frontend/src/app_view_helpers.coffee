@@ -109,7 +109,7 @@ window.AppViewHelpers =
     app._activeCustomView?.unmount?()
     container.innerHTML = ''
     container.classList.remove 'hidden'
-    app._activeCustomView = new CustomView container, yamlText, app._allSpaces
+    app._activeCustomView = new CustomView container, yamlText, app._allSpaces, app._allDataViews
     app._activeCustomView.mount()
 
   bindYamlEditor: (app) ->
@@ -702,44 +702,61 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
     # Lier les événements de base
     window.AppViewHelpers._bindBasicWidgetEvents app
 
-  _loadAvailableSpaces: (app) ->
-    console.log '_loadAvailableSpaces called'
-    # Charger la liste des espaces avec la fonction existante
-    window.Spaces.list().then (spaces) ->
-      console.log 'spaces loaded:', spaces
-      select = document.getElementById 'widget-space-select'
-      return unless select
+    # Charger la liste des espaces et des Data Views
+    Promise.all([window.Spaces.list(), window.DataViews.list()])
+      .then ([spaces, dataViews]) ->
+        console.log 'spaces and dataViews loaded:', spaces, dataViews
+        select = document.getElementById 'widget-space-select'
+        return unless select
 
-      select.innerHTML = '<option value="">Sélectionner un espace...</option>'
+        select.innerHTML = '<option value="">Sélectionner une source...</option>'
 
-      # Stocker les données pour utilisation ultérieure
-      app._spacesData = spaces
+        # Groupes pour différencier Espaces et Vues
+        spacesGroup = document.createElement 'optgroup'
+        spacesGroup.label = 'Espaces (Tables)'
+        for space in spaces
+          option = document.createElement 'option'
+          option.value = space.id
+          option.textContent = space.name
+          spacesGroup.appendChild option
+        select.appendChild spacesGroup
 
-      # Stocker aussi globalement pour accès dans les événements
-      window._currentSpacesData = spaces
-      console.log 'spaces stored in window._currentSpacesData'
+        viewsGroup = document.createElement 'optgroup'
+        viewsGroup.label = 'Vues (Requêtes)'
+        for view in dataViews
+          option = document.createElement 'option'
+          option.value = view.id
+          option.dataset.isView = 'true'
+          option.textContent = view.name
+          viewsGroup.appendChild option
+        select.appendChild viewsGroup
 
-      for space in spaces
-        option = document.createElement 'option'
-        option.value = space.id
-        option.textContent = space.name
-        select.appendChild option
+        # Stocker les données pour utilisation ultérieure
+        app._spacesData = spaces
+        app._dataViewsData = dataViews
+        window._currentSpacesData = spaces
+        window._currentDataViewsData = dataViews
 
-      # Écouter les changements pour charger les champs
-      select.addEventListener 'change', ->
-        spaceId = @value
-        return unless spaceId
+        # Écouter les changements pour charger les champs
+        select.addEventListener 'change', ->
+          spaceId = @value
+          return unless spaceId
 
-        # Trouver l'espace correspondant (utiliser les données globales)
-        spacesData = window._currentSpacesData or []
-        selectedSpace = spacesData.find (space) -> space.id == spaceId
-        console.log 'selected space:', selectedSpace
-
-        # Charger les champs de l'espace sélectionné
-        if selectedSpace
-          window.AppViewHelpers._loadSpaceFields selectedSpace, ->
-            window.AppViewHelpers._populateFieldsLists selectedSpace
-            window.AppViewHelpers._populateGroupByOptions selectedSpace
+          # Trouver la source correspondante
+          spacesData = window._currentSpacesData or []
+          dataViewsData = window._currentDataViewsData or []
+          selectedSource = spacesData.find((s) -> s.id == spaceId) or dataViewsData.find((v) -> v.id == spaceId)
+          
+          if selectedSource?.config? # C'est une Data View (elle a une config)
+            selectedSource.isView = true
+            # Simuler l'objet space pour peupler les champs
+            selectedSource.fields = selectedSource.config.columns?.map (c) -> { name: c, fieldType: 'String' }
+            window.AppViewHelpers._populateFieldsLists selectedSource
+            window.AppViewHelpers._populateGroupByOptions selectedSource
+          else if selectedSource
+            window.AppViewHelpers._loadSpaceFields selectedSource, ->
+              window.AppViewHelpers._populateFieldsLists selectedSource
+              window.AppViewHelpers._populateGroupByOptions selectedSource
 
   _loadSpaceFields: (space, callback) ->
     # Charger les champs d'un espace spécifique
