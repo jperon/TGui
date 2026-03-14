@@ -211,9 +211,14 @@ transition: all 0.3s ease;`;
       var body, col, delBtn, dv, entry, f, fieldMap, filterFormula, filterInput, filterLabel, filterTimer, filterWrap, i, lang, len, ref, runtimeWidgetId, sp, titleBar, titleText, wrapper;
       wrapper = document.createElement('div');
       wrapper.className = 'cv-widget';
-      // Title bar
+      // Ajouter les attributs pour le drag & drop
+      if (wNode.id) {
+        wrapper.setAttribute('data-widget-id', wNode.id);
+      }
+      wrapper.setAttribute('data-widget-type', wNode.type || 'data');
+      // Title bar avec classe pour le drag handle
       titleBar = document.createElement('div');
-      titleBar.className = 'cv-widget-title';
+      titleBar.className = 'cv-widget-title widget-header';
       titleText = document.createElement('span');
       titleText.textContent = wNode.title || wNode.space || '';
       titleBar.appendChild(titleText);

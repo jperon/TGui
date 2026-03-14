@@ -3,6 +3,7 @@
 
 yaml = require 'yaml'
 uuid_mod = require 'uuid'
+json = require 'json'
 { :require_auth } = require 'resolvers.utils'
 
 list_custom_views = ->
@@ -46,6 +47,101 @@ delete_custom_view = (id) ->
   box.space._tdb_custom_views\delete id
   true
 
+-- Réordonner les widgets dans une vue
+reorder_widgets = (pageId, widgetPositions) ->
+  -- Récupérer la vue existante
+  t = box.space._tdb_custom_views\get pageId
+  error "Page not found: #{pageId}" unless t
+
+  -- Parser le YAML existant
+  yaml_content = t[4] or 'layout:\n  direction: vertical\n  children: []'
+  config = yaml.decode yaml_content
+
+  -- Gérer le cas où le YAML est mal formaté
+  if not config or type(config) != 'table'
+    config = { layout: { direction: 'vertical', children: {} } }
+  elseif not config.layout
+    config.layout = { direction: 'vertical', children: {} }
+  elseif not config.layout.children or type(config.layout.children) != 'table'
+    config.layout.children = {}
+
+  -- Créer une map des widgets par ID pour retrouver leurs données
+  widget_map = {}
+  for _, child in ipairs(config.layout.children)
+    if child.widget
+      widget_map[child.widget.id] = child.widget
+
+  -- Reconstruire la liste des enfants dans le nouvel ordre
+  new_children = {}
+  if widgetPositions and type(widgetPositions) == 'table' and #widgetPositions > 0
+    for i = 1, #widgetPositions
+      pos = widgetPositions[i]
+      if type(pos) == 'table' and pos.widgetId
+        widget = widget_map[pos.widgetId]
+        if widget
+          -- Mettre à jour la position
+          widget.position = pos.index or i
+          table.insert(new_children, { widget: widget })
+        else
+          -- Si le widget n'existe pas, le créer avec les données de base
+          new_widget = {
+            id: pos.widgetId
+            position: pos.index or i
+            space: 'unknown'
+            title: "Widget #{pos.widgetId}"
+          }
+          table.insert(new_children, { widget: new_widget })
+  else
+    -- Si pas de positions, garder l'ordre existant
+    for _, child in ipairs(config.layout.children)
+      table.insert(new_children, child)
+
+  -- Mettre à jour la structure
+  config.layout.children = new_children
+
+  -- Re-encoder le YAML
+  yaml_content = "layout:\n"
+  yaml_content ..= "  direction: " .. (config.layout.direction or 'vertical') .. "\n"
+  yaml_content ..= "  children:\n"
+
+  -- Ajouter chaque widget au format YAML correct
+  for _, child in ipairs(config.layout.children)
+    if child.widget
+      yaml_content ..= "    - widget:\n"
+      yaml_content ..= "        id: " .. tostring(child.widget.id) .. "\n"
+      yaml_content ..= "        title: " .. child.widget.title .. "\n"
+      yaml_content ..= "        space: " .. tostring(child.widget.space) .. "\n"
+      yaml_content ..= "        position: " .. tostring(child.widget.position) .. "\n"
+
+      -- Ajouter les colonnes si présentes
+      if child.widget.columns and #child.widget.columns > 0
+        yaml_content ..= "        columns:\n"
+        for _, col in ipairs(child.widget.columns)
+          yaml_content ..= "          - " .. col .. "\n"
+
+      -- Ajouter le groupement si présent
+      if child.widget.groupBy
+        yaml_content ..= "        groupBy: " .. tostring(child.widget.groupBy) .. "\n"
+
+      -- Ajouter les autres propriétés
+      for key, value in pairs(child.widget)
+        if key ~= 'id' and key ~= 'title' and key ~= 'space' and key ~= 'position' and key ~= 'columns' and key ~= 'groupBy'
+          yaml_content ..= "        " .. key .. ": " .. tostring(value) .. "\n"
+
+  updated_yaml = yaml_content
+
+  -- Mettre à jour la vue dans la base de données
+  box.space._tdb_custom_views\update pageId, {
+    { '=', 4, updated_yaml }  -- Mettre à jour le champ yaml
+    { '=', 6, os.time() }     -- Mettre à jour updatedAt
+  }
+
+  -- Retourner la vue mise à jour
+  {
+    id: pageId
+    yaml: updated_yaml
+  }
+
 add_widget_to_view = (viewId, widget) ->
   -- Récupérer la vue existante
   t = box.space._tdb_custom_views\get viewId
@@ -55,7 +151,7 @@ add_widget_to_view = (viewId, widget) ->
   yaml_raw = t[4]
   if not yaml_raw or yaml_raw == ''
     yaml_raw = 'layout:\n  direction: vertical\n  children: []'
-  
+
   config = yaml.decode(yaml_raw)
   if not config or type(config) != 'table'
     config = { layout: { direction: 'vertical', children: {} } }
@@ -79,10 +175,14 @@ add_widget_to_view = (viewId, widget) ->
     if dv_record
       source_name = dv_record[2]
 
+  -- Calculer la position (à la fin de la liste)
+  position = #config.layout.children + 1
+
   new_widget =
     id: widget_id
     title: widget.title
     space: source_name
+    position: position  -- Ajouter la position automatique
 
   -- Ajouter les colonnes si spécifiées
   if widget.fields and #widget.fields > 0
@@ -114,6 +214,7 @@ add_widget_to_view = (viewId, widget) ->
       yaml_content ..= "        id: " .. tostring(child.widget.id) .. "\n"
       yaml_content ..= "        title: " .. child.widget.title .. "\n"
       yaml_content ..= "        space: " .. tostring(child.widget.space) .. "\n"
+      yaml_content ..= "        position: " .. tostring(child.widget.position) .. "\n"
 
       -- Ajouter les colonnes si présentes
       if child.widget.columns and #child.widget.columns > 0
@@ -127,7 +228,7 @@ add_widget_to_view = (viewId, widget) ->
 
       -- Ajouter les autres propriétés
       for key, value in pairs(child.widget)
-        if key ~= 'id' and key ~= 'title' and key ~= 'space' and key ~= 'columns' and key ~= 'groupBy'
+        if key ~= 'id' and key ~= 'title' and key ~= 'space' and key ~= 'position' and key ~= 'columns' and key ~= 'groupBy'
           yaml_content ..= "        " .. key .. ": " .. tostring(value) .. "\n"
 
   updated_yaml = yaml_content
@@ -172,5 +273,23 @@ Mutation =
   addWidgetToView: (_, args, ctx) ->
     require_auth ctx
     add_widget_to_view args.viewId, args.widget
+  reorderWidgets: (_, args, ctx) ->
+    require_auth ctx
+
+    -- Validation des arguments
+    pageId = args.pageId
+    widgetPositions = args.widgetPositions
+
+    error "pageId is required" unless pageId
+
+    -- Si widgetPositions est une string, retourner une erreur claire
+    if type(widgetPositions) == 'string'
+      error "widgetPositions must be a table, got string"
+
+    -- Accepter les table vides
+    unless widgetPositions and type(widgetPositions) == 'table'
+      error "widgetPositions must be a table"
+
+    reorder_widgets pageId, widgetPositions
 
 { :Query, :Mutation }

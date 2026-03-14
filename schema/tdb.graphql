@@ -91,6 +91,7 @@ type Mutation {
   updateCustomView(id: ID!, input: UpdateCustomViewInput!): CustomView!
   deleteCustomView(id: ID!):                       Boolean!
   addWidgetToView(viewId: ID!, widget: WidgetInput!): CustomView!
+  reorderWidgets(pageId: ID!, widgetPositions: [WidgetPosition!]!): CustomView!
   updateWidgetInView(viewId: ID!, widgetId: String!, widget: WidgetInput!): CustomView!
   removeWidgetFromView(viewId: ID!, widgetId: String!): CustomView!
 
@@ -504,4 +505,9 @@ type SnapshotDiff {
   pagesToUpdate:        [String!]!
   widgetPluginsToCreate: [String!]!
   widgetPluginsToUpdate: [String!]!
+}
+
+input WidgetPosition {
+  widgetId: String!
+  index: Int!
 }

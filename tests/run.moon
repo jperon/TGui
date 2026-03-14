@@ -52,6 +52,7 @@ require 'tests.test_spaces'
 require 'tests.test_batch_ops'
 require 'tests.test_triggers'
 require 'tests.test_custom_views'
+require 'tests.test_reorder_widgets'
 require 'tests.test_widget_plugins'
 require 'tests.test_data_views'
 require 'tests.test_relations'
@@ -60,6 +61,7 @@ require 'tests.test_snapshot'
 require 'tests.test_permissions'
 require 'tests.test_data_filters'
 require 'tests.test_nesting'
+require 'tests.test_drag_drop_e2e'
 
 -- Summary (os.exit 1 if tests fail)
 exit_code = R.summary!

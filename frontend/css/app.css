@@ -22,6 +22,87 @@
 
 body { background: var(--color-bg); height: 100vh; overflow: hidden; }
 
+/* ── Drag & Drop Styles ───────────────────────────────────────────────────── */
+.widget-ghost {
+  opacity: 0.4;
+  background: var(--color-accent) !important;
+  border: 2px dashed var(--color-accent) !important;
+}
+
+.widget-chosen {
+  cursor: grabbing !important;
+  transform: scale(1.02);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+  z-index: 1000;
+}
+
+.widget-dragging {
+  opacity: 0.8;
+  transform: rotate(2deg);
+}
+
+.dragging-active {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+.dragging-active * {
+  pointer-events: none;
+}
+
+.dragging-active .widget {
+  transition: all 0.2s ease;
+}
+
+.drag-over {
+  background: rgba(137, 180, 250, 0.1) !important;
+  border: 2px dashed var(--color-accent) !important;
+}
+
+.widget-header {
+  cursor: grab !important;
+  user-select: none;
+}
+
+.widget-header:hover {
+  background: var(--color-hover);
+}
+
+.widget-header:active {
+  cursor: grabbing !important;
+}
+
+.no-drag {
+  cursor: default !important;
+}
+
+/* Drop zones */
+.drop-zone {
+  min-height: 60px;
+  border: 2px dashed transparent;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  font-style: italic;
+}
+
+.drop-zone.drag-over {
+  border-color: var(--color-accent);
+  background: rgba(137, 180, 250, 0.05);
+}
+
+.drop-zone-empty {
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 10px,
+    rgba(0,0,0,0.02) 10px,
+    rgba(0,0,0,0.02) 20px
+  );
+}
+
 /* ── Login ────────────────────────────────────────────────────────────────── */
 .overlay {
   position: fixed; inset: 0;

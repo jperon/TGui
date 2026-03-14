@@ -580,7 +580,6 @@ _widgetDataSourceSection = ->
       _widgetConfigRow('Titre du widget:', _widgetTitleInput!)
       _widgetConfigRow('Espace:', _widgetSpaceSelect!)
       _widgetConfigRow('Colonnes à afficher:', _widgetFieldsContainer!)
-      _widgetConfigRow('Groupement (GROUP BY):', _widgetGroupBySelect!)
     }
   }
 
@@ -683,7 +682,8 @@ render = ->
   _html = "<!DOCTYPE html>\n" .. doc
   _html
 
-{ :render }
-
+-- Test code (only executed when run directly)
 if arg and arg[1] == "--test"
   print render!
+
+return render

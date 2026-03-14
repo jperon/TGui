@@ -185,9 +185,14 @@ window.CustomView = class CustomView
     wrapper = document.createElement 'div'
     wrapper.className = 'cv-widget'
 
-    # Title bar
+    # Ajouter les attributs pour le drag & drop
+    if wNode.id
+      wrapper.setAttribute 'data-widget-id', wNode.id
+    wrapper.setAttribute 'data-widget-type', wNode.type or 'data'
+
+    # Title bar avec classe pour le drag handle
     titleBar = document.createElement 'div'
-    titleBar.className = 'cv-widget-title'
+    titleBar.className = 'cv-widget-title widget-header'
     titleText = document.createElement 'span'
     titleText.textContent = wNode.title or wNode.space or ''
     titleBar.appendChild titleText

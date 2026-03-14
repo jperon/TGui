@@ -117,7 +117,7 @@ serve_index = function(req)
     headers = {
       ['content-type'] = 'text/html; charset=utf-8'
     },
-    body = index.render()
+    body = index()
   }
 end
 local handle_export

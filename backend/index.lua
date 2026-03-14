@@ -1461,8 +1461,7 @@ _widgetDataSourceSection = function()
       class = 'data-source-config',
       _widgetConfigRow('Titre du widget:', _widgetTitleInput()),
       _widgetConfigRow('Espace:', _widgetSpaceSelect()),
-      _widgetConfigRow('Colonnes à afficher:', _widgetFieldsContainer()),
-      _widgetConfigRow('Groupement (GROUP BY):', _widgetGroupBySelect())
+      _widgetConfigRow('Colonnes à afficher:', _widgetFieldsContainer())
     })
   })
 end
@@ -1674,9 +1673,7 @@ render = function()
   _html = "<!DOCTYPE html>\n" .. doc
   return _html
 end
-local _ = {
-  render = render
-}
 if arg and arg[1] == "--test" then
-  return print(render())
+  print(render())
 end
+return render

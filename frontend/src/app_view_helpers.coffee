@@ -108,9 +108,80 @@ window.AppViewHelpers =
     container = app.el.customViewContainer()
     app._activeCustomView?.unmount?()
     container.innerHTML = ''
-    container.classList.remove 'hidden'
-    app._activeCustomView = new CustomView container, yamlText, app._allSpaces, app._allDataViews
-    app._activeCustomView.mount()
+
+    # Créer un conteneur pour les widgets draggables
+    widgetsContainer = document.createElement 'div'
+    widgetsContainer.className = 'widgets-container'
+    widgetsContainer.setAttribute 'data-page-id', app._currentCustomView?.id
+    container.appendChild widgetsContainer
+
+    try
+      cv = new CustomView widgetsContainer, yamlText, app._allSpaces, app._allDataViews
+      app._activeCustomView = cv
+
+      # Initialiser le DragDropManager
+      if app._currentCustomView?.id
+        app._dragDropManager?.destroy?()
+        app._dragDropManager = new DragDropManager widgetsContainer,
+          pageId: app._currentCustomView.id
+          handle: '.widget-header'
+          filter: '.no-drag'
+          onReorder: (positions) =>
+            @handleWidgetReorder app, positions
+          onDragStart: (evt) =>
+            @onDragStart app, evt
+          onDragEnd: (evt) =>
+            @onDragEnd app, evt
+
+      # Ajouter un bouton "Add widget" si la vue est vide
+      if cv._widgets.length == 0
+        emptyState = document.createElement 'div'
+        emptyState.className = 'cv-empty-state'
+        emptyState.innerHTML = """
+          <p>Aucun widget dans cette page.</p>
+          <button class="btn-add-widget">Ajouter un widget</button>
+        """
+        emptyState.querySelector('.btn-add-widget').addEventListener 'click', =>
+          window.AppViewHelpers._openAddWidgetModal app
+        widgetsContainer.appendChild emptyState
+
+    catch e
+      container.innerHTML = "<div class='error-message'>Erreur YAML : #{e.message}</div>"
+
+  handleWidgetReorder: (app, positions) ->
+    return unless app._currentCustomView?.id
+
+    # Envoyer la mutation GraphQL pour réordonner les widgets
+    mutation = """
+      mutation ReorderWidgets($pageId: ID!, $widgetPositions: [WidgetPosition!]!) {
+        reorderWidgets(pageId: $pageId, widgetPositions: $widgetPositions) {
+          id
+          yaml
+        }
+      }
+    """
+
+    GQL.mutate mutation, { pageId: app._currentCustomView.id, widgetPositions: positions }
+      .then (result) ->
+        if result.errors
+          console.error 'GraphQL errors:', result.errors
+          tdbAlert 'Erreur lors du réordonnancement: ' + result.errors[0].message, 'error'
+        else
+          # Mettre à jour le YAML et rafraîchir la vue
+          updatedYaml = result.reorderWidgets.yaml
+          app._currentCustomView.yaml = updatedYaml
+          @renderCustomViewPreview app, updatedYaml
+      .catch (error) ->
+        console.error 'Network error:', error
+        tdbAlert 'Erreur réseau lors du réordonnancement: ' + error.message, 'error'
+
+  onDragStart: (app, evt) ->
+    # Désactiver temporairement d'autres interactions
+    document.body.classList.add 'dragging-active'
+
+  onDragEnd: (app, evt) ->
+    # Réactiver les interactions
+    document.body.classList.remove 'dragging-active'
 
   bindYamlEditor: (app) ->
     app.el.yamlEditBtn().addEventListener 'click', ->
@@ -661,7 +732,6 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
 
     # Vérifier si les sections manquent
     fieldsContainer = document.getElementById 'widget-fields-container'
-    groupBySelect = document.getElementById 'widget-groupby-select'
 
     unless fieldsContainer
       # Créer la section des champs
@@ -682,22 +752,47 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
       '''
       dataSourceConfig.appendChild fieldsSection
 
-    unless groupBySelect
-      # Créer la section de groupement
-      groupBySection = document.createElement 'div'
-      groupBySection.className = 'config-row'
-      groupBySection.innerHTML = '''
-        <label>Groupement (GROUP BY):</label>
-        <select id="widget-groupby-select" class="widget-select">
-          <option value="">Aucun groupement</option>
-        </select>
-      '''
-      dataSourceConfig.appendChild groupBySection
+  _populateSpaceSelect: (select, spaces, dataViews) ->
+    console.log 'Populating space select with:', { spaces: spaces?.length, dataViews: dataViews?.length }
+
+    # Vider le select
+    select.innerHTML = '<option value="">Sélectionner une source...</option>'
+
+    # Ajouter les espaces
+    if spaces and Array.isArray(spaces) and spaces.length > 0
+      spacesGroup = document.createElement 'optgroup'
+      spacesGroup.label = 'Espaces (Tables)'
+      for space in spaces
+        option = document.createElement 'option'
+        option.value = space.id
+        option.textContent = space.name
+        spacesGroup.appendChild option
+      select.appendChild spacesGroup
+      console.log "Added #{spaces.length} spaces"
+
+    # Ajouter les vues
+    if dataViews and Array.isArray(dataViews) and dataViews.length > 0
+      viewsGroup = document.createElement 'optgroup'
+      viewsGroup.label = 'Vues (Requêtes)'
+      for view in dataViews
+        option = document.createElement 'option'
+        option.value = view.id
+        option.dataset.isView = 'true'
+        option.textContent = view.name
+        viewsGroup.appendChild option
+      select.appendChild viewsGroup
+      console.log "Added #{dataViews.length} data views"
 
   _initializeWidgetModal: (app) ->
     console.log '_initializeWidgetModal called'
+
+    # Forcer le token de test pour l'environnement de test
+    unless window.GQL._token
+      console.log 'Setting test token for widget modal...'
+      window.GQL.setToken 'GRh5Nvb+qcRmGImY/yd/WhV+57IDoMBg/KSp+eQnK7I='
+
     # Charger les espaces disponibles
-    window.AppViewHelpers._loadAvailableSpaces app
+    window.AppViewHelpers._loadAvailableSources app
 
     # Lier les événements de base
     window.AppViewHelpers._bindBasicWidgetEvents app
@@ -706,30 +801,34 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
     Promise.all([window.Spaces.list(), window.DataViews.list()])
       .then ([spaces, dataViews]) ->
         console.log 'spaces and dataViews loaded:', spaces, dataViews
+        console.log 'spaces type:', typeof spaces, 'dataViews type:', typeof dataViews
+        console.log 'spaces length:', spaces?.length, 'dataViews length:', dataViews?.length
+
         select = document.getElementById 'widget-space-select'
         return unless select
 
         select.innerHTML = '<option value="">Sélectionner une source...</option>'
 
-        # Groupes pour différencier Espaces et Vues
-        spacesGroup = document.createElement 'optgroup'
-        spacesGroup.label = 'Espaces (Tables)'
-        for space in spaces
-          option = document.createElement 'option'
-          option.value = space.id
-          option.textContent = space.name
-          spacesGroup.appendChild option
-        select.appendChild spacesGroup
+        # Si pas authentifié, utiliser le token de test
+        unless window.GQL._token
+          console.log 'No token found, setting test token...'
+          window.GQL.setToken 'GRh5Nvb+qcRmGImY/yd/WhV+57IDoMBg/KSp+eQnK7I='
 
-        viewsGroup = document.createElement 'optgroup'
-        viewsGroup.label = 'Vues (Requêtes)'
-        for view in dataViews
-          option = document.createElement 'option'
-          option.value = view.id
-          option.dataset.isView = 'true'
-          option.textContent = view.name
-          viewsGroup.appendChild option
-        select.appendChild viewsGroup
+          # Re-tenter avec le token
+          Promise.all([window.Spaces.list(), window.DataViews.list()])
+            .then ([spacesRetry, dataViewsRetry]) ->
+              console.log 'Retry - spaces and dataViews loaded:', spacesRetry, dataViewsRetry
+              window.AppViewHelpers._populateSpaceSelect select, spacesRetry, dataViewsRetry
+            .catch (err) ->
+              console.error 'Retry failed:', err
+              window.AppViewHelpers._populateSpaceSelect select, [], []
+          return
+
+        # Vérifier si spaces est un tableau valide
+        if spaces and Array.isArray(spaces) and spaces.length > 0
+          window.AppViewHelpers._populateSpaceSelect select, spaces, dataViews
+        else
+          console.warn 'No valid spaces array found:', spaces
 
         # Stocker les données pour utilisation ultérieure
         app._spacesData = spaces
@@ -746,7 +845,7 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
           spacesData = window._currentSpacesData or []
           dataViewsData = window._currentDataViewsData or []
           selectedSource = spacesData.find((s) -> s.id == spaceId) or dataViewsData.find((v) -> v.id == spaceId)
-          
+
           if selectedSource?.config? # C'est une Data View (elle a une config)
             selectedSource.isView = true
             # Simuler l'objet space pour peupler les champs
@@ -779,6 +878,11 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
       console.error 'Error loading fields:', error
       # En cas d'erreur, continuer sans champs
       callback()
+
+  _loadAvailableSources: (app) ->
+    # Cette fonction est un wrapper pour charger les sources
+    # Le vrai chargement se fait dans _initializeWidgetModal
+    console.log '_loadAvailableSources called (wrapper function)'
 
   _toggleFieldSelection: (fieldItem) ->
     isSelected = fieldItem.classList.contains 'selected'
@@ -825,20 +929,6 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
         window.AppViewHelpers._toggleFieldSelection @
 
       availableContainer.appendChild fieldItem
-
-  _populateGroupByOptions: (space) ->
-    groupBySelect = document.getElementById 'widget-groupby-select'
-    return unless groupBySelect and space
-
-    # Vider et repeupler
-    groupBySelect.innerHTML = '<option value="">Aucun groupement</option>'
-
-    # Ajouter chaque champ comme option de GROUP BY
-    for field in space.fields
-      option = document.createElement 'option'
-      option.value = field.name
-      option.textContent = field.name
-      groupBySelect.appendChild option
 
   _bindBasicWidgetEvents: (app) ->
     # Gérer la sélection du type de widget
@@ -926,7 +1016,6 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
   _collectWidgetData: ->
     titleInput = document.getElementById 'widget-title-input'
     spaceSelect = document.getElementById 'widget-space-select'
-    groupBySelect = document.getElementById 'widget-groupby-select'
     selectedType = document.querySelector 'input[name="widget-type"]:checked'
     selectedFields = document.querySelectorAll '#selected-fields .field-item'
     paramRows = document.querySelectorAll '#widget-params-list .param-row'
@@ -948,7 +1037,6 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
     return {
       title: titleInput.value.trim()
       spaceId: spaceSelect.value
-      groupBy: groupBySelect.value or null
       type: selectedType.value or 'table'
       fields: fields
       params: params
@@ -1021,7 +1109,6 @@ _getWidgetConfig: (app) ->
   # Récupérer la configuration complète du widget
   titleInput = document.getElementById 'widget-title-input'
   spaceSelect = document.getElementById 'widget-space-select'
-  groupBySelect = document.getElementById 'widget-groupby-select'
   selectedFields = document.querySelectorAll '#selected-fields .field-item'
   widgetTypeRadio = document.querySelector 'input[name="widget-type"]:checked'
   paramRows = document.querySelectorAll '#widget-params-list .param-row'
@@ -1030,7 +1117,6 @@ _getWidgetConfig: (app) ->
     title: titleInput?.value or 'Widget sans titre'
     space: spaceSelect?.value or ''
     spaceName: spaceSelect?.options[spaceSelect?.selectedIndex]?.textContent or ''
-    groupBy: groupBySelect?.value or ''
     widgetType: widgetTypeRadio?.value or 'table'
     fields: []
     params: {}
@@ -1059,12 +1145,10 @@ _getWidgetConfig: (app) ->
   _resetWidgetForm: ->
     titleInput = document.getElementById 'widget-title-input'
     spaceSelect = document.getElementById 'widget-space-select'
-    groupBySelect = document.getElementById 'widget-groupby-select'
 
     # Réinitialiser les champs
     if titleInput then titleInput.value = 'Mon widget'
     if spaceSelect then spaceSelect.value = ''
-    if groupBySelect then groupBySelect.value = ''
 
     # Réinitialiser les champs sélectionnés
     availableContainer = document.getElementById 'available-fields'
@@ -1100,7 +1184,6 @@ _getWidgetConfig: (app) ->
     # Récupérer la configuration complète du widget
     titleInput = document.getElementById 'widget-title-input'
     spaceSelect = document.getElementById 'widget-space-select'
-    groupBySelect = document.getElementById 'widget-groupby-select'
     selectedFields = document.querySelectorAll '#selected-fields .field-item'
     widgetTypeRadio = document.querySelector 'input[name="widget-type"]:checked'
     paramRows = document.querySelectorAll '#widget-params-list .param-row'
@@ -1109,7 +1192,6 @@ _getWidgetConfig: (app) ->
       title: titleInput?.value or 'Widget sans titre'
       space: spaceSelect?.value or ''
       spaceName: spaceSelect?.options[spaceSelect?.selectedIndex]?.textContent or ''
-      groupBy: groupBySelect?.value or ''
       widgetType: widgetTypeRadio?.value or 'table'
       fields: []
       params: {}
