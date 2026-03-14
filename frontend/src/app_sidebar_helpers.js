@@ -32,9 +32,9 @@
           return tdbAlert(app._err(err), 'error');
         });
       });
-      app.el.newViewBtn().addEventListener('click', async function() {
+      app.el.newPageBtn().addEventListener('click', async function() {
         var name;
-        name = (await tdbPrompt(app._t('ui.prompts.newView')));
+        name = (await tdbPrompt(app._t('ui.prompts.newPage')));
         if (!(name != null ? name.trim() : void 0)) {
           return;
         }
@@ -44,10 +44,10 @@
             yaml: "layout:\n  direction: vertical\n  children: []\n"
           }
         }).then(function(data) {
-          return app.loadCustomViews().then(function() {
+          return app.loadPages().then(function() {
             var cv;
             cv = data.createCustomView;
-            return app.selectCustomView(cv);
+            return app.selectPage(cv);
           });
         }).catch(function(err) {
           return tdbAlert(app._err(err), 'error');

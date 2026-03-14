@@ -1,13 +1,13 @@
 # app_view_helpers.coffee — custom views and YAML editor helpers extracted from app.coffee
 
 window.AppViewHelpers =
-  loadCustomViews: (app) ->
+  loadPages: (app) ->
     GQL.query(app._listCustomViewsQuery)
-      .then (data) -> app.renderCustomViewList data.customViews
+      .then (data) -> app.renderPageList data.customViews
       .catch (err) -> tdbAlert app._err(err), 'error'
 
-  renderCustomViewList: (app, views) ->
-    ul = app.el.customViewList()
+  renderPageList: (app, views) ->
+    ul = app.el.pageList()
     ul.innerHTML = ''
 
     tree = { items: [], folders: {} }
@@ -41,7 +41,7 @@ window.AppViewHelpers =
         subUl.className = 'folder-children'
         folderLi.appendChild subUl
 
-        lsKey = "tdb_folder_view_#{fullPath}"
+        lsKey = "tdb_folder_page_#{fullPath}"
         if localStorage.getItem(lsKey) == 'true'
           folderLi.classList.add 'collapsed'
 
@@ -63,22 +63,22 @@ window.AppViewHelpers =
         do (cv = item.cv) ->
           li.addEventListener 'click', (e) ->
             e.stopPropagation()
-            app.selectCustomView cv
+            app.selectPage cv
         containerEl.appendChild li
 
     renderTree tree, ul
 
-  selectCustomView: (app, cv) ->
-    history.replaceState null, '', "#view/#{cv.id}"
+  selectPage: (app, cv) ->
+    history.replaceState null, '', "#page/#{cv.id}"
     app._currentCustomView = cv
 
     for li in app.el.spaceList().querySelectorAll 'li'
       li.classList.remove 'active'
-    for li in app.el.customViewList().querySelectorAll '.leaf-item'
+    for li in app.el.pageList().querySelectorAll '.leaf-item'
       li.classList.toggle 'active', li.dataset.id == cv.id
       if li.dataset.id == cv.id
         parent = li.parentElement
-        while parent and parent.id != 'custom-view-list'
+        while parent and parent.id != 'page-list'
           if parent.tagName == 'LI' and parent.classList.contains('folder-item')
             parent.classList.remove 'collapsed'
           parent = parent.parentElement
@@ -96,7 +96,7 @@ window.AppViewHelpers =
 
     panel = app.el.yamlEditorPanel()
     panel.classList.remove 'hidden'
-    app.el.yamlViewName().textContent = cv.name
+    app.el.yamlPageName().textContent = cv.name
 
     if cv.yaml?.trim()
       app._renderCustomViewPreview cv.yaml
@@ -122,7 +122,7 @@ window.AppViewHelpers =
     app.el.yamlDeleteBtn().addEventListener 'click', ->
       cv = app._currentCustomView
       return unless cv
-      return unless await tdbConfirm app._t('ui.confirms.deleteView', { name: cv.name })
+      return unless await tdbConfirm app._t('ui.confirms.deletePage', { name: cv.name })
       GQL.mutate(app._deleteCustomViewMutation, { id: cv.id })
         .then ->
           app._currentCustomView = null
@@ -131,7 +131,7 @@ window.AppViewHelpers =
           app.el.yamlEditorPanel().classList.add 'hidden'
           app.el.customViewContainer().classList.add 'hidden'
           app.el.welcome().classList.remove 'hidden'
-          app.loadCustomViews()
+          app.loadPages()
         .catch (err) -> tdbAlert app._err(err), 'error'
 
     app.el.yamlModalSaveBtn().addEventListener 'click', ->
@@ -143,7 +143,7 @@ window.AppViewHelpers =
           app._currentCustomView = data.updateCustomView
           app.el.yamlModal().classList.add 'hidden'
           app._renderCustomViewPreview yaml
-          app.loadCustomViews()
+          app.loadPages()
         .catch (err) -> tdbAlert app._err(err), 'error'
 
     app.el.yamlModalCloseBtn().addEventListener 'click', ->

@@ -357,10 +357,10 @@
       ctx = context || {};
       if (ctx.viewId) {
         if (((ref = app._currentCustomView) != null ? ref.id : void 0) !== ctx.viewId) {
-          li = (ref1 = app.el.customViewList()) != null ? ref1.querySelector(`.leaf-item[data-id='${ctx.viewId}']`) : void 0;
+          li = (ref1 = app.el.pageList()) != null ? ref1.querySelector(`.leaf-item[data-id='${ctx.viewId}']`) : void 0;
           if (!li) {
-            await app.loadCustomViews();
-            li = (ref2 = app.el.customViewList()) != null ? ref2.querySelector(`.leaf-item[data-id='${ctx.viewId}']`) : void 0;
+            await app.loadPages();
+            li = (ref2 = app.el.pageList()) != null ? ref2.querySelector(`.leaf-item[data-id='${ctx.viewId}']`) : void 0;
           }
           if (li != null) {
             li.click();

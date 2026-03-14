@@ -411,10 +411,10 @@ make_sidebar = ->
     }
     H.div {class: 'sidebar-section',
       H.div {class: 'sidebar-section-title',
-        H.span {'Vues'}
-        H.button {id: 'new-view-btn', title: 'Nouvelle vue', '＋'}
+        H.span {'Pages'}
+        H.button {id: 'new-page-btn', title: 'Nouvelle page', '＋'}
       }
-      H.ul {id: 'custom-view-list', ''}
+      H.ul {id: 'page-list', ''}
     }
     H.div {class: 'sidebar-section',
       H.div {class: 'sidebar-section-title',
@@ -559,10 +559,10 @@ make_content = ->
     }
     H.div {id: 'yaml-editor-panel', class: 'hidden',
       H.div {class: 'yaml-editor-toolbar',
-        H.span {id: 'yaml-view-name', class: 'content-title', ''}
+        H.span {id: 'yaml-page-name', class: 'content-title', ''}
         H.button {id: 'yaml-edit-btn', class: 'toolbar-btn', '✎ Éditer'}
         H.button {id: 'yaml-add-widget-btn', class: 'toolbar-btn', '＋ Widget'}
-        H.button {id: 'yaml-delete-btn', class: 'toolbar-btn toolbar-btn--danger', title: 'Supprimer la vue', '🗑'}
+        H.button {id: 'yaml-delete-btn', class: 'toolbar-btn toolbar-btn--danger', title: 'Supprimer la page', '🗑'}
       }
     }
     H.div {id: 'content-row',

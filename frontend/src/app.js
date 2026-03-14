@@ -134,11 +134,11 @@
       newSpaceBtn: function() {
         return document.getElementById('new-space-btn');
       },
-      customViewList: function() {
-        return document.getElementById('custom-view-list');
+      pageList: function() {
+        return document.getElementById('page-list');
       },
-      newViewBtn: function() {
-        return document.getElementById('new-view-btn');
+      newPageBtn: function() {
+        return document.getElementById('new-page-btn');
       },
       adminSidebarSection: function() {
         return document.getElementById('admin-sidebar-section');
@@ -242,8 +242,8 @@
       yamlEditorPanel: function() {
         return document.getElementById('yaml-editor-panel');
       },
-      yamlViewName: function() {
-        return document.getElementById('yaml-view-name');
+      yamlPageName: function() {
+        return document.getElementById('yaml-page-name');
       },
       yamlEditBtn: function() {
         return document.getElementById('yaml-edit-btn');
@@ -622,15 +622,15 @@
     _mountDataView: function(space) {
       return window.AppDataHelpers.mountDataView(this, space);
     },
-    // ── Custom views (Views section) ─────────────────────────────────────────────
-    loadCustomViews: function() {
-      return window.AppViewHelpers.loadCustomViews(this);
+    // ── Pages (formerly Custom views) ─────────────────────────────────────────
+    loadPages: function() {
+      return window.AppViewHelpers.loadPages(this);
     },
-    renderCustomViewList: function(views) {
-      return window.AppViewHelpers.renderCustomViewList(this, views);
+    renderPageList: function(views) {
+      return window.AppViewHelpers.renderPageList(this, views);
     },
-    selectCustomView: function(cv) {
-      return window.AppViewHelpers.selectCustomView(this, cv);
+    selectPage: function(cv) {
+      return window.AppViewHelpers.selectPage(this, cv);
     },
     _renderCustomViewPreview: function(yamlText) {
       return window.AppViewHelpers.renderCustomViewPreview(this, yamlText);

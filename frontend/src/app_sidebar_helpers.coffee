@@ -24,14 +24,14 @@ window.AppSidebarHelpers =
         .then -> app._loadAll()
         .catch (err) -> tdbAlert app._err(err), 'error'
 
-    app.el.newViewBtn().addEventListener 'click', ->
-      name = await tdbPrompt app._t('ui.prompts.newView')
+    app.el.newPageBtn().addEventListener 'click', ->
+      name = await tdbPrompt app._t('ui.prompts.newPage')
       return unless name?.trim()
       GQL.mutate(app._createCustomViewMutation, { input: { name: name.trim(), yaml: "layout:\n  direction: vertical\n  children: []\n" } })
         .then (data) ->
-          app.loadCustomViews().then ->
+          app.loadPages().then ->
             cv = data.createCustomView
-            app.selectCustomView cv
+            app.selectPage cv
         .catch (err) -> tdbAlert app._err(err), 'error'
 
     document.getElementById('sidebar-toggle')?.addEventListener 'click', ->

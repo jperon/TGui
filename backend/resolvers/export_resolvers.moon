@@ -190,7 +190,7 @@ diff_snapshot = (snap) ->
   result = {
     spacesToCreate: {}, spacesToDelete: {}
     fieldsToCreate: {}, fieldsToDelete: {}, fieldsToChange: {}
-    customViewsToCreate: {}, customViewsToUpdate: {}
+    pagesToCreate: {}, pagesToUpdate: {}
     widgetPluginsToCreate: {}, widgetPluginsToUpdate: {}
   }
 
@@ -249,9 +249,9 @@ diff_snapshot = (snap) ->
   -- Custom views diff
   for icv in *incoming_cvs
     if not current_cvs[icv.name]
-      table.insert result.customViewsToCreate, icv.name
+      table.insert result.pagesToCreate, icv.name
     elseif current_cvs[icv.name] != icv.yaml
-      table.insert result.customViewsToUpdate, icv.name
+      table.insert result.pagesToUpdate, icv.name
 
   -- Widget plugins diff
   for iwp in *incoming_wps

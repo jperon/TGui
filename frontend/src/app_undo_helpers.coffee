@@ -191,10 +191,10 @@ window.AppUndoHelpers =
 
     if ctx.viewId
       if app._currentCustomView?.id != ctx.viewId
-        li = app.el.customViewList()?.querySelector ".leaf-item[data-id='#{ctx.viewId}']"
+        li = app.el.pageList()?.querySelector ".leaf-item[data-id='#{ctx.viewId}']"
         unless li
-          await app.loadCustomViews()
-          li = app.el.customViewList()?.querySelector ".leaf-item[data-id='#{ctx.viewId}']"
+          await app.loadPages()
+          li = app.el.pageList()?.querySelector ".leaf-item[data-id='#{ctx.viewId}']"
         li?.click()
         await waitUntil (-> app._currentCustomView?.id == ctx.viewId)
       return

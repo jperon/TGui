@@ -21,12 +21,12 @@ CATALOGS =
         langEn: 'EN'
       prompts:
         newSpace: 'Nom du nouvel espace :'
-        newView: 'Nom de la nouvelle vue :'
+        newPage: 'Nom de la nouvelle page :'
         newPasswordFor: 'Nouveau mot de passe pour {username} :'
         renameSpace: "Nouveau nom de l'espace :"
       confirms:
         deleteGroup: 'Supprimer le groupe « {name} » ?'
-        deleteView: 'Supprimer la vue « {name} » ?'
+        deletePage: 'Supprimer la page « {name} » ?'
         deleteSpace: "Supprimer l'espace « {name} » et toutes ses données ?"
         deleteField: 'Supprimer le champ « {name} » ?'
         replaceImport: '⚠ Mode Remplacement : toutes les données existantes seront effacées. Continuer ?'
@@ -63,8 +63,8 @@ CATALOGS =
         sectionFieldsDelete: '⚠ Champs à supprimer'
         sectionFieldsChange: '~ Champs à modifier (type)'
         sectionFieldsCreate: '+ Champs à créer'
-        sectionCustomViewsCreate: '+ Vues personnalisées à créer'
-        sectionCustomViewsUpdate: '~ Vues personnalisées à mettre à jour'
+        sectionPagesCreate: '+ Pages à créer'
+        sectionPagesUpdate: '~ Pages à mettre à jour'
         sectionWidgetPluginsCreate: '+ Plugins widget à créer'
         sectionWidgetPluginsUpdate: '~ Plugins widget à mettre à jour'
   en:
@@ -85,12 +85,12 @@ CATALOGS =
         langEn: 'EN'
       prompts:
         newSpace: 'Name of the new space:'
-        newView: 'Name of the new view:'
+        newPage: 'Name of the new page:'
         newPasswordFor: 'New password for {username}:'
         renameSpace: 'New space name:'
       confirms:
         deleteGroup: 'Delete group “{name}”?'
-        deleteView: 'Delete view “{name}”?'
+        deletePage: 'Delete page “{name}”?'
         deleteSpace: 'Delete space “{name}” and all its data?'
         deleteField: 'Delete field “{name}”?'
         replaceImport: '⚠ Replace mode: all existing data will be erased. Continue?'
@@ -127,8 +127,8 @@ CATALOGS =
         sectionFieldsDelete: '⚠ Fields to delete'
         sectionFieldsChange: '~ Fields to modify (type)'
         sectionFieldsCreate: '+ Fields to create'
-        sectionCustomViewsCreate: '+ Custom views to create'
-        sectionCustomViewsUpdate: '~ Custom views to update'
+        sectionPagesCreate: '+ Pages to create'
+        sectionPagesUpdate: '~ Pages to update'
         sectionWidgetPluginsCreate: '+ Widget plugins to create'
         sectionWidgetPluginsUpdate: '~ Widget plugins to update'
 

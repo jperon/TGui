@@ -76,7 +76,7 @@
   fieldsToCreate { space field oldType newType }
   fieldsToDelete { space field oldType newType }
   fieldsToChange { space field oldType newType }
-  customViewsToCreate customViewsToUpdate
+  pagesToCreate pagesToUpdate
   widgetPluginsToCreate widgetPluginsToUpdate
 } }`, {
             y: app._snapshotYaml
@@ -183,7 +183,7 @@
         }
         return c.appendChild(ul);
       };
-      noop = diff.spacesToCreate.length === 0 && diff.spacesToDelete.length === 0 && diff.fieldsToCreate.length === 0 && diff.fieldsToDelete.length === 0 && diff.fieldsToChange.length === 0 && diff.customViewsToCreate.length === 0 && diff.customViewsToUpdate.length === 0 && diff.widgetPluginsToCreate.length === 0 && diff.widgetPluginsToUpdate.length === 0;
+      noop = diff.spacesToCreate.length === 0 && diff.spacesToDelete.length === 0 && diff.fieldsToCreate.length === 0 && diff.fieldsToDelete.length === 0 && diff.fieldsToChange.length === 0 && diff.pagesToCreate.length === 0 && diff.pagesToUpdate.length === 0 && diff.widgetPluginsToCreate.length === 0 && diff.widgetPluginsToUpdate.length === 0;
       if (noop) {
         p = document.createElement('p');
         p.className = 'snapshot-diff-noop';
@@ -195,8 +195,8 @@
         section(app._t('ui.snapshot.sectionFieldsDelete'), diff.fieldsToDelete, 'diff-list diff-delete');
         section(app._t('ui.snapshot.sectionFieldsChange'), diff.fieldsToChange, 'diff-list diff-change');
         section(app._t('ui.snapshot.sectionFieldsCreate'), diff.fieldsToCreate, 'diff-list diff-create');
-        section(app._t('ui.snapshot.sectionCustomViewsCreate'), diff.customViewsToCreate, 'diff-list diff-create');
-        section(app._t('ui.snapshot.sectionCustomViewsUpdate'), diff.customViewsToUpdate, 'diff-list diff-change');
+        section(app._t('ui.snapshot.sectionPagesCreate'), diff.pagesToCreate, 'diff-list diff-create');
+        section(app._t('ui.snapshot.sectionPagesUpdate'), diff.pagesToUpdate, 'diff-list diff-change');
         section(app._t('ui.snapshot.sectionWidgetPluginsCreate'), diff.widgetPluginsToCreate, 'diff-list diff-create');
         return section(app._t('ui.snapshot.sectionWidgetPluginsUpdate'), diff.widgetPluginsToUpdate, 'diff-list diff-change');
       }

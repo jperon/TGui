@@ -993,16 +993,16 @@ make_sidebar = function()
       H.div({
         class = 'sidebar-section-title',
         H.span({
-          'Vues'
+          'Pages'
         }),
         H.button({
-          id = 'new-view-btn',
-          title = 'Nouvelle vue',
+          id = 'new-page-btn',
+          title = 'Nouvelle page',
           '＋'
         })
       }),
       H.ul({
-        id = 'custom-view-list',
+        id = 'page-list',
         ''
       })
     }),
@@ -1373,7 +1373,7 @@ make_content = function()
       H.div({
         class = 'yaml-editor-toolbar',
         H.span({
-          id = 'yaml-view-name',
+          id = 'yaml-page-name',
           class = 'content-title',
           ''
         }),
@@ -1390,7 +1390,7 @@ make_content = function()
         H.button({
           id = 'yaml-delete-btn',
           class = 'toolbar-btn toolbar-btn--danger',
-          title = 'Supprimer la vue',
+          title = 'Supprimer la page',
           '🗑'
         })
       })

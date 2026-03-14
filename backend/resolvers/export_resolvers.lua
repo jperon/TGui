@@ -275,8 +275,8 @@ diff_snapshot = function(snap)
     fieldsToCreate = { },
     fieldsToDelete = { },
     fieldsToChange = { },
-    customViewsToCreate = { },
-    customViewsToUpdate = { },
+    pagesToCreate = { },
+    pagesToUpdate = { },
     widgetPluginsToCreate = { },
     widgetPluginsToUpdate = { }
   }
@@ -361,9 +361,9 @@ diff_snapshot = function(snap)
   for _index_0 = 1, #incoming_cvs do
     local icv = incoming_cvs[_index_0]
     if not current_cvs[icv.name] then
-      table.insert(result.customViewsToCreate, icv.name)
+      table.insert(result.pagesToCreate, icv.name)
     elseif current_cvs[icv.name] ~= icv.yaml then
-      table.insert(result.customViewsToUpdate, icv.name)
+      table.insert(result.pagesToUpdate, icv.name)
     end
   end
   for _index_0 = 1, #incoming_wps do

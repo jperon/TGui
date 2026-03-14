@@ -2,7 +2,7 @@
 
 window.AppDataHelpers =
   loadAll: (app) ->
-    Promise.all([app.loadSpaces(), app.loadCustomViews()]).then -> app._restoreFromHash()
+    Promise.all([app.loadSpaces(), app.loadPages()]).then -> app._restoreFromHash()
 
   restoreFromHash: (app) ->
     hash = window.location.hash
@@ -10,9 +10,9 @@ window.AppDataHelpers =
       spaceId = m[1]
       sp = (app._allSpaces or []).find (s) -> s.id == spaceId
       app.selectSpace sp if sp
-    else if m = hash.match /^#view\/(.+)$/
+    else if m = hash.match /^#page\/(.+)$/
       viewId = m[1]
-      ul = app.el.customViewList()
+      ul = app.el.pageList()
       cvItems = ul.querySelectorAll 'li'
       for li in cvItems
         if li.dataset.id == viewId
@@ -42,7 +42,7 @@ window.AppDataHelpers =
 
   selectSpace: (app, sp) ->
     history.replaceState null, '', "#space/#{sp.id}"
-    for li in app.el.customViewList().querySelectorAll 'li'
+    for li in app.el.pageList().querySelectorAll 'li'
       li.classList.remove 'active'
     for li in app.el.spaceList().querySelectorAll 'li'
       li.classList.toggle 'active', li.dataset.id == sp.id

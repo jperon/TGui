@@ -3,16 +3,16 @@
   var hasProp = {}.hasOwnProperty;
 
   window.AppViewHelpers = {
-    loadCustomViews: function(app) {
+    loadPages: function(app) {
       return GQL.query(app._listCustomViewsQuery).then(function(data) {
-        return app.renderCustomViewList(data.customViews);
+        return app.renderPageList(data.customViews);
       }).catch(function(err) {
         return tdbAlert(app._err(err), 'error');
       });
     },
-    renderCustomViewList: function(app, views) {
+    renderPageList: function(app, views) {
       var base, curr, cv, dictName, i, j, len, len1, parts, ref, ref1, renderTree, tree, ul;
-      ul = app.el.customViewList();
+      ul = app.el.pageList();
       ul.innerHTML = '';
       tree = {
         items: [],
@@ -61,7 +61,7 @@
           subUl = document.createElement('ul');
           subUl.className = 'folder-children';
           folderLi.appendChild(subUl);
-          lsKey = `tdb_folder_view_${fullPath}`;
+          lsKey = `tdb_folder_page_${fullPath}`;
           if (localStorage.getItem(lsKey) === 'true') {
             folderLi.classList.add('collapsed');
           }
@@ -88,7 +88,7 @@
           (function(cv) {
             return li.addEventListener('click', function(e) {
               e.stopPropagation();
-              return app.selectCustomView(cv);
+              return app.selectPage(cv);
             });
           })(item.cv);
           results1.push(containerEl.appendChild(li));
@@ -97,22 +97,22 @@
       };
       return renderTree(tree, ul);
     },
-    selectCustomView: function(app, cv) {
+    selectPage: function(app, cv) {
       var i, j, len, len1, li, panel, parent, ref, ref1, ref2, ref3, ref4;
-      history.replaceState(null, '', `#view/${cv.id}`);
+      history.replaceState(null, '', `#page/${cv.id}`);
       app._currentCustomView = cv;
       ref = app.el.spaceList().querySelectorAll('li');
       for (i = 0, len = ref.length; i < len; i++) {
         li = ref[i];
         li.classList.remove('active');
       }
-      ref1 = app.el.customViewList().querySelectorAll('.leaf-item');
+      ref1 = app.el.pageList().querySelectorAll('.leaf-item');
       for (j = 0, len1 = ref1.length; j < len1; j++) {
         li = ref1[j];
         li.classList.toggle('active', li.dataset.id === cv.id);
         if (li.dataset.id === cv.id) {
           parent = li.parentElement;
-          while (parent && parent.id !== 'custom-view-list') {
+          while (parent && parent.id !== 'page-list') {
             if (parent.tagName === 'LI' && parent.classList.contains('folder-item')) {
               parent.classList.remove('collapsed');
             }
@@ -135,7 +135,7 @@
       app.el.contentRow().classList.remove('hidden');
       panel = app.el.yamlEditorPanel();
       panel.classList.remove('hidden');
-      app.el.yamlViewName().textContent = cv.name;
+      app.el.yamlPageName().textContent = cv.name;
       if ((ref3 = cv.yaml) != null ? ref3.trim() : void 0) {
         app._renderCustomViewPreview(cv.yaml);
       } else {
@@ -169,7 +169,7 @@
         if (!cv) {
           return;
         }
-        if (!(await tdbConfirm(app._t('ui.confirms.deleteView', {
+        if (!(await tdbConfirm(app._t('ui.confirms.deletePage', {
           name: cv.name
         })))) {
           return;
@@ -188,7 +188,7 @@
           app.el.yamlEditorPanel().classList.add('hidden');
           app.el.customViewContainer().classList.add('hidden');
           app.el.welcome().classList.remove('hidden');
-          return app.loadCustomViews();
+          return app.loadPages();
         }).catch(function(err) {
           return tdbAlert(app._err(err), 'error');
         });
@@ -207,7 +207,7 @@
           app._currentCustomView = data.updateCustomView;
           app.el.yamlModal().classList.add('hidden');
           app._renderCustomViewPreview(yaml);
-          return app.loadCustomViews();
+          return app.loadPages();
         }).catch(function(err) {
           return tdbAlert(app._err(err), 'error');
         });

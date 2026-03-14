@@ -120,8 +120,8 @@ window.App =
     langEnBtn:         -> document.getElementById 'lang-en-btn'
     spaceList:         -> document.getElementById 'space-list'
     newSpaceBtn:       -> document.getElementById 'new-space-btn'
-    customViewList:    -> document.getElementById 'custom-view-list'
-    newViewBtn:        -> document.getElementById 'new-view-btn'
+    pageList:          -> document.getElementById 'page-list'
+    newPageBtn:         -> document.getElementById 'new-page-btn'
     adminSidebarSection: -> document.getElementById 'admin-sidebar-section'
     adminNavUsers:     -> document.getElementById 'admin-nav-users'
     adminNavGroups:    -> document.getElementById 'admin-nav-groups'
@@ -156,7 +156,7 @@ window.App =
     relReprRow:        -> document.getElementById 'rel-repr-row'
     relReprFormula:    -> document.getElementById 'rel-repr-formula'
     yamlEditorPanel:   -> document.getElementById 'yaml-editor-panel'
-    yamlViewName:      -> document.getElementById 'yaml-view-name'
+    yamlPageName:      -> document.getElementById 'yaml-page-name'
     yamlEditBtn:       -> document.getElementById 'yaml-edit-btn'
     yamlDeleteBtn:     -> document.getElementById 'yaml-delete-btn'
     # YAML modal (CodeMirror)
@@ -367,15 +367,15 @@ window.App =
   _mountDataView: (space) ->
     window.AppDataHelpers.mountDataView @, space
 
-  # ── Custom views (Views section) ─────────────────────────────────────────────
-  loadCustomViews: ->
-    window.AppViewHelpers.loadCustomViews @
+  # ── Pages (formerly Custom views) ─────────────────────────────────────────
+  loadPages: ->
+    window.AppViewHelpers.loadPages @
 
-  renderCustomViewList: (views) ->
-    window.AppViewHelpers.renderCustomViewList @, views
+  renderPageList: (views) ->
+    window.AppViewHelpers.renderPageList @, views
 
-  selectCustomView: (cv) ->
-    window.AppViewHelpers.selectCustomView @, cv
+  selectPage: (cv) ->
+    window.AppViewHelpers.selectPage @, cv
 
   _renderCustomViewPreview: (yamlText) ->
     window.AppViewHelpers.renderCustomViewPreview @, yamlText

@@ -68,7 +68,7 @@ window.AppSnapshotHelpers =
             fieldsToCreate { space field oldType newType }
             fieldsToDelete { space field oldType newType }
             fieldsToChange { space field oldType newType }
-            customViewsToCreate customViewsToUpdate
+            pagesToCreate pagesToUpdate
             widgetPluginsToCreate widgetPluginsToUpdate
           } }
         """, { y: app._snapshotYaml })
@@ -142,8 +142,8 @@ window.AppSnapshotHelpers =
 
     noop = diff.spacesToCreate.length == 0 and diff.spacesToDelete.length == 0 and
            diff.fieldsToCreate.length == 0 and diff.fieldsToDelete.length == 0 and
-           diff.fieldsToChange.length == 0 and diff.customViewsToCreate.length == 0 and
-           diff.customViewsToUpdate.length == 0 and
+           diff.fieldsToChange.length == 0 and diff.pagesToCreate.length == 0 and
+           diff.pagesToUpdate.length == 0 and
            diff.widgetPluginsToCreate.length == 0 and diff.widgetPluginsToUpdate.length == 0
 
     if noop
@@ -157,7 +157,7 @@ window.AppSnapshotHelpers =
       section app._t('ui.snapshot.sectionFieldsDelete'), diff.fieldsToDelete, 'diff-list diff-delete'
       section app._t('ui.snapshot.sectionFieldsChange'), diff.fieldsToChange, 'diff-list diff-change'
       section app._t('ui.snapshot.sectionFieldsCreate'), diff.fieldsToCreate, 'diff-list diff-create'
-      section app._t('ui.snapshot.sectionCustomViewsCreate'), diff.customViewsToCreate, 'diff-list diff-create'
-      section app._t('ui.snapshot.sectionCustomViewsUpdate'), diff.customViewsToUpdate, 'diff-list diff-change'
+      section app._t('ui.snapshot.sectionPagesCreate'), diff.pagesToCreate, 'diff-list diff-create'
+      section app._t('ui.snapshot.sectionPagesUpdate'), diff.pagesToUpdate, 'diff-list diff-change'
       section app._t('ui.snapshot.sectionWidgetPluginsCreate'), diff.widgetPluginsToCreate, 'diff-list diff-create'
       section app._t('ui.snapshot.sectionWidgetPluginsUpdate'), diff.widgetPluginsToUpdate, 'diff-list diff-change'

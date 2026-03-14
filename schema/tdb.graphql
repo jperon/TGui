@@ -475,8 +475,8 @@ type SnapshotDiff {
   fieldsToCreate:       [FieldDiff!]!
   fieldsToDelete:       [FieldDiff!]!
   fieldsToChange:       [FieldDiff!]!
-  customViewsToCreate:  [String!]!
-  customViewsToUpdate:  [String!]!
+  pagesToCreate:        [String!]!
+  pagesToUpdate:        [String!]!
   widgetPluginsToCreate: [String!]!
   widgetPluginsToUpdate: [String!]!
 }

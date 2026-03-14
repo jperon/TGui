@@ -2,7 +2,7 @@
   // app_data_helpers.coffee — space/data toolbar/hash helpers extracted from app.coffee
   window.AppDataHelpers = {
     loadAll: function(app) {
-      return Promise.all([app.loadSpaces(), app.loadCustomViews()]).then(function() {
+      return Promise.all([app.loadSpaces(), app.loadPages()]).then(function() {
         return app._restoreFromHash();
       });
     },
@@ -17,9 +17,9 @@
         if (sp) {
           return app.selectSpace(sp);
         }
-      } else if (m = hash.match(/^#view\/(.+)$/)) {
+      } else if (m = hash.match(/^#page\/(.+)$/)) {
         viewId = m[1];
-        ul = app.el.customViewList();
+        ul = app.el.pageList();
         cvItems = ul.querySelectorAll('li');
         results = [];
         for (i = 0, len = cvItems.length; i < len; i++) {
@@ -67,7 +67,7 @@
     selectSpace: function(app, sp) {
       var i, j, len, len1, li, ref, ref1, ref2;
       history.replaceState(null, '', `#space/${sp.id}`);
-      ref = app.el.customViewList().querySelectorAll('li');
+      ref = app.el.pageList().querySelectorAll('li');
       for (i = 0, len = ref.length; i < len; i++) {
         li = ref[i];
         li.classList.remove('active');
