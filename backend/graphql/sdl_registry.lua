@@ -197,6 +197,21 @@ local Mutation = {
     returns = 'Boolean!'
   },
   {
+    name = 'addWidgetToView',
+    args = 'viewId: ID!, widget: WidgetInput!',
+    returns = 'CustomView!'
+  },
+  {
+    name = 'updateWidgetInView',
+    args = 'viewId: ID!, widgetId: String!, widget: WidgetInput!',
+    returns = 'CustomView!'
+  },
+  {
+    name = 'removeWidgetFromView',
+    args = 'viewId: ID!, widgetId: String!',
+    returns = 'CustomView!'
+  },
+  {
     name = 'insertRecord',
     args = 'spaceId: ID!, data: JSON!',
     returns = 'Record!'
@@ -292,7 +307,29 @@ local Mutation = {
     returns = 'ImportResult!'
   }
 }
+local InputTypes = {
+  {
+    name = 'WidgetInput',
+    definition = 'input WidgetInput {\n  title:       String!\n  type:        String!\n  spaceId:     ID!\n  fields:      [String!]!\n  groupBy:     String\n  params:      JSON\n  position:    PositionInput\n}'
+  },
+  {
+    name = 'PositionInput',
+    definition = 'input PositionInput {\n  x: Int!\n  y: Int!\n  w: Int!\n  h: Int!\n}'
+  }
+}
+local ObjectTypes = {
+  {
+    name = 'CustomView',
+    definition = 'type CustomView {\n  id:          ID!\n  name:        String!\n  description: String\n  yaml:        String\n  createdAt:   String!\n  updatedAt:   String!\n}'
+  },
+  {
+    name = 'WidgetPlugin',
+    definition = 'type WidgetPlugin {\n  id:              ID!\n  name:            String!\n  description:     String\n  templateCode:    String!\n  templateLanguage: String!\n  scriptCode:      String!\n  scriptLanguage:  String!\n  createdAt:       String!\n  updatedAt:       String!\n}'
+  }
+}
 return {
   Query = Query,
-  Mutation = Mutation
+  Mutation = Mutation,
+  InputTypes = InputTypes,
+  ObjectTypes = ObjectTypes
 }

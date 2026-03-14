@@ -123,6 +123,9 @@
       app.el.adminNavSnapshot().addEventListener('click', function() {
         return app._showAdminPanel('snapshot');
       });
+      app.el.pluginsNavManage().addEventListener('click', function() {
+        return app._openWidgetPluginModal();
+      });
       app.el.warningChangePasswordBtn().addEventListener('click', function() {
         return app._openChangePasswordDialog();
       });

@@ -157,15 +157,12 @@
       return app._activeCustomView.mount();
     },
     bindYamlEditor: function(app) {
-      var ref;
       app.el.yamlEditBtn().addEventListener('click', function() {
         return app._openYamlModal();
       });
-      if ((ref = app.el.yamlPluginsBtn()) != null) {
-        ref.addEventListener('click', function() {
-          return app._openWidgetPluginModal();
-        });
-      }
+      app.el.yamlAddWidgetBtn().addEventListener('click', function() {
+        return window.AppViewHelpers._openAddWidgetModal(app);
+      });
       app.el.yamlDeleteBtn().addEventListener('click', async function() {
         var cv;
         cv = app._currentCustomView;
@@ -180,11 +177,11 @@
         return GQL.mutate(app._deleteCustomViewMutation, {
           id: cv.id
         }).then(function() {
-          var ref1;
+          var ref;
           app._currentCustomView = null;
-          if ((ref1 = app._activeCustomView) != null) {
-            if (typeof ref1.unmount === "function") {
-              ref1.unmount();
+          if ((ref = app._activeCustomView) != null) {
+            if (typeof ref.unmount === "function") {
+              ref.unmount();
             }
           }
           app._activeCustomView = null;
@@ -226,13 +223,21 @@
       });
     },
     openYamlModal: function(app) {
-      var applyValidationLayout, cv, yamlPane;
+      var applyValidationLayout, cv, ref, yamlPane;
       cv = app._currentCustomView;
       if (!cv) {
         return;
       }
       app.el.yamlModalTitle().textContent = cv.name;
       app.el.yamlModal().classList.remove('hidden');
+      // Ajouter la palette d'insertion de layouts dans le header de la modale YAML
+      this.setupLayoutPalette(app);
+      // Configurer le listener global d'insertion de layouts
+      if ((ref = window.CustomView) != null) {
+        if (typeof ref.setupLayoutInsertion === "function") {
+          ref.setupLayoutInsertion();
+        }
+      }
       yamlPane = document.querySelector('.yaml-editor-pane');
       applyValidationLayout = function() {
         var hasError;
@@ -252,28 +257,28 @@
           indentWithTabs: false
         });
         app._cmYaml.on('change', function(cm, change) {
-          var e, ref, ref1, ref2;
+          var e, ref1, ref2, ref3;
           if (!app._yamlValidMsg) {
             app._yamlValidMsg = document.getElementById('yaml-validation-msg');
           }
           if (change.origin === 'setValue') {
-            if ((ref = app._yamlValidMsg) != null) {
-              ref.classList.add('hidden');
+            if ((ref1 = app._yamlValidMsg) != null) {
+              ref1.classList.add('hidden');
             }
             applyValidationLayout();
             return;
           }
-          if ((ref1 = app._yamlBuilder) != null) {
-            ref1.reloadFromYaml(cm.getValue());
+          if ((ref2 = app._yamlBuilder) != null) {
+            ref2.reloadFromYaml(cm.getValue());
           }
           try {
             jsyaml.load(cm.getValue());
-            if ((ref2 = app._yamlValidMsg) != null) {
-              ref2.classList.add('hidden');
+            if ((ref3 = app._yamlValidMsg) != null) {
+              ref3.classList.add('hidden');
             }
             return applyValidationLayout();
-          } catch (error) {
-            e = error;
+          } catch (error1) {
+            e = error1;
             if (app._yamlValidMsg) {
               app._yamlValidMsg.textContent = `YAML invalide : ${e.message}`;
               app._yamlValidMsg.classList.remove('hidden');
@@ -298,8 +303,8 @@
           allRelations: relations,
           initialYaml: cv.yaml || '',
           onChange: function(yaml) {
-            var ref;
-            return (ref = app._cmYaml) != null ? ref.setValue(yaml) : void 0;
+            var ref1;
+            return (ref1 = app._cmYaml) != null ? ref1.setValue(yaml) : void 0;
           }
         });
         return app._yamlBuilder.mount();
@@ -370,8 +375,8 @@
       try {
         parsed = jsyaml.load(yamlText || '');
         walk(parsed);
-      } catch (error) {
-        e = error;
+      } catch (error1) {
+        e = error1;
         console.warn('collect plugin dependencies from yaml failed', e);
       }
       return types;
@@ -845,7 +850,679 @@
         return (ref1 = app._cmWidgetPluginTemplate) != null ? ref1.refresh() : void 0;
       }), 10);
       return window.AppViewHelpers._loadWidgetPlugins(app);
+    },
+    setupLayoutPalette: function(app) {
+      var actionsContainer, btnHoriz, btnVert, existingPalette, palette;
+      // Vérifier si la palette existe déjà pour éviter les doublons
+      existingPalette = document.querySelector('.cv-layout-palette');
+      if (existingPalette) {
+        return;
+      }
+      // Créer la palette d'insertion de layouts
+      palette = document.createElement('div');
+      palette.className = 'cv-layout-palette';
+      btnVert = document.createElement('button');
+      btnVert.textContent = 'Ajouter layout vertical';
+      btnVert.className = 'cv-layout-btn';
+      btnVert.title = 'Insérer un layout vertical';
+      btnHoriz = document.createElement('button');
+      btnHoriz.textContent = 'Ajouter layout horizontal';
+      btnHoriz.className = 'cv-layout-btn';
+      btnHoriz.title = 'Insérer un layout horizontal';
+      palette.appendChild(btnVert);
+      palette.appendChild(btnHoriz);
+      // Insérer la palette dans le header de la modale YAML
+      actionsContainer = document.querySelector('.modal-editor-actions');
+      if (actionsContainer) {
+        actionsContainer.insertBefore(palette, actionsContainer.firstChild);
+        // Gestion des clics sur la palette
+        btnVert.addEventListener('click', function() {
+          return window.dispatchEvent(new CustomEvent('cv-insert-layout', {
+            detail: {
+              direction: 'vertical'
+            }
+          }));
+        });
+        return btnHoriz.addEventListener('click', function() {
+          return window.dispatchEvent(new CustomEvent('cv-insert-layout', {
+            detail: {
+              direction: 'horizontal'
+            }
+          }));
+        });
+      }
+    },
+    _openAddWidgetModal: function(app) {
+      var cv;
+      cv = app._currentCustomView;
+      if (!cv) {
+        return;
+      }
+      // Afficher la modale
+      app.el.addWidgetModal().classList.remove('hidden');
+      // Corriger le HTML manquant dynamiquement
+      window.AppViewHelpers._fixModalHTML();
+      // Initialiser la modale avec les fonctions de base
+      return window.AppViewHelpers._initializeWidgetModal(app);
+    },
+    _fixModalHTML: function() {
+      var dataSourceConfig, fieldsContainer, fieldsSection, groupBySection, groupBySelect;
+      // Ajouter les sections manquantes si elles n'existent pas
+      dataSourceConfig = document.querySelector('.data-source-config');
+      if (!dataSourceConfig) {
+        return;
+      }
+      // Vérifier si les sections manquent
+      fieldsContainer = document.getElementById('widget-fields-container');
+      groupBySelect = document.getElementById('widget-groupby-select');
+      if (!fieldsContainer) {
+        // Créer la section des champs
+        fieldsSection = document.createElement('div');
+        fieldsSection.className = 'config-row';
+        fieldsSection.innerHTML = `<label>Colonnes à afficher:</label>
+<div id="widget-fields-container" class="fields-container">
+  <div class="fields-header">
+    <div class="field-group">Disponibles:</div>
+    <div class="field-group">Sélectionnées:</div>
+  </div>
+  <div class="fields-lists">
+    <div id="available-fields" class="fields-list"> </div>
+    <div id="selected-fields" class="fields-list selected"> </div>
+  </div>
+</div>`;
+        dataSourceConfig.appendChild(fieldsSection);
+      }
+      if (!groupBySelect) {
+        // Créer la section de groupement
+        groupBySection = document.createElement('div');
+        groupBySection.className = 'config-row';
+        groupBySection.innerHTML = `<label>Groupement (GROUP BY):</label>
+<select id="widget-groupby-select" class="widget-select">
+  <option value="">Aucun groupement</option>
+</select>`;
+        return dataSourceConfig.appendChild(groupBySection);
+      }
+    },
+    _initializeWidgetModal: function(app) {
+      // Charger les espaces disponibles
+      window.AppViewHelpers._loadAvailableSpaces(app);
+      // Lier les événements de base
+      return window.AppViewHelpers._bindBasicWidgetEvents(app);
+    },
+    _loadAvailableSpaces: function(app) {
+      // Charger la liste des espaces dans le select
+      return window.Spaces.list().then(function(spaces) {
+        var i, len, option, select, space;
+        select = document.getElementById('widget-space-select');
+        if (!select) {
+          return;
+        }
+        select.innerHTML = '<option value="">Sélectionner un espace...</option>';
+        // Stocker les données pour utilisation ultérieure
+        app._spacesData = spaces;
+        for (i = 0, len = spaces.length; i < len; i++) {
+          space = spaces[i];
+          option = document.createElement('option');
+          option.value = space.id;
+          option.textContent = space.name;
+          select.appendChild(option);
+        }
+        // Écouter les changements pour charger les champs
+        return select.addEventListener('change', function() {
+          var selectedSpace, spaceId;
+          spaceId = this.value;
+          if (!spaceId) {
+            return;
+          }
+          // Trouver l'espace correspondant
+          selectedSpace = app._spacesData.find(function(space) {
+            return space.id === spaceId;
+          });
+          if (selectedSpace) {
+            window.AppViewHelpers._populateFieldsLists(selectedSpace);
+          }
+          if (selectedSpace) {
+            return window.AppViewHelpers._populateGroupByOptions(selectedSpace);
+          }
+        });
+      });
+    },
+    _toggleFieldSelection: function(fieldItem) {
+      var availableContainer, isSelected, selectedContainer;
+      isSelected = fieldItem.classList.contains('selected');
+      availableContainer = document.getElementById('available-fields');
+      selectedContainer = document.getElementById('selected-fields');
+      if (isSelected) {
+        // Retirer de la sélection
+        fieldItem.classList.remove('selected');
+        return availableContainer.appendChild(fieldItem);
+      } else {
+        // Ajouter à la sélection
+        fieldItem.classList.add('selected');
+        return selectedContainer.appendChild(fieldItem);
+      }
+    },
+    _populateFieldsLists: function(space) {
+      var availableContainer, field, fieldItem, i, len, ref, results1, selectedContainer;
+      availableContainer = document.getElementById('available-fields');
+      selectedContainer = document.getElementById('selected-fields');
+      if (!(availableContainer && selectedContainer && space)) {
+        return;
+      }
+      // Vider les conteneurs
+      availableContainer.innerHTML = '';
+      selectedContainer.innerHTML = '';
+      ref = space.fields;
+      // Ajouter les champs disponibles
+      results1 = [];
+      for (i = 0, len = ref.length; i < len; i++) {
+        field = ref[i];
+        fieldItem = document.createElement('div');
+        fieldItem.className = 'field-item';
+        fieldItem.textContent = `${field.name} (${field.fieldType})`;
+        fieldItem.dataset.fieldId = field.id;
+        fieldItem.dataset.fieldName = field.name;
+        fieldItem.dataset.fieldType = field.fieldType;
+        fieldItem.addEventListener('click', function() {
+          return window.AppViewHelpers._toggleFieldSelection(this);
+        });
+        results1.push(availableContainer.appendChild(fieldItem));
+      }
+      return results1;
+    },
+    _populateGroupByOptions: function(space) {
+      var field, groupBySelect, i, len, option, ref, results1;
+      groupBySelect = document.getElementById('widget-groupby-select');
+      if (!(groupBySelect && space)) {
+        return;
+      }
+      // Vider et repeupler
+      groupBySelect.innerHTML = '<option value="">Aucun groupement</option>';
+      ref = space.fields;
+      // Ajouter chaque champ comme option de GROUP BY
+      results1 = [];
+      for (i = 0, len = ref.length; i < len; i++) {
+        field = ref[i];
+        option = document.createElement('option');
+        option.value = field.name;
+        option.textContent = field.name;
+        results1.push(groupBySelect.appendChild(option));
+      }
+      return results1;
+    },
+    _bindBasicWidgetEvents: function(app) {
+      var cancelBtn, confirmBtn, i, len, option, typeOptions;
+      // Gérer la sélection du type de widget
+      typeOptions = document.querySelectorAll('.widget-type-option');
+      for (i = 0, len = typeOptions.length; i < len; i++) {
+        option = typeOptions[i];
+        option.addEventListener('click', function() {
+          var j, len1, opt;
+// Désélectionner les autres
+          for (j = 0, len1 = typeOptions.length; j < len1; j++) {
+            opt = typeOptions[j];
+            opt.classList.remove('selected');
+          }
+          // Sélectionner celui-ci
+          this.classList.add('selected');
+          return this.querySelector('input[type="radio"]').checked = true;
+        });
+      }
+      // Gérer les boutons de la modale
+      confirmBtn = document.getElementById('add-widget-confirm-btn');
+      cancelBtn = document.getElementById('add-widget-cancel-btn');
+      if (confirmBtn) {
+        confirmBtn.addEventListener('click', function() {
+          return window.AppViewHelpers._submitWidget(app);
+        });
+      }
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', function() {
+          return window.AppViewHelpers._closeWidgetModal(app);
+        });
+      }
+      // Gérer les paramètres
+      return window.AppViewHelpers._bindParamsManagement(app);
+    },
+    _bindParamsManagement: function(app) {
+      var addBtn, paramsList;
+      addBtn = document.getElementById('add-param-btn');
+      paramsList = document.getElementById('widget-params-list');
+      if (!(addBtn && paramsList)) {
+        return;
+      }
+      addBtn.addEventListener('click', function() {
+        return window.AppViewHelpers._addParamRow(paramsList);
+      });
+      // Gérer les boutons de suppression existants
+      return window.AppViewHelpers._bindParamRemoval(paramsList);
+    },
+    _addParamRow: function(paramsList) {
+      var paramRow;
+      paramRow = document.createElement('div');
+      paramRow.className = 'param-row';
+      paramRow.innerHTML = `<input type="text" placeholder="Clé" class="param-key">
+<input type="text" placeholder="Valeur" class="param-value">
+<button type="button" class="param-remove-btn">✕</button>`;
+      paramsList.appendChild(paramRow);
+      return window.AppViewHelpers._bindParamRemoval(paramsList);
+    },
+    _bindParamRemoval: function(paramsList) {
+      var btn, i, len, removeBtns, results1;
+      removeBtns = paramsList.querySelectorAll('.param-remove-btn');
+      results1 = [];
+      for (i = 0, len = removeBtns.length; i < len; i++) {
+        btn = removeBtns[i];
+        // Éviter les doublons d'event listeners
+        btn.removeEventListener('click', arguments.callee);
+        results1.push(btn.addEventListener('click', function() {
+          return this.parentElement.remove();
+        }));
+      }
+      return results1;
+    },
+    _validateWidgetForm: function() {
+      var errors, selectedFields, spaceSelect, titleInput;
+      titleInput = document.getElementById('widget-title-input');
+      spaceSelect = document.getElementById('widget-space-select');
+      selectedFields = document.querySelectorAll('#selected-fields .field-item');
+      errors = [];
+      // Valider le titre
+      if (!(titleInput && titleInput.value.trim())) {
+        errors.push('Le titre du widget est requis');
+      }
+      // Valider l'espace
+      if (!(spaceSelect && spaceSelect.value)) {
+        errors.push('La sélection d\'un espace est requise');
+      }
+      // Valider les champs (au moins un champ sélectionné)
+      if (!(selectedFields.length > 0)) {
+        errors.push('Au moins un champ doit être sélectionné');
+      }
+      return errors;
+    },
+    _collectWidgetData: function() {
+      var field, fields, groupBySelect, i, j, keyInput, len, len1, paramRow, paramRows, params, selectedFields, selectedType, spaceSelect, titleInput, valueInput;
+      titleInput = document.getElementById('widget-title-input');
+      spaceSelect = document.getElementById('widget-space-select');
+      groupBySelect = document.getElementById('widget-groupby-select');
+      selectedType = document.querySelector('input[name="widget-type"]:checked');
+      selectedFields = document.querySelectorAll('#selected-fields .field-item');
+      paramRows = document.querySelectorAll('#widget-params-list .param-row');
+      // Collecter les champs sélectionnés
+      fields = [];
+      for (i = 0, len = selectedFields.length; i < len; i++) {
+        field = selectedFields[i];
+        fields.push(field.dataset.fieldName || field.textContent);
+      }
+      // Collecter les paramètres
+      params = {};
+      for (j = 0, len1 = paramRows.length; j < len1; j++) {
+        paramRow = paramRows[j];
+        keyInput = paramRow.querySelector('.param-key');
+        valueInput = paramRow.querySelector('.param-value');
+        if (keyInput && valueInput && keyInput.value.trim()) {
+          params[keyInput.value.trim()] = valueInput.value.trim();
+        }
+      }
+      return {
+        title: titleInput.value.trim(),
+        spaceId: spaceSelect.value,
+        groupBy: groupBySelect.value || null,
+        type: selectedType.value || 'table',
+        fields: fields,
+        params: params
+      };
+    },
+    _submitWidget: function(app) {
+      var errors, mutation, ref, variables, viewId, widgetData;
+      // Valider le formulaire
+      errors = window.AppViewHelpers._validateWidgetForm();
+      if (errors.length > 0) {
+        alert('Erreurs de validation:\n' + errors.join('\n'));
+        return;
+      }
+      // Collecter les données
+      widgetData = window.AppViewHelpers._collectWidgetData();
+      // Récupérer l'ID de la vue actuelle depuis l'URL
+      viewId = (ref = window.location.hash.match(/view\/([a-f0-9-]+)/)) != null ? ref[1] : void 0;
+      if (!viewId) {
+        alert('Erreur: impossible de déterminer l\'ID de la vue actuelle');
+        return;
+      }
+      // Préparer la mutation GraphQL
+      mutation = `mutation AddWidgetToView($viewId: ID!, $widget: WidgetInput!) {
+  addWidgetToView(viewId: $viewId, widget: $widget) {
+    id
+    name
+    yaml
+  }
+}`;
+      // Préparer les variables
+      variables = {
+        viewId: viewId,
+        widget: {
+          title: widgetData.title,
+          type: widgetData.type,
+          spaceId: widgetData.spaceId,
+          fields: widgetData.fields,
+          groupBy: widgetData.groupBy,
+          params: widgetData.params,
+          position: {
+            x: 0,
+            y: 0,
+            w: 6,
+            h: 4
+          }
+        }
+      };
+      // Exécuter la mutation
+      return window.GQL.mutate(mutation, variables).then(function(result) {
+        if (result.errors) {
+          console.error('GraphQL errors:', result.errors);
+          return alert('Erreur lors de la création du widget: ' + result.errors[0].message);
+        } else {
+          console.log('Widget créé avec succès:', result.data.addWidgetToView);
+          window.AppViewHelpers._closeWidgetModal(app);
+          return alert('Widget créé avec succès!');
+        }
+      // TODO: Recharger la vue pour afficher le nouveau widget
+      }).catch(function(error) {
+        console.error('Network error:', error);
+        return alert('Erreur réseau lors de la création du widget: ' + error.message);
+      });
     }
+  };
+
+  ({
+    _getWidgetConfig: function(app) {
+      var config, field, groupBySelect, i, len, paramRows, ref, selectedFields, spaceSelect, titleInput, widgetTypeRadio;
+      // Récupérer la configuration complète du widget
+      titleInput = document.getElementById('widget-title-input');
+      spaceSelect = document.getElementById('widget-space-select');
+      groupBySelect = document.getElementById('widget-groupby-select');
+      selectedFields = document.querySelectorAll('#selected-fields .field-item');
+      widgetTypeRadio = document.querySelector('input[name="widget-type"]:checked');
+      paramRows = document.querySelectorAll('#widget-params-list .param-row');
+      config = {
+        title: (titleInput != null ? titleInput.value : void 0) || 'Widget sans titre',
+        space: (spaceSelect != null ? spaceSelect.value : void 0) || '',
+        spaceName: (spaceSelect != null ? (ref = spaceSelect.options[spaceSelect != null ? spaceSelect.selectedIndex : void 0]) != null ? ref.textContent : void 0 : void 0) || '',
+        groupBy: (groupBySelect != null ? groupBySelect.value : void 0) || '',
+        widgetType: (widgetTypeRadio != null ? widgetTypeRadio.value : void 0) || 'table',
+        fields: [],
+        params: {}
+      };
+// Ajouter les champs sélectionnés
+      for (i = 0, len = selectedFields.length; i < len; i++) {
+        field = selectedFields[i];
+        config.fields.push({
+          id: field.dataset.fieldId,
+          name: field.dataset.fieldName,
+          type: field.dataset.fieldType
+        });
+      }
+      config;
+      return {
+        _closeWidgetModal: function(app) {
+          var modal;
+          modal = document.getElementById('add-widget-modal');
+          if (!modal) {
+            return;
+          }
+          // Masquer la modale
+          modal.classList.add('hidden');
+          // Réinitialiser le formulaire
+          return window.AppViewHelpers._resetWidgetForm();
+        },
+        _resetWidgetForm: function() {
+          var availableContainer, firstRow, j, keyInput, len1, paramsList, selectedContainer, tableType, valueInput;
+          titleInput = document.getElementById('widget-title-input');
+          spaceSelect = document.getElementById('widget-space-select');
+          groupBySelect = document.getElementById('widget-groupby-select');
+          // Réinitialiser les champs
+          if (titleInput) {
+            titleInput.value = 'Mon widget';
+          }
+          if (spaceSelect) {
+            spaceSelect.value = '';
+          }
+          if (groupBySelect) {
+            groupBySelect.value = '';
+          }
+          // Réinitialiser les champs sélectionnés
+          availableContainer = document.getElementById('available-fields');
+          selectedContainer = document.getElementById('selected-fields');
+          if (availableContainer && selectedContainer) {
+            // Remettre les champs sélectionnés dans disponibles
+            selectedFields = selectedContainer.querySelectorAll('.field-item');
+            for (j = 0, len1 = selectedFields.length; j < len1; j++) {
+              field = selectedFields[j];
+              field.classList.remove('selected');
+              availableContainer.appendChild(field);
+            }
+          }
+          // Réinitialiser le type de widget
+          tableType = document.getElementById('widget-type-table');
+          if (tableType) {
+            tableType.checked = true;
+          }
+          // Réinitialiser les paramètres
+          paramsList = document.getElementById('widget-params-list');
+          if (paramsList) {
+            // Garder seulement la première ligne de paramètres
+            while (paramsList.children.length > 1) {
+              paramsList.removeChild(paramsList.lastChild);
+            }
+            // Vider les champs de la première ligne
+            firstRow = paramsList.querySelector('.param-row');
+            if (firstRow) {
+              keyInput = firstRow.querySelector('.param-key');
+              valueInput = firstRow.querySelector('.param-value');
+              if (keyInput) {
+                keyInput.value = '';
+              }
+              if (valueInput) {
+                return valueInput.value = '';
+              }
+            }
+          }
+        },
+        _getWidgetConfig: function(app) {
+          var j, k, keyInput, len1, len2, paramRow, ref1, valueInput;
+          // Récupérer la configuration complète du widget
+          titleInput = document.getElementById('widget-title-input');
+          spaceSelect = document.getElementById('widget-space-select');
+          groupBySelect = document.getElementById('widget-groupby-select');
+          selectedFields = document.querySelectorAll('#selected-fields .field-item');
+          widgetTypeRadio = document.querySelector('input[name="widget-type"]:checked');
+          paramRows = document.querySelectorAll('#widget-params-list .param-row');
+          config = {
+            title: (titleInput != null ? titleInput.value : void 0) || 'Widget sans titre',
+            space: (spaceSelect != null ? spaceSelect.value : void 0) || '',
+            spaceName: (spaceSelect != null ? (ref1 = spaceSelect.options[spaceSelect != null ? spaceSelect.selectedIndex : void 0]) != null ? ref1.textContent : void 0 : void 0) || '',
+            groupBy: (groupBySelect != null ? groupBySelect.value : void 0) || '',
+            widgetType: (widgetTypeRadio != null ? widgetTypeRadio.value : void 0) || 'table',
+            fields: [],
+            params: {}
+          };
+// Ajouter les champs sélectionnés
+          for (j = 0, len1 = selectedFields.length; j < len1; j++) {
+            field = selectedFields[j];
+            config.fields.push({
+              id: field.dataset.fieldId,
+              name: field.dataset.fieldName,
+              type: field.dataset.fieldType
+            });
+          }
+// Ajouter les paramètres
+          for (k = 0, len2 = paramRows.length; k < len2; k++) {
+            paramRow = paramRows[k];
+            keyInput = paramRow.querySelector('.param-key');
+            valueInput = paramRow.querySelector('.param-value');
+            if ((keyInput != null ? keyInput.value : void 0) && (valueInput != null ? valueInput.value : void 0)) {
+              config.params[keyInput.value] = valueInput.value;
+            }
+          }
+          return config;
+        },
+        _showWidgetConfig: function(app, type, data) {
+          var container;
+          container = app.el.widgetConfigForm();
+          container.innerHTML = '';
+          if (type === 'table') {
+            config = document.createElement('div');
+            config.innerHTML = `<div class="config-field">
+  <label>Titre:</label>
+  <input type="text" id="widget-title" value="${data.name}" />
+</div>
+<div class="config-field">
+  <label>Espace:</label>
+  <span>${data.name}</span>
+</div>
+<div class="config-field">
+  <label>Type de widget:</label>
+  <div class="widget-type-options">
+    <div class="widget-type-option">
+      <input type="radio" name="widget-type" value="table" checked>
+      <span>Table</span>
+    </div>
+    <div class="widget-type-option">
+      <input type="radio" name="widget-type" value="chart">
+      <span>Graphique</span>
+    </div>
+  </div>
+</div>
+<div class="config-field">
+  <label>Espace:</label>
+  <select id="widget-space-select">
+    <option value="">Sélectionner un espace...</option>
+  </select>
+</div>
+<div class="config-field">
+  <label>Champs:</label>
+  <div id="available-fields"></div>
+  <div id="selected-fields"></div>
+</div>
+<div class="config-field">
+  <label>Paramètres:</label>
+  <button type="button" id="add-param-btn">Ajouter un paramètre</button>
+  <div id="widget-params-list"></div>
+</div>`;
+            return container.appendChild(config);
+          } else if (type === 'plugin') {
+            config = document.createElement('div');
+            config.innerHTML = `<div class="config-field">
+  <label>Titre:</label>
+  <input type="text" id="widget-title" value="${data.name}" />
+</div>
+<div class="config-field">
+  <label>Type:</label>
+  <span>${data.type}</span>
+</div>`;
+            return container.appendChild(config);
+          }
+        },
+        _bindAddWidgetModal: function(app) {
+          // Lier les événements pour la nouvelle structure
+          window.AppViewHelpers._bindWidgetTypeSelection(app);
+          return window.AppViewHelpers._bindParamsManagement(app);
+        },
+        _confirmAddWidget: function(app) {
+          var cv, e, newYaml, parsed, widgetConfig, widgetYaml;
+          cv = app._currentCustomView;
+          if (!cv) {
+            return;
+          }
+          // Récupérer la configuration complète
+          widgetConfig = window.AppViewHelpers._getWidgetConfig(app);
+          // Validation
+          if (!widgetConfig.space) {
+            tdbAlert("Veuillez sélectionner un espace", 'error');
+            return;
+          }
+          if (!(widgetConfig.fields.length > 0)) {
+            tdbAlert("Veuillez sélectionner au moins un champ", 'error');
+            return;
+          }
+          try {
+            // Parser le YAML existant
+            parsed = jsyaml.load(cv.yaml);
+            // Créer le widget YAML selon le type
+            widgetYaml = window.AppViewHelpers._createWidgetYaml(widgetConfig);
+            // Ajouter le widget comme enfant du layout racine
+            parsed.layout.children.push(jsyaml.load(widgetYaml)[0]);
+            // Mettre à jour le YAML
+            newYaml = jsyaml.dump(parsed);
+            // Sauvegarder
+            return GQL.mutate(app._updateCustomViewMutation, {
+              id: cv.id,
+              input: {
+                yaml: newYaml
+              }
+            }).then(function(data) {
+              app._currentCustomView = data.updateCustomView;
+              window.AppViewHelpers._closeAddWidgetModal(app);
+              return window.AppViewHelpers._renderCustomViewPreview(app, newYaml);
+            }).catch(function(err) {
+              return tdbAlert(app._err(err), 'error');
+            });
+          } catch (error1) {
+            e = error1;
+            return tdbAlert(`Erreur YAML : ${e.message}`, 'error');
+          }
+        },
+        _createWidgetYaml: function(config) {
+          var key, ref1, value, widget;
+          // Créer le YAML du widget selon la configuration
+          widget = {
+            title: config.title,
+            type: config.widgetType,
+            space: config.space
+          };
+          // Ajouter les champs
+          if (config.fields.length > 0) {
+            widget.fields = config.fields.map(function(field) {
+              return field.name;
+            });
+          }
+          // Ajouter le groupement si spécifié
+          if (config.groupBy) {
+            widget.groupBy = config.groupBy;
+          }
+          // Ajouter les paramètres personnalisés
+          if (Object.keys(config.params).length > 0) {
+            ref1 = config.params;
+            for (key in ref1) {
+              value = ref1[key];
+              widget[key] = value;
+            }
+          }
+          // Convertir en YAML
+          return jsyaml.dump([widget]);
+        },
+        _renderCustomViewPreview: function(app, yaml) {
+          // Cette fonction sera implémentée plus tard pour rafraîchir l'aperçu
+          return console.log("Preview refreshed with YAML:", yaml);
+        },
+        _closeAddWidgetModal: function(app) {
+          app.el.addWidgetModal().classList.add('hidden');
+          return app._selectedWidget = null;
+        }
+      };
+    }
+  });
+
+  // Gestionnaires d'événements principaux pour la modale
+  window.AppViewHelpers._bindAddWidgetModal = function(app) {
+    // Bouton de confirmation
+    app.el.addWidgetConfirmBtn().addEventListener('click', function() {
+      return window.AppViewHelpers._confirmAddWidget(app);
+    });
+    // Bouton d'annulation
+    return app.el.addWidgetCancelBtn().addEventListener('click', function() {
+      return window.AppViewHelpers._closeAddWidgetModal(app);
+    });
   };
 
 }).call(this);

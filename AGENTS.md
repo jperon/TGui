@@ -245,6 +245,55 @@ curl -s -X POST http://localhost:8080/graphql \
   (`_tdb_seq_<field_id>`). `delete_user_space` et `remove_field` les suppriment.
 - **MoonScript dans `tt connect`** : le REPL de `tt connect` exécute du Lua, pas du
   MoonScript. Compiler les sources avant de les déployer.
+- **Syntaxe MoonScript** : erreurs fréquentes à éviter :
+  - Arrays : utiliser `{}` pour les arrays/tableaux, `[]` uniquement pour les array comprehensions
+  - Indentation : ne jamais dépasser 4 niveaux d'indentation, créer des fonctions auxiliaires
+  - Structure HTML : avec la lib `html.lua`, chaque `H.div{}` doit contenir ses enfants et se terminer par `}` (valable pour tout élément conteneur)
+
+## Considérations spécifiques pour éviter les erreurs courantes
+
+### 🏗️ Structure du code et indentation
+
+- **Maximum 4 niveaux d'indentation** : Si l'on dépasse 4 niveaux, créer une fonction auxiliaire.
+  - **Raison** : Maintient la lisibilité et évite les erreurs de structure MoonScript
+  - **Application** : Particulièrement important avec `backend/html.lua` où les structures HTML peuvent devenir profondes
+  - **Exemple** :
+    ```moonscript
+    -- ✅ Correct : fonction auxiliaire
+    _widgetConfigRow = (labelText, inputElement) ->
+      H.div {class: 'config-row',
+        H.label {labelText}
+        inputElement
+      }
+
+    -- ❌ Éviter : trop de niveaux d'indentation
+    H.div {class: 'widget-section',
+      H.div {class: 'data-source-config',
+        H.div {class: 'config-row',
+          H.div {class: 'nested-too-deep',  -- 4+ niveaux = risque de problèmes de maintenance
+            ...
+    ```
+
+### 📚 Arrays et tableaux MoonScript
+
+- **Arrays/Tableaux** : Utiliser `{}` pour définir les arrays/tableaux
+  - ✅ `myArray = {1, 2, 3}` ou `myArray = {item1, item2}`
+  - ✅ `options = {'String', 'Int', 'Float'}`
+- **Array comprehensions** : Utiliser `[]` uniquement pour les compréhensions
+  - ✅ `[item * 2 for item in *myArray]`
+  - ✅ `[H.li{class: 'section-item', item} for item in *items]`
+- **Erreur fréquente** : Confondre syntaxe JavaScript `[]` avec MoonScript `{}`
+  - ❌ `items = [item1, item2]`  # Syntaxe JavaScript
+  - ✅ `items = {item1, item2}`  # Syntaxe MoonScript
+
+### 🌐 Structure HTML avec backend/html.lua
+
+- **Parenthésage correct** : Chaque `H.div{}` doit contenir ses enfants et se terminer par `}`
+  - ✅ `H.div {class: 'container', contenu...}`
+  - ❌ `H.div {class: 'container'}, contenu...`
+- **Imbrication** : Les éléments enfants sont indentés sous le parent
+  - ✅ Structure hiérarchique claire avec indentation
+  - ❌ Éléments frères au même niveau que leur parent
 
 Tu es un expert MoonScript. MoonScript n'est PAS du Lua.
 Tu ne dois JAMAIS écrire de syntaxe Lua quand l'utilisateur demande du MoonScript.
@@ -307,6 +356,29 @@ Tu ne dois JAMAIS écrire de syntaxe Lua quand l'utilisateur demande du MoonScri
 5. Les fonctions utilisent `->` ou `=>`, jamais `function`
 6. Les tables clé / valeur utilisent la syntaxe `cle: valeur`, jamais `cle = valeur`
 7. Les arrays sont la même chose que les tables en Lua comme en MoonScript : `[]` est utilisé seulement pour les compréhensions, un array se définit avec `{}`.
+
+## Checklist MoonScript - Points critiques à vérifier
+
+### 🔍 Syntaxe Arrays vs Comprehensions
+- [ ] Les arrays/tableaux utilisent `{}` : `items = {item1, item2}`
+- [ ] Les array comprehensions utilisent `[]` : `[item * 2 for item in *array]`
+- [ ] Pas de confusion syntaxe JavaScript `[]` avec MoonScript `{}`
+
+### 📐 Indentation et structure
+- [ ] Maximum 4 niveaux d'indentation respecté
+- [ ] Fonctions auxiliaires créées si dépassement de 4 niveaux
+- [ ] Structure HTML claire avec `backend/html.lua`
+
+### 🌐 Structure HTML (backend/html.lua)
+- [ ] Chaque `H.div{}` se termine par `}` (pas par `,`)
+- [ ] Éléments enfants correctement indentés sous le parent
+- [ ] Pas d'éléments frères au mauvais niveau d'indentation
+
+### ⚠️ Pièges courants
+- [ ] Pas de `local x = y` (utiliser `x = y`)
+- [ ] Pas de `obj:methode()` (utiliser `obj\methode()`)
+- [ ] Pas de `if condition then` (utiliser `if condition`)
+- [ ] Pas de `function...end` (utiliser `->` ou `=>`)
 
 Si tu n'es pas sûr d'une fonctionnalité MoonScript, dis-le explicitement
 

@@ -41,62 +41,118 @@
       this._pluginSelectionListenersByWidgetId = {};
     }
 
-    mount() {
-      var btnHoriz, btnVert, e, el, palette, parsed, root;
-      this.container.innerHTML = '';
-      this._widgets = [];
-      this._widgetsById = {};
-      this._mountPromises = [];
-      // Palette d'insertion de layouts
-      palette = document.createElement('div');
-      palette.className = 'cv-layout-palette';
-      palette.style.cssText = 'display:flex;gap:8px;padding:8px 0;';
-      btnVert = document.createElement('button');
-      btnVert.textContent = 'Ajouter layout vertical';
-      btnVert.className = 'cv-layout-btn';
-      btnHoriz = document.createElement('button');
-      btnHoriz.textContent = 'Ajouter layout horizontal';
-      btnHoriz.className = 'cv-layout-btn';
-      palette.appendChild(btnVert);
-      palette.appendChild(btnHoriz);
-      this.container.appendChild(palette);
-      btnVert.addEventListener('click', () => {
-        return this._insertLayout('vertical');
-      });
-      btnHoriz.addEventListener('click', () => {
-        return this._insertLayout('horizontal');
-      });
-      // Méthode d'insertion de layout
-      this._insertLayout = (direction) => {
-        var cm, e, newLayout, newYaml, parsed;
-        // Parse YAML
+    // Fonction globale pour gérer l'insertion de layouts pendant l'édition YAML
+    static setupLayoutInsertion() {
+      // Éviter les doublons de listeners
+      if (window._cvLayoutListenerActive) {
+        return;
+      }
+      window.addEventListener('cv-insert-layout', (ev) => {
+        var cm, currentYaml, direction, e, newLayout, newYaml, parsed, ref;
+        direction = (ref = ev.detail) != null ? ref.direction : void 0;
+        if (!direction) {
+          return;
+        }
+        // Récupérer l'instance CodeMirror active
+        cm = document.querySelector('.CodeMirror');
+        if (!(cm != null ? cm.CodeMirror : void 0)) {
+          return;
+        }
+        currentYaml = cm.CodeMirror.getValue();
         parsed = null;
         try {
-          parsed = jsyaml.load(this.yamlText);
+          parsed = jsyaml.load(currentYaml);
+          if (!parsed) {
+            // Si le YAML est vide, jsyaml.load retourne null
+            parsed = {};
+          }
         } catch (error) {
           e = error;
           parsed = {};
         }
-        // Crée un layout de base
         newLayout = {
           direction: direction,
           children: []
         };
-        // Remplace ou ajoute la racine layout
-        parsed.layout = newLayout;
-        // Met à jour YAML
-        newYaml = jsyaml.dump(parsed);
-        // Met à jour l'éditeur YAML si présent
-        if (window.CodeMirror != null) {
-          cm = document.querySelector('.CodeMirror');
-          if ((cm != null) && (cm.CodeMirror != null)) {
-            cm.CodeMirror.setValue(newYaml);
-          }
+        // Logique d'insertion intelligente
+        if (!parsed.layout) {
+          // Créer un layout racine
+          parsed.layout = newLayout;
+          this.showNotification('Layout racine créé', 'success');
+        } else if (parsed.layout && parsed.layout.children) {
+          // Ajouter comme enfant du layout existant
+          parsed.layout.children.push(newLayout);
+          this.showNotification(`Layout ${direction} ajouté`, 'success');
+        } else {
+          // Remplacer ou créer le layout
+          parsed.layout = newLayout;
+          this.showNotification('Layout remplacé', 'success');
         }
-        // Sinon, met à jour @yamlText et rerend
-        this.yamlText = newYaml;
-        return this.mount();
+        newYaml = jsyaml.dump(parsed);
+        try {
+          // Valider le YAML généré
+          jsyaml.load(newYaml);
+          cm.CodeMirror.setValue(newYaml);
+          return this.showNotification('Layout inséré avec succès', 'success');
+        } catch (error) {
+          e = error;
+          this.showNotification(`Erreur YAML : ${e.message}`, 'error');
+          // Restaurer le YAML précédent en cas d'erreur
+          return cm.CodeMirror.setValue(currentYaml);
+        }
+      });
+      return window._cvLayoutListenerActive = true;
+    }
+
+    static showNotification(message, type = 'info') {
+      var colors, notification;
+      // Créer une notification temporaire
+      notification = document.createElement('div');
+      notification.className = `cv-notification cv-notification--${type}`;
+      notification.textContent = message;
+      notification.style.cssText = `position: fixed;
+top: 20px;
+right: 20px;
+padding: 12px 16px;
+border-radius: 4px;
+color: white;
+font-weight: 500;
+z-index: 10000;
+opacity: 0;
+transform: translateX(100%);
+transition: all 0.3s ease;`;
+      // Couleurs selon le type
+      colors = {
+        success: '#28a745',
+        error: '#dc3545',
+        info: '#17a2b8'
       };
+      notification.style.backgroundColor = colors[type] || colors.info;
+      // Ajouter au DOM
+      document.body.appendChild(notification);
+      // Animer l'entrée
+      setTimeout(function() {
+        notification.style.opacity = '1';
+        return notification.style.transform = 'translateX(0)';
+      }, 10);
+      // Auto-suppression après 3 secondes
+      return setTimeout(function() {
+        notification.style.opacity = '0';
+        notification.style.transform = 'translateX(100%)';
+        return setTimeout(function() {
+          return document.body.removeChild(notification);
+        }, 300);
+      }, 3000);
+    }
+
+    mount() {
+      var e, el, parsed, root;
+      this.container.innerHTML = '';
+      this._widgets = [];
+      this._widgetsById = {};
+      this._mountPromises = [];
+      // Configurer le listener global d'insertion de layouts
+      CustomView.setupLayoutInsertion();
       try {
         parsed = jsyaml.load(this.yamlText);
       } catch (error) {

@@ -23,12 +23,24 @@ generate = function()
   local parts = {
     '# GENERATED FILE - passive SDL projection from MoonScript registry',
     '# Source: backend/graphql/sdl_registry.moon',
-    '',
-    emit_block('Query', registry.Query),
-    '',
-    emit_block('Mutation', registry.Mutation),
     ''
   }
+  local _list_0 = registry.InputTypes
+  for _index_0 = 1, #_list_0 do
+    local input_type = _list_0[_index_0]
+    table.insert(parts, input_type.definition)
+    table.insert(parts, '')
+  end
+  local _list_1 = registry.ObjectTypes
+  for _index_0 = 1, #_list_1 do
+    local object_type = _list_1[_index_0]
+    table.insert(parts, object_type.definition)
+    table.insert(parts, '')
+  end
+  table.insert(parts, emit_block('Query', registry.Query))
+  table.insert(parts, '')
+  table.insert(parts, emit_block('Mutation', registry.Mutation))
+  table.insert(parts, '')
   return table.concat(parts, '\n')
 end
 local write_file

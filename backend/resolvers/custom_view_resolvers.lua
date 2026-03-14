@@ -1,3 +1,4 @@
+local yaml = require('yaml')
 local uuid_mod = require('uuid')
 local require_auth
 require_auth = require('resolvers.utils').require_auth
@@ -96,6 +97,56 @@ delete_custom_view = function(id)
   box.space._tdb_custom_views:delete(id)
   return true
 end
+local add_widget_to_view
+add_widget_to_view = function(viewId, widget)
+  local t = box.space._tdb_custom_views:get(viewId)
+  if not (t) then
+    error("CustomView not found: " .. tostring(viewId))
+  end
+  local yaml_content = t[4] or 'widgets: {}'
+  local config = yaml.decode(yaml_content)
+  if not (config.widgets) then
+    config.widgets = { }
+  end
+  local widget_id = uuid_mod()
+  local new_widget = {
+    id = widget_id,
+    title = widget.title,
+    type = widget.type,
+    spaceId = widget.spaceId,
+    fields = widget.fields or { },
+    groupBy = widget.groupBy,
+    params = widget.params or { },
+    position = widget.position or {
+      x = 0,
+      y = 0,
+      w = 6,
+      h = 4
+    }
+  }
+  config.widgets[widget_id] = new_widget
+  local updated_yaml = yaml.encode(config)
+  box.space._tdb_custom_views:update(viewId, {
+    {
+      '=',
+      4,
+      updated_yaml
+    },
+    {
+      '=',
+      6,
+      os.time()
+    }
+  })
+  return {
+    id = viewId,
+    name = t[2],
+    description = t[3],
+    yaml = updated_yaml,
+    createdAt = tostring(t[5]),
+    updatedAt = tostring(os.time())
+  }
+end
 local Query = {
   customViews = function(_, args, ctx)
     require_auth(ctx)
@@ -120,6 +171,10 @@ local Mutation = {
   deleteCustomView = function(_, args, ctx)
     require_auth(ctx)
     return delete_custom_view(args.id)
+  end,
+  addWidgetToView = function(_, args, ctx)
+    require_auth(ctx)
+    return add_widget_to_view(args.viewId, args.widget)
   end
 }
 return {

@@ -248,9 +248,6 @@
       yamlEditBtn: function() {
         return document.getElementById('yaml-edit-btn');
       },
-      yamlPluginsBtn: function() {
-        return document.getElementById('yaml-plugins-btn');
-      },
       yamlDeleteBtn: function() {
         return document.getElementById('yaml-delete-btn');
       },
@@ -269,6 +266,35 @@
       },
       yamlModalPreviewBtn: function() {
         return document.getElementById('yaml-modal-preview-btn');
+      },
+      yamlAddWidgetBtn: function() {
+        return document.getElementById('yaml-add-widget-btn');
+      },
+      // Add widget modal
+      addWidgetModal: function() {
+        return document.getElementById('add-widget-modal');
+      },
+      addWidgetConfirmBtn: function() {
+        return document.getElementById('add-widget-confirm-btn');
+      },
+      addWidgetCancelBtn: function() {
+        return document.getElementById('add-widget-cancel-btn');
+      },
+      availableSpaces: function() {
+        return document.getElementById('available-spaces');
+      },
+      availablePlugins: function() {
+        return document.getElementById('available-plugins');
+      },
+      widgetConfigForm: function() {
+        return document.getElementById('widget-config-form');
+      },
+      // Plugins sidebar section
+      pluginsSidebarSection: function() {
+        return document.getElementById('plugins-sidebar-section');
+      },
+      pluginsNavManage: function() {
+        return document.getElementById('plugins-nav-manage');
       },
       widgetPluginModal: function() {
         return document.getElementById('widget-plugin-modal');
@@ -519,8 +545,10 @@
       this.el.currentUserBtn().textContent = user.username;
       if (Auth.isAdmin()) {
         this.el.adminSidebarSection().classList.remove('hidden');
+        this.el.pluginsSidebarSection().classList.remove('hidden');
       } else {
         this.el.adminSidebarSection().classList.add('hidden');
+        this.el.pluginsSidebarSection().classList.add('hidden');
       }
       // Show warning banner when admin still uses the default password.
       if (user.username === 'admin' && !localStorage.getItem('tdb_password_changed')) {

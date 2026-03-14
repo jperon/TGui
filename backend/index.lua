@@ -46,6 +46,851 @@ local FIELD_TYPE_OPTIONS = {
     'Relation'
   }
 }
+local buildFieldTypeSelect
+buildFieldTypeSelect = function(selectedValue, fieldId)
+  if selectedValue == nil then
+    selectedValue = 'String'
+  end
+  return H.select({
+    id = fieldId,
+    name = fieldId,
+    class = 'field-type-select'
+  }, (function()
+    local _accum_0 = { }
+    local _len_0 = 1
+    for option in FIELD_TYPE_OPTIONS do
+      local isSelected = option[1] == selectedValue
+      local _value_0 = H.option({
+        value = option[1],
+        selected = isSelected
+      }, option[1])
+      _accum_0[_len_0] = _value_0
+      _len_0 = _len_0 + 1
+    end
+    return _accum_0
+  end)())
+end
+local _navbar
+_navbar = function()
+  return H.nav({
+    class = 'sidebar',
+    H.div({
+      class = 'sidebar-header',
+      H.div({
+        class = 'app-title',
+        H.img({
+          src = ICON,
+          class = 'app-icon'
+        }, H.span({
+          'TGui'
+        }))
+      }),
+      H.button({
+        class = 'sidebar-toggle',
+        '≡'
+      })
+    }),
+    H.div({
+      class = 'sidebar-content',
+      _sidebarSection('Vues', 'add-view-btn'),
+      _sidebarSection('Données', 'add-space-btn', {
+        H.a({
+          href = '#/data/Auteurs',
+          'Auteurs'
+        }),
+        H.a({
+          href = '#/data/Categories',
+          'Categories'
+        }),
+        H.a({
+          href = '#/data/Emprunts',
+          'Emprunts'
+        }),
+        H.a({
+          href = '#/data/Livres',
+          'Livres'
+        })
+      }),
+      _sidebarSection('Plugins widgets', 'add-plugin-btn', {
+        H.a({
+          href = '#/plugins',
+          'Gestion des plugins'
+        })
+      }),
+      _sidebarSection('Administration', null, {
+        H.a({
+          href = '#/users',
+          'Utilisateurs'
+        }),
+        H.a({
+          href = '#/groups',
+          'Groupes'
+        }),
+        H.a({
+          href = '#/export',
+          'Export / Import'
+        })
+      })
+    }),
+    H.button({
+      class = 'user-menu',
+      'admin'
+    })
+  })
+end
+local _sidebarSection
+_sidebarSection = function(title, buttonId, items)
+  if items == nil then
+    items = { }
+  end
+  return H.div({
+    class = 'sidebar-section',
+    H.div({
+      class = 'section-header',
+      H.span({
+        class = 'section-title',
+        title
+      }),
+      buttonId and H.button({
+        id = buttonId,
+        class = 'section-add-btn',
+        '＋'
+      } or "")
+    }),
+    (items and #items > 0 and H.ul({
+      class = 'section-list',
+      (function()
+        local _accum_0 = { }
+        local _len_0 = 1
+        for _index_0 = 1, #items do
+          local item = items[_index_0]
+          _accum_0[_len_0] = H.li({
+            class = 'section-item',
+            item
+          })
+          _len_0 = _len_0 + 1
+        end
+        return _accum_0
+      end)()
+    } or ""))
+  })
+end
+local _mainContent
+_mainContent = function()
+  return H.main({
+    id = 'main',
+    class = 'sidebar-collapsed',
+    _passwordWarning(),
+    _welcomeMessage(),
+    _changePasswordDialog(),
+    _createUserDialog(),
+    _createGroupDialog(),
+    _snapshotImportDialog(),
+    _yamlModal(),
+    _widgetPluginModal(),
+    _formulaModal(),
+    _addWidgetModal(),
+    _antiFlickerScript()
+  })
+end
+local _passwordWarning
+_passwordWarning = function()
+  return H.div({
+    class = 'password-warning',
+    H.p({
+      '⚠ Vous utilisez le mot de passe par défaut.'
+    }),
+    H.button({
+      'Changer maintenant'
+    })
+  })
+end
+local _welcomeMessage
+_welcomeMessage = function()
+  return H.div({
+    id = 'welcome',
+    class = 'welcome',
+    H.p({
+      'Sélectionnez un espace ou une vue dans la barre latérale.'
+    })
+  })
+end
+local _changePasswordDialog
+_changePasswordDialog = function()
+  return H.div({
+    id = 'change-password-dialog',
+    class = 'modal-overlay hidden',
+    H.div({
+      class = 'modal-box',
+      H.h2({
+        'Changer le mot de passe'
+      }),
+      H.input({
+        id = 'cp-current',
+        type = 'password',
+        placeholder = 'Mot de passe actuel'
+      }),
+      H.input({
+        id = 'cp-new',
+        type = 'password',
+        placeholder = 'Nouveau mot de passe'
+      }),
+      H.input({
+        id = 'cp-confirm',
+        type = 'password',
+        placeholder = 'Confirmer le nouveau'
+      }),
+      H.p({
+        id = 'cp-error',
+        class = 'error',
+        ''
+      }),
+      H.div({
+        class = 'modal-actions',
+        H.button({
+          id = 'cp-submit-btn',
+          'Enregistrer'
+        }),
+        H.button({
+          id = 'cp-cancel-btn',
+          'Annuler'
+        })
+      })
+    })
+  })
+end
+local _createUserDialog
+_createUserDialog = function()
+  return H.div({
+    id = 'create-user-dialog',
+    class = 'modal-overlay hidden',
+    H.div({
+      class = 'modal-box',
+      H.h2({
+        'Créer un utilisateur'
+      }),
+      H.input({
+        id = 'cu-username',
+        type = 'text',
+        placeholder = "Nom d'utilisateur"
+      }),
+      H.input({
+        id = 'cu-email',
+        type = 'email',
+        placeholder = 'Email (optionnel)'
+      }),
+      H.input({
+        id = 'cu-password',
+        type = 'password',
+        placeholder = 'Mot de passe'
+      }),
+      H.p({
+        id = 'cu-error',
+        class = 'error',
+        ''
+      }),
+      H.div({
+        class = 'modal-actions',
+        H.button({
+          id = 'cu-submit-btn',
+          'Créer'
+        }),
+        H.button({
+          id = 'cu-cancel-btn',
+          'Annuler'
+        })
+      })
+    })
+  })
+end
+local _createGroupDialog
+_createGroupDialog = function()
+  return H.div({
+    id = 'create-group-dialog',
+    class = 'modal-overlay hidden',
+    H.div({
+      class = 'modal-box',
+      H.h2({
+        'Créer un groupe'
+      }),
+      H.input({
+        id = 'cg-name',
+        type = 'text',
+        placeholder = 'Nom du groupe'
+      }),
+      H.input({
+        id = 'cg-description',
+        type = 'text',
+        placeholder = 'Description (optionnel)'
+      }),
+      H.p({
+        id = 'cg-error',
+        class = 'error',
+        ''
+      }),
+      H.div({
+        class = 'modal-actions',
+        H.button({
+          id = 'cg-submit-btn',
+          'Créer'
+        }),
+        H.button({
+          id = 'cg-cancel-btn',
+          'Annuler'
+        })
+      })
+    })
+  })
+end
+local _snapshotImportDialog
+_snapshotImportDialog = function()
+  return H.div({
+    id = 'snapshot-import-dialog',
+    class = 'modal-overlay hidden',
+    H.div({
+      class = 'modal-box modal-box--editor',
+      H.div({
+        class = 'modal-editor-header',
+        H.span({
+          class = 'modal-title',
+          'Importer une vue'
+        }),
+        H.div({
+          class = 'modal-editor-actions',
+          H.button({
+            id = 'snapshot-import-confirm-btn',
+            class = 'toolbar-btn',
+            '⬆ Importer'
+          })
+        })
+      }),
+      H.div({
+        class = 'yaml-modal-body',
+        H.div({
+          class = 'yaml-editor-pane',
+          H.div({
+            id = 'snapshot-import-cm-editor'
+          })
+        }),
+        H.div({
+          id = 'snapshot-import-schema-browser',
+          class = 'schema-browser'
+        })
+      }),
+      H.div({
+        class = 'snapshot-import-options',
+        H.div({
+          class = 'import-mode',
+          H.p({
+            'Mode d\'importation :'
+          }),
+          H.label({ }, H.input({
+            id = 'snapshot-mode-merge',
+            type = 'radio',
+            name = 'snapshot-mode',
+            value = 'merge',
+            checked = true
+          })),
+          H.span({
+            ' Fusion (recommandé) — crée ce qui manque, ignore l\'existant'
+          }),
+          H.label({ }, H.input({
+            id = 'snapshot-mode-replace',
+            type = 'radio',
+            name = 'snapshot-mode',
+            value = 'replace'
+          })),
+          H.span({
+            ' Remplacement — '
+          }),
+          H.strong({
+            'efface toutes les données existantes'
+          }),
+          H.span({
+            ' puis recrée'
+          })
+        }),
+        H.p({
+          id = 'snapshot-import-error',
+          class = 'error hidden',
+          ''
+        })
+      }),
+      H.div({
+        id = 'snapshot-import-result',
+        class = 'hidden snapshot-import-result',
+        ''
+      })
+    })
+  })
+end
+local _yamlModal
+_yamlModal = function()
+  return H.div({
+    id = 'yaml-modal',
+    class = 'modal-overlay hidden',
+    H.div({
+      class = 'modal-box modal-box--editor',
+      H.div({
+        class = 'modal-editor-header',
+        H.span({
+          class = 'modal-title',
+          id = 'yaml-modal-title'
+        }),
+        H.div({
+          class = 'modal-editor-actions',
+          H.button({
+            class = 'toolbar-btn',
+            id = 'yaml-modal-preview-btn',
+            '▶ Aperçu'
+          }),
+          H.button({
+            class = 'btn-primary',
+            id = 'yaml-modal-save-btn',
+            '💾 Enregistrer'
+          }),
+          H.button({
+            class = 'toolbar-btn',
+            id = 'yaml-modal-close-btn',
+            '✕'
+          })
+        })
+      }),
+      H.div({
+        class = 'yaml-modal-body',
+        H.div({
+          class = 'yaml-editor-pane',
+          H.div({
+            id = 'yaml-cm-editor'
+          }),
+          H.div({
+            class = 'yaml-validation-msg hidden',
+            id = 'yaml-validation-msg'
+          })
+        }),
+        H.div({
+          class = 'schema-browser',
+          id = 'schema-browser'
+        })
+      })
+    })
+  })
+end
+local _widgetPluginModal
+_widgetPluginModal = function()
+  return H.div({
+    id = 'widget-plugin-modal',
+    class = 'modal-overlay hidden',
+    H.div({
+      class = 'modal-box modal-box--editor',
+      H.div({
+        class = 'modal-editor-header',
+        H.span({
+          class = 'modal-title',
+          'Plugins widgets'
+        }),
+        H.div({
+          class = 'modal-editor-actions',
+          H.button({
+            class = 'toolbar-btn',
+            id = 'widget-plugin-new-btn',
+            '＋ Nouveau'
+          }),
+          H.button({
+            class = 'toolbar-btn toolbar-btn--danger',
+            id = 'widget-plugin-delete-btn',
+            '🗑 Supprimer'
+          }),
+          H.button({
+            class = 'btn-primary',
+            id = 'widget-plugin-save-btn',
+            '💾 Enregistrer'
+          }),
+          H.button({
+            class = 'toolbar-btn',
+            id = 'widget-plugin-modal-close-btn',
+            '✕'
+          })
+        })
+      }),
+      H.div({
+        class = 'yaml-modal-body widget-plugin-modal-body',
+        H.div({
+          class = 'widget-plugin-meta-row',
+          H.div({
+            class = 'widget-plugin-meta-col',
+            H.label({
+              ['for'] = 'widget-plugin-select',
+              class = 'formula-hint',
+              'Plugins existants'
+            }),
+            H.select({
+              id = 'widget-plugin-select'
+            })
+          }),
+          H.div({
+            class = 'widget-plugin-meta-col',
+            H.label({
+              ['for'] = 'widget-plugin-name',
+              class = 'formula-hint',
+              'Nom'
+            }),
+            H.input({
+              id = 'widget-plugin-name',
+              type = 'text',
+              placeholder = 'my_widget_plugin'
+            })
+          }),
+          H.div({
+            class = 'widget-plugin-meta-col',
+            H.label({
+              ['for'] = 'widget-plugin-description',
+              class = 'formula-hint',
+              'Description'
+            }),
+            H.input({
+              id = 'widget-plugin-description',
+              type = 'text',
+              placeholder = 'Description'
+            })
+          })
+        }),
+        H.div({
+          class = 'widget-plugin-editors-row',
+          H.div({
+            class = 'widget-plugin-editor-col',
+            H.label({
+              ['for'] = 'widget-plugin-template-language',
+              class = 'formula-hint',
+              'Template language'
+            }),
+            H.select({
+              id = 'widget-plugin-template-language',
+              H.option({
+                value = 'pug',
+                'Pug'
+              }),
+              H.option({
+                value = 'html',
+                'HTML'
+              })
+            }),
+            H.label({
+              class = 'formula-hint',
+              'Template'
+            }),
+            H.div({
+              style = 'border: 1px solid #2a2a2a;',
+              id = 'widget-plugin-template-editor'
+            })
+          }),
+          H.div({
+            class = 'widget-plugin-editor-col',
+            H.label({
+              ['for'] = 'widget-plugin-script-language',
+              class = 'formula-hint',
+              'Script language'
+            }),
+            H.select({
+              id = 'widget-plugin-script-language',
+              H.option({
+                value = 'coffeescript',
+                'CoffeeScript'
+              }),
+              H.option({
+                value = 'javascript',
+                'JavaScript'
+              })
+            }),
+            H.label({
+              class = 'formula-hint',
+              'Script'
+            }),
+            H.div({
+              style = 'border: 1px solid #2a2a2a;',
+              id = 'widget-plugin-script-editor'
+            })
+          })
+        })
+      })
+    })
+  })
+end
+local _formulaModal
+_formulaModal = function()
+  return H.div({
+    id = 'formula-modal',
+    class = 'modal-overlay hidden',
+    H.div({
+      class = 'modal-box modal-box--editor',
+      H.div({
+        class = 'modal-editor-header',
+        H.span({
+          class = 'modal-title',
+          'Éditeur de formule'
+        }),
+        H.div({
+          class = 'modal-editor-actions',
+          H.button({
+            class = 'btn-primary',
+            id = 'formula-modal-apply-btn',
+            'Appliquer'
+          }),
+          H.button({
+            class = 'toolbar-btn',
+            id = 'formula-modal-close-btn',
+            '✕'
+          })
+        })
+      }),
+      H.div({
+        id = 'formula-cm-editor'
+      })
+    })
+  })
+end
+local _antiFlickerScript
+_antiFlickerScript = function()
+  return H.script({
+    [[    if (localStorage.getItem('tdb_token')) {
+      document.getElementById('login-overlay').classList.add('hidden');
+      document.getElementById('main').classList.remove('hidden');
+      if (localStorage.getItem('tdb_menu_state') === 'collapsed') {
+        document.getElementById('main').classList.add('sidebar-collapsed');
+      }
+    }
+  ]]
+  })
+end
+local _widgetConfigRow
+_widgetConfigRow = function(labelText, inputElement)
+  return H.div({
+    class = 'config-row',
+    H.label({
+      labelText
+    }),
+    inputElement
+  })
+end
+local _widgetTitleInput
+_widgetTitleInput = function()
+  return H.input({
+    type = 'text',
+    id = 'widget-title-input',
+    placeholder = 'Mon widget',
+    class = 'widget-input'
+  })
+end
+local _widgetSpaceSelect
+_widgetSpaceSelect = function()
+  return H.select({
+    id = 'widget-space-select',
+    class = 'widget-select',
+    H.option({
+      value = '',
+      'Sélectionner un espace...'
+    })
+  })
+end
+local _widgetFieldsContainer
+_widgetFieldsContainer = function()
+  return H.div({
+    id = 'widget-fields-container',
+    class = 'fields-container',
+    H.div({
+      class = 'fields-header',
+      H.div({
+        class = 'field-group',
+        'Disponibles:'
+      }),
+      H.div({
+        class = 'field-group',
+        'Sélectionnées:'
+      })
+    }),
+    H.div({
+      class = 'fields-lists',
+      H.div({
+        id = 'available-fields',
+        class = 'fields-list',
+        H.div({
+          class = 'field-placeholder',
+          'Sélectionnez un espace...'
+        })
+      }),
+      H.div({
+        id = 'selected-fields',
+        class = 'fields-list selected',
+        H.div({
+          class = 'field-placeholder',
+          'Aucun champ sélectionné'
+        })
+      })
+    })
+  })
+end
+local _widgetGroupBySelect
+_widgetGroupBySelect = function()
+  return H.select({
+    id = 'widget-groupby-select',
+    class = 'widget-select',
+    H.option({
+      value = '',
+      'Aucun groupement'
+    })
+  })
+end
+local _widgetTypeOption
+_widgetTypeOption = function(value, label, checked)
+  if checked == nil then
+    checked = false
+  end
+  return H.div({
+    class = 'widget-type-option',
+    H.input({
+      type = 'radio',
+      name = 'widget-type',
+      value = value,
+      id = "widget-type-" .. tostring(value),
+      checked = checked
+    }),
+    H.label({
+      ['for'] = "widget-type-" .. tostring(value),
+      label
+    })
+  })
+end
+local _widgetParamRow
+_widgetParamRow = function()
+  return H.div({
+    class = 'param-row',
+    H.input({
+      type = 'text',
+      placeholder = 'Clé',
+      class = 'param-key'
+    }),
+    H.input({
+      type = 'text',
+      placeholder = 'Valeur',
+      class = 'param-value'
+    }),
+    H.button({
+      type = 'button',
+      class = 'param-remove-btn',
+      '✕'
+    })
+  })
+end
+local _widgetDataSourceSection
+_widgetDataSourceSection = function()
+  return H.div({
+    class = 'widget-section',
+    H.h3({
+      '1. Source de données'
+    }),
+    H.div({
+      class = 'data-source-config',
+      _widgetConfigRow('Titre du widget:', _widgetTitleInput()),
+      _widgetConfigRow('Espace:', _widgetSpaceSelect()),
+      _widgetConfigRow('Colonnes à afficher:', _widgetFieldsContainer()),
+      _widgetConfigRow('Groupement (GROUP BY):', _widgetGroupBySelect())
+    })
+  })
+end
+local _widgetTypeSection
+_widgetTypeSection = function()
+  return H.div({
+    class = 'widget-section',
+    H.h3({
+      '2. Type de widget'
+    }),
+    H.div({
+      class = 'widget-type-config',
+      H.div({
+        class = 'widget-type-options',
+        _widgetTypeOption('table', 'Tableau simple', true)
+      }),
+      H.div({
+        class = 'widget-type-note',
+        H.p({
+          'Pour l\'instant, seul le type "Tableau simple" est implémenté.'
+        }),
+        H.p({
+          'Les autres types (Graphique, Compteur, etc.) seront ajoutés plus tard.'
+        })
+      })
+    })
+  })
+end
+local _widgetParamsSection
+_widgetParamsSection = function()
+  return H.div({
+    class = 'widget-section',
+    H.h3({
+      '3. Paramètres du widget'
+    }),
+    H.div({
+      class = 'widget-params-config',
+      H.div({
+        id = 'widget-params-list',
+        class = 'params-list',
+        _widgetParamRow()
+      }),
+      H.button({
+        id = 'add-param-btn',
+        class = 'btn-secondary',
+        '+ Ajouter un paramètre'
+      })
+    })
+  })
+end
+ICON = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2389b4fa'/><text x='50%' y='54%' dominant-baseline='middle' text-anchor='middle' font-family='system-ui,sans-serif' font-weight='700' font-size='18' fill='%231e1e2e'>db</text></svg>"
+FIELD_TYPE_OPTIONS = {
+  {
+    'String',
+    'String'
+  },
+  {
+    'Int',
+    'Int'
+  },
+  {
+    'Float',
+    'Float'
+  },
+  {
+    'Boolean',
+    'Boolean'
+  },
+  {
+    'UUID',
+    'UUID'
+  },
+  {
+    'Any',
+    'Any (type libre)'
+  },
+  {
+    'Map',
+    'Map (objet JSON)'
+  },
+  {
+    'Array',
+    'Array (tableau JSON)'
+  },
+  {
+    'Sequence',
+    'Séquence (auto-incrément)'
+  },
+  {
+    'Datetime',
+    'Datetime'
+  },
+  {
+    'Relation',
+    'Relation'
+  }
+}
 local field_type_select
 field_type_select = function()
   local opts = {
@@ -182,6 +1027,23 @@ make_sidebar = function()
       H.ul({
         id = 'space-list',
         ''
+      })
+    }),
+    H.div({
+      id = 'plugins-sidebar-section',
+      class = 'sidebar-section hidden',
+      H.div({
+        class = 'sidebar-section-title',
+        H.span({
+          'Plugins widgets'
+        })
+      }),
+      H.ul({
+        class = 'plugins-nav-list',
+        H.li({
+          id = 'plugins-nav-manage',
+          'Gestion des plugins'
+        })
       })
     }),
     H.div({
@@ -521,9 +1383,9 @@ make_content = function()
           '✎ Éditer'
         }),
         H.button({
-          id = 'yaml-plugins-btn',
+          id = 'yaml-add-widget-btn',
           class = 'toolbar-btn',
-          '🧩 Plugins'
+          '＋ Widget'
         }),
         H.button({
           id = 'yaml-delete-btn',
@@ -1086,6 +1948,39 @@ make_body = function()
         make_content()
       })
     }),
+    H.div({
+      id = 'add-widget-modal',
+      class = 'modal-overlay hidden',
+      H.div({
+        class = 'modal-box modal-box--editor',
+        H.div({
+          class = 'modal-editor-header',
+          H.span({
+            class = 'modal-title',
+            'Ajouter un widget'
+          }),
+          H.div({
+            class = 'modal-editor-actions',
+            H.button({
+              id = 'add-widget-confirm-btn',
+              class = 'btn-primary',
+              'Ajouter'
+            }),
+            H.button({
+              id = 'add-widget-cancel-btn',
+              class = 'toolbar-btn',
+              '✕'
+            })
+          })
+        }),
+        H.div({
+          class = 'add-widget-modal-body',
+          _widgetDataSourceSection(),
+          _widgetTypeSection(),
+          _widgetParamsSection()
+        })
+      })
+    }),
     H.script({
       [[      if (localStorage.getItem('tdb_token')) {
         document.getElementById('login-overlay').classList.add('hidden');
@@ -1191,6 +2086,9 @@ render = function()
   })
   _html = "<!DOCTYPE html>\n" .. doc
   return _html
+end
+if arg[1] == "--test" then
+  print(render())
 end
 return {
   render = render
