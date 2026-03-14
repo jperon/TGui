@@ -140,6 +140,12 @@
       newPageBtn: function() {
         return document.getElementById('new-page-btn');
       },
+      dataViewList: function() {
+        return document.getElementById('data-view-list');
+      },
+      newDataViewBtn: function() {
+        return document.getElementById('new-data-view-btn');
+      },
       adminSidebarSection: function() {
         return document.getElementById('admin-sidebar-section');
       },

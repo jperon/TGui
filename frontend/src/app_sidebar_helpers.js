@@ -2,7 +2,7 @@
   // app_sidebar_helpers.coffee — sidebar/admin/dialog helpers extracted from app.coffee
   window.AppSidebarHelpers = {
     applySidebarState: function(app) {
-      var spBtn, spList;
+      var adminBtn, adminExpanded, adminList, adminSection, spBtn, spList;
       if (localStorage.getItem('tdb_menu_state') === 'collapsed') {
         app.el.main().classList.add('sidebar-collapsed');
       } else {
@@ -12,14 +12,34 @@
       spBtn = document.getElementById('spaces-toggle-btn');
       if (localStorage.getItem('tdb_spaces_collapsed') === 'true') {
         spList.classList.add('hidden');
-        return spBtn != null ? spBtn.classList.add('collapsed') : void 0;
+        if (spBtn != null) {
+          spBtn.classList.add('collapsed');
+        }
       } else {
         spList.classList.remove('hidden');
-        return spBtn != null ? spBtn.classList.remove('collapsed') : void 0;
+        if (spBtn != null) {
+          spBtn.classList.remove('collapsed');
+        }
+      }
+      // Admin section: collapsed by default
+      adminSection = document.getElementById('admin-sidebar-section');
+      adminBtn = document.getElementById('admin-toggle-btn');
+      adminList = adminSection != null ? adminSection.querySelector('.admin-nav-list') : void 0;
+      if (adminSection && adminList) {
+        adminExpanded = localStorage.getItem('tdb_admin_collapsed') === 'false';
+        if (adminExpanded) {
+          adminSection.classList.remove('collapsed');
+          adminList.classList.remove('hidden');
+          return adminBtn != null ? adminBtn.textContent = '▾' : void 0;
+        } else {
+          adminSection.classList.add('collapsed');
+          adminList.classList.add('hidden');
+          return adminBtn != null ? adminBtn.textContent = '▸' : void 0;
+        }
       }
     },
     bindSidebar: function(app) {
-      var ref, ref1, ref2, ref3;
+      var ref, ref1, ref2, ref3, ref4;
       app.el.newSpaceBtn().addEventListener('click', async function() {
         var name;
         name = (await tdbPrompt(app._t('ui.prompts.newSpace')));
@@ -84,6 +104,29 @@
           }
         });
       }
+      if ((ref2 = document.getElementById('admin-toggle-btn')) != null) {
+        ref2.addEventListener('click', function() {
+          var adminBtn, adminList, adminSection, isCollapsed;
+          adminSection = document.getElementById('admin-sidebar-section');
+          adminList = adminSection != null ? adminSection.querySelector('.admin-nav-list') : void 0;
+          adminBtn = document.getElementById('admin-toggle-btn');
+          if (!(adminSection && adminList)) {
+            return;
+          }
+          isCollapsed = adminSection.classList.contains('collapsed');
+          if (isCollapsed) {
+            adminSection.classList.remove('collapsed');
+            adminList.classList.remove('hidden');
+            adminBtn.textContent = '▾';
+            return localStorage.setItem('tdb_admin_collapsed', 'false');
+          } else {
+            adminSection.classList.add('collapsed');
+            adminList.classList.add('hidden');
+            adminBtn.textContent = '▸';
+            return localStorage.setItem('tdb_admin_collapsed', 'true');
+          }
+        });
+      }
       app._applySidebarState();
       app.el.currentUserBtn().addEventListener('click', function() {
         var menu;
@@ -102,16 +145,16 @@
       app.el.logoutBtn().addEventListener('click', function() {
         return Auth.logout();
       });
-      if ((ref2 = app.el.langFrBtn()) != null) {
-        ref2.addEventListener('click', function() {
-          var ref3;
-          return (ref3 = window.I18N) != null ? ref3.setLocale('fr') : void 0;
-        });
-      }
-      if ((ref3 = app.el.langEnBtn()) != null) {
+      if ((ref3 = app.el.langFrBtn()) != null) {
         ref3.addEventListener('click', function() {
           var ref4;
-          return (ref4 = window.I18N) != null ? ref4.setLocale('en') : void 0;
+          return (ref4 = window.I18N) != null ? ref4.setLocale('fr') : void 0;
+        });
+      }
+      if ((ref4 = app.el.langEnBtn()) != null) {
+        ref4.addEventListener('click', function() {
+          var ref5;
+          return (ref5 = window.I18N) != null ? ref5.setLocale('en') : void 0;
         });
       }
       app.el.adminNavUsers().addEventListener('click', function() {

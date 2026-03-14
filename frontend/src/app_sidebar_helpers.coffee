@@ -16,6 +16,21 @@ window.AppSidebarHelpers =
       spList.classList.remove 'hidden'
       spBtn?.classList.remove 'collapsed'
 
+    # Admin section: collapsed by default
+    adminSection = document.getElementById 'admin-sidebar-section'
+    adminBtn = document.getElementById 'admin-toggle-btn'
+    adminList = adminSection?.querySelector '.admin-nav-list'
+    if adminSection and adminList
+      adminExpanded = localStorage.getItem('tdb_admin_collapsed') == 'false'
+      if adminExpanded
+        adminSection.classList.remove 'collapsed'
+        adminList.classList.remove 'hidden'
+        adminBtn?.textContent = '▾'
+      else
+        adminSection.classList.add 'collapsed'
+        adminList.classList.add 'hidden'
+        adminBtn?.textContent = '▸'
+
   bindSidebar: (app) ->
     app.el.newSpaceBtn().addEventListener 'click', ->
       name = await tdbPrompt app._t('ui.prompts.newSpace')
@@ -56,6 +71,23 @@ window.AppSidebarHelpers =
         spList.classList.add 'hidden'
         spBtn.classList.add 'collapsed'
         localStorage.setItem 'tdb_spaces_collapsed', 'true'
+
+    document.getElementById('admin-toggle-btn')?.addEventListener 'click', ->
+      adminSection = document.getElementById 'admin-sidebar-section'
+      adminList = adminSection?.querySelector '.admin-nav-list'
+      adminBtn = document.getElementById 'admin-toggle-btn'
+      return unless adminSection and adminList
+      isCollapsed = adminSection.classList.contains 'collapsed'
+      if isCollapsed
+        adminSection.classList.remove 'collapsed'
+        adminList.classList.remove 'hidden'
+        adminBtn.textContent = '▾'
+        localStorage.setItem 'tdb_admin_collapsed', 'false'
+      else
+        adminSection.classList.add 'collapsed'
+        adminList.classList.add 'hidden'
+        adminBtn.textContent = '▸'
+        localStorage.setItem 'tdb_admin_collapsed', 'true'
 
     app._applySidebarState()
 

@@ -1030,12 +1030,30 @@ make_sidebar = function()
       })
     }),
     H.div({
+      class = 'sidebar-section',
+      H.div({
+        class = 'sidebar-section-title',
+        H.span({
+          'Vues'
+        }),
+        H.button({
+          id = 'new-data-view-btn',
+          title = 'Nouvelle vue',
+          '＋'
+        })
+      }),
+      H.ul({
+        id = 'data-view-list',
+        ''
+      })
+    }),
+    H.div({
       id = 'plugins-sidebar-section',
       class = 'sidebar-section hidden',
       H.div({
         class = 'sidebar-section-title',
         H.span({
-          'Plugins widgets'
+          'Outils'
         })
       }),
       H.ul({
@@ -1048,9 +1066,14 @@ make_sidebar = function()
     }),
     H.div({
       id = 'admin-sidebar-section',
-      class = 'sidebar-section hidden',
+      class = 'sidebar-section hidden collapsed',
       H.div({
         class = 'sidebar-section-title',
+        H.button({
+          id = 'admin-toggle-btn',
+          class = 'section-toggle-btn',
+          '▸'
+        }),
         H.span({
           'Administration'
         })

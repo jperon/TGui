@@ -122,6 +122,8 @@ window.App =
     newSpaceBtn:       -> document.getElementById 'new-space-btn'
     pageList:          -> document.getElementById 'page-list'
     newPageBtn:         -> document.getElementById 'new-page-btn'
+    dataViewList:      -> document.getElementById 'data-view-list'
+    newDataViewBtn:    -> document.getElementById 'new-data-view-btn'
     adminSidebarSection: -> document.getElementById 'admin-sidebar-section'
     adminNavUsers:     -> document.getElementById 'admin-nav-users'
     adminNavGroups:    -> document.getElementById 'admin-nav-groups'

@@ -424,16 +424,24 @@ make_sidebar = ->
       }
       H.ul {id: 'space-list', ''}
     }
+    H.div {class: 'sidebar-section',
+      H.div {class: 'sidebar-section-title',
+        H.span {'Vues'}
+        H.button {id: 'new-data-view-btn', title: 'Nouvelle vue', '＋'}
+      }
+      H.ul {id: 'data-view-list', ''}
+    }
     H.div {id: 'plugins-sidebar-section', class: 'sidebar-section hidden',
       H.div {class: 'sidebar-section-title',
-        H.span {'Plugins widgets'}
+        H.span {'Outils'}
       }
       H.ul {class: 'plugins-nav-list',
         H.li {id: 'plugins-nav-manage', 'Gestion des plugins'}
       }
     }
-    H.div {id: 'admin-sidebar-section', class: 'sidebar-section hidden',
+    H.div {id: 'admin-sidebar-section', class: 'sidebar-section hidden collapsed',
       H.div {class: 'sidebar-section-title',
+        H.button {id: 'admin-toggle-btn', class: 'section-toggle-btn', '▸'}
         H.span {'Administration'}
       }
       H.ul {class: 'admin-nav-list',
