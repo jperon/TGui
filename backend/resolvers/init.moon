@@ -40,7 +40,9 @@ merge = (a, b) ->
 
 -- Load the static SDL text
 load_static_sdl = ->
+  -- Pour les tests, toujours utiliser le schéma statique qui contient tous les types
   sdl_path = '/app/schema/tdb.graphql'
+
   f = fio.open sdl_path, {'O_RDONLY'}
   error "Cannot open schema file: #{sdl_path}" unless f
   sdl = f\read!

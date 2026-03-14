@@ -1,6 +1,7 @@
 -- resolvers/custom_view_resolvers.moon
 -- CRUD resolvers for custom YAML views (dashboard layouts).
 
+yaml = require 'yaml'
 uuid_mod = require 'uuid'
 { :require_auth } = require 'resolvers.utils'
 
@@ -45,6 +46,60 @@ delete_custom_view = (id) ->
   box.space._tdb_custom_views\delete id
   true
 
+add_widget_to_view = (viewId, widget) ->
+  -- Récupérer la vue existante
+  t = box.space._tdb_custom_views\get viewId
+  error "CustomView not found: #{viewId}" unless t
+
+  -- Parser le YAML existant
+  yaml_content = t[4] or 'widgets: {}'
+  config = yaml.decode(yaml_content)
+
+  -- Initialiser la section widgets si elle n'existe pas
+  config.widgets = {} unless config.widgets
+
+  -- Générer un ID unique pour le widget
+  widget_id = uuid_mod()
+
+  -- Créer le widget avec les données fournies
+  new_widget = {
+    id: widget_id
+    title: widget.title
+    type: widget.type
+    spaceId: widget.spaceId
+    fields: widget.fields or {}
+    groupBy: widget.groupBy
+    params: widget.params or {}
+    position: widget.position or {
+      x: 0
+      y: 0
+      w: 6
+      h: 4
+    }
+  }
+
+  -- Ajouter le widget à la configuration
+  config.widgets[widget_id] = new_widget
+
+  -- Re-encoder le YAML
+  updated_yaml = yaml.encode(config)
+
+  -- Mettre à jour la vue dans la base de données
+  box.space._tdb_custom_views\update viewId, {
+    { '=', 4, updated_yaml }  -- Mettre à jour le champ yaml
+    { '=', 6, os.time() }     -- Mettre à jour updatedAt
+  }
+
+  -- Retourner la vue mise à jour
+  {
+    id: viewId
+    name: t[2]
+    description: t[3]
+    yaml: updated_yaml
+    createdAt: tostring(t[5])
+    updatedAt: tostring(os.time())
+  }
+
 Query =
   customViews: (_, args, ctx) ->
     require_auth ctx
@@ -65,5 +120,8 @@ Mutation =
   deleteCustomView: (_, args, ctx) ->
     require_auth ctx
     delete_custom_view args.id
+  addWidgetToView: (_, args, ctx) ->
+    require_auth ctx
+    add_widget_to_view args.viewId, args.widget
 
 { :Query, :Mutation }
