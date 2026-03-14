@@ -33,53 +33,114 @@ window.CustomView = class CustomView
     @_pluginStateByWidgetId = {}
     @_pluginSelectionListenersByWidgetId = {}
 
+  # Fonction globale pour gérer l'insertion de layouts pendant l'édition YAML
+  @setupLayoutInsertion: ->
+    # Éviter les doublons de listeners
+    if window._cvLayoutListenerActive
+      return
+
+    window.addEventListener 'cv-insert-layout', (ev) =>
+      direction = ev.detail?.direction
+      return unless direction
+
+      # Récupérer l'instance CodeMirror active
+      cm = document.querySelector('.CodeMirror')
+      return unless cm?.CodeMirror
+
+      currentYaml = cm.CodeMirror.getValue()
+      parsed = null
+      try
+        parsed = jsyaml.load currentYaml
+        # Si le YAML est vide, jsyaml.load retourne null
+        parsed = {} if not parsed
+      catch e
+        parsed = {}
+
+      newLayout =
+        direction: direction
+        children: []
+
+      # Logique d'insertion intelligente
+      if not parsed.layout
+        # Créer un layout racine
+        parsed.layout = newLayout
+        @showNotification 'Layout racine créé', 'success'
+      else if parsed.layout and parsed.layout.children
+        # Ajouter comme enfant du layout existant
+        parsed.layout.children.push newLayout
+        @showNotification "Layout #{direction} ajouté", 'success'
+      else
+        # Remplacer ou créer le layout
+        parsed.layout = newLayout
+        @showNotification 'Layout remplacé', 'success'
+
+      newYaml = jsyaml.dump parsed
+
+      # Valider le YAML généré
+      try
+        jsyaml.load newYaml
+        cm.CodeMirror.setValue newYaml
+        @showNotification 'Layout inséré avec succès', 'success'
+      catch e
+        @showNotification "Erreur YAML : #{e.message}", 'error'
+        # Restaurer le YAML précédent en cas d'erreur
+        cm.CodeMirror.setValue currentYaml
+
+    window._cvLayoutListenerActive = true
+
+  @showNotification: (message, type = 'info') ->
+    # Créer une notification temporaire
+    notification = document.createElement 'div'
+    notification.className = "cv-notification cv-notification--#{type}"
+    notification.textContent = message
+    notification.style.cssText = """
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 12px 16px;
+      border-radius: 4px;
+      color: white;
+      font-weight: 500;
+      z-index: 10000;
+      opacity: 0;
+      transform: translateX(100%);
+      transition: all 0.3s ease;
+    """
+
+    # Couleurs selon le type
+    colors =
+      success: '#28a745'
+      error: '#dc3545'
+      info: '#17a2b8'
+
+    notification.style.backgroundColor = colors[type] or colors.info
+
+    # Ajouter au DOM
+    document.body.appendChild notification
+
+    # Animer l'entrée
+    setTimeout ->
+      notification.style.opacity = '1'
+      notification.style.transform = 'translateX(0)'
+    , 10
+
+    # Auto-suppression après 3 secondes
+    setTimeout ->
+      notification.style.opacity = '0'
+      notification.style.transform = 'translateX(100%)'
+      setTimeout ->
+        document.body.removeChild notification
+      , 300
+    , 3000
+
   mount: ->
     @container.innerHTML = ''
     @_widgets     = []
     @_widgetsById = {}
     @_mountPromises = []
 
-    # Palette d'insertion de layouts
-    palette = document.createElement 'div'
-    palette.className = 'cv-layout-palette'
-    palette.style.cssText = 'display:flex;gap:8px;padding:8px 0;'
-    btnVert = document.createElement 'button'
-    btnVert.textContent = 'Ajouter layout vertical'
-    btnVert.className = 'cv-layout-btn'
-    btnHoriz = document.createElement 'button'
-    btnHoriz.textContent = 'Ajouter layout horizontal'
-    btnHoriz.className = 'cv-layout-btn'
-    palette.appendChild btnVert
-    palette.appendChild btnHoriz
-    @container.appendChild palette
-
-    btnVert.addEventListener 'click', => @_insertLayout('vertical')
-    btnHoriz.addEventListener 'click', => @_insertLayout('horizontal')
-
-    # Méthode d'insertion de layout
-    @_insertLayout = (direction) =>
-      # Parse YAML
-      parsed = null
-      try
-        parsed = jsyaml.load @yamlText
-      catch e
-        parsed = {}
-      # Crée un layout de base
-      newLayout =
-        direction: direction
-        children: []
-      # Remplace ou ajoute la racine layout
-      parsed.layout = newLayout
-      # Met à jour YAML
-      newYaml = jsyaml.dump parsed
-      # Met à jour l'éditeur YAML si présent
-      if window.CodeMirror?
-        cm = document.querySelector('.CodeMirror')
-        if cm? and cm.CodeMirror?
-          cm.CodeMirror.setValue newYaml
-      # Sinon, met à jour @yamlText et rerend
-      @yamlText = newYaml
-      @mount()
+    # Configurer le listener global d'insertion de layouts
+    CustomView.setupLayoutInsertion()
 
     try
       parsed = jsyaml.load @yamlText

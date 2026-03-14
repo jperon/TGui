@@ -115,8 +115,9 @@ window.AppViewHelpers =
   bindYamlEditor: (app) ->
     app.el.yamlEditBtn().addEventListener 'click', ->
       app._openYamlModal()
-    app.el.yamlPluginsBtn()?.addEventListener 'click', ->
-      app._openWidgetPluginModal()
+
+    app.el.yamlAddWidgetBtn().addEventListener 'click', ->
+      window.AppViewHelpers._openAddWidgetModal app
 
     app.el.yamlDeleteBtn().addEventListener 'click', ->
       cv = app._currentCustomView
@@ -157,6 +158,13 @@ window.AppViewHelpers =
     return unless cv
     app.el.yamlModalTitle().textContent = cv.name
     app.el.yamlModal().classList.remove 'hidden'
+
+    # Ajouter la palette d'insertion de layouts dans le header de la modale YAML
+    @setupLayoutPalette app
+
+    # Configurer le listener global d'insertion de layouts
+    window.CustomView?.setupLayoutInsertion?()
+
     yamlPane = document.querySelector '.yaml-editor-pane'
     applyValidationLayout = ->
       return unless yamlPane and app._yamlValidMsg
@@ -559,3 +567,614 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
     setTimeout (-> app._cmWidgetPluginScript?.refresh()), 10
     setTimeout (-> app._cmWidgetPluginTemplate?.refresh()), 10
     window.AppViewHelpers._loadWidgetPlugins app
+
+  setupLayoutPalette: (app) ->
+    # Vérifier si la palette existe déjà pour éviter les doublons
+    existingPalette = document.querySelector '.cv-layout-palette'
+    return if existingPalette
+
+    # Créer la palette d'insertion de layouts
+    palette = document.createElement 'div'
+    palette.className = 'cv-layout-palette'
+
+    btnVert = document.createElement 'button'
+    btnVert.textContent = 'Ajouter layout vertical'
+    btnVert.className = 'cv-layout-btn'
+    btnVert.title = 'Insérer un layout vertical'
+
+    btnHoriz = document.createElement 'button'
+    btnHoriz.textContent = 'Ajouter layout horizontal'
+    btnHoriz.className = 'cv-layout-btn'
+    btnHoriz.title = 'Insérer un layout horizontal'
+
+    palette.appendChild btnVert
+    palette.appendChild btnHoriz
+
+    # Insérer la palette dans le header de la modale YAML
+    actionsContainer = document.querySelector '.modal-editor-actions'
+    if actionsContainer
+      actionsContainer.insertBefore palette, actionsContainer.firstChild
+
+      # Gestion des clics sur la palette
+      btnVert.addEventListener 'click', ->
+        window.dispatchEvent new CustomEvent('cv-insert-layout', { detail: { direction: 'vertical' } })
+
+      btnHoriz.addEventListener 'click', ->
+        window.dispatchEvent new CustomEvent('cv-insert-layout', { detail: { direction: 'horizontal' } })
+
+  _openAddWidgetModal: (app) ->
+    cv = app._currentCustomView
+    return unless cv
+
+    # Afficher la modale
+    app.el.addWidgetModal().classList.remove 'hidden'
+
+    # Corriger le HTML manquant dynamiquement
+    window.AppViewHelpers._fixModalHTML()
+
+    # Initialiser la modale avec les fonctions de base
+    window.AppViewHelpers._initializeWidgetModal app
+
+  _fixModalHTML: ->
+    # Ajouter les sections manquantes si elles n'existent pas
+    dataSourceConfig = document.querySelector '.data-source-config'
+    return unless dataSourceConfig
+
+    # Vérifier si les sections manquent
+    fieldsContainer = document.getElementById 'widget-fields-container'
+    groupBySelect = document.getElementById 'widget-groupby-select'
+
+    unless fieldsContainer
+      # Créer la section des champs
+      fieldsSection = document.createElement 'div'
+      fieldsSection.className = 'config-row'
+      fieldsSection.innerHTML = '''
+        <label>Colonnes à afficher:</label>
+        <div id="widget-fields-container" class="fields-container">
+          <div class="fields-header">
+            <div class="field-group">Disponibles:</div>
+            <div class="field-group">Sélectionnées:</div>
+          </div>
+          <div class="fields-lists">
+            <div id="available-fields" class="fields-list"> </div>
+            <div id="selected-fields" class="fields-list selected"> </div>
+          </div>
+        </div>
+      '''
+      dataSourceConfig.appendChild fieldsSection
+
+    unless groupBySelect
+      # Créer la section de groupement
+      groupBySection = document.createElement 'div'
+      groupBySection.className = 'config-row'
+      groupBySection.innerHTML = '''
+        <label>Groupement (GROUP BY):</label>
+        <select id="widget-groupby-select" class="widget-select">
+          <option value="">Aucun groupement</option>
+        </select>
+      '''
+      dataSourceConfig.appendChild groupBySection
+
+  _initializeWidgetModal: (app) ->
+    # Charger les espaces disponibles
+    window.AppViewHelpers._loadAvailableSpaces app
+
+    # Lier les événements de base
+    window.AppViewHelpers._bindBasicWidgetEvents app
+
+  _loadAvailableSpaces: (app) ->
+    # Charger la liste des espaces dans le select
+    window.Spaces.list().then (spaces) ->
+      select = document.getElementById 'widget-space-select'
+      return unless select
+
+      select.innerHTML = '<option value="">Sélectionner un espace...</option>'
+
+      # Stocker les données pour utilisation ultérieure
+      app._spacesData = spaces
+
+      for space in spaces
+        option = document.createElement 'option'
+        option.value = space.id
+        option.textContent = space.name
+        select.appendChild option
+
+      # Écouter les changements pour charger les champs
+      select.addEventListener 'change', ->
+        spaceId = @value
+        return unless spaceId
+
+        # Trouver l'espace correspondant
+        selectedSpace = app._spacesData.find (space) -> space.id == spaceId
+        window.AppViewHelpers._populateFieldsLists selectedSpace if selectedSpace
+        window.AppViewHelpers._populateGroupByOptions selectedSpace if selectedSpace
+
+  _toggleFieldSelection: (fieldItem) ->
+    isSelected = fieldItem.classList.contains 'selected'
+    availableContainer = document.getElementById 'available-fields'
+    selectedContainer = document.getElementById 'selected-fields'
+
+    if isSelected
+      # Retirer de la sélection
+      fieldItem.classList.remove 'selected'
+      availableContainer.appendChild fieldItem
+    else
+      # Ajouter à la sélection
+      fieldItem.classList.add 'selected'
+      selectedContainer.appendChild fieldItem
+
+  _populateFieldsLists: (space) ->
+    availableContainer = document.getElementById 'available-fields'
+    selectedContainer = document.getElementById 'selected-fields'
+
+    return unless availableContainer and selectedContainer and space
+
+    # Vider les conteneurs
+    availableContainer.innerHTML = ''
+    selectedContainer.innerHTML = ''
+
+    # Ajouter les champs disponibles
+    for field in space.fields
+      fieldItem = document.createElement 'div'
+      fieldItem.className = 'field-item'
+      fieldItem.textContent = "#{field.name} (#{field.fieldType})"
+      fieldItem.dataset.fieldId = field.id
+      fieldItem.dataset.fieldName = field.name
+      fieldItem.dataset.fieldType = field.fieldType
+
+      fieldItem.addEventListener 'click', ->
+        window.AppViewHelpers._toggleFieldSelection @
+
+      availableContainer.appendChild fieldItem
+
+  _populateGroupByOptions: (space) ->
+    groupBySelect = document.getElementById 'widget-groupby-select'
+    return unless groupBySelect and space
+
+    # Vider et repeupler
+    groupBySelect.innerHTML = '<option value="">Aucun groupement</option>'
+
+    # Ajouter chaque champ comme option de GROUP BY
+    for field in space.fields
+      option = document.createElement 'option'
+      option.value = field.name
+      option.textContent = field.name
+      groupBySelect.appendChild option
+
+  _bindBasicWidgetEvents: (app) ->
+    # Gérer la sélection du type de widget
+    typeOptions = document.querySelectorAll '.widget-type-option'
+
+    for option in typeOptions
+      option.addEventListener 'click', ->
+        # Désélectionner les autres
+        for opt in typeOptions
+          opt.classList.remove 'selected'
+
+        # Sélectionner celui-ci
+        @classList.add 'selected'
+        @querySelector('input[type="radio"]').checked = true
+
+    # Gérer les boutons de la modale
+    confirmBtn = document.getElementById 'add-widget-confirm-btn'
+    cancelBtn = document.getElementById 'add-widget-cancel-btn'
+
+    if confirmBtn
+      confirmBtn.addEventListener 'click', ->
+        window.AppViewHelpers._submitWidget app
+
+    if cancelBtn
+      cancelBtn.addEventListener 'click', ->
+        window.AppViewHelpers._closeWidgetModal app
+
+    # Gérer les paramètres
+    window.AppViewHelpers._bindParamsManagement app
+
+  _bindParamsManagement: (app) ->
+    addBtn = document.getElementById 'add-param-btn'
+    paramsList = document.getElementById 'widget-params-list'
+
+    return unless addBtn and paramsList
+
+    addBtn.addEventListener 'click', ->
+      window.AppViewHelpers._addParamRow paramsList
+
+    # Gérer les boutons de suppression existants
+    window.AppViewHelpers._bindParamRemoval paramsList
+
+  _addParamRow: (paramsList) ->
+    paramRow = document.createElement 'div'
+    paramRow.className = 'param-row'
+    paramRow.innerHTML = '''
+      <input type="text" placeholder="Clé" class="param-key">
+      <input type="text" placeholder="Valeur" class="param-value">
+      <button type="button" class="param-remove-btn">✕</button>
+    '''
+
+    paramsList.appendChild paramRow
+    window.AppViewHelpers._bindParamRemoval paramsList
+
+  _bindParamRemoval: (paramsList) ->
+    removeBtns = paramsList.querySelectorAll '.param-remove-btn'
+
+    for btn in removeBtns
+      # Éviter les doublons d'event listeners
+      btn.removeEventListener 'click', arguments.callee
+      btn.addEventListener 'click', ->
+        @parentElement.remove()
+
+  _validateWidgetForm: ->
+    titleInput = document.getElementById 'widget-title-input'
+    spaceSelect = document.getElementById 'widget-space-select'
+    selectedFields = document.querySelectorAll '#selected-fields .field-item'
+
+    errors = []
+
+    # Valider le titre
+    unless titleInput and titleInput.value.trim()
+      errors.push 'Le titre du widget est requis'
+
+    # Valider l'espace
+    unless spaceSelect and spaceSelect.value
+      errors.push 'La sélection d\'un espace est requise'
+
+    # Valider les champs (au moins un champ sélectionné)
+    unless selectedFields.length > 0
+      errors.push 'Au moins un champ doit être sélectionné'
+
+    return errors
+
+  _collectWidgetData: ->
+    titleInput = document.getElementById 'widget-title-input'
+    spaceSelect = document.getElementById 'widget-space-select'
+    groupBySelect = document.getElementById 'widget-groupby-select'
+    selectedType = document.querySelector 'input[name="widget-type"]:checked'
+    selectedFields = document.querySelectorAll '#selected-fields .field-item'
+    paramRows = document.querySelectorAll '#widget-params-list .param-row'
+
+    # Collecter les champs sélectionnés
+    fields = []
+    for field in selectedFields
+      fields.push field.dataset.fieldName or field.textContent
+
+    # Collecter les paramètres
+    params = {}
+    for paramRow in paramRows
+      keyInput = paramRow.querySelector '.param-key'
+      valueInput = paramRow.querySelector '.param-value'
+
+      if keyInput and valueInput and keyInput.value.trim()
+        params[keyInput.value.trim()] = valueInput.value.trim()
+
+    return {
+      title: titleInput.value.trim()
+      spaceId: spaceSelect.value
+      groupBy: groupBySelect.value or null
+      type: selectedType.value or 'table'
+      fields: fields
+      params: params
+    }
+
+  _submitWidget: (app) ->
+    # Valider le formulaire
+    errors = window.AppViewHelpers._validateWidgetForm()
+
+    if errors.length > 0
+      alert 'Erreurs de validation:\n' + errors.join('\n')
+      return
+
+    # Collecter les données
+    widgetData = window.AppViewHelpers._collectWidgetData()
+
+    # Récupérer l'ID de la vue actuelle depuis l'URL
+    viewId = window.location.hash.match(/view\/([a-f0-9-]+)/)?[1]
+
+    unless viewId
+      alert 'Erreur: impossible de déterminer l\'ID de la vue actuelle'
+      return
+
+    # Préparer la mutation GraphQL
+    mutation = '''
+      mutation AddWidgetToView($viewId: ID!, $widget: WidgetInput!) {
+        addWidgetToView(viewId: $viewId, widget: $widget) {
+          id
+          name
+          yaml
+        }
+      }
+    '''
+
+    # Préparer les variables
+    variables = {
+      viewId: viewId
+      widget: {
+        title: widgetData.title
+        type: widgetData.type
+        spaceId: widgetData.spaceId
+        fields: widgetData.fields
+        groupBy: widgetData.groupBy
+        params: widgetData.params
+        position: {
+          x: 0
+          y: 0
+          w: 6
+          h: 4
+        }
+      }
+    }
+
+    # Exécuter la mutation
+    window.GQL.mutate(mutation, variables)
+      .then (result) ->
+        if result.errors
+          console.error 'GraphQL errors:', result.errors
+          alert 'Erreur lors de la création du widget: ' + result.errors[0].message
+        else
+          console.log 'Widget créé avec succès:', result.data.addWidgetToView
+          window.AppViewHelpers._closeWidgetModal app
+          alert 'Widget créé avec succès!'
+          # TODO: Recharger la vue pour afficher le nouveau widget
+      .catch (error) ->
+        console.error 'Network error:', error
+        alert 'Erreur réseau lors de la création du widget: ' + error.message
+
+_getWidgetConfig: (app) ->
+  # Récupérer la configuration complète du widget
+  titleInput = document.getElementById 'widget-title-input'
+  spaceSelect = document.getElementById 'widget-space-select'
+  groupBySelect = document.getElementById 'widget-groupby-select'
+  selectedFields = document.querySelectorAll '#selected-fields .field-item'
+  widgetTypeRadio = document.querySelector 'input[name="widget-type"]:checked'
+  paramRows = document.querySelectorAll '#widget-params-list .param-row'
+
+  config = {
+    title: titleInput?.value or 'Widget sans titre'
+    space: spaceSelect?.value or ''
+    spaceName: spaceSelect?.options[spaceSelect?.selectedIndex]?.textContent or ''
+    groupBy: groupBySelect?.value or ''
+    widgetType: widgetTypeRadio?.value or 'table'
+    fields: []
+    params: {}
+  }
+
+  # Ajouter les champs sélectionnés
+  for field in selectedFields
+    config.fields.push {
+      id: field.dataset.fieldId
+      name: field.dataset.fieldName
+      type: field.dataset.fieldType
+    }
+
+  config
+
+  _closeWidgetModal: (app) ->
+    modal = document.getElementById 'add-widget-modal'
+    return unless modal
+
+    # Masquer la modale
+    modal.classList.add 'hidden'
+
+    # Réinitialiser le formulaire
+    window.AppViewHelpers._resetWidgetForm()
+
+  _resetWidgetForm: ->
+    titleInput = document.getElementById 'widget-title-input'
+    spaceSelect = document.getElementById 'widget-space-select'
+    groupBySelect = document.getElementById 'widget-groupby-select'
+
+    # Réinitialiser les champs
+    if titleInput then titleInput.value = 'Mon widget'
+    if spaceSelect then spaceSelect.value = ''
+    if groupBySelect then groupBySelect.value = ''
+
+    # Réinitialiser les champs sélectionnés
+    availableContainer = document.getElementById 'available-fields'
+    selectedContainer = document.getElementById 'selected-fields'
+
+    if availableContainer and selectedContainer
+      # Remettre les champs sélectionnés dans disponibles
+      selectedFields = selectedContainer.querySelectorAll '.field-item'
+      for field in selectedFields
+        field.classList.remove 'selected'
+        availableContainer.appendChild field
+
+    # Réinitialiser le type de widget
+    tableType = document.getElementById 'widget-type-table'
+    if tableType then tableType.checked = true
+
+    # Réinitialiser les paramètres
+    paramsList = document.getElementById 'widget-params-list'
+    if paramsList
+      # Garder seulement la première ligne de paramètres
+      while paramsList.children.length > 1
+        paramsList.removeChild paramsList.lastChild
+
+      # Vider les champs de la première ligne
+      firstRow = paramsList.querySelector '.param-row'
+      if firstRow
+        keyInput = firstRow.querySelector '.param-key'
+        valueInput = firstRow.querySelector '.param-value'
+        if keyInput then keyInput.value = ''
+        if valueInput then valueInput.value = ''
+
+  _getWidgetConfig: (app) ->
+    # Récupérer la configuration complète du widget
+    titleInput = document.getElementById 'widget-title-input'
+    spaceSelect = document.getElementById 'widget-space-select'
+    groupBySelect = document.getElementById 'widget-groupby-select'
+    selectedFields = document.querySelectorAll '#selected-fields .field-item'
+    widgetTypeRadio = document.querySelector 'input[name="widget-type"]:checked'
+    paramRows = document.querySelectorAll '#widget-params-list .param-row'
+
+    config = {
+      title: titleInput?.value or 'Widget sans titre'
+      space: spaceSelect?.value or ''
+      spaceName: spaceSelect?.options[spaceSelect?.selectedIndex]?.textContent or ''
+      groupBy: groupBySelect?.value or ''
+      widgetType: widgetTypeRadio?.value or 'table'
+      fields: []
+      params: {}
+    }
+
+    # Ajouter les champs sélectionnés
+    for field in selectedFields
+      config.fields.push {
+        id: field.dataset.fieldId
+        name: field.dataset.fieldName
+        type: field.dataset.fieldType
+      }
+
+    # Ajouter les paramètres
+    for paramRow in paramRows
+      keyInput = paramRow.querySelector '.param-key'
+      valueInput = paramRow.querySelector '.param-value'
+
+      if keyInput?.value and valueInput?.value
+        config.params[keyInput.value] = valueInput.value
+
+    return config
+
+  _showWidgetConfig: (app, type, data) ->
+    container = app.el.widgetConfigForm()
+    container.innerHTML = ''
+    if type == 'table'
+      config = document.createElement 'div'
+      config.innerHTML = """
+        <div class="config-field">
+          <label>Titre:</label>
+          <input type="text" id="widget-title" value="#{data.name}" />
+        </div>
+        <div class="config-field">
+          <label>Espace:</label>
+          <span>#{data.name}</span>
+        </div>
+        <div class="config-field">
+          <label>Type de widget:</label>
+          <div class="widget-type-options">
+            <div class="widget-type-option">
+              <input type="radio" name="widget-type" value="table" checked>
+              <span>Table</span>
+            </div>
+            <div class="widget-type-option">
+              <input type="radio" name="widget-type" value="chart">
+              <span>Graphique</span>
+            </div>
+          </div>
+        </div>
+        <div class="config-field">
+          <label>Espace:</label>
+          <select id="widget-space-select">
+            <option value="">Sélectionner un espace...</option>
+          </select>
+        </div>
+        <div class="config-field">
+          <label>Champs:</label>
+          <div id="available-fields"></div>
+          <div id="selected-fields"></div>
+        </div>
+        <div class="config-field">
+          <label>Paramètres:</label>
+          <button type="button" id="add-param-btn">Ajouter un paramètre</button>
+          <div id="widget-params-list"></div>
+        </div>
+      """
+      container.appendChild config
+    else if type == 'plugin'
+      config = document.createElement 'div'
+      config.innerHTML = """
+        <div class="config-field">
+          <label>Titre:</label>
+          <input type="text" id="widget-title" value="#{data.name}" />
+        </div>
+        <div class="config-field">
+          <label>Type:</label>
+          <span>#{data.type}</span>
+        </div>
+      """
+      container.appendChild config
+
+  _bindAddWidgetModal: (app) ->
+    # Lier les événements pour la nouvelle structure
+    window.AppViewHelpers._bindWidgetTypeSelection app
+    window.AppViewHelpers._bindParamsManagement app
+
+  _confirmAddWidget: (app) ->
+    cv = app._currentCustomView
+    return unless cv
+
+    # Récupérer la configuration complète
+    widgetConfig = window.AppViewHelpers._getWidgetConfig app
+
+    # Validation
+    unless widgetConfig.space
+      tdbAlert "Veuillez sélectionner un espace", 'error'
+      return
+
+    unless widgetConfig.fields.length > 0
+      tdbAlert "Veuillez sélectionner au moins un champ", 'error'
+      return
+
+    try
+      # Parser le YAML existant
+      parsed = jsyaml.load cv.yaml
+
+      # Créer le widget YAML selon le type
+      widgetYaml = window.AppViewHelpers._createWidgetYaml widgetConfig
+
+      # Ajouter le widget comme enfant du layout racine
+      parsed.layout.children.push jsyaml.load(widgetYaml)[0]
+
+      # Mettre à jour le YAML
+      newYaml = jsyaml.dump parsed
+
+      # Sauvegarder
+      GQL.mutate(app._updateCustomViewMutation, { id: cv.id, input: { yaml: newYaml } })
+        .then (data) ->
+          app._currentCustomView = data.updateCustomView
+          window.AppViewHelpers._closeAddWidgetModal app
+          window.AppViewHelpers._renderCustomViewPreview app, newYaml
+        .catch (err) -> tdbAlert app._err(err), 'error'
+    catch e
+      tdbAlert "Erreur YAML : #{e.message}", 'error'
+
+  _createWidgetYaml: (config) ->
+    # Créer le YAML du widget selon la configuration
+    widget = {
+      title: config.title
+      type: config.widgetType
+      space: config.space
+    }
+
+    # Ajouter les champs
+    if config.fields.length > 0
+      widget.fields = config.fields.map (field) -> field.name
+
+    # Ajouter le groupement si spécifié
+    if config.groupBy
+      widget.groupBy = config.groupBy
+
+    # Ajouter les paramètres personnalisés
+    if Object.keys(config.params).length > 0
+      for key, value of config.params
+        widget[key] = value
+
+    # Convertir en YAML
+    return jsyaml.dump([widget])
+
+  _renderCustomViewPreview: (app, yaml) ->
+    # Cette fonction sera implémentée plus tard pour rafraîchir l'aperçu
+    console.log "Preview refreshed with YAML:", yaml
+
+  _closeAddWidgetModal: (app) ->
+    app.el.addWidgetModal().classList.add 'hidden'
+    app._selectedWidget = null
+
+# Gestionnaires d'événements principaux pour la modale
+window.AppViewHelpers._bindAddWidgetModal = (app) ->
+  # Bouton de confirmation
+  app.el.addWidgetConfirmBtn().addEventListener 'click', ->
+    window.AppViewHelpers._confirmAddWidget app
+
+  # Bouton d'annulation
+  app.el.addWidgetCancelBtn().addEventListener 'click', ->
+    window.AppViewHelpers._closeAddWidgetModal app
