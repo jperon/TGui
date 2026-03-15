@@ -380,6 +380,145 @@ make_self_proxy = (record, fk_def_map, fk_cache, space_name) ->
   }
   proxy
 
+-- ── Extended Self Proxy with List Support ────────────────────────────────────────
+
+-- Build an extended self proxy that supports both single and multiple relations.
+-- single_fk_map: { field_name => { toSpaceName, toFieldName } }
+-- multiple_fk_map: { field_name => { toSpaceName, toFieldName } }
+-- fk_cache: optional shared cache (passed across all records of a single request)
+make_self_proxy_extended = (record, single_fk_map, multiple_fk_map, fk_cache, space_name) ->
+  fk_cache          = fk_cache or {}
+  fk_cache.spaces   = fk_cache.spaces   or {}
+  fk_cache.fk_def_maps = fk_cache.fk_def_maps or {}
+  fk_cache.formulas = fk_cache.formulas or {}
+
+  decode_tuple = (t) ->
+    d = if type(t[2]) == 'string' then json.decode(t[2]) else t[2]
+    d._id = tostring t[1]
+    d
+
+  -- Load target space once; build field index on demand (no extra scan).
+  ensure_space = (s_name, to_field_name) ->
+    sc = fk_cache.spaces[s_name]
+    unless sc
+      sc = { records: {}, by_field: {} }
+      tb = box.space["data_#{s_name}"]
+      if tb
+        for tup in *tb\select {}
+          d = decode_tuple tup
+          sc.records[d._id] = d
+      fk_cache.spaces[s_name] = sc
+
+    -- Always build _id index for primary lookup
+    unless sc.by_field['_id']
+      idx = {}
+      for _, d in pairs sc.records
+        if d._id ~= nil
+          key = tostring(d._id)
+          idx[key] = d
+      sc.by_field['_id'] = idx
+
+    -- Build specific field index if needed and different from _id
+    if to_field_name != '_id' and not sc.by_field[to_field_name]
+      idx = {}
+      for _, d in pairs sc.records
+        if d[to_field_name] ~= nil
+          key = tostring(d[to_field_name])
+          idx[key] = d
+      sc.by_field[to_field_name] = idx
+
+    sc
+
+  -- Get or build nested fk_def_map (cached, avoids repeated metadata scans).
+  ensure_fk_def_map = (space_id) ->
+    return fk_cache.fk_def_maps[space_id] if fk_cache.fk_def_maps[space_id]
+    fk_def_map = build_fk_def_map space_id
+    fk_cache.fk_def_maps[space_id] = fk_def_map
+    fk_def_map
+
+  -- Resolve multiple references (1-to-N relations)
+  resolve_multiple_references = (source_id, relation_def, fk_cache) ->
+    sc = ensure_space relation_def.toSpaceName, relation_def.toFieldName
+    results = {}
+
+    -- Find all records in target space that reference the source record
+    for _, d in pairs sc.records
+      if d[relation_def.toFieldName] == source_id
+        -- Create a nested proxy for each found record
+        nested_space = box.space._tdb_spaces.index.by_name\get { relation_def.toSpaceName }
+        nested_space_id = nested_space and nested_space[1]
+        nested_fk_map = if nested_space_id then ensure_fk_def_map nested_space_id else {}
+        nested = make_self_proxy_extended d, single_fk_map, multiple_fk_map, fk_cache, relation_def.toSpaceName
+        table.insert results, nested
+
+    return results
+
+  proxy = setmetatable {
+    list: {
+      length: (list) -> #list or 0
+      first: (list) -> list and list[1] or nil
+      last: (list) -> list and list[#list] or nil
+      map: (list, fn) -> [fn(item) for item in *list]
+      filter: (list, fn) -> [item for item in *list when fn(item)]
+      reduce: (list, fn, init) ->
+        result = init
+        for item in *list
+          result = fn(result, item)
+        result
+    }
+  }, {
+    __index: (t, k) ->
+      cached = rawget t, k
+      return cached if cached != nil
+      v = record[k]
+
+      -- If the field is missing (or empty string) from raw data, check if it's a computed formula
+      if (v == nil or v == '') and space_name
+        fns = ensure_formulas space_name
+        if fns[k]
+          fk_cache.space_helper = fk_cache.space_helper or make_space_helper!
+          r_ok, val = pcall fns[k], t, fk_cache.space_helper
+          if r_ok and val != nil and val != ''
+            v = val
+            rawset t, k, v -- cache computed value for next time
+          else
+            if not r_ok
+              err_msg = format_formula_error val
+              log.error "tdb proxy: error evaluating formula for '#{space_name}.#{k}': #{val}"
+              return err_msg
+
+      return nil if v == nil or v == ''
+
+      -- Check if it's a multiple relation first
+      multiple_fk = multiple_fk_map and multiple_fk_map[k]
+      if multiple_fk
+        -- Relation 1-to-N : return a list of records
+        source_id = tostring v
+        list = resolve_multiple_references source_id, multiple_fk, fk_cache
+        rawset t, k, list
+        return list
+
+      -- Check if it's a single relation (standard FK)
+      fk = single_fk_map and single_fk_map[k]
+      if fk
+        lookup_field = fk.toFieldName or '_id'
+        sc = ensure_space fk.toSpaceName, lookup_field
+        d = sc.by_field[lookup_field] and sc.by_field[lookup_field][tostring v]
+        d = sc.by_field['_id'] and sc.by_field['_id'][tostring v] if not d and lookup_field != '_id'
+
+        if d
+          -- Always return a nested proxy for consistent behavior
+          nested_space = box.space._tdb_spaces.index.by_name\get { fk.toSpaceName }
+          nested_space_id = nested_space and nested_space[1]
+          nested_fk_map = if nested_space_id then ensure_fk_def_map nested_space_id else {}
+          nested = make_self_proxy_extended d, single_fk_map, multiple_fk_map, fk_cache, fk.toSpaceName
+          rawset t, k, nested
+          return nested
+        return nil
+      v
+  }
+  proxy
+
 
 
 -- Returns true if the trigger formula should run given old/new data and the
@@ -492,4 +631,4 @@ deregister_space_trigger = (space_name) ->
     pcall -> data_sp\before_replace nil, old_fn
   active_triggers[space_name] = nil
 
-{ :compile_formula, :make_self_proxy, :build_fk_def_map, :build_relation_map, :is_multiple_relation, :build_single_and_multiple_maps, :register_space_trigger, :deregister_space_trigger, :init_all_triggers, :format_formula_error, :invalidate_formula_cache }
+{ :compile_formula, :make_self_proxy, :make_self_proxy_extended, :build_fk_def_map, :build_relation_map, :is_multiple_relation, :build_single_and_multiple_maps, :register_space_trigger, :deregister_space_trigger, :init_all_triggers, :format_formula_error, :invalidate_formula_cache }

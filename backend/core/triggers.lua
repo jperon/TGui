@@ -449,6 +449,201 @@ make_self_proxy = function(record, fk_def_map, fk_cache, space_name)
   })
   return proxy
 end
+local make_self_proxy_extended
+make_self_proxy_extended = function(record, single_fk_map, multiple_fk_map, fk_cache, space_name)
+  fk_cache = fk_cache or { }
+  fk_cache.spaces = fk_cache.spaces or { }
+  fk_cache.fk_def_maps = fk_cache.fk_def_maps or { }
+  fk_cache.formulas = fk_cache.formulas or { }
+  local decode_tuple
+  decode_tuple = function(t)
+    local d
+    if type(t[2]) == 'string' then
+      d = json.decode(t[2])
+    else
+      d = t[2]
+    end
+    d._id = tostring(t[1])
+    return d
+  end
+  local ensure_space
+  ensure_space = function(s_name, to_field_name)
+    local sc = fk_cache.spaces[s_name]
+    if not (sc) then
+      sc = {
+        records = { },
+        by_field = { }
+      }
+      local tb = box.space["data_" .. tostring(s_name)]
+      if tb then
+        local _list_0 = tb:select({ })
+        for _index_0 = 1, #_list_0 do
+          local tup = _list_0[_index_0]
+          local d = decode_tuple(tup)
+          sc.records[d._id] = d
+        end
+      end
+      fk_cache.spaces[s_name] = sc
+    end
+    if not (sc.by_field['_id']) then
+      local idx = { }
+      for _, d in pairs(sc.records) do
+        if d._id ~= nil then
+          local key = tostring(d._id)
+          idx[key] = d
+        end
+      end
+      sc.by_field['_id'] = idx
+    end
+    if to_field_name ~= '_id' and not sc.by_field[to_field_name] then
+      local idx = { }
+      for _, d in pairs(sc.records) do
+        if d[to_field_name] ~= nil then
+          local key = tostring(d[to_field_name])
+          idx[key] = d
+        end
+      end
+      sc.by_field[to_field_name] = idx
+    end
+    return sc
+  end
+  local ensure_fk_def_map
+  ensure_fk_def_map = function(space_id)
+    if fk_cache.fk_def_maps[space_id] then
+      return fk_cache.fk_def_maps[space_id]
+    end
+    local fk_def_map = build_fk_def_map(space_id)
+    fk_cache.fk_def_maps[space_id] = fk_def_map
+    return fk_def_map
+  end
+  local resolve_multiple_references
+  resolve_multiple_references = function(source_id, relation_def, fk_cache)
+    local sc = ensure_space(relation_def.toSpaceName, relation_def.toFieldName)
+    local results = { }
+    for _, d in pairs(sc.records) do
+      if d[relation_def.toFieldName] == source_id then
+        local nested_space = box.space._tdb_spaces.index.by_name:get({
+          relation_def.toSpaceName
+        })
+        local nested_space_id = nested_space and nested_space[1]
+        local nested_fk_map
+        if nested_space_id then
+          nested_fk_map = ensure_fk_def_map(nested_space_id)
+        else
+          nested_fk_map = { }
+        end
+        local nested = make_self_proxy_extended(d, single_fk_map, multiple_fk_map, fk_cache, relation_def.toSpaceName)
+        table.insert(results, nested)
+      end
+    end
+    return results
+  end
+  local proxy = setmetatable({
+    list = {
+      length = function(list)
+        return #list or 0
+      end,
+      first = function(list)
+        return list and list[1] or nil
+      end,
+      last = function(list)
+        return list and list[#list] or nil
+      end,
+      map = function(list, fn)
+        local _accum_0 = { }
+        local _len_0 = 1
+        for _index_0 = 1, #list do
+          local item = list[_index_0]
+          _accum_0[_len_0] = fn(item)
+          _len_0 = _len_0 + 1
+        end
+        return _accum_0
+      end,
+      filter = function(list, fn)
+        local _accum_0 = { }
+        local _len_0 = 1
+        for _index_0 = 1, #list do
+          local item = list[_index_0]
+          if fn(item) then
+            _accum_0[_len_0] = item
+            _len_0 = _len_0 + 1
+          end
+        end
+        return _accum_0
+      end,
+      reduce = function(list, fn, init)
+        local result = init
+        for _index_0 = 1, #list do
+          local item = list[_index_0]
+          result = fn(result, item)
+        end
+        return result
+      end
+    }
+  }, {
+    __index = function(t, k)
+      local cached = rawget(t, k)
+      if cached ~= nil then
+        return cached
+      end
+      local v = record[k]
+      if (v == nil or v == '') and space_name then
+        local fns = ensure_formulas(space_name)
+        if fns[k] then
+          fk_cache.space_helper = fk_cache.space_helper or make_space_helper()
+          local r_ok, val = pcall(fns[k], t, fk_cache.space_helper)
+          if r_ok and val ~= nil and val ~= '' then
+            v = val
+            rawset(t, k, v)
+          else
+            if not r_ok then
+              local err_msg = format_formula_error(val)
+              log.error("tdb proxy: error evaluating formula for '" .. tostring(space_name) .. "." .. tostring(k) .. "': " .. tostring(val))
+              return err_msg
+            end
+          end
+        end
+      end
+      if v == nil or v == '' then
+        return nil
+      end
+      local multiple_fk = multiple_fk_map and multiple_fk_map[k]
+      if multiple_fk then
+        local source_id = tostring(v)
+        local list = resolve_multiple_references(source_id, multiple_fk, fk_cache)
+        rawset(t, k, list)
+        return list
+      end
+      local fk = single_fk_map and single_fk_map[k]
+      if fk then
+        local lookup_field = fk.toFieldName or '_id'
+        local sc = ensure_space(fk.toSpaceName, lookup_field)
+        local d = sc.by_field[lookup_field] and sc.by_field[lookup_field][tostring(v)]
+        if not d and lookup_field ~= '_id' then
+          d = sc.by_field['_id'] and sc.by_field['_id'][tostring(v)]
+        end
+        if d then
+          local nested_space = box.space._tdb_spaces.index.by_name:get({
+            fk.toSpaceName
+          })
+          local nested_space_id = nested_space and nested_space[1]
+          local nested_fk_map
+          if nested_space_id then
+            nested_fk_map = ensure_fk_def_map(nested_space_id)
+          else
+            nested_fk_map = { }
+          end
+          local nested = make_self_proxy_extended(d, single_fk_map, multiple_fk_map, fk_cache, fk.toSpaceName)
+          rawset(t, k, nested)
+          return nested
+        end
+        return nil
+      end
+      return v
+    end
+  })
+  return proxy
+end
 local should_run
 should_run = function(is_insert, trigger_fields_list, old_data, new_data)
   if is_insert then
@@ -614,6 +809,7 @@ end
 return {
   compile_formula = compile_formula,
   make_self_proxy = make_self_proxy,
+  make_self_proxy_extended = make_self_proxy_extended,
   build_fk_def_map = build_fk_def_map,
   build_relation_map = build_relation_map,
   is_multiple_relation = is_multiple_relation,
