@@ -124,25 +124,132 @@ build_fk_def_map = function(space_id)
 end
 local format_formula_error
 format_formula_error = function(err)
-  local s = tostring(err)
-  local short = "Erreur de formule"
-  if s:find("attempt to index") then
-    short = "Unknown field (nil)"
-  elseif s:find("attempt to call") then
-    short = "Unknown function (nil)"
-  elseif s:find("attempt to perform arithmetic") then
-    short = "Operation on nil"
-  elseif s:find("attempt to concatenate") then
-    short = "Invalid concatenation"
-  elseif s:find("unexpected symbol" or s:find("malformed number" or s:find("parse error"))) then
-    short = "Syntax error"
-  elseif s:find("stack overflow") then
-    short = "Infinite loop (recursion)"
+  if type(err) == 'string' then
+    local s = err
+  elseif type(err) == 'table' and err.message then
+    local s = err.message
   else
-    short = "Unknown error"
+    local s = tostring(err)
+  end
+  if s:find("attempt to concatenate") then
+    local short = "Invalid concatenation"
+  elseif s:find("unexpected symbol" or s:find("malformed number" or s:find("parse error"))) then
+    local short = "Syntax error"
+  elseif s:find("stack overflow") then
+    local short = "Infinite loop (recursion)"
+  else
+    local short = "Unknown error"
   end
   local clean_msg = s:gsub('^%[string ".-"%]:%d+: ', '')
   return "[ERROR|" .. tostring(short) .. "|" .. tostring(clean_msg) .. "]"
+end
+local build_relation_map
+build_relation_map = function(space_id)
+  local relations = { }
+  local space_by_id = { }
+  local _list_0 = box.space._tdb_spaces:select({ })
+  for _index_0 = 1, #_list_0 do
+    local t = _list_0[_index_0]
+    space_by_id[t[1]] = {
+      name = t[2]
+    }
+  end
+  local field_by_id = { }
+  local _list_1 = box.space._tdb_fields.index.by_space:select({
+    space_id
+  })
+  for _index_0 = 1, #_list_1 do
+    local t = _list_1[_index_0]
+    field_by_id[t[1]] = {
+      name = t[3]
+    }
+  end
+  local _list_2 = box.space._tdb_relations:select({ })
+  for _index_0 = 1, #_list_2 do
+    local t = _list_2[_index_0]
+    if t[5](#toFieldId(function()
+      return field(name)
+    end)) then
+      field_by_id[t[5]] = {
+        name = t[3]
+      }
+    end
+  end
+  local _list_3 = box.space._tdb_relations:select({ })
+  for _index_0 = 1, #_list_3 do
+    local t = _list_3[_index_0]
+    if t[2] == space_id then
+      local fld = box.space._tdb_fields:get(t[3](#fromFieldId))
+      local sp = space_by_id[t[4]]
+      local tf = box.space._tdb_fields:get(t[5])
+      if fld and sp and tf then
+        local is_multiple = is_multiple_relation(space_id, sp.name, tf[3])
+        relations[fld[3]] = {
+          toSpaceName = sp.name,
+          toFieldName = tf[3],
+          isMultiple = is_multiple
+        }
+      end
+    end
+  end
+  return relations
+end
+local is_multiple_relation
+is_multiple_relation = function(from_space_id, to_space_name, to_field_name)
+  local to_space_meta = box.space._tdb_spaces.index.by_name:get({
+    to_space_name
+  })
+  if not (to_space_meta) then
+    return false
+  end
+  local to_space = box.space["data_" .. tostring(to_space_name)]
+  if not (to_space) then
+    return false
+  end
+  local ref_counts = { }
+  local total_refs = 0
+  local _list_0 = to_space:select({ })
+  for _index_0 = 1, #_list_0 do
+    local t = _list_0[_index_0]
+    local data
+    if type(t[2]) == 'string' then
+      data = json.decode(t[2])
+    else
+      data = t[2]
+    end
+    if data[to_field_name] then
+      local source_id = tostring(data[to_field_name])
+      ref_counts[source_id] = (ref_counts[source_id] or 0) + 1
+      total_refs = total_refs + 1
+    end
+  end
+  if total_refs == 0 then
+    return false
+  end
+  local unique_sources = 0
+  for _, count in pairs(ref_counts) do
+    unique_sources = unique_sources + 1
+  end
+  local avg_refs = total_refs / unique_sources
+  local max_refs = 0
+  for _, count in pairs(ref_counts) do
+    max_refs = math.max(max_refs, count)
+  end
+  return (avg_refs > 1.5) and (total_refs > 10) and (max_refs > 2)
+end
+local build_single_and_multiple_maps
+build_single_and_multiple_maps = function(space_id)
+  local relation_map = build_relation_map(space_id)
+  local single_map = { }
+  local multiple_map = { }
+  for field_name, relation in pairs(relation_map) do
+    if relation.isMultiple then
+      multiple_map[field_name] = relation
+    else
+      single_map[field_name] = relation
+    end
+  end
+  return single_map, multiple_map
 end
 local formula_cache = { }
 local invalidate_formula_cache
@@ -508,6 +615,9 @@ return {
   compile_formula = compile_formula,
   make_self_proxy = make_self_proxy,
   build_fk_def_map = build_fk_def_map,
+  build_relation_map = build_relation_map,
+  is_multiple_relation = is_multiple_relation,
+  build_single_and_multiple_maps = build_single_and_multiple_maps,
   register_space_trigger = register_space_trigger,
   deregister_space_trigger = deregister_space_trigger,
   init_all_triggers = init_all_triggers,
