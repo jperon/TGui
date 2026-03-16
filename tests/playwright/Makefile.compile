@@ -1,0 +1,14 @@
+# Simple compilation for working files only
+WORKING_COFFEE = tests/playwright/auth/login-simple.spec.coffee tests/playwright/simple-test.spec.coffee
+WORKING_JS = $(WORKING_COFFEE:.coffee=.js)
+
+compile-simple:
+	@echo "☕ Compiling working Playwright tests..."
+	coffee --no-header -c $(WORKING_COFFEE)
+	@echo "✅ Working tests compiled"
+
+test-simple: compile-simple
+	@echo "🧪 Running simple tests..."
+	npx playwright test tests/playwright/auth/login-simple.spec.js --config=tests/playwright/playwright.config.js
+
+.PHONY: compile-simple test-simple

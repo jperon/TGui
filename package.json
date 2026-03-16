@@ -1,0 +1,27 @@
+{
+  "name": "tdgui-playwright-tests",
+  "version": "1.0.0",
+  "description": "Playwright E2E tests for TGui web application (test environment on port 8081)",
+  "scripts": {
+    "test:browser": "make test-browser",
+    "test:spaces": "make test-browser-spaces",
+    "test:pages": "make test-browser-pages",
+    "test:data-views": "make test-browser-data-views",
+    "test:auth": "make test-browser-auth",
+    "test:relations": "make test-browser-relations",
+    "test:integration": "make test-browser-integration",
+    "test:e2e": "make test-browser-e2e",
+    "test:debug": "make test-browser-debug",
+    "test:report": "make test-browser-report",
+    "test:compile": "make playwright-compile",
+    "playwright:install": "npm install @playwright/test && npx playwright install"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "coffeescript": "^2.7.0",
+    "playwright": "^1.40.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

@@ -8,11 +8,13 @@ JS_OUTS         := $(COFFEE_SRCS:.coffee=.js)
 TEST_COFFEE_SRCS := $(shell find tests/js -name '*.coffee')
 TEST_JS_OUTS     := $(TEST_COFFEE_SRCS:.coffee=.js)
 
-.PHONY: all build test test-js test-up test-down test-logs up down logs clean vendor audit-deps doc doc-% doc-gen doc-po-update doc-po-build doc-md doc-check sdl-gen sdl-check ci
+# Playwright test sources (ALL FILES - no exclusions)
+PLAYWRIGHT_COFFEE_SRCS := $(shell find tests/playwright -name '*.coffee')
+PLAYWRIGHT_JS_OUTS := $(PLAYWRIGHT_COFFEE_SRCS:.coffee=.js)
+
+.PHONY: all build test test-js test-up test-down test-logs up down logs clean vendor audit-deps doc doc-% doc-gen doc-po-update doc-po-build doc-md doc-check sdl-gen sdl-check ci test-browser test-browser-spaces test-browser-data-views test-browser-pages test-browser-relations test-browser-auth test-browser-integration test-browser-e2e playwright-install playwright-setup playwright-compile
 
 all: build
-
-build: $(LUA_OUTS) $(JS_OUTS) $(TEST_JS_OUTS)
 
 TEST_IMAGE := tdb-test:latest
 
@@ -38,6 +40,12 @@ test-js: $(TEST_JS_OUTS)
 %.js: %.coffee
 	coffee --no-header -c $<
 
+# Compile Playwright CoffeeScript tests
+$(PLAYWRIGHT_JS_OUTS): $(PLAYWRIGHT_COFFEE_SRCS)
+	@echo "☕ Compiling Playwright CoffeeScript tests..."
+	coffee --no-header -c $(PLAYWRIGHT_COFFEE_SRCS)
+	@echo "✅ Playwright tests compiled"
+
 # Build vendor bundles (tui-grid, js-yaml, codemirror)
 VENDOR_OUTS := frontend/vendor/tui-grid.bundle.js \
 	frontend/vendor/tui-grid.bundle.css \
@@ -47,6 +55,64 @@ VENDOR_OUTS := frontend/vendor/tui-grid.bundle.js \
 	frontend/vendor/plugin-runtime.bundle.js
 
 vendor: $(VENDOR_OUTS)
+
+# Playwright E2E Browser Tests
+playwright-install:
+	@echo "📦 Installing Playwright..."
+	npm install @playwright/test
+	npx playwright install
+
+playwright-setup: playwright-install
+	@echo "⚙️ Setting up Playwright configuration..."
+	mkdir -p tests/playwright/{config,spaces,data-views,pages,relations,auth,integration,e2e}
+
+test-browser: playwright-compile test-browser-spaces test-browser-data-views test-browser-pages test-browser-relations test-browser-auth test-browser-integration test-browser-e2e
+	@echo "🎉 All browser E2E tests completed!"
+	@echo "💡 Tests ran on test environment (port 8081)"
+
+test-browser-spaces: playwright-compile
+	@echo "🧪 Running Spaces E2E tests..."
+	@echo "💡 Make sure test environment is running: make test-up"
+	npx playwright test tests/playwright/spaces --config=tests/playwright/playwright.config.js
+
+test-browser-data-views: playwright-compile
+	@echo "🧪 Running Data Views E2E tests..."
+	npx playwright test tests/playwright/data-views --config=tests/playwright/playwright.config.js
+
+test-browser-pages: playwright-compile
+	@echo "🧪 Running Pages & Widgets E2E tests..."
+	npx playwright test tests/playwright/pages --config=tests/playwright/playwright.config.js
+
+test-browser-relations: playwright-compile
+	@echo "🧪 Running Relations E2E tests..."
+	npx playwright test tests/playwright/relations --config=tests/playwright/playwright.config.js
+
+test-browser-auth: playwright-compile
+	@echo "🧪 Running Auth E2E tests..."
+	npx playwright test tests/playwright/auth/login-final.spec.js --config=tests/playwright/playwright.config.js
+
+test-browser-integration: playwright-compile
+	@echo "🧪 Running Integration E2E tests..."
+	npx playwright test tests/playwright/integration --config=tests/playwright/playwright.config.js
+
+test-browser-e2e: playwright-compile
+	@echo "🧪 Running Complete Workflow E2E tests..."
+	npx playwright test tests/playwright/e2e --config=tests/playwright/playwright.config.js
+
+# Playwright development and debugging
+playwright-compile: $(PLAYWRIGHT_JS_OUTS)
+	@echo "☕ Playwright tests compiled"
+
+test-browser-debug: playwright-compile
+	@echo "🐛 Running Playwright tests in debug mode..."
+	npx playwright test --config=tests/playwright/playwright.config.js --debug
+
+test-browser-report:
+	@echo "📊 Opening Playwright test report..."
+	npx playwright show-report
+
+# Install Playwright and setup
+setup-playwright: playwright-install playwright-setup
 
 $(VENDOR_OUTS):
 	@bash scripts/build-vendor.sh

@@ -16,35 +16,35 @@ Permettre aux utilisateurs de réorganiser visuellement les widgets et zones dan
 
 ### Phase 1 : Infrastructure Drag & Drop (Semaine 1)
 **Backend**
-- [ ] Ajouter champ `position` dans les widgets du YAML
-- [ ] Créer mutation `reorderWidgets(pageId: ID!, widgetPositions: [WidgetPosition!]!)`
-- [ ] Mettre à jour `custom_view_resolvers.moon` pour gérer le réordonnancement
+- [x] Ajouter champ `position` dans les widgets du YAML (via PositionInput)
+- [x] Créer mutation `reorderWidgets(pageId: ID!, widgetPositions: [WidgetPosition!]!)`
+- [x] Mettre à jour `custom_view_resolvers.moon` pour gérer le réordonnancement
 
 **Frontend**
-- [ ] Intégrer bibliothèque drag & drop (SortableJS ou similar)
-- [ ] Créer `DragDropManager` dans `frontend/src/drag_drop_manager.coffee`
-- [ ] Ajouter zones de drop visibles sur les widgets existants
+- [x] Intégrer bibliothèque drag & drop (SortableJS)
+- [x] Créer `DragDropManager` dans `frontend/src/drag_drop_manager.coffee`
+- [x] Ajouter zones de drop visibles sur les widgets existants
 
 **Tests**
-- [ ] Tests unitaires pour la mutation `reorderWidgets`
-- [ ] Tests d'intégration drag & drop basiques
+- [x] Tests unitaires pour la mutation `reorderWidgets`
+- [x] Tests d'intégration drag & drop basiques
 
 ### Phase 2 : Réordonnancement simple (Semaine 2)
 **Fonctionnalités**
-- [ ] Drag & drop entre widgets de même niveau
-- [ ] Mise à jour temps réel du YAML
-- [ ] Animation visuelle du déplacement
-- [ ] Validation des positions (empêcher les déplacements invalides)
+- [x] Drag & drop entre widgets de même niveau
+- [x] Mise à jour temps réel du YAML
+- [x] Animation visuelle du déplacement
+- [x] Validation des positions (empêcher les déplacements invalides)
 
 **Backend**
-- [ ] Parser YAML existant avec positions
-- [ ] Reconstruire YAML avec nouvel ordre
-- [ ] Gestion des conflits de positions
+- [x] Parser YAML existant avec positions
+- [x] Reconstruire YAML avec nouvel ordre
+- [x] Gestion des conflits de positions
 
 **Frontend**
-- [ ] Handlers drag start/drag end
-- [ ] Zones de drop highlightées
-- [ ] Feedback visuel (curseurs, ombres)
+- [x] Handlers drag start/drag end
+- [x] Zones de drop highlightées
+- [x] Feedback visuel (curseurs, ombres)
 
 ### Phase 3 : Changement de conteneur (Semaine 3)
 **Fonctionnalités**
@@ -120,11 +120,11 @@ Permettre aux utilisateurs de réorganiser visuellement les widgets et zones dan
 reorder_widgets: (page_id, widget_positions) ->
   page = get_page page_id
   config = yaml.decode page.yaml
-  
+
   -- Mettre à jour les positions
   for pos in widget_positions
     update_widget_position config, pos.widget_id, pos.index, pos.parent_id
-  
+
   updated_yaml = yaml.encode config
   update_page page_id, yaml: updated_yaml
 
@@ -158,13 +158,13 @@ class DragDropManager
 ## 🧪 Tests
 
 ### Tests Backend
-- [ ] `test_reorder_widgets.moon` : Réordonnancement simple
+- [x] `test_reorder_widgets.moon` : Réordonnancement simple
 - [ ] `test_change_parent.moon` : Changement de conteneur
 - [ ] `test_resize_zone.moon` : Redimensionnement
 - [ ] `test_data_view_integration.moon` : Integration Data Views
 
 ### Tests Frontend
-- [ ] Tests E2E avec Playwright pour les scénarios drag & drop
+- [x] Tests E2E avec Playwright pour les scénarios drag & drop
 - [ ] Tests unitaires pour `DragDropManager`
 - [ ] Tests d'accessibilité (navigation clavier)
 
@@ -191,10 +191,10 @@ class DragDropManager
 
 ## 🔄 Dépendances
 
-- **SortableJS** : Bibliothèque drag & drop
-- **MutationObserver** : Surveillance des changements DOM
-- **Debounce** : Optimisation des mises à jour
-- **Tests E2E** : Playwright (déjà utilisé)
+- [x] **SortableJS** : Bibliothèque drag & drop
+- [x] **MutationObserver** : Surveillance des changements DOM
+- [x] **Debounce** : Optimisation des mises à jour
+- [x] **Tests E2E** : Playwright (déjà utilisé)
 
 ## 📝 Notes importantes
 

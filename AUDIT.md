@@ -1,6 +1,6 @@
 # Audit complet — TGui
 
-> Date : juillet 2025
+> Date : juillet 2025 / Mise à jour : mars 2026
 >
 > Périmètre : backend (MoonScript), frontend (CoffeeScript), tests, documentation, schéma GraphQL.
 
@@ -8,15 +8,13 @@
 
 ## 1. Sécurité
 
-### 1.1 Hachage des mots de passe — 🔴 CRITIQUE
+### 1.1 Hachage des mots de passe — ✅ CORRIGÉ
 
 **Fichier** : `backend/core/auth.moon` (lignes 16-17)
 
-Le hachage utilise **SHA-256 + sel aléatoire**. SHA-256 est une fonction de hachage généraliste, **non conçue pour les mots de passe** : elle est trop rapide et permet des attaques par force brute efficaces (des milliards de tentatives/seconde sur GPU).
+Le hachage utilise désormais **PBKDF2-HMAC-SHA256** avec 100 000 itérations (ligne 13). Une longueur minimale de 8 caractères est imposée (ligne 15). Le système supporte la migration depuis l'ancien SHA-256 via `hash_password_legacy`.
 
-**Recommandation** : migrer vers **bcrypt**, **scrypt** ou **argon2id**. Tarantool dispose du module `digest` qui offre des primitives suffisantes. Alternativement, un module C externe bcrypt peut être intégré.
-
-> Note : `AGENTS.md` mentionne « bcrypt » dans la description de `core/auth.moon`, ce qui est inexact par rapport au code actuel. Voir §5 Documentation.
+> Cette correction a été appliquée après l'audit initial.
 
 ### 1.2 Aucune limitation de débit sur le login — 🟡 MOYEN
 
@@ -24,11 +22,9 @@ Le hachage utilise **SHA-256 + sel aléatoire**. SHA-256 est une fonction de hac
 
 **Recommandation** : ajouter un compteur d'échecs par IP ou par username avec un délai exponentiel ou un verrouillage temporaire.
 
-### 1.3 Aucune exigence de complexité de mot de passe — 🟡 MOYEN
+### 1.3 Aucune exigence de complexité de mot de passe — ✅ CORRIGÉ
 
-Ni le backend ni le frontend n'imposent de longueur minimale ou de règles de complexité pour les mots de passe.
-
-**Recommandation** : imposer au minimum 8 caractères côté backend (dans `create_user`, `change_password`, `admin_set_password`).
+Le backend impose maintenant une longueur minimale de 8 caractères via `check_password_length` dans `auth.moon` (ligne 35).
 
 ### 1.4 Identifiants par défaut admin/admin — 🟡 MOYEN
 
@@ -42,16 +38,15 @@ Un bandeau d'avertissement existe côté frontend (`defaultPasswordWarning`), ma
 
 **Recommandation** : acceptable pour une application interne/auto-hébergée, mais à documenter comme risque connu. Pour un déploiement sensible, utiliser des cookies `HttpOnly` + `SameSite`.
 
-### 1.6 Sandbox des formules — ✅ BON avec réserves
+### 1.6 Sandbox des formules — ✅ CORRIGÉ
 
 `triggers.moon` (lignes 20-43) définit un `FORMULA_ENV` bien contrôlé :
 - ✅ Exclut explicitement `io`, `debug`, `box`, `load`, `require`, `loadfile`, `dofile`
 - ✅ Limite `os` à `time`, `clock`, `date`
 - ✅ `setfenv` appliqué pour isoler le chunk
+- ✅ **CORRIGÉ** : si `setfenv` échoue, la formule est **refusée** (lignes 83-85), pas exécutée sans sandbox
 
-**Réserve** : si `setfenv` échoue (Lua 5.2+), un warning est logué mais la formule **s'exécute sans sandbox** (ligne 83). Cela devrait être un hard error.
-
-**Recommandation** : refuser l'exécution si `setfenv` échoue. Ajouter un test unitaire vérifiant que les formules n'ont pas accès à `box`, `io`, etc.
+> Cette correction a été appliquée après l'audit initial.
 
 ### 1.7 `new Function()` dans les vues agrégées — 🟡 MOYEN
 
@@ -81,36 +76,21 @@ L'API utilise des Bearer tokens dans le header `Authorization`, ce qui protège 
 
 ## 2. Qualité du code (DRY, KISS, clarté, cohérence)
 
-### 2.1 BUG — Double création d'éléments dans renderSpaceList — 🔴 CRITIQUE
+### 2.1 BUG — Double création d'éléments dans renderSpaceList — ✅ CORRIGÉ
 
-**Fichier** : `frontend/src/app_data_helpers.coffee` (lignes 35-46)
+**Fichier** : `frontend/src/app_data_helpers.coffee` (lignes 37-49)
 
-```coffeescript
-for sp in sortedSpaces
-  li = document.createElement 'li'
-  li.textContent = sp.name
-  li.dataset.id  = sp.id
-  do (sp) ->
-    li.addEventListener 'click', -> app.selectSpace sp
-  ul.appendChild li
-  li.textContent = sp.name      # ← dupliqué
-  li.dataset.id  = sp.id        # ← dupliqué
-  do (sp) ->                     # ← dupliqué
-    li.addEventListener 'click', -> app.selectSpace sp
-  ul.appendChild li              # ← dupliqué (no-op car même nœud)
-```
+Le code a été nettoyé. La boucle `for` crée chaque élément une seule fois avec un seul `addEventListener`.
 
-Le bloc lignes 42-46 est une copie exacte des lignes 37-41. Le second `appendChild` est un no-op (le nœud est déjà dans le DOM), mais le second `addEventListener` **double l'écouteur de clic** : chaque clic sur un espace déclenche `selectSpace` deux fois.
+> Ce bug a été corrigé après l'audit initial.
 
-**Correction** : supprimer les lignes 42-46.
-
-### 2.2 Tests dupliqués dans test_data_filters — 🟡 MOYEN
+### 2.2 Tests dupliqués dans test_data_filters — ✅ CORRIGÉ
 
 **Fichier** : `tests/test_data_filters.moon`
 
-Les blocs de tests lignes 74-184 (EQ, NEQ, LT/GT/LTE/GTE, CONTAINS, STARTS_WITH, AND/OR, unknown operator) sont **dupliqués quasi-verbatim** aux lignes 244-330. Cela fait tourner les mêmes assertions deux fois sans valeur ajoutée.
+Les tests dupliqués ont été supprimés. Le fichier contient maintenant une seule série de tests sans duplication.
 
-**Correction** : supprimer le bloc dupliqué (lignes 244-330).
+> Ce problème a été corrigé après l'audit initial.
 
 ### 2.3 Répétition du pattern de rendu d'erreur de formule — 🟡 MOYEN
 
@@ -241,11 +221,13 @@ sont déjà largement testés par `test_relations.moon`, `test_nesting.moon` et
 
 ## 5. Documentation (clarté et actualité)
 
-### 5.1 AGENTS.md — ✅ Excellent, une erreur factuelle
+### 5.1 AGENTS.md — ✅ CORRIGÉ
 
 Le fichier `AGENTS.md` est un guide développeur **exemplaire** : architecture, conventions, commandes, points de vigilance, tout est là.
 
-**Erreur** : la description de `core/auth.moon` mentionne « Sessions, bcrypt, tokens ». Le code utilise **SHA-256**, pas bcrypt. À corriger.
+**CORRIGÉ** : la description de `core/auth.moon` mentionne maintenant correctement « PBKDF2-HMAC-SHA256 (100k itérations) » au lieu de « bcrypt ».
+
+> Cette correction a été appliquée après l'audit initial.
 
 ### 5.2 Documentation API (`doc/fr/api.md`, `doc/en/api.md`) — ✅ Bonne
 
@@ -280,39 +262,48 @@ Ligne 11 : « Runtime entrypoint: `backend/init.moon` ». Le fichier est `backen
 
 ## 6. Synthèse et recommandations
 
-### Actions prioritaires (🔴)
+###Corrections appliquées
 
-1. **Migrer le hachage de mots de passe** de SHA-256 vers bcrypt/argon2id
-2. **Corriger le bug du double `addEventListener`** dans `app_data_helpers.coffee:renderSpaceList`
-3. **Ajouter les 5 fichiers de test manquants** à `run.moon` ou les supprimer
-4. **Refuser l'exécution de formules** si `setfenv` échoue (triggers.moon:83)
-5. **Ajouter un test de sécurité du sandbox** vérifiant que `box`, `io`, `require` sont inaccessibles
+5 problèmes sur 18 ont été corrigés depuis l'audit initial :
+- ✅ Hachage PBKDF2-HMAC-SHA256 (au lieu de SHA-256)
+- ✅ Bug double addEventListener corrigé
+- ✅ Tests dupliqués supprimés
+- ✅ Sandbox formule refuse l'exécution si setfenv échoue
+- ✅ AGENTS.md mentionne PBKDF2 au lieu de bcrypt
+
+### Actions restantes
+
+#### Priorité 🟡
+
+1. Ajouter un rate-limiting sur le login
+2. Remplacer les `innerHTML` par `textContent`
+3. Ajouter un test de sécurité du sandbox
+4. Gérer les 5 fichiers de test orphelins
+5. Extraire le rendu d'erreur de formule
 
 ### Actions recommandées (🟡)
 
 6. Ajouter un rate-limiting sur le login
-7. Imposer une longueur minimale de mot de passe (8+ caractères)
-8. Remplacer les `innerHTML` par `textContent` ou échappement dans le panneau admin/snapshot
-9. Supprimer les tests dupliqués dans `test_data_filters.moon` (lignes 244-330)
+7. Remplacer les `innerHTML` par `textContent` ou échappement dans le panneau admin/snapshot
+8. Ajouter un test de sécurité du sandbox vérifiant que `box`, `io`, `require` sont inaccessibles
+9. Gérer les 5 fichiers de test orphelins
 10. Extraire le rendu d'erreur de formule dans une méthode partagée (`data_view.coffee`)
-11. Corriger `AGENTS.md` : remplacer « bcrypt » par « SHA-256 + sel » dans la description de `core/auth.moon`
-12. Corriger `doc/fr/dev.md` : `backend/init.lua` et non `backend/init.moon`
 
 ### Améliorations souhaitables (🟢)
 
-13. Documenter le langage de formules (sandbox, syntaxe @, FK)
-14. Documenter l'API des widget plugins
-15. Ajouter des descriptions spécifiques dans la documentation API auto-générée
-16. Centraliser les requêtes GraphQL dupliquées côté frontend
-17. Ajouter un test d'intégration HTTP de base
-18. Ajouter un test pour l'introspection GraphQL
+11. Documenter le langage de formules (sandbox, syntaxe @, FK)
+12. Documenter l'API des widget plugins
+13. Ajouter des descriptions spécifiques dans la documentation API auto-générée
+14. Centraliser les requêtes GraphQL dupliquées côté frontend
+15. Ajouter un test d'intégration HTTP de base
+16. Ajouter un test pour l'introspection GraphQL
 
 ### Bilan global
 
 | Axe | Note | Commentaire |
 |---|---|---|
-| **Sécurité** | ⚠️ 6/10 | Le SHA-256 pour les mots de passe est le point faible principal. Le reste est bien conçu (sandbox, permissions, sessions). |
-| **Qualité code** | ✅ 8/10 | Architecture claire, bonne factorisation, conventions cohérentes. Un bug de duplication et quelques violations DRY mineures. |
+| **Sécurité** | ✅ 8/10 | PBKDF2-HMAC-SHA256 corrigé, sandbox renforcé. Restent : rate-limiting login, XSS innerHTML |
+| **Qualité code** | ✅ 9/10 | Bug de duplication corrigé. Architecture claire, bonne factorisation |
 | **Tests** | ✅ 8/10 | Bonne couverture, framework maison efficace, CI complète. Quelques trous (HTTP, introspection, sandbox sécurité) et tests orphelins. |
 | **Commentaires** | ✅ 8/10 | Adéquats, ni trop ni trop peu. Code auto-documenté. |
-| **Documentation** | ✅ 7/10 | Très bonne base (AGENTS.md, API auto-générée, CI). Quelques lacunes (formules, plugins, sécurité) et une erreur factuelle. |
+| **Documentation** | ✅ 8/10 | AGENTS.md corrigé. Très bonne base (API auto-générée, CI) |
