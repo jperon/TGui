@@ -247,15 +247,16 @@ window.App =
     dataViewModalCloseBtn: -> document.getElementById 'data-view-modal-close-btn'
     dvName:            -> document.getElementById 'dv-name'
     dvSource:          -> document.getElementById 'dv-source'
-    dvTabColumns:      -> document.getElementById 'dv-tab-columns'
+    dvTabFields:      -> document.getElementById 'dv-tab-fields'
     dvTabFilter:       -> document.getElementById 'dv-tab-filter'
     dvTabGroup:        -> document.getElementById 'dv-tab-group'
-    dvColumnsList:     -> document.getElementById 'dv-columns-list'
-    dvAddColBtn:       -> document.getElementById 'dv-add-col-btn'
     dvFilterFormula:   -> document.getElementById 'dv-filter-formula'
-    dvGroupBy:         -> document.getElementById 'dv-group-by'
     dvAggregatesList:  -> document.getElementById 'dv-aggregates-list'
     dvAddAggBtn:       -> document.getElementById 'dv-add-agg-btn'
+    # YAML Editor elements
+    dvYamlContent:     -> document.getElementById 'dv-yaml-content'
+    dvFormatYamlBtn:   -> document.getElementById 'dv-format-yaml-btn'
+    dvApplyYamlBtn:    -> document.getElementById 'dv-apply-yaml-btn'
 
   # ── Bootstrap ───────────────────────────────────────────────────────────────
   init: ->

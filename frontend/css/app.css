@@ -1504,3 +1504,309 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   resize: vertical;
 }
+
+/* ── Data View Split Layout ────────────────────────────────────────────────── */
+.dv-split-layout {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+  min-height: 500px;
+}
+
+.dv-yaml-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--color-border);
+  padding-right: 1rem;
+}
+
+.dv-yaml-editor h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.9rem;
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.yaml-editor-container {
+  flex: 1;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.yaml-editor {
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+  padding: 1rem;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  background: #1e293b;
+  color: #e2e8f0;
+  border: none;
+  resize: none;
+  outline: none;
+}
+
+.yaml-editor::placeholder {
+  color: #64748b;
+  font-style: italic;
+}
+
+.yaml-editor-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  justify-content: flex-end;
+}
+
+.dv-visual-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding-left: 1rem;
+}
+
+.dv-tabs-content {
+  flex: 1;
+  margin-top: 0.5rem;
+}
+
+.dv-fields-container {
+  display: flex;
+  gap: 1rem;
+  min-height: 300px;
+}
+
+.field-group {
+  flex: 1;
+}
+
+.field-group h5 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.8rem;
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.fields-list {
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg);
+  padding: 0.5rem;
+  min-height: 250px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.fields-list.selected {
+  border-color: var(--color-accent);
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.field-item {
+  padding: 0.4rem;
+  margin: 0.2rem 0;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.8rem;
+}
+
+.field-item:hover {
+  background: var(--color-hover);
+  border-color: var(--color-border);
+}
+
+.field-item.selected {
+  background: var(--color-accent);
+  color: white;
+  border-color: var(--color-accent);
+}
+
+.field-placeholder {
+  color: #888;
+  font-style: italic;
+  text-align: center;
+  padding: 1rem;
+  font-size: 0.8rem;
+}
+
+/* ── Data View Fields Layout ───────────────────────────────────────────────── */
+.dv-fields-layout {
+  display: flex;
+  gap: 1rem;
+  min-height: 400px;
+}
+
+.dv-fields-left {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+}
+
+.dv-fields-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--color-border);
+  padding-left: 1rem;
+}
+
+.dv-fields-left h4,
+.dv-fields-right h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.9rem;
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.selected-fields-list {
+  flex: 1;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg);
+  padding: 0.5rem;
+  overflow-y: auto;
+}
+
+.selected-field-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem;
+  margin: 0.25rem 0;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+  transition: all 0.2s ease;
+}
+
+.selected-field-item:hover {
+  background: var(--color-hover);
+  border-color: var(--color-accent);
+}
+
+.field-info {
+  flex: 1;
+  font-size: 0.8rem;
+}
+
+.field-info strong {
+  color: var(--color-accent);
+}
+
+.field-info small {
+  color: #888;
+  font-size: 0.7rem;
+}
+
+.remove-field-btn {
+  background: none;
+  border: none;
+  color: #e74c3c;
+  cursor: pointer;
+  padding: 0.2rem;
+  border-radius: 3px;
+  transition: all 0.2s ease;
+  margin-left: 0.5rem;
+}
+
+.remove-field-btn:hover {
+  background: rgba(231, 76, 60, 0.1);
+  transform: scale(1.1);
+}
+
+.dv-fields-info {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.dv-fields-info small {
+  color: #888;
+  font-size: 0.75rem;
+  font-style: italic;
+}
+
+/* ── Data View Joins Tab ───────────────────────────────────────────────────── */
+.joins-graph-container {
+  min-height: 300px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg);
+  padding: 1rem;
+  overflow: auto;
+}
+
+.joins-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: #888;
+  font-style: italic;
+  text-align: center;
+}
+
+.selected-joins-list {
+  min-height: 100px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg);
+  padding: 0.5rem;
+}
+
+.selected-joins-list .joins-placeholder {
+  min-height: 80px;
+}
+
+/* ── Selected Relations Items ─────────────────────────────────────────────────── */
+.selected-relation-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem;
+  margin: 0.25rem 0;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+  transition: all 0.2s ease;
+}
+
+.selected-relation-item:hover {
+  background: var(--color-hover);
+  border-color: var(--color-accent);
+}
+
+.relation-info {
+  flex: 1;
+  font-size: 0.85rem;
+}
+
+.relation-info strong {
+  color: var(--color-accent);
+}
+
+.relation-info small {
+  color: #888;
+  font-size: 0.75rem;
+}
+
+.remove-relation-btn {
+  background: none;
+  border: none;
+  color: #e74c3c;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 3px;
+  transition: all 0.2s ease;
+}
+
+.remove-relation-btn:hover {
+  background: rgba(231, 76, 60, 0.1);
+  transform: scale(1.1);
+}

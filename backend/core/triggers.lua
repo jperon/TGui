@@ -180,8 +180,8 @@ build_relation_map = function(space_id)
     local t = _list_3[_index_0]
     if t[2] == space_id then
       local fld = box.space._tdb_fields:get(t[3](#fromFieldId))
-      local sp = space_by_id[t[4]]
-      local tf = box.space._tdb_fields:get(t[5])
+      local sp = space_by_id[t[4]](#toSpaceId)
+      local tf = box.space._tdb_fields:get(t[5](#toFieldId))
       if fld and sp and tf then
         local is_multiple = is_multiple_relation(space_id, sp.name, tf[3])
         relations[fld[3]] = {

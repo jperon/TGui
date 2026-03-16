@@ -166,8 +166,8 @@ build_relation_map = (space_id) ->
   for t in *box.space._tdb_relations\select {}
     if t[2] == space_id  -- fromSpaceId
       fld = box.space._tdb_fields\get t[3]  # fromFieldId
-      sp  = space_by_id[t[4]]  -- toSpaceId
-      tf = box.space._tdb_fields\get t[5]  -- toFieldId
+      sp  = space_by_id[t[4]]  # toSpaceId
+      tf = box.space._tdb_fields\get t[5]  # toFieldId
 
       if fld and sp and tf
         is_multiple = is_multiple_relation space_id, sp.name, tf[3]
