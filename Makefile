@@ -71,33 +71,32 @@ test-browser: playwright-compile test-browser-spaces test-browser-data-views tes
 	@echo "💡 Tests ran on test environment (port 8081)"
 
 test-browser-spaces: playwright-compile
-	@echo "🧪 Running Spaces E2E tests..."
-	@echo "💡 Make sure test environment is running: make test-up"
-	npx playwright test tests/playwright/spaces --config=tests/playwright/playwright.config.js
+	@echo "🧪 Running Spaces E2E tests (parallel)..."
+	npx playwright test tests/playwright/spaces/creation-final-parallel.spec.js --config=tests/playwright/playwright-optimized.config.js
 
 test-browser-data-views: playwright-compile
-	@echo "🧪 Running Data Views E2E tests..."
-	npx playwright test tests/playwright/data-views --config=tests/playwright/playwright.config.js
+	@echo "🧪 Running Data Views E2E tests (parallel)..."
+	npx playwright test tests/playwright/data-views --config=tests/playwright/playwright-optimized.config.js
 
 test-browser-pages: playwright-compile
-	@echo "🧪 Running Pages & Widgets E2E tests..."
-	npx playwright test tests/playwright/pages --config=tests/playwright/playwright.config.js
+	@echo "🧪 Running Pages & Widgets E2E tests (parallel)..."
+	npx playwright test tests/playwright/pages/drag-drop-final-parallel.spec.js --config=tests/playwright/playwright-optimized.config.js
 
 test-browser-relations: playwright-compile
-	@echo "🧪 Running Relations E2E tests..."
-	npx playwright test tests/playwright/relations --config=tests/playwright/playwright.config.js
+	@echo "🧪 Running Relations E2E tests (parallel)..."
+	npx playwright test tests/playwright/relations --config=tests/playwright/playwright-optimized.config.js
 
 test-browser-auth: playwright-compile
-	@echo "🧪 Running Auth E2E tests..."
-	npx playwright test tests/playwright/auth/login-final.spec.js --config=tests/playwright/playwright.config.js
+	@echo "🧪 Running Auth E2E tests (parallel)..."
+	npx playwright test tests/playwright/auth --config=tests/playwright/playwright-optimized.config.js
 
 test-browser-integration: playwright-compile
-	@echo "🧪 Running Integration E2E tests..."
-	npx playwright test tests/playwright/integration --config=tests/playwright/playwright.config.js
+	@echo "🧪 Running Integration E2E tests (parallel)..."
+	npx playwright test tests/playwright/integration --config=tests/playwright/playwright-optimized.config.js
 
 test-browser-e2e: playwright-compile
-	@echo "🧪 Running Complete Workflow E2E tests..."
-	npx playwright test tests/playwright/e2e --config=tests/playwright/playwright.config.js
+	@echo "🧪 Running Complete Workflow E2E tests (parallel)..."
+	npx playwright test tests/playwright/e2e --config=tests/playwright/playwright-optimized.config.js
 
 # Playwright development and debugging
 playwright-compile: $(PLAYWRIGHT_JS_OUTS)

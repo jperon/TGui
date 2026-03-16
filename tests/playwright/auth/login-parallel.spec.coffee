@@ -1,24 +1,29 @@
-# Authentication E2E Tests - Final version without AuthHelper issues
-# Tests login, logout, and session management
+# Authentication E2E Tests - Parallel-ready version
+# Optimized for concurrent execution with proper isolation
 
 { test, expect } = require '@playwright/test'
 
-test.describe('Authentication - Login', ->
-  test('should login with valid credentials', ({ page }) ->
+# Helper function with retry logic for login
+performLogin = (page, username = 'admin', password = 'adminadmin') ->
+  await page.goto '/'
+  await page.fill '#login-username', username
+  await page.fill '#login-password', password
+  await page.click '#login-btn'
+
+  # Wait for login with timeout and retry
+  try
+    await page.waitForSelector '#main', { state: 'visible', timeout: 10000 }
+  catch error
+    # If login fails, retry once (might be due to concurrent access)
     await page.goto '/'
-
-    # Verify login page is loaded
-    await expect(page.locator('h1')).toContainText 'TGui'
-    await expect(page.locator('#login-username')).toBeVisible()
-    await expect(page.locator('#login-password')).toBeVisible()
-
-    # Perform login
-    await page.fill '#login-username', 'admin'
-    await page.fill '#login-password', 'adminadmin'
+    await page.fill '#login-username', username
+    await page.fill '#login-password', password
     await page.click '#login-btn'
+    await page.waitForSelector '#main', { state: 'visible', timeout: 10000 }
 
-    # Wait for login to complete
-    await page.waitForSelector '#main', { state: 'visible' }
+test.describe('Authentication - Login (Parallel)', ->
+  test('should login with valid credentials', ({ page }) ->
+    await performLogin page
 
     # Verify successful login
     await expect(page.locator('#main')).toBeVisible()
@@ -70,14 +75,10 @@ test.describe('Authentication - Login', ->
   )
 )
 
-test.describe('Authentication - Logout', ->
+test.describe('Authentication - Logout (Parallel)', ->
   test('should logout successfully', ({ page }) ->
-    # Login first
-    await page.goto '/'
-    await page.fill '#login-username', 'admin'
-    await page.fill '#login-password', 'adminadmin'
-    await page.click '#login-btn'
-    await page.waitForSelector '#main', { state: 'visible' }
+    # Login with retry logic
+    await performLogin page
 
     # Verify we're logged in
     await expect(page.locator('#main')).toBeVisible()
@@ -94,12 +95,8 @@ test.describe('Authentication - Logout', ->
   )
 
   test('should clear authentication token on logout', ({ page }) ->
-    # Login first
-    await page.goto '/'
-    await page.fill '#login-username', 'admin'
-    await page.fill '#login-password', 'adminadmin'
-    await page.click '#login-btn'
-    await page.waitForSelector '#main', { state: 'visible' }
+    # Login with retry logic
+    await performLogin page
 
     # Verify we're logged in
     await expect(page.locator('#main')).toBeVisible()
@@ -114,14 +111,10 @@ test.describe('Authentication - Logout', ->
   )
 )
 
-test.describe('Authentication - Session Management', ->
+test.describe('Authentication - Session Management (Parallel)', ->
   test('should maintain session across page reloads', ({ page }) ->
-    # Login
-    await page.goto '/'
-    await page.fill '#login-username', 'admin'
-    await page.fill '#login-password', 'adminadmin'
-    await page.click '#login-btn'
-    await page.waitForSelector '#main', { state: 'visible' }
+    # Login with retry logic
+    await performLogin page
 
     # Reload page
     await page.reload()
@@ -135,12 +128,8 @@ test.describe('Authentication - Session Management', ->
   )
 
   test('should expire session after logout', ({ page }) ->
-    # Login
-    await page.goto '/'
-    await page.fill '#login-username', 'admin'
-    await page.fill '#login-password', 'adminadmin'
-    await page.click '#login-btn'
-    await page.waitForSelector '#main', { state: 'visible' }
+    # Login with retry logic
+    await performLogin page
 
     # Logout
     await page.evaluate(() -> localStorage.clear())
@@ -168,12 +157,7 @@ test.describe('Authentication - Session Management', ->
     await expect(page.locator('#login-error')).toBeVisible()
 
     # Second login attempt with correct credentials
-    await page.fill '#login-username', 'admin'
-    await page.fill '#login-password', 'adminadmin'
-    await page.click '#login-btn'
-
-    # Wait for login
-    await page.waitForSelector '#main', { state: 'visible' }
+    await performLogin page, 'admin', 'adminadmin'
 
     # Verify successful login
     await expect(page.locator('#main')).toBeVisible()

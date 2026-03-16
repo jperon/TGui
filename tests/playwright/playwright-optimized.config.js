@@ -2,7 +2,7 @@
 const { defineConfig, devices } = require('@playwright/test');
 
 /**
- * @see https://playwright.dev/docs/test-configuration
+ * Configuration optimisée pour la parallélisation avec gestion des dépendances
  */
 module.exports = defineConfig({
   testDir: './',
@@ -11,9 +11,9 @@ module.exports = defineConfig({
   expect: {
     timeout: 10000
   },
-  fullyParallel: false,
-    
-  retries: 2,
+  fullyParallel: true,  // Activer la parallélisation complète
+
+  retries: 1,  // Moins de retries en parallèle
   reporter: [
     ['list']
   ],
@@ -24,7 +24,11 @@ module.exports = defineConfig({
     video: 'retain-on-failure'
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } }
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] }
+    }
   ],
-  workers: process.env.CI ? 1 : undefined,
+  // Workers parallèles : 2 workers = performance optimale
+  workers: 2,
 });
