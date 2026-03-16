@@ -671,6 +671,9 @@ window.CustomView = class CustomView
   _addResizeHandle: (zoneElement, zone) ->
     return unless zone.factor and zone.id
 
+    SNAP_POINTS = [0.25, 0.33, 0.5, 0.66, 0.75]
+    SNAP_THRESHOLD = 0.05
+
     # Créer la poignée de redimensionnement
     resizeHandle = document.createElement 'div'
     resizeHandle.className = 'resize-handle'
@@ -737,6 +740,12 @@ window.CustomView = class CustomView
       else
         finalFactor = Math.max(0.1, Math.min(1.0, startFactor + deltaY / 200))
 
+      # Snap to predefined proportions
+      for snapPoint in SNAP_POINTS
+        if Math.abs(finalFactor - snapPoint) < SNAP_THRESHOLD
+          finalFactor = snapPoint
+          break
+
       # Déclencher la mutation GraphQL
       @_onZoneResize zone.id, finalFactor
 
@@ -781,3 +790,19 @@ window.CustomView = class CustomView
       detail: { zoneId, factor }
     }
     document.dispatchEvent event
+
+  # Toggle grid overlay visibility
+  toggleGrid: ->
+    @_gridVisible = not @_gridVisible
+    existing = @container.querySelector('.grid-overlay')
+    if @_gridVisible
+      unless existing
+        overlay = document.createElement 'div'
+        overlay.className = 'grid-overlay'
+        @container.appendChild overlay
+    else
+      existing?.remove()
+
+  # Get current grid visibility state
+  isGridVisible: ->
+    @_gridVisible or false

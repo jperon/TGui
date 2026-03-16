@@ -391,6 +391,21 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   animation: fadeIn 0.2s ease;
 }
 
+/* Grid overlay for zone alignment */
+.grid-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 10;
+  background-image: 
+    linear-gradient(to right, rgba(0,0,0,0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
 /* Styles pour les widgets dans les zones */
 .cv-zone .cv-widget {
   margin: 2px;

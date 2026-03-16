@@ -912,10 +912,12 @@ ${js}
 
     // Ajouter les poignées de redimensionnement pour les zones (Phase 3)
     _addResizeHandle(zoneElement, zone) {
-      var isDragging, resizeHandle, startFactor, startX, startY;
+      var SNAP_POINTS, SNAP_THRESHOLD, isDragging, resizeHandle, startFactor, startX, startY;
       if (!(zone.factor && zone.id)) {
         return;
       }
+      SNAP_POINTS = [0.25, 0.33, 0.5, 0.66, 0.75];
+      SNAP_THRESHOLD = 0.05;
       // Créer la poignée de redimensionnement
       resizeHandle = document.createElement('div');
       resizeHandle.className = 'resize-handle';
@@ -966,7 +968,7 @@ ${js}
         return this._showResizeTooltip(zoneElement, newFactor);
       });
       document.addEventListener('mouseup', (evt) => {
-        var deltaX, deltaY, finalFactor;
+        var deltaX, deltaY, finalFactor, i, len, snapPoint;
         if (!isDragging) {
           return;
         }
@@ -979,6 +981,14 @@ ${js}
           finalFactor = Math.max(0.1, Math.min(1.0, startFactor + deltaX / 200));
         } else {
           finalFactor = Math.max(0.1, Math.min(1.0, startFactor + deltaY / 200));
+        }
+// Snap to predefined proportions
+        for (i = 0, len = SNAP_POINTS.length; i < len; i++) {
+          snapPoint = SNAP_POINTS[i];
+          if (Math.abs(finalFactor - snapPoint) < SNAP_THRESHOLD) {
+            finalFactor = snapPoint;
+            break;
+          }
         }
         // Déclencher la mutation GraphQL
         this._onZoneResize(zone.id, finalFactor);
@@ -1034,6 +1044,27 @@ ${js}
         detail: {zoneId, factor}
       });
       return document.dispatchEvent(event);
+    }
+
+    // Toggle grid overlay visibility
+    toggleGrid() {
+      var existing, overlay;
+      this._gridVisible = !this._gridVisible;
+      existing = this.container.querySelector('.grid-overlay');
+      if (this._gridVisible) {
+        if (!existing) {
+          overlay = document.createElement('div');
+          overlay.className = 'grid-overlay';
+          return this.container.appendChild(overlay);
+        }
+      } else {
+        return existing != null ? existing.remove() : void 0;
+      }
+    }
+
+    // Get current grid visibility state
+    isGridVisible() {
+      return this._gridVisible || false;
     }
 
   };

@@ -165,8 +165,17 @@
 </button>
 <button id="zone-manage-btn" class="toolbar-btn" title="Gérer les zones">
   ⚙ Zones
+</button>
+<button id="grid-toggle-btn" class="toolbar-btn" title="Afficher/Masquer la grille">
+  ▦ Grille
 </button>`;
       container.insertBefore(zoneToolbar, widgetsContainer);
+      // Bind grid toggle button
+      zoneToolbar.querySelector('#grid-toggle-btn').addEventListener('click', function() {
+        if (app._activeCustomView) {
+          return app._activeCustomView.toggleGrid();
+        }
+      });
       try {
         cv = new CustomView(widgetsContainer, yamlText, app._allSpaces, app._allDataViews);
         app._activeCustomView = cv;
@@ -1949,9 +1958,283 @@
     });
   };
 
+  window.AppViewHelpers._parseZonesFromYAML = function(yamlText) {
+    var collectZones, e, parsed, zones;
+    zones = [];
+    try {
+      parsed = jsyaml.load(yamlText);
+      if (!(parsed && parsed.layout)) {
+        return [];
+      }
+      
+      // Recursive function to traverse the layout and collect zones
+      collectZones = function(node, path = '') {
+        var child, countWidgets, i, j, len, len1, ref, ref1, results1, widgetCount, zone, zoneInfo;
+        if (node == null) {
+          return;
+        }
+        
+        // Check if this node represents a zone (has layout properties or is a layout node)
+        if (node.direction || node.layout) {
+          // Determine the actual zone object
+          zone = node.layout ? node.layout : node;
+          
+          // Only process if it's a zone (has direction and children, or is explicitly a layout)
+          if (zone.direction || (node.layout && node !== zone)) {
+            // Count widgets in this zone
+            widgetCount = 0;
+            countWidgets = function(children) {
+              var child, count, i, len;
+              if (!(children && Array.isArray(children))) {
+                return 0;
+              }
+              count = 0;
+              for (i = 0, len = children.length; i < len; i++) {
+                child = children[i];
+                if (child.widget) {
+                  count += 1;
+                } else if (child.layout || child.direction) {
+                  // Recursively count widgets in nested zones
+                  count += countWidgets(child.children);
+                }
+              }
+              return count;
+            };
+            if (zone.children) {
+              widgetCount = countWidgets(zone.children);
+            }
+            
+            // Create zone info
+            zoneInfo = {
+              id: zone.id || null,
+              title: zone.title || `Zone ${zone.id || 'unknown'}`,
+              widgetCount: widgetCount,
+              direction: zone.direction || 'vertical',
+              factor: zone.factor || 1
+            };
+            zones.push(zoneInfo);
+            
+            // Recursively process children
+            if (zone.children && Array.isArray(zone.children)) {
+              ref = zone.children;
+              for (i = 0, len = ref.length; i < len; i++) {
+                child = ref[i];
+                collectZones(child, `${path}.${zones.length}`);
+              }
+            }
+          }
+        }
+        
+        // Also process children if this is a container node
+        if (node.children && Array.isArray(node.children)) {
+          ref1 = node.children;
+          results1 = [];
+          for (j = 0, len1 = ref1.length; j < len1; j++) {
+            child = ref1[j];
+            results1.push(collectZones(child, path));
+          }
+          return results1;
+        }
+      };
+      
+      // Start traversal from the layout root
+      collectZones(parsed.layout);
+      return zones;
+    } catch (error1) {
+      e = error1;
+      console.warn('Error parsing zones from YAML:', e);
+      return [];
+    }
+  };
+
   window.AppViewHelpers._openZoneManageModal = function(app) {
-    // TODO: Implémenter la modale de gestion des zones (fusion, séparation, etc.)
-    return tdbAlert('Gestion avancée des zones - Coming soon!', 'info');
+    var cv, query;
+    cv = app._currentCustomView;
+    if (!cv) {
+      return;
+    }
+    
+    // Fetch current view YAML to get latest data
+    query = `query GetView($viewId: ID!) {
+  customView(id: $viewId) {
+    id
+    name
+    yaml
+  }
+}`;
+    return window.GQL.query(query, {
+      viewId: cv.id
+    }).then(function(data) {
+      var cancelBtn, cb, checkboxes, closeBtn, directionSelect, freshCv, i, item, j, len, len1, mergeBtn, modal, splitBtn, updateZoneManagementButtons, yamlText, zone, zoneListEl, zones;
+      if (!data.customView) {
+        tdbAlert('Impossible de charger la vue', 'error');
+        return;
+      }
+      freshCv = data.customView;
+      yamlText = freshCv.yaml || '';
+      
+      // Parse zones from YAML
+      zones = window.AppViewHelpers._parseZonesFromYAML(yamlText);
+      
+      // Create modal
+      modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.innerHTML = `<div class="modal-content">
+  <div class="modal-header">
+    <h3>Gestion des zones</h3>
+    <button class="modal-close-btn">&times;</button>
+  </div>
+  <div class="modal-body">
+    <div class="zone-list">
+      <h4>Zones disponibles</h4>
+      <div class="zone-items" id="zone-items-list">
+        <!-- Zone items will be inserted here -->
+      </div>
+    </div>
+    
+    <div class="zone-actions">
+      <div class="action-group">
+        <label for="split-direction">Direction de séparation:</label>
+        <select id="split-direction">
+          <option value="vertical">Verticale</option>
+          <option value="horizontal">Horizontale</option>
+        </select>
+      </div>
+      
+      <button id="merge-zones-btn" class="action-btn" disabled>Fusionner les zones</button>
+      <button id="split-zone-btn" class="action-btn" disabled>Séparer la zone</button>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button id="zone-manage-cancel" class="btn">Annuler</button>
+  </div>
+</div>`;
+      document.body.appendChild(modal);
+      
+      // Populate zone list
+      zoneListEl = modal.querySelector('#zone-items-list');
+      zoneListEl.innerHTML = '';
+      for (i = 0, len = zones.length; i < len; i++) {
+        zone = zones[i];
+        item = document.createElement('label');
+        item.className = 'zone-item';
+        item.innerHTML = `<input type="checkbox" value="` + zone.id + `">
+<span class="zone-title">` + zone.title + `</span>
+<span class="zone-info">(` + zone.widgetCount + ` widgets)</span>`;
+        zoneListEl.appendChild(item);
+      }
+      
+      // Get elements
+      mergeBtn = modal.querySelector('#merge-zones-btn');
+      splitBtn = modal.querySelector('#split-zone-btn');
+      directionSelect = modal.querySelector('#split-direction');
+      cancelBtn = modal.querySelector('#zone-manage-cancel');
+      closeBtn = modal.querySelector('.modal-close-btn');
+      checkboxes = modal.querySelectorAll('.zone-item input[type="checkbox"]');
+      
+      // Update button states based on selection
+      updateZoneManagementButtons = function() {
+        var cb, j, len1, selectedCount, selectedIds;
+        selectedCount = 0;
+        selectedIds = [];
+        for (j = 0, len1 = checkboxes.length; j < len1; j++) {
+          cb = checkboxes[j];
+          if (cb.checked) {
+            selectedCount += 1;
+            selectedIds.push(cb.value);
+          }
+        }
+        
+        // Merge enabled when exactly 2 zones selected
+        mergeBtn.disabled = selectedCount !== 2;
+        
+        // Split enabled when exactly 1 zone selected
+        splitBtn.disabled = selectedCount !== 1;
+        
+        // Store selected IDs for later use
+        return modal._selectedZoneIds = selectedIds;
+      };
+
+      // Event listeners
+      for (j = 0, len1 = checkboxes.length; j < len1; j++) {
+        cb = checkboxes[j];
+        cb.addEventListener('change', updateZoneManagementButtons);
+      }
+      cancelBtn.addEventListener('click', function() {
+        return modal.remove();
+      });
+      closeBtn.addEventListener('click', function() {
+        return modal.remove();
+      });
+      mergeBtn.addEventListener('click', function() {
+        var mutation, variables;
+        if (modal._selectedZoneIds.length !== 2) {
+          tdbAlert('Veuillez sélectionner exactement 2 zones pour la fusion', 'warning');
+          return;
+        }
+        mutation = `mutation MergeZones($pageId: ID!, $zoneId1: ID!, $zoneId2: ID!) {
+  mergeZones(pageId: $pageId, zoneId1: $zoneId1, zoneId2: $zoneId2) {
+    id
+    yaml
+  }
+}`;
+        variables = {
+          pageId: freshCv.id,
+          zoneId1: modal._selectedZoneIds[0],
+          zoneId2: modal._selectedZoneIds[1]
+        };
+        return window.GQL.mutate(mutation, variables).then(function(result) {
+          var updatedYaml;
+          if (result.errors) {
+            return tdbAlert('Erreur lors de la fusion: ' + result.errors[0].message, 'error');
+          } else {
+            updatedYaml = result.mergeZones.yaml;
+            app._currentCustomView.yaml = updatedYaml;
+            window.AppViewHelpers.renderCustomViewPreview(app, updatedYaml);
+            return modal.remove();
+          }
+        }).catch(function(error) {
+          return tdbAlert('Erreur réseau lors de la fusion: ' + error.message, 'error');
+        });
+      });
+      splitBtn.addEventListener('click', function() {
+        var direction, mutation, variables;
+        if (modal._selectedZoneIds.length !== 1) {
+          tdbAlert('Veuillez sélectionner exactement 1 zone pour la séparation', 'warning');
+          return;
+        }
+        direction = directionSelect.value;
+        mutation = `mutation SplitZone($pageId: ID!, $zoneId: ID!, $direction: String!) {
+  splitZone(pageId: $pageId, zoneId: $zoneId, direction: $direction) {
+    id
+    yaml
+  }
+}`;
+        variables = {
+          pageId: freshCv.id,
+          zoneId: modal._selectedZoneIds[0],
+          direction: direction
+        };
+        return window.GQL.mutate(mutation, variables).then(function(result) {
+          var updatedYaml;
+          if (result.errors) {
+            return tdbAlert('Erreur lors de la séparation: ' + result.errors[0].message, 'error');
+          } else {
+            updatedYaml = result.splitZone.yaml;
+            app._currentCustomView.yaml = updatedYaml;
+            window.AppViewHelpers.renderCustomViewPreview(app, updatedYaml);
+            return modal.remove();
+          }
+        }).catch(function(error) {
+          return tdbAlert('Erreur réseau lors de la séparation: ' + error.message, 'error');
+        });
+      });
+      
+      // Initialize button states
+      return updateZoneManagementButtons();
+    }).catch(function(error) {
+      return tdbAlert('Erreur lors du chargement de la vue: ' + error.message, 'error');
+    });
   };
 
 }).call(this);

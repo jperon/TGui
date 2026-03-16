@@ -98,6 +98,8 @@ type Mutation {
   # Zone management (Phase 3)
   createZone(pageId: ID!, zoneData: ZoneInput!): Zone!
   resizeZone(pageId: ID!, zoneId: ID!, factor: Float!): Zone!
+  mergeZones(pageId: ID!, zoneId1: ID!, zoneId2: ID!): CustomView!
+  splitZone(pageId: ID!, zoneId: ID!, direction: String!): CustomView!
 
   # Data views
   createDataView(input: DataViewInput!): DataView!
