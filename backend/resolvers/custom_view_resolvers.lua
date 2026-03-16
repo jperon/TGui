@@ -422,6 +422,10 @@ local Mutation = {
       error("factor must be between 0.1 and 1.0")
     end
     return resize_zone(pageId, zoneId, factor)
+  end,
+  addDataViewToPage = function(_, args, ctx)
+    require_auth(ctx)
+    return add_data_view_to_page(args.pageId, args.dataViewId)
   end
 }
 local create_zone
@@ -755,6 +759,9 @@ encode_layout_yaml = function(config)
         yaml_content = yaml_content .. (indent .. "    title: " .. child.widget.title .. "\n")
         yaml_content = yaml_content .. (indent .. "    space: " .. tostring(child.widget.space) .. "\n")
         yaml_content = yaml_content .. (indent .. "    position: " .. tostring(child.widget.position) .. "\n")
+        if child.widget.dataViewId then
+          yaml_content = yaml_content .. (indent .. "    dataViewId: " .. tostring(child.widget.dataViewId) .. "\n")
+        end
         if child.widget.columns and #child.widget.columns > 0 then
           yaml_content = yaml_content .. (indent .. "    columns:\n")
           for _, col in ipairs(child.widget.columns) do
@@ -765,7 +772,7 @@ encode_layout_yaml = function(config)
           yaml_content = yaml_content .. (indent .. "    groupBy: " .. tostring(child.widget.groupBy) .. "\n")
         end
         for key, value in pairs(child.widget) do
-          if key ~= 'id' and key ~= 'title' and key ~= 'space' and key ~= 'position' and key ~= 'columns' and key ~= 'groupBy' then
+          if key ~= 'id' and key ~= 'title' and key ~= 'space' and key ~= 'position' and key ~= 'columns' and key ~= 'groupBy' and key ~= 'dataViewId' then
             yaml_content = yaml_content .. (indent .. "    " .. key .. ": " .. tostring(value) .. "\n")
           end
         end
@@ -784,6 +791,71 @@ encode_layout_yaml = function(config)
   end
   encode_children(config.layout.children)
   return yaml_content
+end
+local add_data_view_to_page
+add_data_view_to_page = function(pageId, dataViewId)
+  local t = box.space._tdb_custom_views:get(pageId)
+  if not (t) then
+    error("CustomView not found: " .. tostring(pageId))
+  end
+  local dv = box.space._tdb_data_views:get(dataViewId)
+  if not (dv) then
+    error("DataView not found: " .. tostring(dataViewId))
+  end
+  local widget_id = tostring(uuid_mod.new())
+  local new_widget = {
+    id = widget_id,
+    title = "Data View: " .. dv[2],
+    space = dv[2],
+    dataViewId = dv[1],
+    position = 0
+  }
+  local yaml_raw = t[4]
+  if not yaml_raw or yaml_raw == '' then
+    yaml_raw = 'layout:\n  direction: vertical\n  children: []'
+  end
+  local config = yaml.decode(yaml_raw)
+  if not config or type(config) ~= 'table' then
+    config = {
+      layout = {
+        direction = 'vertical',
+        children = { }
+      }
+    }
+  elseif not config.layout then
+    config.layout = {
+      direction = 'vertical',
+      children = { }
+    }
+  elseif not config.layout.children then
+    config.layout.children = { }
+  end
+  local position = #config.layout.children + 1
+  new_widget.position = position
+  table.insert(config.layout.children, {
+    widget = new_widget
+  })
+  local updated_yaml = encode_layout_yaml(config)
+  box.space._tdb_custom_views:update(pageId, {
+    {
+      '=',
+      4,
+      updated_yaml
+    },
+    {
+      '=',
+      6,
+      os.time()
+    }
+  })
+  return {
+    id = t[1],
+    name = t[2],
+    description = t[3],
+    yaml = updated_yaml,
+    createdAt = tostring(t[5]),
+    updatedAt = tostring(os.time())
+  }
 end
 local _ = {
   mergeZones = function(_, args, ctx)

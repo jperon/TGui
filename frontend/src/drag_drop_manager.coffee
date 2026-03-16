@@ -5,6 +5,7 @@ class DragDropManager
   constructor: (@container, @options = {}) ->
     @sortable = null
     @onReorder = @options.onReorder or ->
+    @onDataViewDrop = @options.onDataViewDrop or ->
     @currentPageId = @options.pageId or null
     @widgets = []
     @isDragging = false
@@ -13,32 +14,36 @@ class DragDropManager
 
     @init()
 
-  init: ->
-    return unless @container and @currentPageId
+   init: ->
+     return unless @container and @currentPageId
 
-    # Scanner les zones existantes
-    @scanZones()
+     # Scanner les zones existantes
+     @scanZones()
 
-    # Initialiser SortableJS avec support multi-conteneurs
-    @sortable = new Sortable @container,
-      animation: 150
-      ghostClass: 'widget-ghost'
-      chosenClass: 'widget-chosen'
-      dragClass: 'widget-dragging'
-      handle: @options.handle or '.widget-header'
-      filter: @options.filter or '.no-drag'
-      group: 'widgets'  # Permet le drag entre conteneurs
+     # Initialiser SortableJS avec support multi-conteneurs
+     @sortable = new Sortable @container,
+       animation: 150
+       ghostClass: 'widget-ghost'
+       chosenClass: 'widget-chosen'
+       dragClass: 'widget-dragging'
+       handle: @options.handle or '.widget-header'
+       filter: @options.filter or '.no-drag'
+       group: 'widgets'  # Permet le drag entre conteneurs
 
-      onStart: (evt) =>
-        @isDragging = true
-        @onDragStart evt
-        @highlightDropZones true
+       onStart: (evt) =>
+         @isDragging = true
+         @onDragStart evt
+         @highlightDropZones true
 
-      onEnd: (evt) =>
-        @isDragging = false
-        @highlightDropZones false
-        @onDragEnd evt
-        @handleReorder evt
+       onEnd: (evt) =>
+         @isDragging = false
+         @highlightDropZones false
+         @onDragEnd evt
+         @handleReorder evt
+
+     # Gestion du drop externe pour les data views
+     @container.addEventListener 'dragover', (evt) => @onContainerDragOver(evt)
+     @container.addEventListener 'drop', (evt) => @onContainerDrop(evt)
 
   onDragStart: (evt) ->
     # Ajouter des classes visuelles
@@ -163,8 +168,27 @@ class DragDropManager
     if @sortable
       @sortable.option 'disabled', true
 
-  getWidgetOrder: ->
-    @extractWidgetPositions()
+   getWidgetOrder: ->
+     @extractWidgetPositions()
+
+    # Gestion du drop externe pour les data views
+    onContainerDragOver: (evt) ->
+      evt.preventDefault()
+      @highlightDropZones true
+
+    onContainerDrop: (evt) ->
+      evt.preventDefault()
+      evt.stopPropagation()
+      dataType = 'application/vnd.tdb.dataview'
+      if evt.dataTransfer.types.includes dataType
+        data = evt.dataTransfer.getData dataType
+        try
+          parsed = JSON.parse data
+          dataViewId = parsed.id
+        catch
+          dataViewId = data
+        @onDataViewDrop dataViewId, evt
+      @highlightDropZones false
 
 # Exporter la classe
 window.DragDropManager = DragDropManager

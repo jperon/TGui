@@ -105,6 +105,7 @@ type Mutation {
   createDataView(input: DataViewInput!): DataView!
   updateDataView(id: ID!, input: DataViewInput!): DataView!
   deleteDataView(id: ID!):               Boolean!
+  addDataViewToPage(pageId: ID!, dataViewId: ID!): CustomView!
   createWidgetPlugin(input: CreateWidgetPluginInput!): WidgetPlugin!
   updateWidgetPlugin(id: ID!, input: UpdateWidgetPluginInput!): WidgetPlugin!
   deleteWidgetPlugin(id: ID!): Boolean!

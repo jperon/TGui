@@ -9,6 +9,7 @@
       this.options = options;
       this.sortable = null;
       this.onReorder = this.options.onReorder || function() {};
+      this.onDataViewDrop = this.options.onDataViewDrop || function() {};
       this.currentPageId = this.options.pageId || null;
       this.widgets = [];
       this.isDragging = false;
@@ -24,7 +25,7 @@
       // Scanner les zones existantes
       this.scanZones();
       // Initialiser SortableJS avec support multi-conteneurs
-      return this.sortable = new Sortable(this.container, {
+      this.sortable = new Sortable(this.container, {
         animation: 150,
         ghostClass: 'widget-ghost',
         chosenClass: 'widget-chosen',
@@ -43,6 +44,13 @@
           this.onDragEnd(evt);
           return this.handleReorder(evt);
         }
+      });
+      // Gestion du drop externe pour les data views
+      this.container.addEventListener('dragover', (evt) => {
+        return this.onContainerDragOver(evt);
+      });
+      return this.container.addEventListener('drop', (evt) => {
+        return this.onContainerDrop(evt);
       });
     }
 
@@ -209,6 +217,30 @@
 
     getWidgetOrder() {
       return this.extractWidgetPositions();
+    }
+
+    // Gestion du drop externe pour les data views
+    onContainerDragOver(evt) {
+      evt.preventDefault();
+      return this.highlightDropZones(true);
+    }
+
+    onContainerDrop(evt) {
+      var data, dataType, dataViewId, parsed;
+      evt.preventDefault();
+      evt.stopPropagation();
+      dataType = 'application/vnd.tdb.dataview';
+      if (evt.dataTransfer.types.includes(dataType)) {
+        data = evt.dataTransfer.getData(dataType);
+        try {
+          parsed = JSON.parse(data);
+          dataViewId = parsed.id;
+        } catch (error) {
+          dataViewId = data;
+        }
+        this.onDataViewDrop(dataViewId, evt);
+      }
+      return this.highlightDropZones(false);
     }
 
   };

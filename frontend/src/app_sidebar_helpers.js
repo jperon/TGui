@@ -24,6 +24,25 @@
       // Data Views section
       dvList = app.el.dataViewList();
       dvBtn = document.getElementById('data-views-toggle-btn');
+      // Make data view items draggable
+      if (dvList) {
+        dvList.querySelectorAll('[data-id]').forEach(function(item) {
+          return item.draggable = true;
+        });
+        dvList.addEventListener('dragstart', function(event) {
+          var dataViewId, item;
+          item = event.target.closest('[data-id]');
+          if (!item) {
+            return;
+          }
+          dataViewId = item.getAttribute('data-id');
+          event.dataTransfer.setData('application/vnd.tdb.dataview', JSON.stringify({
+            type: 'dataView',
+            id: dataViewId
+          }));
+          return event.dataTransfer.effectAllowed = 'move';
+        });
+      }
       if (localStorage.getItem('tdb_views_collapsed') === 'true') {
         dvList.classList.add('hidden');
         if (dvBtn != null) {

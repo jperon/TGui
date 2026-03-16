@@ -16,15 +16,25 @@ window.AppSidebarHelpers =
       spList.classList.remove 'hidden'
       spBtn?.classList.remove 'collapsed'
 
-    # Data Views section
-    dvList = app.el.dataViewList()
-    dvBtn  = document.getElementById 'data-views-toggle-btn'
-    if localStorage.getItem('tdb_views_collapsed') == 'true'
-      dvList.classList.add 'hidden'
-      dvBtn?.classList.add 'collapsed'
-    else
-      dvList.classList.remove 'hidden'
-      dvBtn?.classList.remove 'collapsed'
+     # Data Views section
+     dvList = app.el.dataViewList()
+     dvBtn  = document.getElementById 'data-views-toggle-btn'
+     # Make data view items draggable
+     if dvList
+       dvList.querySelectorAll('[data-id]').forEach (item) ->
+         item.draggable = true
+       dvList.addEventListener 'dragstart', (event) ->
+         item = event.target.closest('[data-id]')
+         return unless item
+         dataViewId = item.getAttribute('data-id')
+         event.dataTransfer.setData 'application/vnd.tdb.dataview', JSON.stringify({type: 'dataView', id: dataViewId})
+         event.dataTransfer.effectAllowed = 'move'
+     if localStorage.getItem('tdb_views_collapsed') == 'true'
+       dvList.classList.add 'hidden'
+       dvBtn?.classList.add 'collapsed'
+     else
+       dvList.classList.remove 'hidden'
+       dvBtn?.classList.remove 'collapsed'
 
     # Admin section: collapsed by default
     adminSection = document.getElementById 'admin-sidebar-section'

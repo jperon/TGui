@@ -320,47 +320,53 @@ Mutation =
     add_widget_to_view args.viewId, args.widget
   reorderWidgets: (_, args, ctx) ->
     require_auth ctx
-
+    
     -- Validation des arguments
     pageId = args.pageId
     widgetPositions = args.widgetPositions
-
+    
     error "pageId is required" unless pageId
-
+    
     -- Si widgetPositions est une string, retourner une erreur claire
     if type(widgetPositions) == 'string'
       error "widgetPositions must be a table, got string"
-
+    
     -- Accepter les table vides
     unless widgetPositions and type(widgetPositions) == 'table'
       error "widgetPositions must be a table"
-
+    
     reorder_widgets pageId, widgetPositions
+  
   createZone: (_, args, ctx) ->
     require_auth ctx
     pageId = args.pageId
     zoneData = args.zoneData or {}
-
+    
     error "pageId is required" unless pageId
-
+    
     create_zone pageId, zoneData
+  
   resizeZone: (_, args, ctx) ->
     require_auth ctx
     pageId = args.pageId
     zoneId = args.zoneId
     factor = args.factor
-
+    
     error "pageId is required" unless pageId
     error "zoneId is required" unless zoneId
     error "factor is required" unless factor
-
+   
     -- Validation du factor
     if factor < 0.1 or factor > 1.0
       error "factor must be between 0.1 and 1.0"
-
+   
     resize_zone pageId, zoneId, factor
+  
+  addDataViewToPage: (_, args, ctx) ->
+    require_auth ctx
+    add_data_view_to_page args.pageId, args.dataViewId
 
--- Créer une nouvelle zone dans une vue
+ -- Créer une nouvelle zone dans une vue
 create_zone = (pageId, zoneData) ->
   -- Récupérer la vue existante
   t = box.space._tdb_custom_views\get pageId
@@ -639,41 +645,109 @@ encode_layout_yaml = (config) ->
   encode_children = (children, indent) ->
     indent = indent or "    "
     for _, child in ipairs(children)
-      if child.widget
-        yaml_content ..= indent .. "- widget:\n"
-        yaml_content ..= indent .. "    id: " .. tostring(child.widget.id) .. "\n"
-        yaml_content ..= indent .. "    title: " .. child.widget.title .. "\n"
-        yaml_content ..= indent .. "    space: " .. tostring(child.widget.space) .. "\n"
-        yaml_content ..= indent .. "    position: " .. tostring(child.widget.position) .. "\n"
+       if child.widget
+          yaml_content ..= indent .. "- widget:\n"
+          yaml_content ..= indent .. "    id: " .. tostring(child.widget.id) .. "\n"
+          yaml_content ..= indent .. "    title: " .. child.widget.title .. "\n"
+          yaml_content ..= indent .. "    space: " .. tostring(child.widget.space) .. "\n"
+          yaml_content ..= indent .. "    position: " .. tostring(child.widget.position) .. "\n"
 
-        -- Ajouter les colonnes si présentes
-        if child.widget.columns and #child.widget.columns > 0
-          yaml_content ..= indent .. "    columns:\n"
-          for _, col in ipairs(child.widget.columns)
-            yaml_content ..= indent .. "      - " .. col .. "\n"
+          -- Ajouter le dataViewId si présent
+          if child.widget.dataViewId
+            yaml_content ..= indent .. "    dataViewId: " .. tostring(child.widget.dataViewId) .. "\n"
 
-        -- Ajouter le groupement si présent
-        if child.widget.groupBy
-          yaml_content ..= indent .. "    groupBy: " .. tostring(child.widget.groupBy) .. "\n"
+          -- Ajouter les colonnes si présentes
+          if child.widget.columns and #child.widget.columns > 0
+            yaml_content ..= indent .. "    columns:\n"
+            for _, col in ipairs(child.widget.columns)
+              yaml_content ..= indent .. "      - " .. col .. "\n"
 
-        -- Ajouter les autres propriétés
-        for key, value in pairs(child.widget)
-          if key ~= 'id' and key ~= 'title' and key ~= 'space' and key ~= 'position' and key ~= 'columns' and key ~= 'groupBy'
-            yaml_content ..= indent .. "    " .. key .. ": " .. tostring(value) .. "\n"
+          -- Ajouter le groupement si présent
+          if child.widget.groupBy
+            yaml_content ..= indent .. "    groupBy: " .. tostring(child.widget.groupBy) .. "\n"
 
-      elseif child.zone
-        yaml_content ..= indent .. "- zone:\n"
-        yaml_content ..= indent .. "    id: " .. tostring(child.zone.id) .. "\n"
-        yaml_content ..= indent .. "    title: " .. child.zone.title .. "\n"
-        yaml_content ..= indent .. "    factor: " .. tostring(child.zone.factor) .. "\n"
-        yaml_content ..= indent .. "    direction: " .. (child.zone.direction or 'vertical') .. "\n"
+          -- Ajouter les autres propriétés
+          for key, value in pairs(child.widget)
+            if key ~= 'id' and key ~= 'title' and key ~= 'space' and key ~= 'position' and key ~= 'columns' and key ~= 'groupBy' and key ~= 'dataViewId'
+              yaml_content ..= indent .. "    " .. key .. ": " .. tostring(value) .. "\n"
 
-        if child.zone.children and #child.zone.children > 0
-          yaml_content ..= indent .. "    children:\n"
-          encode_children(child.zone.children, indent .. "      ")
+       elseif child.zone
+         yaml_content ..= indent .. "- zone:\n"
+         yaml_content ..= indent .. "    id: " .. tostring(child.zone.id) .. "\n"
+         yaml_content ..= indent .. "    title: " .. child.zone.title .. "\n"
+         yaml_content ..= indent .. "    factor: " .. tostring(child.zone.factor) .. "\n"
+         yaml_content ..= indent .. "    direction: " .. (child.zone.direction or 'vertical') .. "\n"
+
+         if child.zone.children and #child.zone.children > 0
+           yaml_content ..= indent .. "    children:\n"
+           encode_children(child.zone.children, indent .. "      ")
 
   encode_children(config.layout.children)
   return yaml_content
+
+
+-- Ajouter une Data View à une page (vue personnalisée)
+add_data_view_to_page = (pageId, dataViewId) ->
+  -- Récupérer la vue personnalisée (page) par pageId
+  t = box.space._tdb_custom_views\get pageId
+  error "CustomView not found: #{pageId}" unless t
+
+  -- Récupérer la data view par dataViewId
+  dv = box.space._tdb_data_views\get dataViewId
+  error "DataView not found: #{dataViewId}" unless dv
+
+  -- Générer un ID unique pour le widget
+  widget_id = tostring(uuid_mod.new!)
+
+  -- Créer le widget avec les données de la data view
+  new_widget = {
+    id: widget_id
+    title: "Data View: " .. dv[2]  -- dv[2] est le nom
+    space: dv[2]                   -- dv[2] est le nom de la data view
+    dataViewId: dv[1]              -- dv[1] est l'ID
+    position: 0                    -- Sera mis à jour après insertion
+  }
+
+  -- Parser le YAML existant
+  yaml_raw = t[4]
+  if not yaml_raw or yaml_raw == ''
+    yaml_raw = 'layout:\n  direction: vertical\n  children: []'
+
+  config = yaml.decode(yaml_raw)
+  if not config or type(config) != 'table'
+    config = { layout: { direction: 'vertical', children: {} } }
+  elseif not config.layout
+    config.layout = { direction: 'vertical', children: {} }
+  elseif not config.layout.children
+    config.layout.children = {}
+
+  -- Calculer la position (à la fin de la liste)
+  position = #config.layout.children + 1
+  new_widget.position = position
+
+  -- Ajouter le widget à la structure layout
+  table.insert(config.layout.children, {
+    widget: new_widget
+  })
+
+  -- Re-encoder le YAML avec un format propre
+  updated_yaml = encode_layout_yaml(config)
+
+  -- Mettre à jour la vue personnalisée dans la base de données
+  box.space._tdb_custom_views\update pageId, {
+    { '=', 4, updated_yaml }  -- Mettre à jour le champ yaml
+    { '=', 6, os.time() }     -- Mettre à jour updatedAt
+  }
+
+  -- Retourner la vue personnalisée mise à jour
+  {
+    id: t[1]
+    name: t[2]
+    description: t[3]
+    yaml: updated_yaml
+    createdAt: tostring(t[5])
+    updatedAt: tostring(os.time())
+  }
 
 -- Fusionner deux zones adjacentes ayant le même parent
 mergeZones: (_, args, ctx) ->

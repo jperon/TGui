@@ -50,7 +50,7 @@ Permettre aux utilisateurs de réorganiser visuellement les widgets et zones dan
 **Fonctionnalités**
 - [x] Déplacer un widget vers une zone parent différente
 - [x] Créer de nouvelles zones par drag & drop
-- [ ] Fusionner/séparer des zones
+- [x] Fusionner/séparer des zones
 
 **Backend**
 - [x] Gérer les changements de hiérarchie
@@ -60,7 +60,7 @@ Permettre aux utilisateurs de réorganiser visuellement les widgets et zones dan
 **Frontend**
 - [x] Indicateurs visuels pour les zones cibles
 - [x] Mode "création de zone" par drag entre widgets
-- [ ] Panel latéral pour les actions avancées
+- [x] Panel latéral pour les actions avancées
 - [x] Support multi-conteneurs dans DragDropManager
 - [x] Tests E2E pour la gestion des zones (4/7 tests)
 - [x] Interface de création de zones (modale)
@@ -70,33 +70,33 @@ Permettre aux utilisateurs de réorganiser visuellement les widgets et zones dan
 **Fonctionnalités**
 - [x] Poignées de redimensionnement sur les zones
 - [x] Ajustement interactif des factors
-- [ ] Snap à des proportions prédéfinies (1/3, 1/2, 2/3)
+- [x] Snap à des proportions prédéfinies (1/3, 1/2, 2/3)
 
 **Backend**
 - [x] Mutation `resizeZone(pageId: ID!, zoneId: ID!, factor: Float!)`
 - [x] Validation des factors (min/max)
-- [ ] Recalcul automatique des factors voisins
+- [x] Recalcul automatique des factors voisins
 
 **Frontend**
 - [x] Composant `ResizeHandle`
-- [ ] Grid visuelle pour l'alignement
+- [x] Grid visuelle pour l'alignement
 - [x] Tooltip affichant la proportion actuelle
 
 ### Phase 5 : Data Views Integration (Semaine 5)
 **Fonctionnalités**
-- [ ] Drag & drop des Data Views dans les Pages
-- [ ] Conversion automatique Data View → Widget
-- [ ] Synchronisation des configurations
+- [x] Drag & drop des Data Views dans les Pages
+- [x] Conversion automatique Data View → Widget
+- [x] Synchronisation des configurations
 
 **Backend**
-- [ ] Mutation `addDataViewToPage(pageId: ID!, dataViewId: ID!)`
-- [ ] Mapping des configurations Data View vers Widget
-- [ ] Préservation des filtres et agrégations
+- [x] Mutation `addDataViewToPage(pageId: ID!, dataViewId: ID!)`
+- [x] Mapping des configurations Data View vers Widget
+- [x] Préservation des filtres et agrégations
 
 **Frontend**
-- [ ] Panel Data Views glissant
-- [ ] Preview du widget avant insertion
-- [ ] Configuration rapide post-insertion
+- [x] Panel Data Views glissant
+- [x] Preview du widget avant insertion
+- [x] Configuration rapide post-insertion
 
 ### Phase 6 : UX Avancée (Semaine 6)
 **Fonctionnalités**

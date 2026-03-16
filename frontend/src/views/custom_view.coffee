@@ -32,6 +32,7 @@ window.CustomView = class CustomView
     @_widgetsById = {} # id -> entry
     @_pluginStateByWidgetId = {}
     @_pluginSelectionListenersByWidgetId = {}
+    @pageId = @container.getAttribute('data-page-id') or null
 
   # Fonction globale pour gérer l'insertion de layouts pendant l'édition YAML
   @setupLayoutInsertion: ->
@@ -153,18 +154,60 @@ window.CustomView = class CustomView
       @container.innerHTML = "<p style='color:#888;padding:1rem'>Pas de section <code>layout</code> dans le YAML.</p>"
       return
 
-    el = @_renderZoneOrWidget root
-    @container.style.cssText = 'display:flex;flex-direction:column;height:100%;'
-    @container.appendChild el
+     el = @_renderZoneOrWidget root
+     @container.style.cssText = 'display:flex;flex-direction:column;height:100%;'
+     @container.appendChild el
 
-    # Wire depends_on after all DataView grids are ready (mount is async)
-    Promise.all(@_mountPromises).then =>
-      @_wireDepends()
-      # Refresh grid layouts now that elements are in the live DOM
-      setTimeout =>
-        for entry in @_widgets
-          entry.dataView?._grid?.refreshLayout()
-      , 0
+     # Wire depends_on after all DataView grids are ready (mount is async)
+     Promise.all(@_mountPromises).then =>
+       @_wireDepends()
+       # Refresh grid layouts now that elements are in the live DOM
+       setTimeout =>
+         for entry in @_widgets
+           entry.dataView?._grid?.refreshLayout()
+       , 0
+
+     # Initialiser le DragDropManager avec support des zones (Phase 3)
+     if @pageId
+       @_dragDropManager?.destroy?()
+
+       # Vérifier si DragDropManager est disponible
+       if typeof DragDropManager != 'undefined'
+         @_dragDropManager = new DragDropManager @container,
+           pageId: @pageId
+           handle: '.widget-header'
+           filter: '.no-drag'
+           onCreateZone: (zoneData) =>
+             # TODO: Implement zone creation if needed
+             console.log 'Zone creation not implemented in CustomView', zoneData
+           onResizeZone: (zoneId, factor) =>
+             @_onZoneResize zoneId, factor
+           onReorder: (positions) =>
+             window.AppViewHelpers.handleWidgetReorder @, positions
+           onDataViewDrop: (dataViewId, evt) =>
+             mutation = """
+               mutation AddDataViewToPage($pageId: ID!, $dataViewId: ID!) {
+                 addDataViewToPage(pageId: $pageId, dataViewId: $dataViewId) {
+                   id
+                   yaml
+                 }
+               }
+             """
+             GQL.mutate(mutation, { pageId: @pageId, dataViewId: dataViewId })
+               .then (result) =>
+                 if result.errors
+                   console.error 'GraphQL errors:', result.errors
+                   @showNotification "Erreur lors de l'ajout de la vue de données: #{result.errors[0].message}", 'error'
+                 else
+                   @showNotification 'Vue de données ajoutée avec succès', 'success'
+                   @yamlText = result.addDataViewToPage.yaml
+                   @unmount()
+                   @mount()
+               .catch (error) =>
+                 console.error 'Network error:', error
+                 @showNotification 'Erreur réseau lors de l\'ajout de la vue de données: ' + error.message, 'error'
+       else
+         console.warn "DragDropManager not available, drag & drop features disabled"
 
   # Renders either a zone (direction+children) or a widget node.
   # Applies `factor` (flex proportion) when specified (default: 1).
