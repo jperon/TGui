@@ -144,7 +144,7 @@
       return (ref4 = window.AppUndoHelpers) != null ? typeof ref4.refreshUI === "function" ? ref4.refreshUI(app) : void 0 : void 0;
     },
     renderCustomViewPreview: function(app, yamlText) {
-      var container, cv, e, emptyState, ref, ref1, ref2, ref3, widgetsContainer;
+      var container, cv, e, ref, ref1, ref2, ref3, widgetsContainer, zoneToolbar;
       container = app.el.customViewContainer();
       if ((ref = app._activeCustomView) != null) {
         if (typeof ref.unmount === "function") {
@@ -157,44 +157,51 @@
       widgetsContainer.className = 'widgets-container';
       widgetsContainer.setAttribute('data-page-id', (ref1 = app._currentCustomView) != null ? ref1.id : void 0);
       container.appendChild(widgetsContainer);
+      // Ajouter les boutons de gestion des zones (Phase 3)
+      zoneToolbar = document.createElement('div');
+      zoneToolbar.className = 'zone-toolbar';
+      zoneToolbar.innerHTML = `<button id="create-zone-btn" class="toolbar-btn" title="Créer une nouvelle zone">
+  ＋ Zone
+</button>
+<button id="zone-manage-btn" class="toolbar-btn" title="Gérer les zones">
+  ⚙ Zones
+</button>`;
+      container.insertBefore(zoneToolbar, widgetsContainer);
       try {
         cv = new CustomView(widgetsContainer, yamlText, app._allSpaces, app._allDataViews);
         app._activeCustomView = cv;
-        // Initialiser le DragDropManager
+        // Initialiser le DragDropManager avec support des zones (Phase 3)
         if ((ref2 = app._currentCustomView) != null ? ref2.id : void 0) {
           if ((ref3 = app._dragDropManager) != null) {
             if (typeof ref3.destroy === "function") {
               ref3.destroy();
             }
           }
-          app._dragDropManager = new DragDropManager(widgetsContainer, {
-            pageId: app._currentCustomView.id,
-            handle: '.widget-header',
-            filter: '.no-drag',
-            onReorder: (positions) => {
-              return this.handleWidgetReorder(app, positions);
-            },
-            onDragStart: (evt) => {
-              return this.onDragStart(app, evt);
-            },
-            onDragEnd: (evt) => {
-              return this.onDragEnd(app, evt);
-            }
-          });
+          // Vérifier si DragDropManager est disponible
+          if (typeof DragDropManager !== 'undefined') {
+            app._dragDropManager = new DragDropManager(widgetsContainer, {
+              pageId: app._currentCustomView.id,
+              handle: '.widget-header',
+              filter: '.no-drag',
+              onCreateZone: (zoneData) => {
+                return window.AppViewHelpers._createZone(app, zoneData);
+              },
+              onResizeZone: (zoneId, factor) => {
+                return window.AppViewHelpers._resizeZone(app, zoneId, factor);
+              },
+              onReorder: (positions) => {
+                return window.AppViewHelpers.handleWidgetReorder(app, positions);
+              }
+            });
+          } else {
+            console.warn("DragDropManager not available, zone features disabled");
+          }
         }
-        // Ajouter un bouton "Add widget" si la vue est vide
-        if (cv._widgets.length === 0) {
-          emptyState = document.createElement('div');
-          emptyState.className = 'cv-empty-state';
-          emptyState.innerHTML = `<p>Aucun widget dans cette page.</p>
-<button class="btn-add-widget">Ajouter un widget</button>`;
-          emptyState.querySelector('.btn-add-widget').addEventListener('click', () => {
-            return window.AppViewHelpers._openAddWidgetModal(app);
-          });
-          return widgetsContainer.appendChild(emptyState);
-        }
+        // Lier les événements des zones (Phase 3)
+        return window.AppViewHelpers._bindZoneEvents(app);
       } catch (error1) {
         e = error1;
+        console.error('CustomView error:', e);
         return container.innerHTML = `<div class='error-message'>Erreur YAML : ${e.message}</div>`;
       }
     },
@@ -1748,6 +1755,203 @@
   window.AppViewHelpers._renderCustomViewPreview = function(app, yaml) {
     // Utiliser la fonction renderCustomViewPreview existante
     return window.AppViewHelpers.renderCustomViewPreview(app, yaml);
+  };
+
+  // ── Zone Management (Phase 3) ────────────────────────────────────────────
+  window.AppViewHelpers._bindZoneEvents = function(app) {
+    var createBtn, manageBtn;
+    // Bouton créer une zone
+    createBtn = document.getElementById('create-zone-btn');
+    if (createBtn) {
+      createBtn.addEventListener('click', () => {
+        return window.AppViewHelpers._openCreateZoneModal(app);
+      });
+    }
+    // Bouton gérer les zones
+    manageBtn = document.getElementById('zone-manage-btn');
+    if (manageBtn) {
+      manageBtn.addEventListener('click', () => {
+        return window.AppViewHelpers._openZoneManageModal(app);
+      });
+    }
+    // Écouter les événements de redimensionnement
+    return document.addEventListener('zone-resize', (evt) => {
+      var factor, zoneId;
+      ({zoneId, factor} = evt.detail);
+      return window.AppViewHelpers._resizeZone(app, zoneId, factor);
+    });
+  };
+
+  window.AppViewHelpers._openCreateZoneModal = function(app) {
+    var cancelBtn, closeBtn, closeModal, modal, ref, saveBtn;
+    if (!((ref = app._currentCustomView) != null ? ref.id : void 0)) {
+      return;
+    }
+    // Créer la modale si elle n'existe pas
+    modal = document.getElementById('zone-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'zone-modal';
+      modal.className = 'modal hidden';
+      modal.innerHTML = `<div class="modal-content">
+  <div class="modal-header">
+    <h3>Créer une nouvelle zone</h3>
+    <button class="modal-close">&times;</button>
+  </div>
+  <div class="modal-body">
+    <div class="form-group">
+      <label for="zone-title">Titre de la zone:</label>
+      <input type="text" id="zone-title" class="form-input" placeholder="Ma zone">
+    </div>
+    <div class="form-group">
+      <label for="zone-factor">Proportion (0.1 - 1.0):</label>
+      <input type="number" id="zone-factor" class="form-input" min="0.1" max="1.0" step="0.1" value="0.5">
+    </div>
+    <div class="form-group">
+      <label for="zone-direction">Direction:</label>
+      <select id="zone-direction" class="form-select">
+        <option value="vertical">Vertical</option>
+        <option value="horizontal">Horizontal</option>
+      </select>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button id="zone-cancel-btn" class="btn btn-secondary">Annuler</button>
+    <button id="zone-save-btn" class="btn btn-primary">Créer</button>
+  </div>
+</div>`;
+      document.body.appendChild(modal);
+    }
+    // Afficher la modale
+    modal.classList.remove('hidden');
+    document.getElementById('zone-title').focus();
+    // Lier les événements
+    closeBtn = modal.querySelector('.modal-close');
+    cancelBtn = document.getElementById('zone-cancel-btn');
+    saveBtn = document.getElementById('zone-save-btn');
+    closeModal = function() {
+      modal.classList.add('hidden');
+      // Réinitialiser le formulaire
+      document.getElementById('zone-title').value = '';
+      document.getElementById('zone-factor').value = '0.5';
+      return document.getElementById('zone-direction').value = 'vertical';
+    };
+    closeBtn.addEventListener('click', closeModal);
+    cancelBtn.addEventListener('click', closeModal);
+    saveBtn.addEventListener('click', () => {
+      var direction, factor, title, zoneData;
+      title = document.getElementById('zone-title').value.trim();
+      factor = parseFloat(document.getElementById('zone-factor').value);
+      direction = document.getElementById('zone-direction').value;
+      if (!title) {
+        tdbAlert('Le titre de la zone est requis', 'error');
+        return;
+      }
+      if (factor < 0.1 || factor > 1.0) {
+        tdbAlert('La proportion doit être entre 0.1 et 1.0', 'error');
+        return;
+      }
+      zoneData = {title, factor, direction};
+      window.AppViewHelpers._createZone(app, zoneData);
+      return closeModal();
+    });
+    // Fermer avec ESC
+    return modal.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        return closeModal();
+      }
+    });
+  };
+
+  window.AppViewHelpers._createZone = function(app, zoneData) {
+    var mutation, ref;
+    if (!((ref = app._currentCustomView) != null ? ref.id : void 0)) {
+      return;
+    }
+    mutation = `mutation CreateZone($pageId: ID!, $zoneData: ZoneInput!) {
+  createZone(pageId: $pageId, zoneData: $zoneData) {
+    id
+    title
+    factor
+    direction
+  }
+}`;
+    return GQL.mutate(mutation, {
+      pageId: app._currentCustomView.id,
+      zoneData
+    }).then(function(result) {
+      if (result.errors) {
+        console.error('GraphQL errors:', result.errors);
+        return tdbAlert('Erreur lors de la création de la zone', 'error');
+      } else {
+        console.log('Zone créée:', result.createZone);
+        // Recharger la page pour afficher la nouvelle zone
+        return window.AppViewHelpers._refreshCurrentPage(app);
+      }
+    }).catch(function(error) {
+      console.error('Network error:', error);
+      return tdbAlert('Erreur réseau lors de la création de la zone: ' + error.message, 'error');
+    });
+  };
+
+  window.AppViewHelpers._resizeZone = function(app, zoneId, factor) {
+    var mutation, ref;
+    if (!((ref = app._currentCustomView) != null ? ref.id : void 0)) {
+      return;
+    }
+    mutation = `mutation ResizeZone($pageId: ID!, $zoneId: ID!, $factor: Float!) {
+  resizeZone(pageId: $pageId, zoneId: $zoneId, factor: $factor) {
+    id
+    factor
+  }
+}`;
+    return GQL.mutate(mutation, {
+      pageId: app._currentCustomView.id,
+      zoneId,
+      factor
+    }).then(function(result) {
+      if (result.errors) {
+        console.error('GraphQL errors:', result.errors);
+        return tdbAlert('Erreur lors du redimensionnement', 'error');
+      } else {
+        return console.log('Zone redimensionnée:', result.resizeZone);
+      }
+    // Le redimensionnement visuel est déjà fait, juste confirmer
+    }).catch(function(error) {
+      console.error('Network error:', error);
+      return tdbAlert('Erreur réseau lors du redimensionnement: ' + error.message, 'error');
+    });
+  };
+
+  window.AppViewHelpers._refreshCurrentPage = function(app) {
+    var query, ref;
+    if (!((ref = app._currentCustomView) != null ? ref.id : void 0)) {
+      return;
+    }
+    // Recharger la page depuis la base
+    query = `query GetView($viewId: ID!) {
+  customView(id: $viewId) {
+    id
+    name
+    yaml
+  }
+}`;
+    return GQL.query(query, {
+      viewId: app._currentCustomView.id
+    }).then(function(data) {
+      if (data.customView) {
+        app._currentCustomView = data.customView;
+        return window.AppViewHelpers.renderCustomViewPreview(app, data.customView.yaml);
+      }
+    }).catch(function(error) {
+      console.error('Error refreshing page:', error);
+      return tdbAlert('Erreur lors du rafraîchissement de la page', 'error');
+    });
+  };
+
+  window.AppViewHelpers._openZoneManageModal = function(app) {
+    // TODO: Implémenter la modale de gestion des zones (fusion, séparation, etc.)
+    return tdbAlert('Gestion avancée des zones - Coming soon!', 'info');
   };
 
 }).call(this);

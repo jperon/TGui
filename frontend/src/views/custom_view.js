@@ -190,17 +190,39 @@ transition: all 0.3s ease;`;
     // Applies `factor` (flex proportion) when specified (default: 1).
     // Supports both inline zone keys (direction/children) and wrapped "- layout:" syntax.
     _renderZoneOrWidget(node) {
-      var child, el, i, len, ref, zone;
+      var child, el, i, len, ref, zone, zoneContent, zoneHeader;
       zone = node.layout ? node.layout : node;
       if (zone.widget) {
         el = this._renderWidget(zone.widget);
       } else {
         el = document.createElement('div');
-        el.className = `cv-zone ${zone.direction || 'vertical'}`;
+        el.className = `cv-zone ${zone.direction || 'vertical'} drop-zone`;
+        // Ajouter les attributs pour la gestion des zones (Phase 3)
+        if (zone.id) {
+          el.setAttribute('data-zone-id', zone.id);
+          el.setAttribute('data-zone-title', zone.title || `Zone ${zone.id}`);
+          el.setAttribute('data-zone-factor', String(zone.factor || 1));
+          el.setAttribute('data-zone-direction', zone.direction || 'vertical');
+        }
+        // Ajouter un header de zone pour l'identification
+        if (zone.title || zone.id) {
+          zoneHeader = document.createElement('div');
+          zoneHeader.className = 'cv-zone-header';
+          zoneHeader.textContent = zone.title || `Zone ${zone.id}`;
+          el.appendChild(zoneHeader);
+        }
+        // Container pour les widgets de la zone
+        zoneContent = document.createElement('div');
+        zoneContent.className = 'cv-zone-content';
         ref = zone.children || [];
         for (i = 0, len = ref.length; i < len; i++) {
           child = ref[i];
-          el.appendChild(this._renderZoneOrWidget(child));
+          zoneContent.appendChild(this._renderZoneOrWidget(child));
+        }
+        el.appendChild(zoneContent);
+        // Ajouter les poignées de redimensionnement si factor est défini
+        if (zone.factor) {
+          this._addResizeHandle(el, zone);
         }
       }
       el.style.flex = node.factor != null ? String(node.factor) : '1';
@@ -886,6 +908,132 @@ ${js}
       this._pluginStateByWidgetId = {};
       this._pluginSelectionListenersByWidgetId = {};
       return this._widgetsById = {};
+    }
+
+    // Ajouter les poignées de redimensionnement pour les zones (Phase 3)
+    _addResizeHandle(zoneElement, zone) {
+      var isDragging, resizeHandle, startFactor, startX, startY;
+      if (!(zone.factor && zone.id)) {
+        return;
+      }
+      // Créer la poignée de redimensionnement
+      resizeHandle = document.createElement('div');
+      resizeHandle.className = 'resize-handle';
+      resizeHandle.setAttribute('data-zone-id', zone.id);
+      resizeHandle.innerHTML = '⋮';
+      // Positionner la poignée
+      if (zone.direction === 'horizontal') {
+        resizeHandle.style.position = 'absolute';
+        resizeHandle.style.right = '0';
+        resizeHandle.style.top = '50%';
+        resizeHandle.style.transform = 'translateY(-50%)';
+      } else {
+        resizeHandle.style.position = 'absolute';
+        resizeHandle.style.bottom = '0';
+        resizeHandle.style.left = '50%';
+        resizeHandle.style.transform = 'translateX(-50%)';
+      }
+      // Ajouter les événements de drag
+      isDragging = false;
+      startX = 0;
+      startY = 0;
+      startFactor = zone.factor;
+      resizeHandle.addEventListener('mousedown', (evt) => {
+        isDragging = true;
+        startX = evt.clientX;
+        startY = evt.clientY;
+        startFactor = parseFloat(zoneElement.getAttribute('data-zone-factor'));
+        document.body.style.cursor = 'ew-resize';
+        return evt.preventDefault();
+      });
+      document.addEventListener('mousemove', (evt) => {
+        var deltaX, deltaY, newFactor;
+        if (!isDragging) {
+          return;
+        }
+        // Calculer le nouveau factor
+        deltaX = evt.clientX - startX;
+        deltaY = evt.clientY - startY;
+        if (zone.direction === 'horizontal') {
+          newFactor = Math.max(0.1, Math.min(1.0, startFactor + deltaX / 200));
+        } else {
+          newFactor = Math.max(0.1, Math.min(1.0, startFactor + deltaY / 200));
+        }
+        // Mettre à jour visuellement
+        zoneElement.style.flex = String(newFactor);
+        zoneElement.setAttribute('data-zone-factor', String(newFactor));
+        // Afficher le tooltip
+        return this._showResizeTooltip(zoneElement, newFactor);
+      });
+      document.addEventListener('mouseup', (evt) => {
+        var deltaX, deltaY, finalFactor;
+        if (!isDragging) {
+          return;
+        }
+        isDragging = false;
+        document.body.style.cursor = '';
+        // Calculer le factor final
+        deltaX = evt.clientX - startX;
+        deltaY = evt.clientY - startY;
+        if (zone.direction === 'horizontal') {
+          finalFactor = Math.max(0.1, Math.min(1.0, startFactor + deltaX / 200));
+        } else {
+          finalFactor = Math.max(0.1, Math.min(1.0, startFactor + deltaY / 200));
+        }
+        // Déclencher la mutation GraphQL
+        this._onZoneResize(zone.id, finalFactor);
+        // Cacher le tooltip
+        return this._hideResizeTooltip();
+      });
+      zoneElement.appendChild(resizeHandle);
+      return zoneElement.style.position = 'relative'; // Nécessaire pour le positionnement absolu
+    }
+
+    
+      // Afficher le tooltip de redimensionnement
+    _showResizeTooltip(zoneElement, factor) {
+      var oldTooltip, tooltip;
+      tooltip = document.createElement('div');
+      tooltip.className = 'resize-tooltip';
+      tooltip.textContent = `${Math.round(factor * 100)}%`;
+      tooltip.style.position = 'absolute';
+      tooltip.style.top = '-30px';
+      tooltip.style.left = '50%';
+      tooltip.style.transform = 'translateX(-50%)';
+      tooltip.style.background = '#333';
+      tooltip.style.color = 'white';
+      tooltip.style.padding = '4px 8px';
+      tooltip.style.borderRadius = '4px';
+      tooltip.style.fontSize = '12px';
+      tooltip.style.zIndex = '1000';
+      // Supprimer l'ancien tooltip s'il existe
+      oldTooltip = zoneElement.querySelector('.resize-tooltip');
+      if (oldTooltip != null) {
+        oldTooltip.remove();
+      }
+      return zoneElement.appendChild(tooltip);
+    }
+
+    // Cacher le tooltip de redimensionnement
+    _hideResizeTooltip() {
+      var i, len, results, tooltip, tooltips;
+      tooltips = document.querySelectorAll('.resize-tooltip');
+      results = [];
+      for (i = 0, len = tooltips.length; i < len; i++) {
+        tooltip = tooltips[i];
+        results.push(tooltip.remove());
+      }
+      return results;
+    }
+
+    // Callback pour le redimensionnement de zone
+    _onZoneResize(zoneId, factor) {
+      var event;
+      // Émettre un événement personnalisé pour que l'application parente puisse gérer
+      event = new CustomEvent('zone-resize', {
+        detail: {zoneId, factor}
+      });
+      return document.dispatchEvent(event);
     }
 
   };

@@ -115,37 +115,47 @@ window.AppViewHelpers =
     widgetsContainer.setAttribute 'data-page-id', app._currentCustomView?.id
     container.appendChild widgetsContainer
 
+    # Ajouter les boutons de gestion des zones (Phase 3)
+    zoneToolbar = document.createElement 'div'
+    zoneToolbar.className = 'zone-toolbar'
+    zoneToolbar.innerHTML = """
+      <button id="create-zone-btn" class="toolbar-btn" title="Créer une nouvelle zone">
+        ＋ Zone
+      </button>
+      <button id="zone-manage-btn" class="toolbar-btn" title="Gérer les zones">
+        ⚙ Zones
+      </button>
+    """
+    container.insertBefore zoneToolbar, widgetsContainer
+
     try
       cv = new CustomView widgetsContainer, yamlText, app._allSpaces, app._allDataViews
       app._activeCustomView = cv
 
-      # Initialiser le DragDropManager
+      # Initialiser le DragDropManager avec support des zones (Phase 3)
       if app._currentCustomView?.id
         app._dragDropManager?.destroy?()
-        app._dragDropManager = new DragDropManager widgetsContainer,
-          pageId: app._currentCustomView.id
-          handle: '.widget-header'
-          filter: '.no-drag'
-          onReorder: (positions) =>
-            @handleWidgetReorder app, positions
-          onDragStart: (evt) =>
-            @onDragStart app, evt
-          onDragEnd: (evt) =>
-            @onDragEnd app, evt
 
-      # Ajouter un bouton "Add widget" si la vue est vide
-      if cv._widgets.length == 0
-        emptyState = document.createElement 'div'
-        emptyState.className = 'cv-empty-state'
-        emptyState.innerHTML = """
-          <p>Aucun widget dans cette page.</p>
-          <button class="btn-add-widget">Ajouter un widget</button>
-        """
-        emptyState.querySelector('.btn-add-widget').addEventListener 'click', =>
-          window.AppViewHelpers._openAddWidgetModal app
-        widgetsContainer.appendChild emptyState
+        # Vérifier si DragDropManager est disponible
+        if typeof DragDropManager != 'undefined'
+          app._dragDropManager = new DragDropManager widgetsContainer,
+            pageId: app._currentCustomView.id
+            handle: '.widget-header'
+            filter: '.no-drag'
+            onCreateZone: (zoneData) =>
+              window.AppViewHelpers._createZone app, zoneData
+            onResizeZone: (zoneId, factor) =>
+              window.AppViewHelpers._resizeZone app, zoneId, factor
+            onReorder: (positions) =>
+              window.AppViewHelpers.handleWidgetReorder app, positions
+        else
+          console.warn "DragDropManager not available, zone features disabled"
+
+      # Lier les événements des zones (Phase 3)
+      window.AppViewHelpers._bindZoneEvents app
 
     catch e
+      console.error 'CustomView error:', e
       container.innerHTML = "<div class='error-message'>Erreur YAML : #{e.message}</div>"
 
   handleWidgetReorder: (app, positions) ->
@@ -1380,3 +1390,185 @@ window.AppViewHelpers._closeWidgetModal = (app) ->
 window.AppViewHelpers._renderCustomViewPreview = (app, yaml) ->
   # Utiliser la fonction renderCustomViewPreview existante
   window.AppViewHelpers.renderCustomViewPreview app, yaml
+
+# ── Zone Management (Phase 3) ────────────────────────────────────────────
+
+window.AppViewHelpers._bindZoneEvents = (app) ->
+  # Bouton créer une zone
+  createBtn = document.getElementById 'create-zone-btn'
+  if createBtn
+    createBtn.addEventListener 'click', =>
+      window.AppViewHelpers._openCreateZoneModal app
+
+  # Bouton gérer les zones
+  manageBtn = document.getElementById 'zone-manage-btn'
+  if manageBtn
+    manageBtn.addEventListener 'click', =>
+      window.AppViewHelpers._openZoneManageModal app
+
+  # Écouter les événements de redimensionnement
+  document.addEventListener 'zone-resize', (evt) =>
+    { zoneId, factor } = evt.detail
+    window.AppViewHelpers._resizeZone app, zoneId, factor
+
+window.AppViewHelpers._openCreateZoneModal = (app) ->
+  return unless app._currentCustomView?.id
+
+  # Créer la modale si elle n'existe pas
+  modal = document.getElementById 'zone-modal'
+  unless modal
+    modal = document.createElement 'div'
+    modal.id = 'zone-modal'
+    modal.className = 'modal hidden'
+    modal.innerHTML = """
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Créer une nouvelle zone</h3>
+          <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="zone-title">Titre de la zone:</label>
+            <input type="text" id="zone-title" class="form-input" placeholder="Ma zone">
+          </div>
+          <div class="form-group">
+            <label for="zone-factor">Proportion (0.1 - 1.0):</label>
+            <input type="number" id="zone-factor" class="form-input" min="0.1" max="1.0" step="0.1" value="0.5">
+          </div>
+          <div class="form-group">
+            <label for="zone-direction">Direction:</label>
+            <select id="zone-direction" class="form-select">
+              <option value="vertical">Vertical</option>
+              <option value="horizontal">Horizontal</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="zone-cancel-btn" class="btn btn-secondary">Annuler</button>
+          <button id="zone-save-btn" class="btn btn-primary">Créer</button>
+        </div>
+      </div>
+    """
+    document.body.appendChild modal
+
+  # Afficher la modale
+  modal.classList.remove 'hidden'
+  document.getElementById('zone-title').focus()
+
+  # Lier les événements
+  closeBtn = modal.querySelector '.modal-close'
+  cancelBtn = document.getElementById 'zone-cancel-btn'
+  saveBtn = document.getElementById 'zone-save-btn'
+
+  closeModal = ->
+    modal.classList.add 'hidden'
+    # Réinitialiser le formulaire
+    document.getElementById('zone-title').value = ''
+    document.getElementById('zone-factor').value = '0.5'
+    document.getElementById('zone-direction').value = 'vertical'
+
+  closeBtn.addEventListener 'click', closeModal
+  cancelBtn.addEventListener 'click', closeModal
+
+  saveBtn.addEventListener 'click', =>
+    title = document.getElementById('zone-title').value.trim()
+    factor = parseFloat(document.getElementById('zone-factor').value)
+    direction = document.getElementById('zone-direction').value
+
+    unless title
+      tdbAlert 'Le titre de la zone est requis', 'error'
+      return
+
+    if factor < 0.1 or factor > 1.0
+      tdbAlert 'La proportion doit être entre 0.1 et 1.0', 'error'
+      return
+
+    zoneData = { title, factor, direction }
+    window.AppViewHelpers._createZone app, zoneData
+    closeModal()
+
+  # Fermer avec ESC
+  modal.addEventListener 'keydown', (e) ->
+    if e.key == 'Escape'
+      closeModal()
+
+window.AppViewHelpers._createZone = (app, zoneData) ->
+  return unless app._currentCustomView?.id
+
+  mutation = """
+    mutation CreateZone($pageId: ID!, $zoneData: ZoneInput!) {
+      createZone(pageId: $pageId, zoneData: $zoneData) {
+        id
+        title
+        factor
+        direction
+      }
+    }
+  """
+
+  GQL.mutate mutation, { pageId: app._currentCustomView.id, zoneData }
+    .then (result) ->
+      if result.errors
+        console.error 'GraphQL errors:', result.errors
+        tdbAlert 'Erreur lors de la création de la zone', 'error'
+      else
+        console.log 'Zone créée:', result.createZone
+        # Recharger la page pour afficher la nouvelle zone
+        window.AppViewHelpers._refreshCurrentPage app
+    .catch (error) ->
+      console.error 'Network error:', error
+      tdbAlert 'Erreur réseau lors de la création de la zone: ' + error.message, 'error'
+
+window.AppViewHelpers._resizeZone = (app, zoneId, factor) ->
+  return unless app._currentCustomView?.id
+
+  mutation = """
+    mutation ResizeZone($pageId: ID!, $zoneId: ID!, $factor: Float!) {
+      resizeZone(pageId: $pageId, zoneId: $zoneId, factor: $factor) {
+        id
+        factor
+      }
+    }
+  """
+
+  GQL.mutate mutation, {
+    pageId: app._currentCustomView.id,
+    zoneId,
+    factor
+  }
+    .then (result) ->
+      if result.errors
+        console.error 'GraphQL errors:', result.errors
+        tdbAlert 'Erreur lors du redimensionnement', 'error'
+      else
+        console.log 'Zone redimensionnée:', result.resizeZone
+        # Le redimensionnement visuel est déjà fait, juste confirmer
+    .catch (error) ->
+      console.error 'Network error:', error
+      tdbAlert 'Erreur réseau lors du redimensionnement: ' + error.message, 'error'
+
+window.AppViewHelpers._refreshCurrentPage = (app) ->
+  return unless app._currentCustomView?.id
+
+  # Recharger la page depuis la base
+  query = """
+    query GetView($viewId: ID!) {
+      customView(id: $viewId) {
+        id
+        name
+        yaml
+      }
+    }
+  """
+
+  GQL.query(query, { viewId: app._currentCustomView.id }).then (data) ->
+    if data.customView
+      app._currentCustomView = data.customView
+      window.AppViewHelpers.renderCustomViewPreview app, data.customView.yaml
+  .catch (error) ->
+    console.error 'Error refreshing page:', error
+    tdbAlert 'Erreur lors du rafraîchissement de la page', 'error'
+
+window.AppViewHelpers._openZoneManageModal = (app) ->
+  # TODO: Implémenter la modale de gestion des zones (fusion, séparation, etc.)
+  tdbAlert 'Gestion avancée des zones - Coming soon!', 'info'

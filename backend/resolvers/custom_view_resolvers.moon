@@ -47,7 +47,7 @@ delete_custom_view = (id) ->
   box.space._tdb_custom_views\delete id
   true
 
--- Réordonner les widgets dans une vue
+-- Réordonner les widgets dans une vue avec support de changement de parent
 reorder_widgets = (pageId, widgetPositions) ->
   -- Récupérer la vue existante
   t = box.space._tdb_custom_views\get pageId
@@ -67,21 +67,60 @@ reorder_widgets = (pageId, widgetPositions) ->
 
   -- Créer une map des widgets par ID pour retrouver leurs données
   widget_map = {}
-  for _, child in ipairs(config.layout.children)
-    if child.widget
-      widget_map[child.widget.id] = child.widget
+  zones_map = {}
 
-  -- Reconstruire la liste des enfants dans le nouvel ordre
+  -- Fonction récursive pour collecter tous les widgets et zones
+  collect_widgets_and_zones = (children, parent_id = null) ->
+    for _, child in ipairs(children)
+      if child.widget
+        widget_map[child.widget.id] = {
+          widget: child.widget
+          parent_id: parent_id
+        }
+      elseif child.zone
+        zone_id = child.zone.id or "zone_#{#zones_map + 1}"
+        zones_map[zone_id] = {
+          zone: child.zone
+          parent_id: parent_id
+        }
+        -- Récursivement collecter les widgets dans la zone
+        if child.zone.children and type(child.zone.children) == 'table'
+          collect_widgets_and_zones(child.zone.children, zone_id)
+
+  -- Collecter tous les widgets et zones existants
+  collect_widgets_and_zones(config.layout.children)
+
+  -- Reconstruire la structure avec les nouvelles positions et parents
   new_children = {}
+  processed_zones = {}
+
   if widgetPositions and type(widgetPositions) == 'table' and #widgetPositions > 0
     for i = 1, #widgetPositions
       pos = widgetPositions[i]
       if type(pos) == 'table' and pos.widgetId
-        widget = widget_map[pos.widgetId]
-        if widget
+        widget_data = widget_map[pos.widgetId]
+        if widget_data
+          widget = widget_data.widget
           -- Mettre à jour la position
           widget.position = pos.index or i
-          table.insert(new_children, { widget: widget })
+
+          -- Déterminer le parent
+          parent_id = pos.parentId or null
+
+          -- Si le parent est une zone, ajouter le widget à cette zone
+          if parent_id and zones_map[parent_id]
+            zone = zones_map[parent_id].zone
+            if not zone.children
+              zone.children = {}
+
+            -- Ajouter le widget à la zone
+            table.insert(zone.children, { widget: widget })
+
+            -- Marquer la zone comme traitée
+            processed_zones[parent_id] = true
+          else
+            -- Ajouter à la racine
+            table.insert(new_children, { widget: widget })
         else
           -- Si le widget n'existe pas, le créer avec les données de base
           new_widget = {
@@ -95,6 +134,12 @@ reorder_widgets = (pageId, widgetPositions) ->
     -- Si pas de positions, garder l'ordre existant
     for _, child in ipairs(config.layout.children)
       table.insert(new_children, child)
+
+  -- Ajouter les zones qui n'ont pas été traitées (zones vides)
+  for zone_id, zone_data in pairs(zones_map)
+    if not processed_zones[zone_id]
+      -- Ajouter la zone avec son contenu original
+      table.insert(new_children, { zone: zone_data.zone })
 
   -- Mettre à jour la structure
   config.layout.children = new_children
@@ -291,5 +336,173 @@ Mutation =
       error "widgetPositions must be a table"
 
     reorder_widgets pageId, widgetPositions
+  createZone: (_, args, ctx) ->
+    require_auth ctx
+    pageId = args.pageId
+    zoneData = args.zoneData or {}
+
+    error "pageId is required" unless pageId
+
+    create_zone pageId, zoneData
+  resizeZone: (_, args, ctx) ->
+    require_auth ctx
+    pageId = args.pageId
+    zoneId = args.zoneId
+    factor = args.factor
+
+    error "pageId is required" unless pageId
+    error "zoneId is required" unless zoneId
+    error "factor is required" unless factor
+
+    -- Validation du factor
+    if factor < 0.1 or factor > 1.0
+      error "factor must be between 0.1 and 1.0"
+
+    resize_zone pageId, zoneId, factor
+
+-- Créer une nouvelle zone dans une vue
+create_zone = (pageId, zoneData) ->
+  -- Récupérer la vue existante
+  t = box.space._tdb_custom_views\get pageId
+  error "Page not found: #{pageId}" unless t
+
+  -- Parser le YAML existant
+  yaml_content = t[4] or 'layout:\n  direction: vertical\n  children: []'
+  config = yaml.decode yaml_content
+
+  -- Gérer le cas où le YAML est mal formaté
+  if not config or type(config) != 'table'
+    config = { layout: { direction: 'vertical', children: {} } }
+  elseif not config.layout
+    config.layout = { direction: 'vertical', children: {} }
+  elseif not config.layout.children or type(config.layout.children) != 'table'
+    config.layout.children = {}
+
+  -- Générer un ID unique pour la zone
+  zone_id = tostring(uuid_mod.new!)
+
+  -- Créer la nouvelle zone
+  new_zone = {
+    id: zone_id
+    title: zoneData.title or "Zone #{zone_id}"
+    factor: zoneData.factor or 0.5
+    direction: zoneData.direction or 'vertical'
+    children: {}
+  }
+
+  -- Ajouter la zone à la fin de la liste
+  table.insert(config.layout.children, {
+    zone: new_zone
+  })
+
+  -- Re-encoder le YAML
+  updated_yaml = encode_layout_yaml(config)
+
+  -- Mettre à jour la vue dans la base de données
+  box.space._tdb_custom_views\update pageId, {
+    { '=', 4, updated_yaml }
+    { '=', 6, os.time() }
+  }
+
+  -- Retourner la zone créée
+  {
+    id: zone_id
+    title: new_zone.title
+    factor: new_zone.factor
+    direction: new_zone.direction
+  }
+
+-- Redimensionner une zone
+resize_zone = (pageId, zoneId, factor) ->
+  -- Récupérer la vue existante
+  t = box.space._tdb_custom_views\get pageId
+  error "Page not found: #{pageId}" unless t
+
+  -- Parser le YAML existant
+  yaml_content = t[4] or 'layout:\n  direction: vertical\n  children: []'
+  config = yaml.decode yaml_content
+
+  -- Gérer le cas où le YAML est mal formaté
+  if not config or type(config) != 'table'
+    config = { layout: { direction: 'vertical', children: {} } }
+  elseif not config.layout
+    config.layout = { direction: 'vertical', children: {} }
+  elseif not config.layout.children or type(config.layout.children) != 'table'
+    config.layout.children = {}
+
+  -- Fonction récursive pour trouver et mettre à jour la zone
+  update_zone_factor = (children) ->
+    for _, child in ipairs(children)
+      if child.zone and child.zone.id == zoneId
+        child.zone.factor = factor
+        return true
+      elseif child.zone and child.zone.children
+        if update_zone_factor(child.zone.children)
+          return true
+    return false
+
+  -- Mettre à jour le factor de la zone
+  found = update_zone_factor(config.layout.children)
+  error "Zone not found: #{zoneId}" unless found
+
+  -- Re-encoder le YAML
+  updated_yaml = encode_layout_yaml(config)
+
+  -- Mettre à jour la vue dans la base de données
+  box.space._tdb_custom_views\update pageId, {
+    { '=', 4, updated_yaml }
+    { '=', 6, os.time() }
+  }
+
+  -- Retourner la zone mise à jour
+  {
+    id: zoneId
+    factor: factor
+  }
+
+-- Fonction utilitaire pour encoder le YAML
+encode_layout_yaml = (config) ->
+  yaml_content = "layout:\n"
+  yaml_content ..= "  direction: " .. (config.layout.direction or 'vertical') .. "\n"
+  yaml_content ..= "  children:\n"
+
+  -- Fonction récursive pour encoder les enfants
+  encode_children = (children, indent = "    ")
+    for _, child in ipairs(children)
+      if child.widget
+        yaml_content ..= indent .. "- widget:\n"
+        yaml_content ..= indent .. "    id: " .. tostring(child.widget.id) .. "\n"
+        yaml_content ..= indent .. "    title: " .. child.widget.title .. "\n"
+        yaml_content ..= indent .. "    space: " .. tostring(child.widget.space) .. "\n"
+        yaml_content ..= indent .. "    position: " .. tostring(child.widget.position) .. "\n"
+
+        -- Ajouter les colonnes si présentes
+        if child.widget.columns and #child.widget.columns > 0
+          yaml_content ..= indent .. "    columns:\n"
+          for _, col in ipairs(child.widget.columns)
+            yaml_content ..= indent .. "      - " .. col .. "\n"
+
+        -- Ajouter le groupement si présent
+        if child.widget.groupBy
+          yaml_content ..= indent .. "    groupBy: " .. tostring(child.widget.groupBy) .. "\n"
+
+        -- Ajouter les autres propriétés
+        for key, value in pairs(child.widget)
+          if key ~= 'id' and key ~= 'title' and key ~= 'space' and key ~= 'position' and key ~= 'columns' and key ~= 'groupBy'
+            yaml_content ..= indent .. "    " .. key .. ": " .. tostring(value) .. "\n"
+
+      elseif child.zone
+        yaml_content ..= indent .. "- zone:\n"
+        yaml_content ..= indent .. "    id: " .. tostring(child.zone.id) .. "\n"
+        yaml_content ..= indent .. "    title: " .. child.zone.title .. "\n"
+        yaml_content ..= indent .. "    factor: " .. tostring(child.zone.factor) .. "\n"
+        yaml_content ..= indent .. "    direction: " .. (child.zone.direction or 'vertical') .. "\n"
+
+        if child.zone.children and #child.zone.children > 0
+          yaml_content ..= indent .. "    children:\n"
+          encode_children(child.zone.children, indent .. "      ")
+
+  encode_children(config.layout.children)
+  return yaml_content
 
 { :Query, :Mutation }

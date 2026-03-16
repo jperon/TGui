@@ -48,35 +48,39 @@ Permettre aux utilisateurs de réorganiser visuellement les widgets et zones dan
 
 ### Phase 3 : Changement de conteneur (Semaine 3)
 **Fonctionnalités**
-- [ ] Déplacer un widget vers une zone parent différente
-- [ ] Créer de nouvelles zones par drag & drop
+- [x] Déplacer un widget vers une zone parent différente
+- [x] Créer de nouvelles zones par drag & drop
 - [ ] Fusionner/séparer des zones
 
 **Backend**
-- [ ] Gérer les changements de hiérarchie
-- [ ] Recalculer les factors automatiquement
-- [ ] Validation des structures YAML
+- [x] Gérer les changements de hiérarchie
+- [x] Recalculer les factors automatiquement
+- [x] Validation des structures YAML
 
 **Frontend**
-- [ ] Indicateurs visuels pour les zones cibles
-- [ ] Mode "création de zone" par drag entre widgets
+- [x] Indicateurs visuels pour les zones cibles
+- [x] Mode "création de zone" par drag entre widgets
 - [ ] Panel latéral pour les actions avancées
+- [x] Support multi-conteneurs dans DragDropManager
+- [x] Tests E2E pour la gestion des zones (4/7 tests)
+- [x] Interface de création de zones (modale)
+- [x] Poignées de redimensionnement interactives
 
 ### Phase 4 : Redimensionnement interactif (Semaine 4)
 **Fonctionnalités**
-- [ ] Poignées de redimensionnement sur les zones
-- [ ] Ajustement interactif des factors
+- [x] Poignées de redimensionnement sur les zones
+- [x] Ajustement interactif des factors
 - [ ] Snap à des proportions prédéfinies (1/3, 1/2, 2/3)
 
 **Backend**
-- [ ] Mutation `resizeZone(pageId: ID!, zoneId: ID!, factor: Float!)`
-- [ ] Validation des factors (min/max)
+- [x] Mutation `resizeZone(pageId: ID!, zoneId: ID!, factor: Float!)`
+- [x] Validation des factors (min/max)
 - [ ] Recalcul automatique des factors voisins
 
 **Frontend**
-- [ ] Composant `ResizeHandle`
+- [x] Composant `ResizeHandle`
 - [ ] Grid visuelle pour l'alignement
-- [ ] Tooltip affichant la proportion actuelle
+- [x] Tooltip affichant la proportion actuelle
 
 ### Phase 5 : Data Views Integration (Semaine 5)
 **Fonctionnalités**

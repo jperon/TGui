@@ -95,6 +95,10 @@ type Mutation {
   updateWidgetInView(viewId: ID!, widgetId: String!, widget: WidgetInput!): CustomView!
   removeWidgetFromView(viewId: ID!, widgetId: String!): CustomView!
 
+  # Zone management (Phase 3)
+  createZone(pageId: ID!, zoneData: ZoneInput!): Zone!
+  resizeZone(pageId: ID!, zoneId: ID!, factor: Float!): Zone!
+
   # Data views
   createDataView(input: DataViewInput!): DataView!
   updateDataView(id: ID!, input: DataViewInput!): DataView!
@@ -510,4 +514,20 @@ type SnapshotDiff {
 input WidgetPosition {
   widgetId: String!
   index: Int!
+  parentId: String  # ID de la zone parente (null pour racine)
+}
+
+# Zone types (Phase 3)
+type Zone {
+  id: ID!
+  title: String!
+  factor: Float!
+  direction: String!
+  children: [LayoutChild!]!
+}
+
+input ZoneInput {
+  title: String!
+  factor: Float
+  direction: String
 }
