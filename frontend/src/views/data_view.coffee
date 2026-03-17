@@ -260,6 +260,7 @@ window.DataView = class DataView
     @_mounted       = false  # true after mount() completes, false after unmount()
     @_relations     = relations
     @onColumnFocus  = opts.onColumnFocus if typeof opts.onColumnFocus == 'function'
+    @opts = opts
     @_fkMaps        = {}     # field name → { id → display label }
     @_fkOptions     = {}     # field name → [{ text, value }]
     @_formulaFilter = ''     # Lua/MoonScript formula for server-side row filtering

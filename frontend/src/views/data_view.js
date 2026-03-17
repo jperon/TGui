@@ -378,6 +378,7 @@
       if (typeof opts.onColumnFocus === 'function') {
         this.onColumnFocus = opts.onColumnFocus;
       }
+      this.opts = opts;
       this._fkMaps = {}; // field name → { id → display label }
       this._fkOptions = {}; // field name → [{ text, value }]
       this._formulaFilter = ''; // Lua/MoonScript formula for server-side row filtering
