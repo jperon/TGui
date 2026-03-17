@@ -727,6 +727,7 @@ make_body = ->
     H.script {src: '/src/app_fields_helpers.js', ''}
     H.script {src: '/src/app_sidebar_helpers.js', ''}
     H.script {src: '/src/app_undo_helpers.js', ''}
+    H.script {src: '/src/drag_drop_manager.js', ''}
     H.script {src: '/src/app_data_helpers.js', ''}
     H.script {src: '/src/app_view_helpers.js', ''}
     H.script {src: '/src/app_view_config_helpers.js', ''}

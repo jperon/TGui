@@ -1752,6 +1752,10 @@ make_body = function()
       ''
     }),
     H.script({
+      src = '/src/drag_drop_manager.js',
+      ''
+    }),
+    H.script({
       src = '/src/app_data_helpers.js',
       ''
     }),

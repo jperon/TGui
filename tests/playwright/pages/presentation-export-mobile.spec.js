@@ -398,7 +398,7 @@
       await performLogin(page);
       return (await page.waitForTimeout(2000));
     });
-    test('should load users space without crashing', async function({page}) {
+    return test('should load users space without crashing', async function({page}) {
       console.log("Testing DataView with users space...");
       // Navigate directly to users space
       await page.goto('/#!spaces/users');
@@ -407,6 +407,103 @@
       return (await expect(page.locator('#app')).toBeVisible({
         timeout: 10000
       }));
+    });
+  });
+
+  test.describe('DragDropManager - availability', function() {
+    test.beforeEach(async function({page}) {
+      await performLogin(page);
+      return (await page.waitForTimeout(2000));
+    });
+    test('should have DragDropManager defined on window', async function({page}) {
+      var isDefined, pageData, pageName;
+      // Navigate to pages
+      await page.goto('/#!pages');
+      await page.waitForTimeout(2000);
+      // Create a page with widgets
+      pageName = `DDMTest_${Date.now()}`;
+      await page.evaluate(function(name) {
+        var mutation, token;
+        mutation = `mutation {
+  createCustomView(input: {
+    name: "${name}",
+    yaml: "layout:\\n  direction: vertical\\n  children:\\n    - widget:\\n        id: w1\\n        title: Widget 1\\n        space: users\\n    - widget:\\n        id: w2\\n        title: Widget 2\\n        space: tasks"
+  }) { id name }
+}`;
+        token = localStorage.getItem('tdb_token');
+        return fetch('/graphql', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            query: mutation
+          })
+        }).then(function(r) {
+          return r.json();
+        });
+      }, pageName);
+      await page.waitForTimeout(2000);
+      // Get the custom view data
+      pageData = (await page.evaluate(function(name) {
+        var query, token;
+        token = localStorage.getItem('tdb_token');
+        query = `query {
+  customViews {
+    id
+    name
+    yaml
+  }
+}`;
+        return fetch('/graphql', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            query: query
+          })
+        }).then(function(r) {
+          return r.json();
+        }).then(function(result) {
+          var cv, ref, ref1;
+          cv = (ref = result.data) != null ? (ref1 = ref.customViews) != null ? ref1.find(function(v) {
+            return v.name === name;
+          }) : void 0 : void 0;
+          return cv;
+        });
+      }, pageName));
+      // Click on the page to initialize it
+      if (pageData) {
+        await page.evaluate(function(cv) {
+          window.App._currentCustomView = cv;
+          return window.App.selectPage(cv);
+        }, pageData);
+        await page.waitForTimeout(2000);
+      }
+      // Force container visibility
+      await page.evaluate(function() {
+        var container;
+        container = document.getElementById('custom-view-container');
+        if (container != null) {
+          return container.classList.remove('hidden');
+        }
+      });
+      // Wait for widgets to render
+      await page.waitForSelector('[data-widget-id]', {
+        timeout: 5000
+      }).catch(function() {
+        return null;
+      });
+      await page.waitForTimeout(1000);
+      // Verify DragDropManager is defined
+      isDefined = (await page.evaluate(function() {
+        return typeof window.DragDropManager === 'function';
+      }));
+      console.log("DragDropManager defined:", isDefined);
+      return expect(isDefined).toBe(true);
     });
     return test('should resize to mobile viewport and apply media queries', async function({page}) {
       var bodyStyles, viewport;

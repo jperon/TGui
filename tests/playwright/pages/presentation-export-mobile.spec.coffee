@@ -372,6 +372,90 @@ test.describe 'DataView - readOnly option', ->
     # Check that page loaded without crashing
     await expect(page.locator('#app')).toBeVisible({ timeout: 10000 })
 
+test.describe 'DragDropManager - availability', ->
+  test.beforeEach ({ page }) ->
+    await performLogin page
+    await page.waitForTimeout 2000
+
+  test 'should have DragDropManager defined on window', ({ page }) ->
+    # Navigate to pages
+    await page.goto '/#!pages'
+    await page.waitForTimeout 2000
+
+    # Create a page with widgets
+    pageName = "DDMTest_#{Date.now()}"
+
+    await page.evaluate (name) ->
+      mutation = """
+        mutation {
+          createCustomView(input: {
+            name: "#{name}",
+            yaml: "layout:\\n  direction: vertical\\n  children:\\n    - widget:\\n        id: w1\\n        title: Widget 1\\n        space: users\\n    - widget:\\n        id: w2\\n        title: Widget 2\\n        space: tasks"
+          }) { id name }
+        }
+      """
+      token = localStorage.getItem('tdb_token')
+      fetch('/graphql', {
+        method: 'POST'
+        headers: {
+          'Content-Type': 'application/json'
+          'Authorization': "Bearer #{token}"
+        }
+        body: JSON.stringify({ query: mutation })
+      }).then((r) -> r.json())
+    , pageName
+
+    await page.waitForTimeout 2000
+
+    # Get the custom view data
+    pageData = await page.evaluate (name) ->
+      token = localStorage.getItem('tdb_token')
+      query = """
+        query {
+          customViews {
+            id
+            name
+            yaml
+          }
+        }
+      """
+      fetch('/graphql', {
+        method: 'POST'
+        headers: {
+          'Content-Type': 'application/json'
+          'Authorization': "Bearer #{token}"
+        }
+        body: JSON.stringify({ query: query })
+      }).then((r) -> r.json()).then((result) ->
+        cv = result.data?.customViews?.find (v) -> v.name == name
+        cv
+      )
+    , pageName
+
+    # Click on the page to initialize it
+    if pageData
+      await page.evaluate (cv) ->
+        window.App._currentCustomView = cv
+        window.App.selectPage cv
+      , pageData
+      await page.waitForTimeout 2000
+
+    # Force container visibility
+    await page.evaluate ->
+      container = document.getElementById('custom-view-container')
+      container.classList.remove('hidden') if container?
+
+    # Wait for widgets to render
+    await page.waitForSelector('[data-widget-id]', { timeout: 5000 }).catch(-> null)
+    await page.waitForTimeout 1000
+
+    # Verify DragDropManager is defined
+    isDefined = await page.evaluate ->
+      typeof window.DragDropManager is 'function'
+
+    console.log "DragDropManager defined:", isDefined
+    expect(isDefined).toBe true
+
   test 'should resize to mobile viewport and apply media queries', ({ page }) ->
     # Set mobile viewport
     await page.setViewportSize({ width: 375, height: 667 })
