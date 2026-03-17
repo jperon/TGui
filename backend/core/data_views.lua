@@ -18,10 +18,10 @@ get_view = function(id)
     id = t[1],
     name = t[2],
     description = t[3],
-    source_space = t[4],
+    sourceSpace = t[4],
     config = t[5],
-    created_at = t[6],
-    updated_at = t[7]
+    createdAt = t[6],
+    updatedAt = t[7]
   }
 end
 local create_view
@@ -116,7 +116,7 @@ update_view = function(id, params)
     {
       '=',
       4,
-      params.source_space or t[4]
+      params.sourceSpace or params.source_space or t[4]
     },
     {
       '=',

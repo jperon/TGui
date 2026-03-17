@@ -65,7 +65,7 @@
       return (await expect(createdField).toBeVisible());
     });
     test('should create a data view from that space', async function({page}) {
-      var addFieldBtn, createdDV, createdSpace, dataViewName, dataViewsList, dataViewsToggle, fieldName, saveFieldBtn, sourceSelect, spaceName, spacesList, spacesToggle;
+      var addFieldBtn, createdDV, createdSpace, dataViewName, dataViewsList, dataViewsToggle, fieldName, saveFieldBtn, selectedValue, sourceSelect, spaceId, spaceName, spacesList, spacesToggle;
       spaceName = generateUniqueName('DVSourceSpace');
       dataViewName = generateUniqueName('TestDataView');
       fieldName = 'dv_field';
@@ -84,6 +84,7 @@
         hasText: spaceName
       });
       await expect(createdSpace).toBeVisible();
+      spaceId = (await createdSpace.getAttribute('data-id'));
       await createdSpace.click();
       await page.waitForTimeout(1000);
       await page.click('#fields-btn');
@@ -106,11 +107,21 @@
         await page.waitForTimeout(500);
       }
       await page.click('#new-data-view-btn');
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(2000);
       await page.fill('#dv-name', dataViewName);
+      
+      // Debug: print the spaceId being used
+      console.log('Space ID to select:', spaceId);
       sourceSelect = page.locator('#dv-source');
-      await sourceSelect.selectOption(spaceName);
-      await page.waitForTimeout(1000);
+      await sourceSelect.selectOption({
+        label: spaceName
+      });
+      await page.waitForTimeout(1500);
+      
+      // Debug: print what's selected
+      selectedValue = (await sourceSelect.inputValue());
+      console.log('Selected value:', selectedValue);
+      await page.waitForTimeout(500);
       await page.click('#data-view-save-btn');
       await page.waitForTimeout(2000);
       createdDV = dataViewsList.locator('li', {
@@ -119,7 +130,7 @@
       return (await expect(createdDV).toBeVisible());
     });
     test('should create a page with a widget using that data view', async function({page}) {
-      var addFieldBtn, createdDV, createdSpace, dataViewName, dataViewsList, dataViewsToggle, fieldName, pageItem, pageName, result, saveFieldBtn, spaceName, spacesList, spacesToggle;
+      var addFieldBtn, createdDV, createdSpace, dataViewName, dataViewsList, dataViewsToggle, fieldName, pageItem, pageName, result, saveFieldBtn, sourceSelect, spaceId, spaceName, spacesList, spacesToggle;
       spaceName = generateUniqueName('WidgetSpace');
       dataViewName = generateUniqueName('WidgetDV');
       pageName = generateUniqueName('WidgetPage');
@@ -139,6 +150,7 @@
         hasText: spaceName
       });
       await expect(createdSpace).toBeVisible();
+      spaceId = (await createdSpace.getAttribute('data-id'));
       await createdSpace.click();
       await page.waitForTimeout(1000);
       await page.click('#fields-btn');
@@ -161,10 +173,13 @@
         await page.waitForTimeout(500);
       }
       await page.click('#new-data-view-btn');
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(2000);
       await page.fill('#dv-name', dataViewName);
-      await page.selectOption('#dv-source', spaceName);
-      await page.waitForTimeout(1000);
+      sourceSelect = page.locator('#dv-source');
+      await sourceSelect.selectOption({
+        label: spaceName
+      });
+      await page.waitForTimeout(1500);
       await page.click('#data-view-save-btn');
       await page.waitForTimeout(2000);
       createdDV = dataViewsList.locator('li', {
@@ -201,7 +216,7 @@
       return (await expect(pageItem).toBeVisible());
     });
     return test('should verify the page displays the widget with data', async function({page}) {
-      var addFieldBtn, createdSpace, dataViewName, dataViewsList, dataViewsToggle, fieldName, pageItem, pageName, result, saveFieldBtn, spaceName, spacesList, spacesToggle, widgetCount, widgets;
+      var addFieldBtn, createdSpace, dataViewName, dataViewsList, dataViewsToggle, fieldName, pageItem, pageName, result, saveFieldBtn, sourceSelect, spaceId, spaceName, spacesList, spacesToggle, widgetCount, widgets;
       spaceName = generateUniqueName('VerifySpace');
       dataViewName = generateUniqueName('VerifyDV');
       pageName = generateUniqueName('VerifyPage');
@@ -221,6 +236,7 @@
         hasText: spaceName
       });
       await expect(createdSpace).toBeVisible();
+      spaceId = (await createdSpace.getAttribute('data-id'));
       await createdSpace.click();
       await page.waitForTimeout(1000);
       await page.click('#fields-btn');
@@ -243,10 +259,13 @@
         await page.waitForTimeout(500);
       }
       await page.click('#new-data-view-btn');
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(2000);
       await page.fill('#dv-name', dataViewName);
-      await page.selectOption('#dv-source', spaceName);
-      await page.waitForTimeout(1000);
+      sourceSelect = page.locator('#dv-source');
+      await sourceSelect.selectOption({
+        label: spaceName
+      });
+      await page.waitForTimeout(1500);
       await page.click('#data-view-save-btn');
       await page.waitForTimeout(2000);
       await page.goto('/#!pages');

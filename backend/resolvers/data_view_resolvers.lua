@@ -17,7 +17,7 @@ local Query = {
     if not (dv) then
       error("DataView not found: " .. tostring(args.id))
     end
-    return executor.execute_view(dv.source_space, dv.config, args)
+    return executor.execute_view(dv.sourceSpace, dv.config, args)
   end
 }
 local Mutation = {

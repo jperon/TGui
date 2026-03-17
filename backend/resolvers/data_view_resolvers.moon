@@ -16,7 +16,7 @@ Query =
     executor = require 'core.data_views_executor'
     dv = data_views.get_view args.id
     error "DataView not found: #{args.id}" unless dv
-    executor.execute_view dv.source_space, dv.config, args
+    executor.execute_view dv.sourceSpace, dv.config, args
 
 Mutation =
   createDataView: (_, args, ctx) ->

@@ -88,6 +88,8 @@ test.describe('Complete Workflow', ->
     
     createdSpace = page.locator('#space-list').locator('li', { hasText: spaceName })
     await expect(createdSpace).toBeVisible()
+
+    spaceId = await createdSpace.getAttribute('data-id')
     
     await createdSpace.click()
     await page.waitForTimeout 1000
@@ -116,13 +118,22 @@ test.describe('Complete Workflow', ->
       await page.waitForTimeout 500
     
     await page.click '#new-data-view-btn'
-    await page.waitForTimeout 1000
+    await page.waitForTimeout 2000
     
     await page.fill '#dv-name', dataViewName
     
+    # Debug: print the spaceId being used
+    console.log 'Space ID to select:', spaceId
+    
     sourceSelect = page.locator('#dv-source')
-    await sourceSelect.selectOption spaceName
-    await page.waitForTimeout 1000
+    await sourceSelect.selectOption { label: spaceName }
+    await page.waitForTimeout 1500
+    
+    # Debug: print what's selected
+    selectedValue = await sourceSelect.inputValue()
+    console.log 'Selected value:', selectedValue
+    
+    await page.waitForTimeout 500
     
     await page.click '#data-view-save-btn'
     await page.waitForTimeout 2000
@@ -152,6 +163,8 @@ test.describe('Complete Workflow', ->
     
     createdSpace = page.locator('#space-list').locator('li', { hasText: spaceName })
     await expect(createdSpace).toBeVisible()
+
+    spaceId = await createdSpace.getAttribute('data-id')
     
     await createdSpace.click()
     await page.waitForTimeout 1000
@@ -180,11 +193,12 @@ test.describe('Complete Workflow', ->
       await page.waitForTimeout 500
     
     await page.click '#new-data-view-btn'
-    await page.waitForTimeout 1000
+    await page.waitForTimeout 2000
     
     await page.fill '#dv-name', dataViewName
-    await page.selectOption '#dv-source', spaceName
-    await page.waitForTimeout 1000
+    sourceSelect = page.locator('#dv-source')
+    await sourceSelect.selectOption { label: spaceName }
+    await page.waitForTimeout 1500
     
     await page.click '#data-view-save-btn'
     await page.waitForTimeout 2000
@@ -243,6 +257,8 @@ test.describe('Complete Workflow', ->
     
     createdSpace = page.locator('#space-list').locator('li', { hasText: spaceName })
     await expect(createdSpace).toBeVisible()
+
+    spaceId = await createdSpace.getAttribute('data-id')
     
     await createdSpace.click()
     await page.waitForTimeout 1000
@@ -271,11 +287,12 @@ test.describe('Complete Workflow', ->
       await page.waitForTimeout 500
     
     await page.click '#new-data-view-btn'
-    await page.waitForTimeout 1000
+    await page.waitForTimeout 2000
     
     await page.fill '#dv-name', dataViewName
-    await page.selectOption '#dv-source', spaceName
-    await page.waitForTimeout 1000
+    sourceSelect = page.locator('#dv-source')
+    await sourceSelect.selectOption { label: spaceName }
+    await page.waitForTimeout 1500
     
     await page.click '#data-view-save-btn'
     await page.waitForTimeout 2000

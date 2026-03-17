@@ -11,10 +11,10 @@ get_view = (id) ->
     id: t[1]
     name: t[2]
     description: t[3]
-    source_space: t[4]
+    sourceSpace: t[4]
     config: t[5]
-    created_at: t[6]
-    updated_at: t[7]
+    createdAt: t[6]
+    updatedAt: t[7]
   }
 
 create_view = (name, description, source_space, config_json) ->
@@ -59,7 +59,7 @@ update_view = (id, params) ->
   box.space._tdb_data_views\update id, {
     { '=', 2, params.name or t[2] }
     { '=', 3, params.description or t[3] }
-    { '=', 4, params.source_space or t[4] }
+    { '=', 4, params.sourceSpace or params.source_space or t[4] }
     { '=', 5, params.config or t[5] }
     { '=', 7, os.time! }
   }
