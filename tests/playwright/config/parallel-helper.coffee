@@ -50,3 +50,36 @@ exports.cleanupWithRetry = (page, cleanupFunction) ->
     # If cleanup fails, try once more after delay
     await page.waitForTimeout 1000
     await cleanupFunction()
+
+# Console error tracking
+# Creates a console error listener that fails tests on console errors
+exports.setupConsoleErrorTracking = (page) ->
+  consoleErrors = []
+  
+  # Create the listener
+  listener = (msg) ->
+    if msg.type() is 'error'
+      consoleErrors.push msg.text()
+  
+  # Attach the listener
+  page.on 'console', listener
+  
+  # Return function to get errors and cleanup
+  return {
+    getErrors: -> consoleErrors.slice()
+    hasErrors: -> consoleErrors.length > 0
+    clearErrors: -> consoleErrors.length = 0
+    listener: listener
+  }
+
+# Helper to check if SortableJS is loaded on the page
+exports.checkSortableJS = (page) ->
+  await page.evaluate(() ->
+    if typeof Sortable is 'undefined'
+      return { loaded: false, error: 'SortableJS is not defined on window' }
+    
+    if typeof Sortable.create isnt 'function'
+      return { loaded: false, error: 'Sortable.create is not a function' }
+    
+    { loaded: true }
+  )

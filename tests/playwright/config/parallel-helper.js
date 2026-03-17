@@ -84,4 +84,56 @@
     }
   };
 
+  // Console error tracking
+  // Creates a console error listener that fails tests on console errors
+  exports.setupConsoleErrorTracking = function(page) {
+    var consoleErrors, listener;
+    consoleErrors = [];
+    
+    // Create the listener
+    listener = function(msg) {
+      if (msg.type() === 'error') {
+        return consoleErrors.push(msg.text());
+      }
+    };
+    
+    // Attach the listener
+    page.on('console', listener);
+    return {
+      
+      // Return function to get errors and cleanup
+      getErrors: function() {
+        return consoleErrors.slice();
+      },
+      hasErrors: function() {
+        return consoleErrors.length > 0;
+      },
+      clearErrors: function() {
+        return consoleErrors.length = 0;
+      },
+      listener: listener
+    };
+  };
+
+  // Helper to check if SortableJS is loaded on the page
+  exports.checkSortableJS = async function(page) {
+    return (await page.evaluate(function() {
+      if (typeof Sortable === 'undefined') {
+        return {
+          loaded: false,
+          error: 'SortableJS is not defined on window'
+        };
+      }
+      if (typeof Sortable.create !== 'function') {
+        return {
+          loaded: false,
+          error: 'Sortable.create is not a function'
+        };
+      }
+      return {
+        loaded: true
+      };
+    }));
+  };
+
 }).call(this);
