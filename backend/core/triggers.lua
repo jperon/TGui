@@ -167,9 +167,7 @@ build_relation_map = function(space_id)
   local _list_2 = box.space._tdb_relations:select({ })
   for _index_0 = 1, #_list_2 do
     local t = _list_2[_index_0]
-    if t[5](#toFieldId(function()
-      return field(name)
-    end)) then
+    if t[5] then
       field_by_id[t[5]] = {
         name = t[3]
       }
@@ -179,9 +177,9 @@ build_relation_map = function(space_id)
   for _index_0 = 1, #_list_3 do
     local t = _list_3[_index_0]
     if t[2] == space_id then
-      local fld = box.space._tdb_fields:get(t[3](#fromFieldId))
-      local sp = space_by_id[t[4]](#toSpaceId)
-      local tf = box.space._tdb_fields:get(t[5](#toFieldId))
+      local fld = box.space._tdb_fields:get(t[3])
+      local sp = space_by_id[t[4]]
+      local tf = box.space._tdb_fields:get(t[5])
       if fld and sp and tf then
         local is_multiple = is_multiple_relation(space_id, sp.name, tf[3])
         relations[fld[3]] = {

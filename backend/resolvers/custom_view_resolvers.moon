@@ -6,6 +6,10 @@ uuid_mod = require 'uuid'
 json = require 'json'
 { :require_auth } = require 'resolvers.utils'
 
+-- Forward declarations for functions used before definition
+local add_data_view_to_page
+local encode_layout_yaml
+
 list_custom_views = ->
   result = {}
   for t in *box.space._tdb_custom_views\select {}

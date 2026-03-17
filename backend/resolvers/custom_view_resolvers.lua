@@ -3,6 +3,8 @@ local uuid_mod = require('uuid')
 local json = require('json')
 local require_auth
 require_auth = require('resolvers.utils').require_auth
+local add_data_view_to_page
+local encode_layout_yaml
 local list_custom_views
 list_custom_views = function()
   local result = { }
@@ -744,7 +746,6 @@ split_zone = function(pageId, zoneId, direction)
     yaml = updated_yaml
   }
 end
-local encode_layout_yaml
 encode_layout_yaml = function(config)
   local yaml_content = "layout:\n"
   yaml_content = yaml_content .. ("  direction: " .. (config.layout.direction or 'vertical') .. "\n")
@@ -792,7 +793,6 @@ encode_layout_yaml = function(config)
   encode_children(config.layout.children)
   return yaml_content
 end
-local add_data_view_to_page
 add_data_view_to_page = function(pageId, dataViewId)
   local t = box.space._tdb_custom_views:get(pageId)
   if not (t) then

@@ -49,14 +49,14 @@ R.describe "Extended Self Proxy with List Support", ->
 
     proxy = triggers.make_self_proxy_extended record, single_map, multiple_map, nil, 'TestSource'
 
-    R.assert type(proxy) == 'table'
-    R.assert type(proxy.list) == 'table'
-    R.assert type(proxy.list.length) == 'function'
-    R.assert type(proxy.list.first) == 'function'
-    R.assert type(proxy.list.last) == 'function'
-    R.assert type(proxy.list.map) == 'function'
-    R.assert type(proxy.list.filter) == 'function'
-    R.assert type(proxy.list.reduce) == 'function'
+    assert type(proxy) == 'table'
+    assert type(proxy.list) == 'table'
+    assert type(proxy.list.length) == 'function'
+    assert type(proxy.list.first) == 'function'
+    assert type(proxy.list.last) == 'function'
+    assert type(proxy.list.map) == 'function'
+    assert type(proxy.list.filter) == 'function'
+    assert type(proxy.list.reduce) == 'function'
 
 -- Cleanup: delete spaces created for these tests
 spaces_mod.delete_user_space 'TestSource'

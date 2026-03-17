@@ -161,13 +161,13 @@ build_relation_map = (space_id) ->
 
   -- Also need field names from other spaces for toFieldId
   for t in *box.space._tdb_relations\select {}
-    field_by_id[t[5]] = { name: t[3] } if t[5]  # toFieldId -> field name
+    field_by_id[t[5]] = { name: t[3] } if t[5]  -- toFieldId -> field name
 
   for t in *box.space._tdb_relations\select {}
     if t[2] == space_id  -- fromSpaceId
-      fld = box.space._tdb_fields\get t[3]  # fromFieldId
-      sp  = space_by_id[t[4]]  # toSpaceId
-      tf = box.space._tdb_fields\get t[5]  # toFieldId
+      fld = box.space._tdb_fields\get t[3]  -- fromFieldId
+      sp  = space_by_id[t[4]]  -- toSpaceId
+      tf = box.space._tdb_fields\get t[5]  -- toFieldId
 
       if fld and sp and tf
         is_multiple = is_multiple_relation space_id, sp.name, tf[3]
