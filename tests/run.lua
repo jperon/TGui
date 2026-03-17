@@ -49,32 +49,24 @@ do
     end
   end
 end
-require('tests.test_lexer')
-require('tests.test_parser')
-require('tests.test_schema')
-require('tests.test_executor')
 math.randomseed(os.time())
-require('tests.test_spaces')
-require('tests.test_batch_ops')
-require('tests.test_triggers')
-require('tests.test_custom_views')
-require('tests.test_reorder_widgets')
-require('tests.test_widget_plugins')
-require('tests.test_data_views')
-require('tests.test_relations')
-require('tests.test_relation_type_regression')
-require('tests.test_snapshot')
-require('tests.test_permissions')
-require('tests.test_data_filters')
-require('tests.test_nesting')
-require('tests.test_drag_drop_e2e')
-require('tests.test_add_data_view_to_page')
-require('tests.test_graphql_builder_simple')
-require('tests.test_graphql_flattener')
-require('tests.test_graphql_integration_working')
-require('tests.test_multiple_relations')
-require('tests.test_extended_proxy')
-require('tests.test_multiple_relations_simple')
+local test_files = { }
+local handle = io.popen('ls /app/tests/test_*.moon 2>/dev/null || ls tests/test_*.moon 2>/dev/null')
+for line in handle:lines() do
+  local filename = line:match('([^/]+)%.moon$')
+  if filename and not filename:match('_disabled') then
+    local modname = filename:gsub('%.moon$', '')
+    table.insert(test_files, modname)
+  end
+end
+handle:close()
+table.sort(test_files)
+print("   Discovered " .. tostring(#test_files) .. " test files")
+for _index_0 = 1, #test_files do
+  local modname = test_files[_index_0]
+  print("      - " .. tostring(modname))
+  require("tests." .. tostring(modname))
+end
 local exit_code = R.summary()
 require('resolvers.init').reinit()
 return exit_code

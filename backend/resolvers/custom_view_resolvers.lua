@@ -5,6 +5,9 @@ local require_auth
 require_auth = require('resolvers.utils').require_auth
 local add_data_view_to_page
 local encode_layout_yaml
+local create_zone
+local resize_zone
+local merge_zones
 local list_custom_views
 list_custom_views = function()
   local result = { }
@@ -149,8 +152,21 @@ reorder_widgets = function(pageId, widgetPositions)
     end
   end
   collect_widgets_and_zones(config.layout.children)
+  local original_zone_children = { }
+  for _, child in ipairs(config.layout.children) do
+    if child.zone and child.zone.id then
+      original_zone_children[child.zone.id] = { }
+      if child.zone.children then
+        for _, zchild in ipairs(child.zone.children) do
+          table.insert(original_zone_children[child.zone.id], zchild)
+        end
+      end
+    end
+  end
   local new_children = { }
   local processed_zones = { }
+  local zone_widgets = { }
+  local root_widgets = { }
   if widgetPositions and type(widgetPositions) == 'table' and #widgetPositions > 0 then
     for i = 1, #widgetPositions do
       local pos = widgetPositions[i]
@@ -161,16 +177,15 @@ reorder_widgets = function(pageId, widgetPositions)
           widget.position = pos.index or i
           local parent_id = pos.parentId or null
           if parent_id and zones_map[parent_id] then
-            local zone = zones_map[parent_id].zone
-            if not zone.children then
-              zone.children = { }
+            if not zone_widgets[parent_id] then
+              zone_widgets[parent_id] = { }
             end
-            table.insert(zone.children, {
+            table.insert(zone_widgets[parent_id], {
               widget = widget
             })
             processed_zones[parent_id] = true
           else
-            table.insert(new_children, {
+            table.insert(root_widgets, {
               widget = widget
             })
           end
@@ -181,9 +196,19 @@ reorder_widgets = function(pageId, widgetPositions)
             space = 'unknown',
             title = "Widget " .. tostring(pos.widgetId)
           }
-          table.insert(new_children, {
-            widget = new_widget
-          })
+          if parent_id and zones_map[parent_id] then
+            if not zone_widgets[parent_id] then
+              zone_widgets[parent_id] = { }
+            end
+            table.insert(zone_widgets[parent_id], {
+              widget = new_widget
+            })
+            processed_zones[parent_id] = true
+          else
+            table.insert(root_widgets, {
+              widget = new_widget
+            })
+          end
         end
       end
     end
@@ -191,6 +216,27 @@ reorder_widgets = function(pageId, widgetPositions)
     for _, child in ipairs(config.layout.children) do
       table.insert(new_children, child)
     end
+  end
+  for _, w in ipairs(root_widgets) do
+    table.insert(new_children, w)
+  end
+  for zone_id, zone_data in pairs(zones_map) do
+    local zone = zone_data.zone
+    local zone_entry = {
+      zone = zone,
+      children = { }
+    }
+    if original_zone_children[zone_id] then
+      for _, child in ipairs(original_zone_children[zone_id]) do
+        table.insert(zone_entry.zone.children, child)
+      end
+    end
+    if zone_widgets[zone_id] then
+      for _, w in ipairs(zone_widgets[zone_id]) do
+        table.insert(zone_entry.zone.children, w)
+      end
+    end
+    table.insert(new_children, zone_entry)
   end
   for zone_id, zone_data in pairs(zones_map) do
     if not processed_zones[zone_id] then
@@ -204,7 +250,36 @@ reorder_widgets = function(pageId, widgetPositions)
   yaml_content = yaml_content .. ("  direction: " .. (config.layout.direction or 'vertical') .. "\n")
   yaml_content = yaml_content .. "  children:\n"
   for _, child in ipairs(config.layout.children) do
-    if child.widget then
+    if child.zone then
+      local zone = child.zone
+      yaml_content = yaml_content .. "    - zone:\n"
+      yaml_content = yaml_content .. ("        id: " .. tostring(zone.id) .. "\n")
+      yaml_content = yaml_content .. ("        title: " .. tostring(zone.title or '') .. "\n")
+      yaml_content = yaml_content .. ("        factor: " .. tostring(zone.factor or 1) .. "\n")
+      yaml_content = yaml_content .. ("        direction: " .. tostring(zone.direction or 'vertical') .. "\n")
+      if zone.children and #zone.children > 0 then
+        yaml_content = yaml_content .. "        children:\n"
+        for _, zone_child in ipairs(zone.children) do
+          if zone_child.widget then
+            local widget = zone_child.widget
+            yaml_content = yaml_content .. "          - widget:\n"
+            yaml_content = yaml_content .. ("              id: " .. tostring(widget.id) .. "\n")
+            yaml_content = yaml_content .. ("              title: " .. tostring(widget.title or '') .. "\n")
+            yaml_content = yaml_content .. ("              space: " .. tostring(widget.space or '') .. "\n")
+            yaml_content = yaml_content .. ("              position: " .. tostring(widget.position or 1) .. "\n")
+            if widget.columns and #widget.columns > 0 then
+              yaml_content = yaml_content .. "              columns:\n"
+              for _, col in ipairs(widget.columns) do
+                yaml_content = yaml_content .. ("                - " .. col .. "\n")
+              end
+            end
+            if widget.groupBy then
+              yaml_content = yaml_content .. ("              groupBy: " .. tostring(widget.groupBy) .. "\n")
+            end
+          end
+        end
+      end
+    elseif child.widget then
       yaml_content = yaml_content .. "    - widget:\n"
       yaml_content = yaml_content .. ("        id: " .. tostring(child.widget.id) .. "\n")
       yaml_content = yaml_content .. ("        title: " .. child.widget.title .. "\n")
@@ -430,7 +505,6 @@ local Mutation = {
     return add_data_view_to_page(args.pageId, args.dataViewId)
   end
 }
-local create_zone
 create_zone = function(pageId, zoneData)
   local t = box.space._tdb_custom_views:get(pageId)
   if not (t) then
@@ -484,7 +558,6 @@ create_zone = function(pageId, zoneData)
     direction = new_zone.direction
   }
 end
-local resize_zone
 resize_zone = function(pageId, zoneId, factor)
   local t = box.space._tdb_custom_views:get(pageId)
   if not (t) then
@@ -594,7 +667,6 @@ find_zone_with_parent = function(children, zoneId, parent)
     found = false
   }
 end
-local merge_zones
 merge_zones = function(pageId, zoneId1, zoneId2)
   local t = box.space._tdb_custom_views:get(pageId)
   if not (t) then

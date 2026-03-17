@@ -9,6 +9,9 @@ json = require 'json'
 -- Forward declarations for functions used before definition
 local add_data_view_to_page
 local encode_layout_yaml
+local create_zone
+local resize_zone
+local merge_zones
 
 list_custom_views = ->
   result = {}
@@ -94,9 +97,22 @@ reorder_widgets = (pageId, widgetPositions) ->
   -- Collecter tous les widgets et zones existants
   collect_widgets_and_zones(config.layout.children)
 
+  -- Stocker les enfants originaux de chaque zone (copie pour éviter les modifications en place)
+  original_zone_children = {}
+  for _, child in ipairs(config.layout.children)
+    if child.zone and child.zone.id
+      original_zone_children[child.zone.id] = {}
+      if child.zone.children
+        for _, zchild in ipairs(child.zone.children)
+          table.insert(original_zone_children[child.zone.id], zchild)
+
   -- Reconstruire la structure avec les nouvelles positions et parents
   new_children = {}
   processed_zones = {}
+
+  -- Stocker les widgets à ajouter à chaque zone (et racine)
+  zone_widgets = {}  -- zone_id -> list of widgets
+  root_widgets = {}  -- list of widgets
 
   if widgetPositions and type(widgetPositions) == 'table' and #widgetPositions > 0
     for i = 1, #widgetPositions
@@ -113,18 +129,13 @@ reorder_widgets = (pageId, widgetPositions) ->
 
           -- Si le parent est une zone, ajouter le widget à cette zone
           if parent_id and zones_map[parent_id]
-            zone = zones_map[parent_id].zone
-            if not zone.children
-              zone.children = {}
-
-            -- Ajouter le widget à la zone
-            table.insert(zone.children, { widget: widget })
-
-            -- Marquer la zone comme traitée
+            if not zone_widgets[parent_id]
+              zone_widgets[parent_id] = {}
+            table.insert(zone_widgets[parent_id], { widget: widget })
             processed_zones[parent_id] = true
           else
             -- Ajouter à la racine
-            table.insert(new_children, { widget: widget })
+            table.insert(root_widgets, { widget: widget })
         else
           -- Si le widget n'existe pas, le créer avec les données de base
           new_widget = {
@@ -133,11 +144,37 @@ reorder_widgets = (pageId, widgetPositions) ->
             space: 'unknown'
             title: "Widget #{pos.widgetId}"
           }
-          table.insert(new_children, { widget: new_widget })
+          if parent_id and zones_map[parent_id]
+            if not zone_widgets[parent_id]
+              zone_widgets[parent_id] = {}
+            table.insert(zone_widgets[parent_id], { widget: new_widget })
+            processed_zones[parent_id] = true
+          else
+            table.insert(root_widgets, { widget: new_widget })
   else
     -- Si pas de positions, garder l'ordre existant
     for _, child in ipairs(config.layout.children)
       table.insert(new_children, child)
+
+  -- Ajouter les widgets à la racine
+  for _, w in ipairs(root_widgets)
+    table.insert(new_children, w)
+
+  -- Ajouter les zones (traitées ou non) avec leurs widgets
+  for zone_id, zone_data in pairs(zones_map)
+    zone = zone_data.zone
+    zone_entry = { zone: zone, children: {} }
+    
+    -- Ajouter les widgets originaux + nouveaux widgets pour cette zone
+    if original_zone_children[zone_id]
+      for _, child in ipairs(original_zone_children[zone_id])
+        table.insert(zone_entry.zone.children, child)
+    
+    if zone_widgets[zone_id]
+      for _, w in ipairs(zone_widgets[zone_id])
+        table.insert(zone_entry.zone.children, w)
+    
+    table.insert(new_children, zone_entry)
 
   -- Ajouter les zones qui n'ont pas été traitées (zones vides)
   for zone_id, zone_data in pairs(zones_map)
@@ -153,9 +190,37 @@ reorder_widgets = (pageId, widgetPositions) ->
   yaml_content ..= "  direction: " .. (config.layout.direction or 'vertical') .. "\n"
   yaml_content ..= "  children:\n"
 
-  -- Ajouter chaque widget au format YAML correct
+  -- Ajouter chaque widget/zone au format YAML correct
   for _, child in ipairs(config.layout.children)
-    if child.widget
+    if child.zone
+      -- Générer le YAML pour une zone
+      zone = child.zone
+      yaml_content ..= "    - zone:\n"
+      yaml_content ..= "        id: " .. tostring(zone.id) .. "\n"
+      yaml_content ..= "        title: " .. tostring(zone.title or '') .. "\n"
+      yaml_content ..= "        factor: " .. tostring(zone.factor or 1) .. "\n"
+      yaml_content ..= "        direction: " .. tostring(zone.direction or 'vertical') .. "\n"
+
+      -- Ajouter les enfants de la zone (widgets)
+      if zone.children and #zone.children > 0
+        yaml_content ..= "        children:\n"
+        for _, zone_child in ipairs(zone.children)
+          if zone_child.widget
+            widget = zone_child.widget
+            yaml_content ..= "          - widget:\n"
+            yaml_content ..= "              id: " .. tostring(widget.id) .. "\n"
+            yaml_content ..= "              title: " .. tostring(widget.title or '') .. "\n"
+            yaml_content ..= "              space: " .. tostring(widget.space or '') .. "\n"
+            yaml_content ..= "              position: " .. tostring(widget.position or 1) .. "\n"
+
+            if widget.columns and #widget.columns > 0
+              yaml_content ..= "              columns:\n"
+              for _, col in ipairs(widget.columns)
+                yaml_content ..= "                - " .. col .. "\n"
+
+            if widget.groupBy
+              yaml_content ..= "              groupBy: " .. tostring(widget.groupBy) .. "\n"
+    elseif child.widget
       yaml_content ..= "    - widget:\n"
       yaml_content ..= "        id: " .. tostring(child.widget.id) .. "\n"
       yaml_content ..= "        title: " .. child.widget.title .. "\n"
