@@ -1,0 +1,237 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - navigation [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]: TGui
+        - button "≡" [ref=e7] [cursor=pointer]
+      - generic [ref=e8]:
+        - generic [ref=e9]:
+          - generic [ref=e10]: Pages
+          - button "＋" [ref=e11] [cursor=pointer]
+        - list [ref=e12]:
+          - listitem "VerifyPage_1773775616803_40" [ref=e13]:
+            - generic [ref=e14]: VerifyPage_1773775616803_40
+          - listitem "VerifyPage_1773775649140_907" [ref=e15]:
+            - generic [ref=e16]: VerifyPage_1773775649140_907
+          - listitem "VerifyPage_1773775887264_562" [ref=e17]:
+            - generic [ref=e18]: VerifyPage_1773775887264_562
+          - listitem "VerifyPage_1773775919583_797" [ref=e19]:
+            - generic [ref=e20]: VerifyPage_1773775919583_797
+      - generic [ref=e21]:
+        - generic [ref=e22]:
+          - button "▾" [ref=e23] [cursor=pointer]
+          - generic [ref=e24]: Données
+          - button "＋" [ref=e25] [cursor=pointer]
+        - list [ref=e26]:
+          - listitem [ref=e27] [cursor=pointer]: Auteurs
+          - listitem [ref=e28] [cursor=pointer]: Categories
+          - listitem [ref=e29] [cursor=pointer]: DVSourceSpace_1773775315554_543
+          - listitem [ref=e30] [cursor=pointer]: DVSourceSpace_1773775327725_887
+          - listitem [ref=e31] [cursor=pointer]: DVSourceSpace_1773775419855_379
+          - listitem [ref=e32] [cursor=pointer]: DVSourceSpace_1773775449044_882
+          - listitem [ref=e33] [cursor=pointer]: DVSourceSpace_1773775558444_487
+          - listitem [ref=e34] [cursor=pointer]: DVSourceSpace_1773775587002_650
+          - listitem [ref=e35] [cursor=pointer]: DVSourceSpace_1773775828954_137
+          - listitem [ref=e36] [cursor=pointer]: DVSourceSpace_1773775858071_917
+          - listitem [ref=e37] [cursor=pointer]: DVSourceSpace_1773775968664_328
+          - listitem [ref=e38] [cursor=pointer]: DVSourceSpace_1773775997586_591
+          - listitem [ref=e39] [cursor=pointer]: Emprunts
+          - listitem [ref=e40] [cursor=pointer]: Livres
+          - listitem [ref=e41] [cursor=pointer]: VerifySpace_1773775339893_484
+          - listitem [ref=e42] [cursor=pointer]: VerifySpace_1773775350333_661
+          - listitem [ref=e43] [cursor=pointer]: VerifySpace_1773775478369_651
+          - listitem [ref=e44] [cursor=pointer]: VerifySpace_1773775498083_494
+          - listitem [ref=e45] [cursor=pointer]: VerifySpace_1773775616803_264
+          - listitem [ref=e46] [cursor=pointer]: VerifySpace_1773775649140_356
+          - listitem [ref=e47] [cursor=pointer]: VerifySpace_1773775887264_182
+          - listitem [ref=e48] [cursor=pointer]: VerifySpace_1773775919583_762
+          - listitem [ref=e49] [cursor=pointer]: WidgetSpace_1773775318484_645
+          - listitem [ref=e50] [cursor=pointer]: WidgetSpace_1773775330599_158
+          - listitem [ref=e51] [cursor=pointer]: WidgetSpace_1773775422965_715
+          - listitem [ref=e52] [cursor=pointer]: WidgetSpace_1773775451835_369
+          - listitem [ref=e53] [cursor=pointer]: WidgetSpace_1773775561781_195
+          - listitem [ref=e54] [cursor=pointer]: WidgetSpace_1773775590748_510
+          - listitem [ref=e55] [cursor=pointer]: WidgetSpace_1773775832029_773
+          - listitem [ref=e56] [cursor=pointer]: WidgetSpace_1773775861225_967
+          - listitem [ref=e57] [cursor=pointer]: WidgetSpace_1773775971989_389
+          - listitem [ref=e58] [cursor=pointer]: WidgetSpace_1773776000811_82
+      - generic [ref=e60]:
+        - button "▾" [ref=e61] [cursor=pointer]
+        - generic [ref=e62]: Vues
+        - button "＋" [ref=e63] [cursor=pointer]
+      - generic [ref=e64]:
+        - generic [ref=e66]: Outils
+        - list [ref=e67]:
+          - listitem [ref=e68] [cursor=pointer]: Gestion des plugins
+      - generic [ref=e70]:
+        - button "▸" [ref=e71] [cursor=pointer]
+        - generic [ref=e72]: Administration
+      - button "admin" [ref=e74] [cursor=pointer]
+    - main [ref=e75]:
+      - generic [ref=e76]:
+        - text: ⚠ Vous utilisez le mot de passe par défaut.
+        - button "Changer maintenant" [ref=e77] [cursor=pointer]
+      - generic [ref=e78]:
+        - generic [ref=e79]: WidgetSpace_1773776000811_82
+        - button "↶" [disabled] [ref=e80]
+        - button "↷" [disabled] [ref=e81]
+        - button "✎" [ref=e82] [cursor=pointer]
+        - button "🗑" [ref=e83] [cursor=pointer]
+        - generic [ref=e84]:
+          - generic [ref=e85]: ⚗
+          - 'textbox "Filtre (ex: self.disponible)" [ref=e86]'
+        - button "🗑" [ref=e87] [cursor=pointer]
+        - button "⊞ Champs" [ref=e88] [cursor=pointer]
+      - generic [ref=e89]:
+        - generic [ref=e93]:
+          - generic [ref=e94]:
+            - table [ref=e96]:
+              - rowgroup [ref=e99]:
+                - row [ref=e100]:
+                  - checkbox [ref=e103]
+            - table [ref=e107]:
+              - rowgroup [ref=e110]:
+                - row [ref=e111]:
+                  - cell [ref=e112]:
+                    - checkbox [ref=e114]
+          - generic [ref=e116]:
+            - generic [ref=e117]:
+              - table [ref=e118]:
+                - rowgroup [ref=e122]:
+                  - row "id widget_field" [ref=e123]:
+                    - columnheader "id" [ref=e124]: id
+                    - columnheader "widget_field" [ref=e126]: widget_field
+              - generic:
+                - generic "id" [ref=e128]
+                - generic "widget_field" [ref=e129]
+            - table [ref=e133]:
+              - rowgroup [ref=e137]:
+                - row [ref=e138]:
+                  - cell [ref=e139]
+                  - cell [ref=e141]
+        - complementary [ref=e153]:
+          - generic [ref=e154]:
+            - generic [ref=e155]: Champs
+            - button "✕" [ref=e156] [cursor=pointer]
+          - list [ref=e157]:
+            - listitem [ref=e158]:
+              - generic "Drag to reorder" [ref=e159]: ⠿
+              - generic [ref=e160]: Sequence
+              - generic [ref=e161]: id *
+              - button "✎" [ref=e162] [cursor=pointer]
+              - button "✕" [ref=e163] [cursor=pointer]
+            - listitem [ref=e164]:
+              - generic "Drag to reorder" [ref=e165]: ⠿
+              - generic [ref=e166]: String
+              - generic [ref=e167]: widget_field
+              - button "✎" [ref=e168] [cursor=pointer]
+              - button "✕" [ref=e169] [cursor=pointer]
+          - generic [ref=e170]:
+            - textbox "Field name" [ref=e171]
+            - combobox [ref=e172]:
+              - option "String" [selected]
+              - option "Int"
+              - option "Float"
+              - option "Boolean"
+              - option "UUID"
+              - option "Any (type libre)"
+              - option "Map (objet JSON)"
+              - option "Array (tableau JSON)"
+              - option "Séquence (auto-incrément)"
+              - option "Datetime"
+              - option "Relation"
+            - generic [ref=e173] [cursor=pointer]:
+              - checkbox "Requis" [ref=e174]
+              - text: Requis
+            - generic [ref=e176]:
+              - generic [ref=e177] [cursor=pointer]:
+                - radio "Aucune formule" [checked] [ref=e178]
+                - text: Aucune formule
+              - generic [ref=e179] [cursor=pointer]:
+                - radio "Colonne calculée" [ref=e180]
+                - text: Colonne calculée
+              - generic [ref=e181] [cursor=pointer]:
+                - radio "Trigger formula" [ref=e182]
+                - text: Trigger formula
+            - generic [ref=e183]:
+              - generic [ref=e184] [cursor=pointer]: "Représentation (affichage) :"
+              - textbox "Représentation (affichage) :" [ref=e185]:
+                - /placeholder: "Ex: os.date('%d/%m/%Y', self.date) ou string.format('%.2f', self.montant)"
+              - text: Formule MoonScript/Lua de rendu visuel (ne modifie pas la donnée brute).
+            - button "Add" [ref=e187] [cursor=pointer]
+  - generic [ref=e189]:
+    - generic [ref=e190]:
+      - generic [ref=e191]: Nouvelle vue
+      - generic [ref=e192]:
+        - button "💾 Enregistrer" [ref=e193] [cursor=pointer]
+        - button "✕" [ref=e194] [cursor=pointer]
+    - generic [ref=e195]:
+      - generic [ref=e196]:
+        - generic [ref=e197]:
+          - text: "Nom :"
+          - textbox "Nom :" [ref=e198]:
+            - /placeholder: Ma vue
+            - text: WidgetDV_1773776000811_242
+        - generic [ref=e199]:
+          - text: "Source :"
+          - combobox "Source :" [ref=e200]:
+            - option "Sélectionner un espace..."
+            - option "Emprunts"
+            - option "DVSourceSpace_1773775828954_137"
+            - option "VerifySpace_1773775478369_651"
+            - option "Livres"
+            - option "WidgetSpace_1773775590748_510"
+            - option "WidgetSpace_1773775561781_195"
+            - option "DVSourceSpace_1773775327725_887"
+            - option "DVSourceSpace_1773775968664_328"
+            - option "DVSourceSpace_1773775997586_591"
+            - option "DVSourceSpace_1773775315554_543"
+            - option "WidgetSpace_1773775451835_369"
+            - option "DVSourceSpace_1773775419855_379"
+            - option "Categories"
+            - option "VerifySpace_1773775919583_762"
+            - option "VerifySpace_1773775887264_182"
+            - option "VerifySpace_1773775498083_494"
+            - option "WidgetSpace_1773775832029_773"
+            - option "WidgetSpace_1773775318484_645"
+            - option "VerifySpace_1773775649140_356"
+            - option "WidgetSpace_1773775330599_158"
+            - option "Auteurs"
+            - option "WidgetSpace_1773775971989_389"
+            - option "VerifySpace_1773775616803_264"
+            - option "DVSourceSpace_1773775558444_487"
+            - option "WidgetSpace_1773776000811_82" [selected]
+            - option "WidgetSpace_1773775861225_967"
+            - option "DVSourceSpace_1773775587002_650"
+            - option "DVSourceSpace_1773775449044_882"
+            - option "VerifySpace_1773775350333_661"
+            - option "DVSourceSpace_1773775858071_917"
+            - option "WidgetSpace_1773775422965_715"
+            - option "VerifySpace_1773775339893_484"
+      - generic [ref=e201]:
+        - generic [ref=e202]:
+          - heading "Requête YAML" [level=4] [ref=e203]
+          - textbox "# Définissez votre vue ici" [ref=e205]: "# Configuration de la vue # Modifiez ce YAML ou utilisez les onglets visuels à droite columns: [] # Exemple: # - name: id # - name: titre # - name: prix filter: formula: \"\" # Exemple: # formula: \"@prix > 20 and @disponible == true\" groupBy: [] # Exemple: # - genre # - annee_publication aggregates: [] # Exemple: # - field: prix # func: AVG # alias: prix_moyen"
+          - generic [ref=e206]:
+            - button "🎨 Formater" [ref=e207] [cursor=pointer]
+            - button "✓ Appliquer YAML" [ref=e208]
+        - generic [ref=e209]:
+          - generic [ref=e210]:
+            - button "Champs" [ref=e211] [cursor=pointer]
+            - button "Filtre" [ref=e212] [cursor=pointer]
+            - button "Groupement" [ref=e213] [cursor=pointer]
+          - generic [ref=e216]:
+            - generic [ref=e217]:
+              - heading "Sélectionnez les champs et jointures" [level=4] [ref=e218]
+              - generic [ref=e220]: Sélectionnez un espace source pour voir les relations...
+            - generic [ref=e221]:
+              - heading "Champs sélectionnés" [level=4] [ref=e222]
+              - generic [ref=e224]: Aucun champ sélectionné
+              - generic [ref=e225]: Cliquez sur les champs dans le graphe pour les ajouter à la vue
+  - generic [ref=e227]:
+    - paragraph [ref=e228]: "Error : /app/backend/graphql/schema.lua:223: Non-null field received null"
+    - button "OK" [active] [ref=e230]
+```
