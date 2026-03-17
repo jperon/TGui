@@ -57,9 +57,61 @@ window.AppViewHelpers =
       for item in sortedItems
         li = document.createElement 'li'
         li.className = 'leaf-item'
-        li.textContent = item.shortName
         li.dataset.id  = item.cv.id
         li.title = item.cv.name
+
+        spanName = document.createElement 'span'
+        spanName.className = 'leaf-item-name'
+        spanName.textContent = item.shortName
+        li.appendChild spanName
+
+        btnGroup = document.createElement 'span'
+        btnGroup.className = 'leaf-item-actions'
+
+        btnExport = document.createElement 'button'
+        btnExport.className = 'toolbar-btn toolbar-btn--icon page-action-btn'
+        btnExport.title = 'Exporter le layout'
+        btnExport.textContent = '↓'
+        btnExport.addEventListener 'click', (e) ->
+          e.stopPropagation()
+          GQL.query('query ExportLayout($pageId: ID!) { exportLayout(pageId: $pageId) }', { pageId: item.cv.id })
+            .then (data) ->
+              blob = new Blob([data.exportLayout], { type: 'text/yaml' })
+              url = URL.createObjectURL(blob)
+              a = document.createElement('a')
+              a.href = url
+              a.download = "#{item.cv.name.replace(/[^a-z0-9]/gi, '_')}.yaml"
+              a.click()
+              URL.revokeObjectURL(url)
+            .catch (err) -> tdbAlert app._err(err), 'error'
+        btnGroup.appendChild btnExport
+
+        btnImport = document.createElement 'button'
+        btnImport.className = 'toolbar-btn toolbar-btn--icon page-action-btn'
+        btnImport.title = 'Importer un layout'
+        btnImport.textContent = '↑'
+        inputFile = null
+        btnImport.addEventListener 'click', (e) ->
+          e.stopPropagation()
+          inputFile = document.createElement 'input'
+          inputFile.type = 'file'
+          inputFile.accept = '.yaml,.yml'
+          inputFile.onchange = (evt) ->
+            file = evt.target.files[0]
+            return unless file
+            reader = new FileReader()
+            reader.onload = (e) ->
+              yaml = e.target.result
+              GQL.mutate('mutation ImportLayout($pageId: ID!, $yaml: String!) { importLayout(pageId: $pageId, yaml: $yaml) { id name yaml } }', { pageId: item.cv.id, yaml })
+                .then ->
+                  app.loadPages()
+                .catch (err) -> tdbAlert app._err(err), 'error'
+            reader.readAsText(file)
+          inputFile.click()
+        btnGroup.appendChild btnImport
+
+        li.appendChild btnGroup
+
         do (cv = item.cv) ->
           li.addEventListener 'click', (e) ->
             e.stopPropagation()

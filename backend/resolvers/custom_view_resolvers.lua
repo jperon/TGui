@@ -4,10 +4,17 @@ local json = require('json')
 local require_auth
 require_auth = require('resolvers.utils').require_auth
 local add_data_view_to_page
+local add_widget_to_view
 local encode_layout_yaml
 local create_zone
 local resize_zone
 local merge_zones
+local export_layout
+local import_layout
+local create_layout_snapshot
+local list_layout_snapshots
+local restore_layout_snapshot
+local create_auto_snapshot
 local list_custom_views
 list_custom_views = function()
   local result = { }
@@ -61,14 +68,105 @@ create_custom_view = function(name, description, yaml)
     updatedAt = tostring(now)
   }
 end
+local delete_custom_view
+delete_custom_view = function(id)
+  box.space._tdb_custom_views:delete(id)
+  return true
+end
+create_auto_snapshot = function(page_id)
+  local t = box.space._tdb_custom_views:get(page_id)
+  if not (t) then
+    return nil
+  end
+  if not t[4] or t[4] == '' then
+    return nil
+  end
+  return create_layout_snapshot(page_id, t[4], "Auto-snapshot before update")
+end
+create_layout_snapshot = function(page_id, yaml_content, description)
+  local id = tostring(uuid_mod.new())
+  local now = require('clock').time()
+  box.space._tdb_layout_snapshots:insert({
+    id,
+    page_id,
+    yaml_content,
+    now,
+    description or ''
+  })
+  return {
+    id = id,
+    pageId = page_id,
+    yaml = yaml_content,
+    createdAt = now,
+    description = description or ''
+  }
+end
+list_layout_snapshots = function(page_id)
+  local result = { }
+  local _list_0 = box.space._tdb_layout_snapshots.index.by_page:select({
+    page_id
+  })
+  for _index_0 = 1, #_list_0 do
+    local t = _list_0[_index_0]
+    table.insert(result, {
+      id = t[1],
+      pageId = t[2],
+      yaml = t[3],
+      createdAt = t[4],
+      description = t[5] or ''
+    })
+  end
+  table.sort(result, function(a, b)
+    return a.createdAt > b.createdAt
+  end)
+  return result
+end
+restore_layout_snapshot = function(snapshot_id)
+  local snapshot = box.space._tdb_layout_snapshots:get(snapshot_id)
+  if not (snapshot) then
+    error("Snapshot not found: " .. tostring(snapshot_id))
+  end
+  local page_id = snapshot[2]
+  local yaml_content = snapshot[3]
+  local t = box.space._tdb_custom_views:get(page_id)
+  if not (t) then
+    error("CustomView not found: " .. tostring(page_id))
+  end
+  create_auto_snapshot(page_id)
+  local now = require('clock').time()
+  box.space._tdb_custom_views:replace({
+    page_id,
+    t[2],
+    t[3],
+    yaml_content,
+    t[5],
+    now
+  })
+  return {
+    id = page_id,
+    name = t[2],
+    description = t[3],
+    yaml = yaml_content,
+    createdAt = tostring(t[5]),
+    updatedAt = tostring(now)
+  }
+end
 local update_custom_view
 update_custom_view = function(id, name, description, yaml)
   local t = box.space._tdb_custom_views:get(id)
   if not (t) then
     error("CustomView not found: " .. tostring(id))
   end
+  if yaml and yaml ~= t[4] then
+    create_auto_snapshot(id)
+  end
   local now = require('clock').time()
-  local new_name = name or t[2]
+  local new_name
+  if name ~= nil then
+    new_name = name
+  else
+    new_name = t[2]
+  end
   local new_desc
   if description ~= nil then
     new_desc = description
@@ -97,11 +195,6 @@ update_custom_view = function(id, name, description, yaml)
     createdAt = tostring(t[5]),
     updatedAt = tostring(now)
   }
-end
-local delete_custom_view
-delete_custom_view = function(id)
-  box.space._tdb_custom_views:delete(id)
-  return true
 end
 local reorder_widgets
 reorder_widgets = function(pageId, widgetPositions)
@@ -301,12 +394,11 @@ reorder_widgets = function(pageId, widgetPositions)
       end
     end
   end
-  local updated_yaml = yaml_content
   box.space._tdb_custom_views:update(pageId, {
     {
       '=',
       4,
-      updated_yaml
+      yaml_content
     },
     {
       '=',
@@ -314,115 +406,48 @@ reorder_widgets = function(pageId, widgetPositions)
       os.time()
     }
   })
+  t = box.space._tdb_custom_views:get(pageId)
   return {
     id = pageId,
-    yaml = updated_yaml
-  }
-end
-local add_widget_to_view
-add_widget_to_view = function(viewId, widget)
-  local t = box.space._tdb_custom_views:get(viewId)
-  if not (t) then
-    error("CustomView not found: " .. tostring(viewId))
-  end
-  local yaml_raw = t[4]
-  if not yaml_raw or yaml_raw == '' then
-    yaml_raw = 'layout:\n  direction: vertical\n  children: []'
-  end
-  local config = yaml.decode(yaml_raw)
-  if not config or type(config) ~= 'table' then
-    config = {
-      layout = {
-        direction = 'vertical',
-        children = { }
-      }
-    }
-  elseif not config.layout then
-    config.layout = {
-      direction = 'vertical',
-      children = { }
-    }
-  elseif not config.layout.children then
-    config.layout.children = { }
-  end
-  local widget_id = uuid_mod()
-  local source_name = widget.spaceId
-  local space_record = box.space._tdb_spaces:get(widget.spaceId)
-  if space_record then
-    source_name = space_record[2]
-  else
-    local dv_record = box.space._tdb_data_views:get(widget.spaceId)
-    if dv_record then
-      source_name = dv_record[2]
-    end
-  end
-  local position = #config.layout.children + 1
-  local new_widget = {
-    id = widget_id,
-    title = widget.title,
-    space = source_name,
-    position = position
-  }
-  if widget.fields and #widget.fields > 0 then
-    new_widget.columns = widget.fields
-  end
-  if widget.groupBy then
-    new_widget.groupBy = widget.groupBy
-  end
-  if widget.params and next(widget.params) then
-    for key, value in pairs(widget.params) do
-      new_widget[key] = value
-    end
-  end
-  table.insert(config.layout.children, {
-    widget = new_widget
-  })
-  local yaml_content = "layout:\n"
-  yaml_content = yaml_content .. ("  direction: " .. (config.layout.direction or 'vertical') .. "\n")
-  yaml_content = yaml_content .. "  children:\n"
-  for _, child in ipairs(config.layout.children) do
-    if child.widget then
-      yaml_content = yaml_content .. "    - widget:\n"
-      yaml_content = yaml_content .. ("        id: " .. tostring(child.widget.id) .. "\n")
-      yaml_content = yaml_content .. ("        title: " .. child.widget.title .. "\n")
-      yaml_content = yaml_content .. ("        space: " .. tostring(child.widget.space) .. "\n")
-      yaml_content = yaml_content .. ("        position: " .. tostring(child.widget.position) .. "\n")
-      if child.widget.columns and #child.widget.columns > 0 then
-        yaml_content = yaml_content .. "        columns:\n"
-        for _, col in ipairs(child.widget.columns) do
-          yaml_content = yaml_content .. ("          - " .. col .. "\n")
-        end
-      end
-      if child.widget.groupBy then
-        yaml_content = yaml_content .. ("        groupBy: " .. tostring(child.widget.groupBy) .. "\n")
-      end
-      for key, value in pairs(child.widget) do
-        if key ~= 'id' and key ~= 'title' and key ~= 'space' and key ~= 'position' and key ~= 'columns' and key ~= 'groupBy' then
-          yaml_content = yaml_content .. ("        " .. key .. ": " .. tostring(value) .. "\n")
-        end
-      end
-    end
-  end
-  local updated_yaml = yaml_content
-  box.space._tdb_custom_views:update(viewId, {
-    {
-      '=',
-      4,
-      updated_yaml
-    },
-    {
-      '=',
-      6,
-      os.time()
-    }
-  })
-  return {
-    id = viewId,
     name = t[2],
     description = t[3],
-    yaml = updated_yaml,
+    yaml = yaml_content,
     createdAt = tostring(t[5]),
-    updatedAt = tostring(os.time())
+    updatedAt = tostring(t[6])
+  }
+end
+export_layout = function(page_id)
+  local t = box.space._tdb_custom_views:get(page_id)
+  if not (t) then
+    error("CustomView not found: " .. tostring(page_id))
+  end
+  return {
+    id = t[1],
+    name = t[2],
+    yaml = t[4]
+  }
+end
+import_layout = function(page_id, yaml)
+  local t = box.space._tdb_custom_views:get(page_id)
+  if not (t) then
+    error("CustomView not found: " .. tostring(page_id))
+  end
+  local now = require('clock').time()
+  box.space._tdb_custom_views:replace({
+    page_id,
+    t[2],
+    t[3],
+    yaml,
+    t[5],
+    now
+  })
+  return {
+    id = page_id,
+    name = t[2],
+    description = t[3],
+    yaml = yaml,
+    createdAt = tostring(t[5]),
+    updatedAt = tostring(now)
   }
 end
 local Query = {
@@ -433,6 +458,14 @@ local Query = {
   customView = function(_, args, ctx)
     require_auth(ctx)
     return get_custom_view(args.id)
+  end,
+  exportLayout = function(_, args, ctx)
+    require_auth(ctx)
+    return export_layout(args.pageId)
+  end,
+  listLayoutSnapshots = function(_, args, ctx)
+    require_auth(ctx)
+    return list_layout_snapshots(args.pageId)
   end
 }
 local Mutation = {
@@ -503,6 +536,18 @@ local Mutation = {
   addDataViewToPage = function(_, args, ctx)
     require_auth(ctx)
     return add_data_view_to_page(args.pageId, args.dataViewId)
+  end,
+  importLayout = function(_, args, ctx)
+    require_auth(ctx)
+    return import_layout(args.pageId, args.yaml)
+  end,
+  createLayoutSnapshot = function(_, args, ctx)
+    require_auth(ctx)
+    return create_layout_snapshot(args.pageId, args.yaml, args.description)
+  end,
+  restoreLayoutSnapshot = function(_, args, ctx)
+    require_auth(ctx)
+    return restore_layout_snapshot(args.snapshotId)
   end
 }
 create_zone = function(pageId, zoneData)
@@ -922,6 +967,101 @@ add_data_view_to_page = function(pageId, dataViewId)
   })
   return {
     id = t[1],
+    name = t[2],
+    description = t[3],
+    yaml = updated_yaml,
+    createdAt = tostring(t[5]),
+    updatedAt = tostring(os.time())
+  }
+end
+add_widget_to_view = function(viewId, widget)
+  local t = box.space._tdb_custom_views:get(viewId)
+  if not (t) then
+    error("CustomView not found: " .. tostring(viewId))
+  end
+  if not (widget and type(widget) == 'table') then
+    error("widget must be a table")
+  end
+  if not (widget.title) then
+    error("widget.title is required")
+  end
+  local space_name = widget.space
+  if widget.spaceId then
+    local space = box.space._tdb_spaces:get(widget.spaceId)
+    if space then
+      space_name = space[2]
+    end
+  end
+  if not (space_name) then
+    error("widget.space or widget.spaceId is required")
+  end
+  local yaml_raw = t[4]
+  if not yaml_raw or yaml_raw == '' then
+    yaml_raw = 'layout:\n  direction: vertical\n  children: []'
+  end
+  local config = yaml.decode(yaml_raw)
+  if not config or type(config) ~= 'table' then
+    config = {
+      layout = {
+        direction = 'vertical',
+        children = { }
+      }
+    }
+  elseif not config.layout then
+    config.layout = {
+      direction = 'vertical',
+      children = { }
+    }
+  elseif not config.layout.children then
+    config.layout.children = { }
+  end
+  local position = #config.layout.children + 1
+  local new_widget = {
+    id = widget.id or tostring(uuid_mod.new()),
+    title = widget.title,
+    space = space_name,
+    position = widget.position or position
+  }
+  if widget.type then
+    new_widget.type = widget.type
+  end
+  if widget.fields and type(widget.fields) == 'table' and #widget.fields > 0 then
+    new_widget.columns = widget.fields
+  elseif widget.columns and type(widget.columns) == 'table' and #widget.columns > 0 then
+    new_widget.columns = widget.columns
+  end
+  if widget.groupBy then
+    new_widget.groupBy = widget.groupBy
+  end
+  if widget.dataViewId then
+    new_widget.dataViewId = widget.dataViewId
+  end
+  if widget.params and type(widget.params) == 'table' then
+    new_widget.params = widget.params
+  end
+  for key, value in pairs(widget) do
+    if key ~= 'id' and key ~= 'title' and key ~= 'space' and key ~= 'spaceId' and key ~= 'position' and key ~= 'columns' and key ~= 'fields' and key ~= 'groupBy' and key ~= 'dataViewId' and key ~= 'type' and key ~= 'params' then
+      new_widget[key] = value
+    end
+  end
+  table.insert(config.layout.children, {
+    widget = new_widget
+  })
+  local updated_yaml = encode_layout_yaml(config)
+  box.space._tdb_custom_views:update(viewId, {
+    {
+      '=',
+      4,
+      updated_yaml
+    },
+    {
+      '=',
+      6,
+      os.time()
+    }
+  })
+  return {
+    id = viewId,
     name = t[2],
     description = t[3],
     yaml = updated_yaml,

@@ -27,12 +27,13 @@
 #           space: personnes
 
 window.CustomView = class CustomView
-  constructor: (@container, @yamlText, @allSpaces, @allDataViews = []) ->
+  constructor: (@container, @yamlText, @allSpaces, @allDataViews = [], @options = {}) ->
     @_widgets   = []   # list of { dataView, node, el }
     @_widgetsById = {} # id -> entry
     @_pluginStateByWidgetId = {}
     @_pluginSelectionListenersByWidgetId = {}
     @pageId = @container.getAttribute('data-page-id') or null
+    @presentationMode = @options.presentationMode or false
 
   # Fonction globale pour gérer l'insertion de layouts pendant l'édition YAML
   @setupLayoutInsertion: ->
@@ -140,6 +141,12 @@ window.CustomView = class CustomView
     @_widgetsById = {}
     @_mountPromises = []
 
+    # Apply presentation mode class
+    if @presentationMode
+      @container.classList.add 'presentation-mode'
+    else
+      @container.classList.remove 'presentation-mode'
+
     # Configurer le listener global d'insertion de layouts
     CustomView.setupLayoutInsertion()
 
@@ -167,12 +174,13 @@ window.CustomView = class CustomView
            entry.dataView?._grid?.refreshLayout()
        , 0
 
-     # Initialiser le DragDropManager avec support des zones (Phase 3)
-     if @pageId
-       @_dragDropManager?.destroy?()
+      # Initialiser le DragDropManager avec support des zones (Phase 3)
+      # Disabled in presentation mode
+      if @pageId and not @presentationMode
+        @_dragDropManager?.destroy?()
 
-       # Vérifier si DragDropManager est disponible
-       if typeof DragDropManager != 'undefined'
+        # Vérifier si DragDropManager est disponible
+        if typeof DragDropManager != 'undefined'
          @_dragDropManager = new DragDropManager @container,
            pageId: @pageId
            handle: '.widget-header'
@@ -849,3 +857,28 @@ window.CustomView = class CustomView
   # Get current grid visibility state
   isGridVisible: ->
     @_gridVisible or false
+
+  # Toggle presentation mode (read-only, no drag & drop)
+  togglePresentationMode: ->
+    @presentationMode = not @presentationMode
+    if @presentationMode
+      @container.classList.add 'presentation-mode'
+      @_dragDropManager?.destroy?()
+      @_dragDropManager = null
+    else
+      @container.classList.remove 'presentation-mode'
+      # Reinitialize drag drop if pageId exists
+      if @pageId and typeof DragDropManager != 'undefined'
+        @_dragDropManager = new DragDropManager @container,
+          pageId: @pageId
+          handle: '.widget-header'
+          filter: '.no-drag'
+          onResizeZone: (zoneId, factor) =>
+            @_onZoneResize zoneId, factor
+          onReorder: (positions) =>
+            window.AppViewHelpers.handleWidgetReorder @, positions
+    @presentationMode
+
+  # Get presentation mode state
+  isPresentationMode: ->
+    @presentationMode

@@ -257,6 +257,54 @@ local SYSTEM_SPACES = {
       }
     }
   },
+  _tdb_layout_snapshots = {
+    format = {
+      {
+        name = 'id',
+        type = 'string'
+      },
+      {
+        name = 'page_id',
+        type = 'string'
+      },
+      {
+        name = 'yaml',
+        type = 'string'
+      },
+      {
+        name = 'created_at',
+        type = 'number'
+      },
+      {
+        name = 'description',
+        type = 'string'
+      }
+    },
+    indexes = {
+      primary = {
+        parts = {
+          'id'
+        },
+        unique = true,
+        type = 'HASH'
+      },
+      by_page = {
+        parts = {
+          'page_id'
+        },
+        unique = false,
+        type = 'TREE'
+      },
+      by_page_time = {
+        parts = {
+          'page_id',
+          'created_at'
+        },
+        unique = false,
+        type = 'TREE'
+      }
+    }
+  },
   _tdb_data_views = {
     format = {
       {

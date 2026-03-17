@@ -613,6 +613,14 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
 .agg-table tbody td { padding: 4px 8px; border-bottom: 1px solid var(--border-color, #2a2a3a); }
 .cv-widget-body .agg-table-wrap { overflow: auto; flex: 1; min-height: 0; }
 
+/* Presentation mode - hide drag handles and resize handles */
+.presentation-mode .cv-widget-title { cursor: default; }
+.presentation-mode .cv-widget-delete-btn,
+.presentation-mode .resize-handle,
+.presentation-mode .cv-widget-filter { display: none !important; }
+.presentation-mode .drop-zone { border: none !important; }
+.presentation-mode .cv-widget-title::after { display: none; }
+
 /* Layout palette buttons */
 .cv-layout-palette {
   display: flex;
@@ -2060,4 +2068,96 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
 .remove-relation-btn:hover {
   background: rgba(231, 76, 60, 0.1);
   transform: scale(1.1);
+}
+
+/* ── Page list export/import buttons ────────────────────────────────────────── */
+.leaf-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 4px;
+}
+
+.leaf-item-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaf-item-actions {
+  display: none;
+  gap: 2px;
+}
+
+.leaf-item:hover .leaf-item-actions {
+  display: flex;
+}
+
+.page-action-btn {
+  padding: 2px 6px;
+  font-size: 12px;
+  min-width: auto;
+  min-height: auto;
+}
+
+/* ── Mobile Responsive Styles (< 768px) ─────────────────────────────────────── */
+@media (max-width: 767px) {
+  .cv-zone,
+  .cv-zone.horizontal,
+  .cv-zone.vertical {
+    flex-direction: column !important;
+  }
+
+  .cv-zone-content,
+  .cv-zone.horizontal > .cv-zone-content,
+  .cv-zone.vertical > .cv-zone-content {
+    flex-direction: column !important;
+  }
+
+  .cv-zone-header {
+    display: none;
+  }
+
+  .cv-zone .cv-widget {
+    margin: 4px 0;
+    min-height: 200px;
+  }
+
+  .cv-widget-title {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  .toolbar-btn,
+  .fields-btn,
+  #add-row-btn {
+    min-height: 36px;
+    min-width: 36px;
+    padding: 8px 12px;
+  }
+
+  .cv-layout-palette {
+    display: none;
+  }
+
+  #data-toolbar {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 8px;
+    gap: 6px;
+  }
+
+  .content-title {
+    flex: 1 1 100%;
+    margin-bottom: 4px;
+  }
+
+  .leaf-item-actions {
+    display: flex;
+  }
+
+  .page-action-btn {
+    padding: 4px 8px;
+  }
 }

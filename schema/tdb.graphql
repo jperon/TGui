@@ -59,6 +59,12 @@ type Query {
   # Snapshot export / diff
   exportSnapshot(includeData: Boolean!, compress: Boolean): String!
   diffSnapshot(yaml: String!):           SnapshotDiff!
+
+  # Layout export / import
+  exportLayout(pageId: ID!): String!
+
+  # Layout snapshots
+  listLayoutSnapshots(pageId: ID!): [LayoutSnapshot!]!
 }
 
 type Mutation {
@@ -94,6 +100,13 @@ type Mutation {
   reorderWidgets(pageId: ID!, widgetPositions: [WidgetPosition!]!): CustomView!
   updateWidgetInView(viewId: ID!, widgetId: String!, widget: WidgetInput!): CustomView!
   removeWidgetFromView(viewId: ID!, widgetId: String!): CustomView!
+
+  # Layout export / import
+  importLayout(pageId: ID!, yaml: String!): CustomView!
+
+  # Layout snapshots
+  createLayoutSnapshot(pageId: ID!, yaml: String!, description: String): LayoutSnapshot!
+  restoreLayoutSnapshot(snapshotId: ID!): CustomView!
 
   # Zone management (Phase 3)
   createZone(pageId: ID!, zoneData: ZoneInput!): Zone!
@@ -217,6 +230,14 @@ type CustomView {
   yaml:        String!
   createdAt:   String!
   updatedAt:   String!
+}
+
+type LayoutSnapshot {
+  id:          ID!
+  pageId:      ID!
+  yaml:        String!
+  createdAt:   Float!
+  description: String
 }
 
 type DataView {

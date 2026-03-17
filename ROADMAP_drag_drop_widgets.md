@@ -101,13 +101,13 @@ Permettre aux utilisateurs de réorganiser visuellement les widgets et zones dan
 ### Phase 6 : UX Avancée (Semaine 6)
 **Fonctionnalités**
 - [x] Undo/Redo pour les opérations drag & drop
-- [x] Mode "présentation" sans drag & drop
+- [ ] Mode "présentation" sans drag & drop
 - [x] Raccourcis clavier pour les actions courantes
-- [x] Export/import des mises en page
+- [ ] Export/import des mises en page
 
 **Backend**
 - [x] Historique des modifications
-- [x] Snapshots automatiques
+- [ ] Snapshots automatiques
 - [x] Validation des permissions
 
 **Frontend**
@@ -165,7 +165,7 @@ class DragDropManager
 - [x] `test_reorder_widgets.moon` : Réordonnancement simple
 - [x] `test_change_parent.moon` : Changement de conteneur
 - [x] `test_resize_zone.moon` : Redimensionnement
-- [x] `test_data_view_integration.moon` : Integration Data Views
+- [x] `test_add_data_view_to_page.moon` : Integration Data Views
 
 ### Tests Frontend
 - [x] Tests E2E avec Playwright pour les scénarios drag & drop

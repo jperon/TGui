@@ -8,10 +8,17 @@ json = require 'json'
 
 -- Forward declarations for functions used before definition
 local add_data_view_to_page
+local add_widget_to_view
 local encode_layout_yaml
 local create_zone
 local resize_zone
 local merge_zones
+local export_layout
+local import_layout
+local create_layout_snapshot
+local list_layout_snapshots
+local restore_layout_snapshot
+local create_auto_snapshot
 
 list_custom_views = ->
   result = {}
@@ -39,20 +46,81 @@ create_custom_view = (name, description, yaml) ->
   { id: id, name: name, description: description or '', yaml: yaml or '',
     createdAt: tostring(now), updatedAt: tostring(now) }
 
-update_custom_view = (id, name, description, yaml) ->
-  t = box.space._tdb_custom_views\get id
-  error "CustomView not found: #{id}" unless t
-  now = require('clock').time!
-  new_name = name or t[2]
-  new_desc = if description != nil then description else t[3]
-  new_yaml = if yaml != nil then yaml else t[4]
-  box.space._tdb_custom_views\replace { id, new_name, new_desc, new_yaml, t[5], now }
-  { id: id, name: new_name, description: new_desc, yaml: new_yaml,
-    createdAt: tostring(t[5]), updatedAt: tostring(now) }
-
 delete_custom_view = (id) ->
   box.space._tdb_custom_views\delete id
   true
+
+-- Create automatic snapshot before updating a custom view
+create_auto_snapshot = (page_id) ->
+  t = box.space._tdb_custom_views\get page_id
+  return nil unless t
+  -- Don't create snapshot if yaml is empty or hasn't changed
+  return nil if not t[4] or t[4] == ''
+  create_layout_snapshot page_id, t[4], "Auto-snapshot before update"
+
+-- Create a layout snapshot
+create_layout_snapshot = (page_id, yaml_content, description) ->
+  id = tostring uuid_mod.new!
+  now = require('clock').time!
+  box.space._tdb_layout_snapshots\insert {
+    id
+    page_id
+    yaml_content
+    now
+    description or ''
+  }
+  {
+    id: id
+    pageId: page_id
+    yaml: yaml_content
+    createdAt: now
+    description: description or ''
+  }
+
+-- List all snapshots for a page
+list_layout_snapshots = (page_id) ->
+  result = {}
+  for t in *box.space._tdb_layout_snapshots.index.by_page\select { page_id }
+    table.insert result, {
+      id: t[1]
+      pageId: t[2]
+      yaml: t[3]
+      createdAt: t[4]
+      description: t[5] or ''
+    }
+  -- Sort by created_at descending (newest first)
+  table.sort result, (a, b) -> a.createdAt > b.createdAt
+  result
+
+-- Restore a layout snapshot
+restore_layout_snapshot = (snapshot_id) ->
+  snapshot = box.space._tdb_layout_snapshots\get snapshot_id
+  error "Snapshot not found: #{snapshot_id}" unless snapshot
+  page_id = snapshot[2]
+  yaml_content = snapshot[3]
+  -- Get the custom view
+  t = box.space._tdb_custom_views\get page_id
+  error "CustomView not found: #{page_id}" unless t
+  -- Create a new snapshot for the current state before restoring
+  create_auto_snapshot page_id
+  -- Update the custom view with the snapshot's yaml
+  now = require('clock').time!
+  box.space._tdb_custom_views\replace { page_id, t[2], t[3], yaml_content, t[5], now }
+  { id: page_id, name: t[2], description: t[3], yaml: yaml_content, createdAt: tostring(t[5]), updatedAt: tostring(now) }
+
+-- Update a custom view with automatic snapshot
+update_custom_view = (id, name, description, yaml) ->
+  t = box.space._tdb_custom_views\get id
+  error "CustomView not found: #{id}" unless t
+  -- Create automatic snapshot if yaml is changing
+  if yaml and yaml != t[4]
+    create_auto_snapshot id
+  now = require('clock').time!
+  new_name = if name != nil then name else t[2]
+  new_desc = if description != nil then description else t[3]
+  new_yaml = if yaml != nil then yaml else t[4]
+  box.space._tdb_custom_views\replace { id, new_name, new_desc, new_yaml, t[5], now }
+  { id: id, name: new_name, description: new_desc, yaml: new_yaml, createdAt: tostring(t[5]), updatedAt: tostring(now) }
 
 -- Réordonner les widgets dans une vue avec support de changement de parent
 reorder_widgets = (pageId, widgetPositions) ->
@@ -242,126 +310,36 @@ reorder_widgets = (pageId, widgetPositions) ->
         if key ~= 'id' and key ~= 'title' and key ~= 'space' and key ~= 'position' and key ~= 'columns' and key ~= 'groupBy'
           yaml_content ..= "        " .. key .. ": " .. tostring(value) .. "\n"
 
-  updated_yaml = yaml_content
-
   -- Mettre à jour la vue dans la base de données
   box.space._tdb_custom_views\update pageId, {
-    { '=', 4, updated_yaml }  -- Mettre à jour le champ yaml
-    { '=', 6, os.time() }     -- Mettre à jour updatedAt
+    { '=', 4, yaml_content }
+    { '=', 6, os.time() }
   }
 
   -- Retourner la vue mise à jour
+  t = box.space._tdb_custom_views\get pageId
   {
     id: pageId
-    yaml: updated_yaml
-  }
-
-add_widget_to_view = (viewId, widget) ->
-  -- Récupérer la vue existante
-  t = box.space._tdb_custom_views\get viewId
-  error "CustomView not found: #{viewId}" unless t
-
-  -- Parser le YAML existant
-  yaml_raw = t[4]
-  if not yaml_raw or yaml_raw == ''
-    yaml_raw = 'layout:\n  direction: vertical\n  children: []'
-
-  config = yaml.decode(yaml_raw)
-  if not config or type(config) != 'table'
-    config = { layout: { direction: 'vertical', children: {} } }
-  elseif not config.layout
-    config.layout = { direction: 'vertical', children: {} }
-  elseif not config.layout.children
-    config.layout.children = {}
-
-  -- Générer un ID unique pour le widget
-  widget_id = uuid_mod()
-
-  -- Créer le widget avec les données fournies au format CustomView
-  -- Récupérer le nom de la source (espace ou vue)
-  source_name = widget.spaceId
-  space_record = box.space._tdb_spaces\get widget.spaceId
-  if space_record
-    source_name = space_record[2]
-  else
-    -- Essayer de trouver une Data View
-    dv_record = box.space._tdb_data_views\get widget.spaceId
-    if dv_record
-      source_name = dv_record[2]
-
-  -- Calculer la position (à la fin de la liste)
-  position = #config.layout.children + 1
-
-  new_widget =
-    id: widget_id
-    title: widget.title
-    space: source_name
-    position: position  -- Ajouter la position automatique
-
-  -- Ajouter les colonnes si spécifiées
-  if widget.fields and #widget.fields > 0
-    new_widget.columns = widget.fields
-
-  -- Ajouter le groupement si spécifié
-  if widget.groupBy
-    new_widget.groupBy = widget.groupBy
-
-  -- Ajouter les paramètres si spécifiés
-  if widget.params and next(widget.params)
-    for key, value in pairs(widget.params)
-      new_widget[key] = value
-
-  -- Ajouter le widget à la structure layout
-  table.insert(config.layout.children, {
-    widget: new_widget
-  })
-
-  -- Re-encoder le YAML avec un format propre
-  yaml_content = "layout:\n"
-  yaml_content ..= "  direction: " .. (config.layout.direction or 'vertical') .. "\n"
-  yaml_content ..= "  children:\n"
-
-  -- Ajouter chaque widget au format YAML correct
-  for _, child in ipairs(config.layout.children)
-    if child.widget
-      yaml_content ..= "    - widget:\n"
-      yaml_content ..= "        id: " .. tostring(child.widget.id) .. "\n"
-      yaml_content ..= "        title: " .. child.widget.title .. "\n"
-      yaml_content ..= "        space: " .. tostring(child.widget.space) .. "\n"
-      yaml_content ..= "        position: " .. tostring(child.widget.position) .. "\n"
-
-      -- Ajouter les colonnes si présentes
-      if child.widget.columns and #child.widget.columns > 0
-        yaml_content ..= "        columns:\n"
-        for _, col in ipairs(child.widget.columns)
-          yaml_content ..= "          - " .. col .. "\n"
-
-      -- Ajouter le groupement si présent
-      if child.widget.groupBy
-        yaml_content ..= "        groupBy: " .. tostring(child.widget.groupBy) .. "\n"
-
-      -- Ajouter les autres propriétés
-      for key, value in pairs(child.widget)
-        if key ~= 'id' and key ~= 'title' and key ~= 'space' and key ~= 'position' and key ~= 'columns' and key ~= 'groupBy'
-          yaml_content ..= "        " .. key .. ": " .. tostring(value) .. "\n"
-
-  updated_yaml = yaml_content
-
-  -- Mettre à jour la vue dans la base de données
-  box.space._tdb_custom_views\update viewId, {
-    { '=', 4, updated_yaml }  -- Mettre à jour le champ yaml
-    { '=', 6, os.time() }     -- Mettre à jour updatedAt
-  }
-
-  -- Retourner la vue mise à jour
-  {
-    id: viewId
     name: t[2]
     description: t[3]
-    yaml: updated_yaml
+    yaml: yaml_content
     createdAt: tostring(t[5])
-    updatedAt: tostring(os.time())
+    updatedAt: tostring(t[6])
   }
+
+-- Export layout as YAML string
+export_layout = (page_id) ->
+  t = box.space._tdb_custom_views\get page_id
+  error "CustomView not found: #{page_id}" unless t
+  { id: t[1], name: t[2], yaml: t[4] }
+
+-- Import layout YAML string
+import_layout = (page_id, yaml) ->
+  t = box.space._tdb_custom_views\get page_id
+  error "CustomView not found: #{page_id}" unless t
+  now = require('clock').time!
+  box.space._tdb_custom_views\replace { page_id, t[2], t[3], yaml, t[5], now }
+  { id: page_id, name: t[2], description: t[3], yaml: yaml, createdAt: tostring(t[5]), updatedAt: tostring(now) }
 
 Query =
   customViews: (_, args, ctx) ->
@@ -370,6 +348,12 @@ Query =
   customView:  (_, args, ctx) ->
     require_auth ctx
     get_custom_view args.id
+  exportLayout: (_, args, ctx) ->
+    require_auth ctx
+    export_layout args.pageId
+  listLayoutSnapshots: (_, args, ctx) ->
+    require_auth ctx
+    list_layout_snapshots args.pageId
 
 Mutation =
   createCustomView: (_, args, ctx) ->
@@ -434,6 +418,18 @@ Mutation =
   addDataViewToPage: (_, args, ctx) ->
     require_auth ctx
     add_data_view_to_page args.pageId, args.dataViewId
+
+  importLayout: (_, args, ctx) ->
+    require_auth ctx
+    import_layout args.pageId, args.yaml
+
+  createLayoutSnapshot: (_, args, ctx) ->
+    require_auth ctx
+    create_layout_snapshot args.pageId, args.yaml, args.description
+
+  restoreLayoutSnapshot: (_, args, ctx) ->
+    require_auth ctx
+    restore_layout_snapshot args.snapshotId
 
  -- Créer une nouvelle zone dans une vue
 create_zone = (pageId, zoneData) ->
@@ -811,6 +807,100 @@ add_data_view_to_page = (pageId, dataViewId) ->
   -- Retourner la vue personnalisée mise à jour
   {
     id: t[1]
+    name: t[2]
+    description: t[3]
+    yaml: updated_yaml
+    createdAt: tostring(t[5])
+    updatedAt: tostring(os.time())
+  }
+
+-- Ajouter un widget à une vue personnalisée
+add_widget_to_view = (viewId, widget) ->
+  -- Récupérer la vue personnalisée
+  t = box.space._tdb_custom_views\get viewId
+  error "CustomView not found: #{viewId}" unless t
+
+  -- Valider les données du widget
+  error "widget must be a table" unless widget and type(widget) == 'table'
+  error "widget.title is required" unless widget.title
+
+  -- Récupérer le nom de l'espace à partir de spaceId si présent
+  space_name = widget.space
+  if widget.spaceId
+    space = box.space._tdb_spaces\get widget.spaceId
+    if space
+      space_name = space[2]  -- space name
+
+  error "widget.space or widget.spaceId is required" unless space_name
+
+  -- Parser le YAML existant
+  yaml_raw = t[4]
+  if not yaml_raw or yaml_raw == ''
+    yaml_raw = 'layout:\n  direction: vertical\n  children: []'
+
+  config = yaml.decode(yaml_raw)
+  if not config or type(config) != 'table'
+    config = { layout: { direction: 'vertical', children: {} } }
+  elseif not config.layout
+    config.layout = { direction: 'vertical', children: {} }
+  elseif not config.layout.children
+    config.layout.children = {}
+
+  -- Calculer la position (à la fin de la liste)
+  position = #config.layout.children + 1
+
+  -- Préparer le widget avec toutes les propriétés
+  new_widget = {
+    id: widget.id or tostring(uuid_mod.new!)
+    title: widget.title
+    space: space_name
+    position: widget.position or position
+  }
+
+  -- Ajouter le type si présent
+  if widget.type
+    new_widget.type = widget.type
+
+  -- Ajouter les colonnes (depuis fields ou columns)
+  if widget.fields and type(widget.fields) == 'table' and #widget.fields > 0
+    new_widget.columns = widget.fields
+  elseif widget.columns and type(widget.columns) == 'table' and #widget.columns > 0
+    new_widget.columns = widget.columns
+
+  -- Ajouter le groupement si présent
+  if widget.groupBy
+    new_widget.groupBy = widget.groupBy
+
+  -- Ajouter le dataViewId si présent
+  if widget.dataViewId
+    new_widget.dataViewId = widget.dataViewId
+
+  -- Ajouter params si présent
+  if widget.params and type(widget.params) == 'table'
+    new_widget.params = widget.params
+
+  -- Ajouter les autres propriétés dynamiques
+  for key, value in pairs(widget)
+    if key ~= 'id' and key ~= 'title' and key ~= 'space' and key ~= 'spaceId' and key ~= 'position' and key ~= 'columns' and key ~= 'fields' and key ~= 'groupBy' and key ~= 'dataViewId' and key ~= 'type' and key ~= 'params'
+      new_widget[key] = value
+
+  -- Ajouter le widget à la structure layout
+  table.insert(config.layout.children, {
+    widget: new_widget
+  })
+
+  -- Re-encoder le YAML avec un format propre
+  updated_yaml = encode_layout_yaml(config)
+
+  -- Mettre à jour la vue personnalisée dans la base de données
+  box.space._tdb_custom_views\update viewId, {
+    { '=', 4, updated_yaml }
+    { '=', 6, os.time() }
+  }
+
+  -- Retourner la vue mise à jour
+  {
+    id: viewId
     name: t[2]
     description: t[3]
     yaml: updated_yaml

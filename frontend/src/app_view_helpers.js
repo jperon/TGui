@@ -40,7 +40,7 @@
         });
       }
       renderTree = function(node, containerEl, pathStr = "") {
-        var fName, fNode, folderLi, folderNames, fullPath, header, icon, item, k, l, len2, len3, li, lsKey, results1, sortedItems, subUl;
+        var btnExport, btnGroup, btnImport, fName, fNode, folderLi, folderNames, fullPath, header, icon, inputFile, item, k, l, len2, len3, li, lsKey, results1, sortedItems, spanName, subUl;
         folderNames = Object.keys(node.folders).sort(function(a, b) {
           return a.toLowerCase().localeCompare(b.toLowerCase());
         });
@@ -82,9 +82,73 @@
           item = sortedItems[l];
           li = document.createElement('li');
           li.className = 'leaf-item';
-          li.textContent = item.shortName;
           li.dataset.id = item.cv.id;
           li.title = item.cv.name;
+          spanName = document.createElement('span');
+          spanName.className = 'leaf-item-name';
+          spanName.textContent = item.shortName;
+          li.appendChild(spanName);
+          btnGroup = document.createElement('span');
+          btnGroup.className = 'leaf-item-actions';
+          btnExport = document.createElement('button');
+          btnExport.className = 'toolbar-btn toolbar-btn--icon page-action-btn';
+          btnExport.title = 'Exporter le layout';
+          btnExport.textContent = '↓';
+          btnExport.addEventListener('click', function(e) {
+            e.stopPropagation();
+            return GQL.query('query ExportLayout($pageId: ID!) { exportLayout(pageId: $pageId) }', {
+              pageId: item.cv.id
+            }).then(function(data) {
+              var a, blob, url;
+              blob = new Blob([data.exportLayout], {
+                type: 'text/yaml'
+              });
+              url = URL.createObjectURL(blob);
+              a = document.createElement('a');
+              a.href = url;
+              a.download = `${item.cv.name.replace(/[^a-z0-9]/gi, '_')}.yaml`;
+              a.click();
+              return URL.revokeObjectURL(url);
+            }).catch(function(err) {
+              return tdbAlert(app._err(err), 'error');
+            });
+          });
+          btnGroup.appendChild(btnExport);
+          btnImport = document.createElement('button');
+          btnImport.className = 'toolbar-btn toolbar-btn--icon page-action-btn';
+          btnImport.title = 'Importer un layout';
+          btnImport.textContent = '↑';
+          inputFile = null;
+          btnImport.addEventListener('click', function(e) {
+            e.stopPropagation();
+            inputFile = document.createElement('input');
+            inputFile.type = 'file';
+            inputFile.accept = '.yaml,.yml';
+            inputFile.onchange = function(evt) {
+              var file, reader;
+              file = evt.target.files[0];
+              if (!file) {
+                return;
+              }
+              reader = new FileReader();
+              reader.onload = function(e) {
+                var yaml;
+                yaml = e.target.result;
+                return GQL.mutate('mutation ImportLayout($pageId: ID!, $yaml: String!) { importLayout(pageId: $pageId, yaml: $yaml) { id name yaml } }', {
+                  pageId: item.cv.id,
+                  yaml
+                }).then(function() {
+                  return app.loadPages();
+                }).catch(function(err) {
+                  return tdbAlert(app._err(err), 'error');
+                });
+              };
+              return reader.readAsText(file);
+            };
+            return inputFile.click();
+          });
+          btnGroup.appendChild(btnImport);
+          li.appendChild(btnGroup);
           (function(cv) {
             return li.addEventListener('click', function(e) {
               e.stopPropagation();
