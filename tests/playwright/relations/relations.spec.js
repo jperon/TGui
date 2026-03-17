@@ -107,9 +107,11 @@
           firstRelation = relationFields.first();
           editBtn = firstRelation.locator('button[title="Modifier ce champ"]');
           await editBtn.click();
-          await page.waitForTimeout(500);
+          await page.waitForTimeout(1000);
           relReprFormula = page.locator('#rel-repr-formula');
-          await relReprFormula.fill('self.id');
+          await relReprFormula.fill('self.id', {
+            force: true
+          });
           await page.waitForTimeout(300);
           fieldAddBtn = page.locator('#field-add-btn');
           await fieldAddBtn.click();
