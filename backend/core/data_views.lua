@@ -51,7 +51,13 @@ create_view = function(name, description, source_space, config_json)
     name,
     description or '',
     source_space,
-    config_json or '{}',
+    ((function()
+      if config_json and config_json ~= '' then
+        return config_json
+      else
+        return '{}'
+      end
+    end)()),
     now,
     now
   })

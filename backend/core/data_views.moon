@@ -32,7 +32,7 @@ create_view = (name, description, source_space, config_json) ->
 
   view_id = uuid.str!
   now = os.time!
-  box.space._tdb_data_views\insert { view_id, name, description or '', source_space, config_json or '{}', now, now }
+  box.space._tdb_data_views\insert { view_id, name, description or '', source_space, (if config_json and config_json != '' then config_json else '{}'), now, now }
   get_view view_id
 
 get_view_by_name = (name) ->

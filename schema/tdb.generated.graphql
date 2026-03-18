@@ -18,6 +18,13 @@ input PositionInput {
   h: Int!
 }
 
+input DataViewInput {
+  name:         String!
+  description:  String
+  sourceSpace:  String!
+  config:       String
+}
+
 type CustomView {
   id:          ID!
   name:        String!
@@ -39,6 +46,16 @@ type WidgetPlugin {
   updatedAt:       String!
 }
 
+type DataView {
+  id:           ID!
+  name:         String!
+  description:  String
+  sourceSpace:  String!
+  config:       String!
+  createdAt:    String!
+  updatedAt:    String!
+}
+
 type Query {
   spaces: [Space!]!
   space(id: ID!): Space
@@ -46,6 +63,9 @@ type Query {
   view(id: ID!): View
   customViews: [CustomView!]!
   customView(id: ID!): CustomView
+  dataViews: [DataView!]!
+  dataView(id: ID!): DataView
+  executeDataView(id: ID!, limit: Int, offset: Int): JSON!
   widgetPlugins: [WidgetPlugin!]!
   widgetPlugin(id: ID, name: String): WidgetPlugin
   records(spaceId: ID!, filter: RecordFilter, limit: Int, offset: Int, reprFormula: String, reprLanguage: String): RecordPage!
@@ -79,6 +99,9 @@ type Mutation {
   createCustomView(input: CreateCustomViewInput!): CustomView!
   updateCustomView(id: ID!, input: UpdateCustomViewInput!): CustomView!
   deleteCustomView(id: ID!): Boolean!
+  createDataView(input: DataViewInput!): DataView!
+  updateDataView(id: ID!, input: DataViewInput!): DataView!
+  deleteDataView(id: ID!): Boolean!
   createWidgetPlugin(input: CreateWidgetPluginInput!): WidgetPlugin!
   updateWidgetPlugin(id: ID!, input: UpdateWidgetPluginInput!): WidgetPlugin!
   deleteWidgetPlugin(id: ID!): Boolean!
