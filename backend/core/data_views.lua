@@ -26,6 +26,35 @@ get_view = function(id)
 end
 local create_view
 create_view = function(name, description, source_space, config_json)
+  log.info("create_view called with parameters:")
+  log.info("  name: " .. tostring((function()
+    if name then
+      return name
+    else
+      return 'nil'
+    end
+  end)()))
+  log.info("  description: " .. tostring((function()
+    if description then
+      return description
+    else
+      return 'nil'
+    end
+  end)()))
+  log.info("  source_space: " .. tostring((function()
+    if source_space then
+      return source_space
+    else
+      return 'nil'
+    end
+  end)()))
+  log.info("  config_json: " .. tostring((function()
+    if config_json then
+      return config_json
+    else
+      return 'nil'
+    end
+  end)()))
   if not name or name == '' then
     error("Name cannot be empty")
   end
@@ -44,6 +73,16 @@ create_view = function(name, description, source_space, config_json)
       error("Invalid config JSON: " .. tostring(err))
     end
   end
+  local final_config
+  if config_json and config_json ~= '' then
+    final_config = config_json
+  else
+    final_config = '{}'
+  end
+  log.info("Final config to be stored: " .. tostring(final_config))
+  log.info("Config is null: " .. tostring(config_json == nil))
+  log.info("Config is empty string: " .. tostring(config_json == ''))
+  log.info("Config is null or empty: " .. tostring(not config_json or config_json == ''))
   local view_id = uuid.str()
   local now = os.time()
   box.space._tdb_data_views:insert({
@@ -51,13 +90,7 @@ create_view = function(name, description, source_space, config_json)
     name,
     description or '',
     source_space,
-    ((function()
-      if config_json and config_json ~= '' then
-        return config_json
-      else
-        return '{}'
-      end
-    end)()),
+    final_config,
     now,
     now
   })
