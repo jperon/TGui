@@ -215,11 +215,14 @@
         });
       }
       config = {
-        columns: columns.length > 0 ? columns : null,
-        filter: filter,
-        groupBy: groupBy.length > 0 ? groupBy : null,
-        aggregates: aggregates.length > 0 ? aggregates : null,
-        joins: joins.length > 0 ? joins : null
+        columns: columns.length > 0 ? columns : [],
+        filter: filter || {
+          formula: '',
+          language: 'moonscript'
+        },
+        groupBy: groupBy.length > 0 ? groupBy : [],
+        aggregates: aggregates.length > 0 ? aggregates : [],
+        joins: joins.length > 0 ? joins : []
       };
       input = {
         name: name,

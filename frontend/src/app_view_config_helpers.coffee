@@ -196,11 +196,11 @@ window.AppViewConfigHelpers =
       }
 
     config = {
-      columns: if columns.length > 0 then columns else null
-      filter: filter
-      groupBy: if groupBy.length > 0 then groupBy else null
-      aggregates: if aggregates.length > 0 then aggregates else null
-      joins: if joins.length > 0 then joins else null
+      columns: if columns.length > 0 then columns else []
+      filter: filter or { formula: '', language: 'moonscript' }
+      groupBy: if groupBy.length > 0 then groupBy else []
+      aggregates: if aggregates.length > 0 then aggregates else []
+      joins: if joins.length > 0 then joins else []
     }
 
     input = {
