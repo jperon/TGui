@@ -42,8 +42,7 @@ window.DataViews =
   get: (id) ->
     GQL.query(DATA_VIEW, { id }).then (d) -> d.dataView
 
-  create: (name, sourceSpace, description = '', config = '{}') ->
-    input = { name, sourceSpace, description, config }
+  create: (input) ->
     GQL.mutate(CREATE_DATA_VIEW, { input }).then (d) -> d.createDataView
 
   update: (id, params) ->

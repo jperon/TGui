@@ -36,9 +36,7 @@
         return d.dataView;
       });
     },
-    create: function(name, sourceSpace, description = '', config = '{}') {
-      var input;
-      input = {name, sourceSpace, description, config};
+    create: function(input) {
       return GQL.mutate(CREATE_DATA_VIEW, {input}).then(function(d) {
         return d.createDataView;
       });
