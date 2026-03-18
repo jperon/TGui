@@ -2,6 +2,7 @@
 -- Type system: builds an executable schema from a parsed SDL document.
 -- Supports scalars, objects, interfaces, unions, enums, input objects, lists, non-null.
 
+log        = require 'log'
 { :parse } = require 'graphql.parser'
 
 -- ────────────────────────────────────────────────────────────────────────────
@@ -201,7 +202,10 @@ class Schema
   -- Coerce an input value according to its declared type
   coerce_input: (type_ref, value) =>
     if type_ref.kind == 'NonNullType'
-      if value == nil then error "Non-null field received null"
+      if value == nil 
+        type_name = @named_type type_ref.ofType
+        log.error "tdb schema: Non-null field received null, type: #{type_name}"
+        error "Non-null field received null"
       return @coerce_input type_ref.ofType, value
     if value == nil then return nil
     if type_ref.kind == 'ListType'

@@ -1,3 +1,4 @@
+local log = require('log')
 local parse
 parse = require('graphql.parser').parse
 local SCALARS = {
@@ -220,6 +221,8 @@ do
     coerce_input = function(self, type_ref, value)
       if type_ref.kind == 'NonNullType' then
         if value == nil then
+          local type_name = self:named_type(type_ref.ofType)
+          log.error("tdb schema: Non-null field received null, type: " .. tostring(type_name))
           error("Non-null field received null")
         end
         return self:coerce_input(type_ref.ofType, value)
