@@ -181,7 +181,7 @@ window.AppViewConfigHelpers =
         aggregates.push { field: aField, func: aFunc, alias: aAlias or "#{aFunc.toLowerCase()}_#{aField}" }
 
     filterFormula = app.el.dvFilterFormula().value.trim()
-    filter = if filterFormula then { formula: filterFormula, language: 'moonscript' } else null
+    filter = if filterFormula then { formula: filterFormula, language: 'moonscript' } else { formula: '', language: 'moonscript' }
 
     # Gather selected joins
     joins = []
@@ -209,6 +209,7 @@ window.AppViewConfigHelpers =
       config: JSON.stringify config
     }
 
+    console.log('Data view creation/update input:', input)
     promise = if @_currentViewId
       DataViews.update(@_currentViewId, input)
     else
@@ -218,7 +219,9 @@ window.AppViewConfigHelpers =
       app.el.dataViewModal().classList.add 'hidden'
       app.loadDataViews().then =>
         app.selectDataView view
-    .catch (err) -> tdbAlert app._err(err), 'error'
+    .catch (err) ->
+      console.error('Data view creation/update error:', err)
+      tdbAlert app._err(err), 'error'
 
   # Nouvelles fonctions pour l'interface unifiée de champs et jointures
   resetDataViewFields: (app) ->
@@ -671,7 +674,7 @@ aggregates: []
 
     # Gather filter
     filterFormula = app.el.dvFilterFormula().value.trim()
-    filter = if filterFormula then { formula: filterFormula, language: 'moonscript' } else null
+    filter = if filterFormula then { formula: filterFormula, language: 'moonscript' } else { formula: '', language: 'moonscript' }
 
     # Gather aggregates
     aggregates = []

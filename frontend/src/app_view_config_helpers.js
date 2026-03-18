@@ -200,7 +200,10 @@
       filter = filterFormula ? {
         formula: filterFormula,
         language: 'moonscript'
-      } : null;
+      } : {
+        formula: '',
+        language: 'moonscript'
+      };
       // Gather selected joins
       joins = [];
       selectedRelations = ((ref = this._joinsYamlBuilder) != null ? ref.getSelectedRelations() : void 0) || [];
@@ -229,6 +232,7 @@
         sourceSpace: sourceSpace,
         config: JSON.stringify(config)
       };
+      console.log('Data view creation/update input:', input);
       promise = this._currentViewId ? DataViews.update(this._currentViewId, input) : DataViews.create(input);
       return promise.then((view) => {
         app.el.dataViewModal().classList.add('hidden');
@@ -236,6 +240,7 @@
           return app.selectDataView(view);
         });
       }).catch(function(err) {
+        console.error('Data view creation/update error:', err);
         return tdbAlert(app._err(err), 'error');
       });
     },
@@ -773,7 +778,10 @@ aggregates: []
       filter = filterFormula ? {
         formula: filterFormula,
         language: 'moonscript'
-      } : null;
+      } : {
+        formula: '',
+        language: 'moonscript'
+      };
       // Gather aggregates
       aggregates = [];
       app.el.dvAggregatesList().querySelectorAll('.dv-row').forEach(function(row) {
