@@ -9,6 +9,9 @@ Query = {
   { name: 'view',         args: 'id: ID!',                    returns: 'View' }
   { name: 'customViews',  args: '',                           returns: '[CustomView!]!' }
   { name: 'customView',   args: 'id: ID!',                    returns: 'CustomView' }
+  { name: 'dataViews', args: '', returns: '[DataView!]!' }
+  { name: 'dataView',  args: 'id: ID!', returns: 'DataView' }
+  { name: 'executeDataView', args: 'id: ID!, limit: Int, offset: Int', returns: 'JSON!' }
   { name: 'widgetPlugins',args: '',                           returns: '[WidgetPlugin!]!' }
   { name: 'widgetPlugin', args: 'id: ID, name: String',       returns: 'WidgetPlugin' }
   { name: 'records',      args: 'spaceId: ID!, filter: RecordFilter, limit: Int, offset: Int, reprFormula: String, reprLanguage: String', returns: 'RecordPage!' }
@@ -42,6 +45,9 @@ Mutation = {
   { name: 'createCustomView', args: 'input: CreateCustomViewInput!',     returns: 'CustomView!' }
   { name: 'updateCustomView', args: 'id: ID!, input: UpdateCustomViewInput!', returns: 'CustomView!' }
   { name: 'deleteCustomView', args: 'id: ID!',                           returns: 'Boolean!' }
+  { name: 'createDataView', args: 'input: DataViewInput!', returns: 'DataView!' }
+  { name: 'updateDataView', args: 'id: ID!, input: DataViewInput!', returns: 'DataView!' }
+  { name: 'deleteDataView', args: 'id: ID!', returns: 'Boolean!' }
   { name: 'createWidgetPlugin', args: 'input: CreateWidgetPluginInput!', returns: 'WidgetPlugin!' }
   { name: 'updateWidgetPlugin', args: 'id: ID!, input: UpdateWidgetPluginInput!', returns: 'WidgetPlugin!' }
   { name: 'deleteWidgetPlugin', args: 'id: ID!',                         returns: 'Boolean!' }
@@ -92,6 +98,15 @@ InputTypes = {
   h: Int!
 }'
   }
+  {
+    name: 'DataViewInput',
+    definition: 'input DataViewInput {
+  name:         String!
+  description:  String
+  sourceSpace:  String!
+  config:       String
+}'
+  }
 }
 
 ObjectTypes = {
@@ -118,6 +133,18 @@ ObjectTypes = {
   scriptLanguage:  String!
   createdAt:       String!
   updatedAt:       String!
+}'
+  }
+  {
+    name: 'DataView',
+    definition: 'type DataView {
+  id:           ID!
+  name:         String!
+  description:  String
+  sourceSpace:  String!
+  config:       String!
+  createdAt:    String!
+  updatedAt:    String!
 }'
   }
 }

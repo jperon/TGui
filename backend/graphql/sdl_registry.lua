@@ -30,6 +30,21 @@ local Query = {
     returns = 'CustomView'
   },
   {
+    name = 'dataViews',
+    args = '',
+    returns = '[DataView!]!'
+  },
+  {
+    name = 'dataView',
+    args = 'id: ID!',
+    returns = 'DataView'
+  },
+  {
+    name = 'executeDataView',
+    args = 'id: ID!, limit: Int, offset: Int',
+    returns = 'JSON!'
+  },
+  {
     name = 'widgetPlugins',
     args = '',
     returns = '[WidgetPlugin!]!'
@@ -182,6 +197,21 @@ local Mutation = {
     returns = 'Boolean!'
   },
   {
+    name = 'createDataView',
+    args = 'input: DataViewInput!',
+    returns = 'DataView!'
+  },
+  {
+    name = 'updateDataView',
+    args = 'id: ID!, input: DataViewInput!',
+    returns = 'DataView!'
+  },
+  {
+    name = 'deleteDataView',
+    args = 'id: ID!',
+    returns = 'Boolean!'
+  },
+  {
     name = 'createWidgetPlugin',
     args = 'input: CreateWidgetPluginInput!',
     returns = 'WidgetPlugin!'
@@ -315,6 +345,10 @@ local InputTypes = {
   {
     name = 'PositionInput',
     definition = 'input PositionInput {\n  x: Int!\n  y: Int!\n  w: Int!\n  h: Int!\n}'
+  },
+  {
+    name = 'DataViewInput',
+    definition = 'input DataViewInput {\n  name:         String!\n  description:  String\n  sourceSpace:  String!\n  config:       String\n}'
   }
 }
 local ObjectTypes = {
@@ -325,6 +359,10 @@ local ObjectTypes = {
   {
     name = 'WidgetPlugin',
     definition = 'type WidgetPlugin {\n  id:              ID!\n  name:            String!\n  description:     String\n  templateCode:    String!\n  templateLanguage: String!\n  scriptCode:      String!\n  scriptLanguage:  String!\n  createdAt:       String!\n  updatedAt:       String!\n}'
+  },
+  {
+    name = 'DataView',
+    definition = 'type DataView {\n  id:           ID!\n  name:         String!\n  description:  String\n  sourceSpace:  String!\n  config:       String!\n  createdAt:    String!\n  updatedAt:    String!\n}'
   }
 }
 return {

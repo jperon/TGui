@@ -2,24 +2,24 @@
 # Data View management (saved queries).
 
 LIST_DATA_VIEWS = """
-  query { dataViews { id name description sourceSpace config } }
+  query { dataViews { id name description sourceSpace config createdAt updatedAt } }
 """
 
 DATA_VIEW = """
   query DataView($id: ID!) {
-    dataView(id: $id) { id name description sourceSpace config }
+    dataView(id: $id) { id name description sourceSpace config createdAt updatedAt }
   }
 """
 
 CREATE_DATA_VIEW = """
   mutation CreateDataView($input: DataViewInput!) {
-    createDataView(input: $input) { id name description sourceSpace config }
+    createDataView(input: $input) { id name description sourceSpace config createdAt updatedAt }
   }
 """
 
 UPDATE_DATA_VIEW = """
   mutation UpdateDataView($id: ID!, $input: DataViewInput!) {
-    updateDataView(id: $id, input: $input) { id name description sourceSpace config }
+    updateDataView(id: $id, input: $input) { id name description sourceSpace config createdAt updatedAt }
   }
 """
 
