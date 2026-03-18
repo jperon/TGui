@@ -136,7 +136,7 @@ test.describe('Complete Workflow', ->
     await page.waitForTimeout 500
     
     await page.click '#data-view-save-btn'
-    await page.waitForTimeout 2000
+    await page.waitForTimeout 5000
     
     createdDV = dataViewsList.locator('li', { hasText: dataViewName })
     await expect(createdDV).toBeVisible()
