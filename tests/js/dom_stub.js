@@ -45,6 +45,25 @@
         el.children.push(child);
         return child;
       },
+      insertBefore: function(child, _ref) {
+        el._children.unshift(child);
+        el.children.unshift(child);
+        return child;
+      },
+      getAttribute: function(name) {
+        var ref, ref1;
+        if (name.indexOf('data-') === 0) {
+          return el.dataset[name.slice(5)];
+        }
+        return (ref = (ref1 = el._attrs) != null ? ref1[name] : void 0) != null ? ref : null;
+      },
+      setAttribute: function(name, value) {
+        if (name.indexOf('data-') === 0) {
+          return el.dataset[name.slice(5)] = value;
+        } else {
+          return (el._attrs != null ? el._attrs : el._attrs = {})[name] = value;
+        }
+      },
       addEventListener: function(ev, fn) {
         var base;
         if ((base = el._listeners)[ev] == null) {
@@ -52,8 +71,14 @@
         }
         return el._listeners[ev].push(fn);
       },
-      querySelector: function() {
-        return null;
+      // Retourne un élément stub (mémoïsé par sélecteur) plutôt que null, afin que
+      // le code qui enchaîne .querySelector(x).addEventListener(...) ne plante pas.
+      querySelector: function(sel) {
+        var base;
+        if (el._qsCache == null) {
+          el._qsCache = {};
+        }
+        return (base = el._qsCache)[sel] != null ? base[sel] : base[sel] = makeElement('div');
       },
       querySelectorAll: function() {
         return [];
@@ -105,7 +130,10 @@
     });
   };
 
-  global.window = {};
+  global.window = {
+    addEventListener: (function() {}),
+    removeEventListener: (function() {})
+  };
 
   global.localStorage = localStorageStub;
 

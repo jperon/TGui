@@ -30,10 +30,26 @@ makeElement = (tag) ->
       el._children.push child
       el.children.push child
       child
+    insertBefore: (child, _ref) ->
+      el._children.unshift child
+      el.children.unshift child
+      child
+    getAttribute: (name) ->
+      return el.dataset[name.slice(5)] if name.indexOf('data-') == 0
+      el._attrs?[name] ? null
+    setAttribute: (name, value) ->
+      if name.indexOf('data-') == 0
+        el.dataset[name.slice(5)] = value
+      else
+        (el._attrs ?= {})[name] = value
     addEventListener: (ev, fn) ->
       el._listeners[ev] ?= []
       el._listeners[ev].push fn
-    querySelector:      -> null
+    # Retourne un élément stub (mémoïsé par sélecteur) plutôt que null, afin que
+    # le code qui enchaîne .querySelector(x).addEventListener(...) ne plante pas.
+    querySelector: (sel) ->
+      el._qsCache ?= {}
+      el._qsCache[sel] ?= makeElement 'div'
     querySelectorAll:   -> []
     getBoundingClientRect: -> { top: 0, left: 0, width: 100, height: 100 }
   el
@@ -55,7 +71,7 @@ fetchStub = (url, opts) ->
   Promise.resolve
     json: -> Promise.resolve {}
 
-global.window        = {}
+global.window        = { addEventListener: (->), removeEventListener: (->) }
 global.localStorage  = localStorageStub
 global.fetch         = fetchStub
 global.history       = { replaceState: -> }
