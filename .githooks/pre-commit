@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Pre-commit hook to ensure ALL tests pass before committing.
+#
+# Versionné dans .githooks/ et activé via : git config core.hooksPath .githooks
+# (ou : make install-hooks)
+
+echo "🧪 Running tests before commit..."
+
+# Sur certains systèmes (NixOS, shells non-login) make n'est pas dans le PATH
+# du hook. On tente de le localiser, puis on retombe sur le dev shell Nix.
+if command -v make >/dev/null 2>&1; then
+    make test
+    TEST_EXIT_CODE=$?
+elif command -v nix >/dev/null 2>&1 && [ -f flake.nix ]; then
+    nix develop --command make test
+    TEST_EXIT_CODE=$?
+else
+    echo "❌ COMMIT REJECTED: 'make' introuvable (et pas de flake.nix/nix)."
+    echo "Installe make ou lance le commit depuis 'nix develop'."
+    exit 1
+fi
+
+if [ $TEST_EXIT_CODE -ne 0 ]; then
+    echo ""
+    echo "❌ COMMIT REJECTED: Tests failed!"
+    echo "ALL tests must pass before committing."
+    echo ""
+    echo "Run 'make test' to see the full test output."
+    exit 1
+fi
+
+echo "✅ All tests passed - commit allowed"
+exit 0
