@@ -11,6 +11,9 @@ module.exports = defineConfig({
   expect: {
     timeout: 10000
   },
+  // Réinitialise la base de test à une baseline démo avant le run (isolation)
+  globalSetup: require.resolve('./config/global-setup-simple.js'),
+
   fullyParallel: true,  // Activer la parallélisation complète
 
   retries: 1,  // Moins de retries en parallèle

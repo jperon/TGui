@@ -1,25 +1,59 @@
-// Global setup for Playwright tests
-// Runs once before all test suites
+// Global setup for Playwright tests — runs once before all suites.
+// Ramène l'instance de test à une base déterministe : seuls les espaces de
+// démo subsistent, et aucune vue / data view. Ainsi les suites ne s'appuient
+// pas sur des données accumulées par des exécutions précédentes (isolation).
+
+const BASE = 'http://localhost:8081';
+const DEMO_SPACES = ['Auteurs', 'Livres', 'Emprunts', 'Categories'];
+
+async function gql(query, token) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const r = await fetch(`${BASE}/graphql`, {
+    method: 'POST', headers, body: JSON.stringify({ query }),
+  });
+  return r.json();
+}
 
 module.exports = async function(config) {
-  console.log('🚀 Starting Playwright E2E test setup...');
-  
-  // Verify TGui is running on test port
+  console.log('🚀 Playwright setup: vérification de TGui (port 8081)...');
   try {
-    const response = await fetch('http://localhost:8081');
-    if (!response.ok) {
-      throw new Error(`TGui not responding: ${response.status}`);
-    }
-    
-    console.log('✅ TGui is running and accessible on test port 8081');
+    const response = await fetch(BASE);
+    if (!response.ok) throw new Error(`TGui not responding: ${response.status}`);
+    console.log('✅ TGui accessible sur le port 8081');
   } catch (error) {
     console.error('❌ TGui setup failed:', error.message);
-    console.error('💡 Make sure TGui test instance is running with: make test-up');
+    console.error('💡 Lance l’instance de test : make test-up');
     process.exit(1);
   }
-  
-  // Clean up any existing test data
-  console.log('🧹 Cleaning up existing test data...');
-  
+
+  console.log('🧹 Réinitialisation de la base de test (baseline démo)...');
+  try {
+    const login = await gql('mutation { login(username:"admin", password:"adminadmin") { token } }');
+    const token = login?.data?.login?.token;
+    if (!token) throw new Error('login échoué: ' + JSON.stringify(login));
+
+    // Supprime toutes les data views et custom views
+    const dvs = (await gql('{ dataViews { id } }', token))?.data?.dataViews || [];
+    for (const dv of dvs) await gql(`mutation { deleteDataView(id: "${dv.id}") }`, token);
+
+    const cvs = (await gql('{ customViews { id } }', token))?.data?.customViews || [];
+    for (const cv of cvs) await gql(`mutation { deleteCustomView(id: "${cv.id}") }`, token);
+
+    // Supprime tout espace utilisateur hors du jeu de démo
+    const spaces = (await gql('{ spaces { id name } }', token))?.data?.spaces || [];
+    let removed = 0;
+    for (const sp of spaces) {
+      if (!DEMO_SPACES.includes(sp.name)) {
+        await gql(`mutation { deleteSpace(id: "${sp.id}") }`, token);
+        removed++;
+      }
+    }
+    console.log(`✅ Baseline rétablie (${dvs.length} data views, ${cvs.length} pages, ${removed} espaces de test supprimés)`);
+  } catch (error) {
+    // Ne bloque pas le run : on log seulement (la base peut déjà être propre).
+    console.warn('⚠️ Nettoyage partiel/ignoré:', error.message);
+  }
+
   return config;
 };
