@@ -160,7 +160,8 @@ local ATTEMPT_WINDOW = 300
 local record_failed_attempt
 record_failed_attempt = function(username)
   local now = os.time()
-  _login_attempts[username] = _login_attempts[username] or {
+  local _update_0 = username
+  _login_attempts[_update_0] = _login_attempts[_update_0] or {
     attempts = { },
     locked_until = 0
   }

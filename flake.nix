@@ -15,8 +15,17 @@
         # On force npm à installer EXACTEMENT cette version de @playwright/test
         # pour éviter tout décalage entre le driver JS et les binaires navigateur.
         playwrightVersion = pkgs.playwright-driver.version;
+        # Outils de compilation seuls (moonc + coffee), sans les navigateurs
+        # Playwright (lourds). Utilisé par la CI pour vérifier que les artefacts
+        # commités sont en phase avec les sources, de façon déterministe.
+        buildTools = with pkgs; [ gnumake luaPackages.moonscript nodejs_22 coffeescript git ];
       in
       {
+        devShells.build = pkgs.mkShell {
+          name = "tgui-build";
+          packages = buildTools;
+        };
+
         devShells.default = pkgs.mkShell {
           name = "tgui-dev";
 

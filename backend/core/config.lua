@@ -46,7 +46,8 @@ safe_formula_call = function(fn, context, default_value, record_id)
   else
     local now = os.time()
     if formula_metrics.errors[context] then
-      formula_metrics.errors[context].count = formula_metrics.errors[context].count + 1
+      local _update_0 = context
+      formula_metrics.errors[_update_0].count = formula_metrics.errors[_update_0].count + 1
       formula_metrics.errors[context].last_error = result
       formula_metrics.errors[context].last_timestamp = now
     else

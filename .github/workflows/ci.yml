@@ -7,6 +7,22 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Vérifie que les artefacts commités (.lua/.js) sont en phase avec les sources
+  # (.moon/.coffee). Utilise le devShell Nix `.#build` pour un moonc/coffee
+  # déterministe (une autre version produirait de faux diffs).
+  artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v9
+      - name: Compile sources and check artifacts are up to date
+        run: |
+          nix develop .#build --command make build
+          if ! git diff --exit-code; then
+            echo "::error::Artefacts désynchronisés : lance 'nix develop .#build --command make build' et commite."
+            exit 1
+          fi
+
   # Vérifs backend + JS + SDL + doc (tournent en conteneur sur les artefacts commités).
   ci:
     runs-on: ubuntu-latest

@@ -88,7 +88,8 @@ handle_graphql = (req) ->
   req\render { status: 200, json: result }
 
 serve_index = (req) ->
-  { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' }, body: index.render! }
+  -- `index` (require 'index') retourne directement la fonction de rendu.
+  { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' }, body: index! }
 
 -- Handle compressed snapshot export
 handle_export = (req) ->

@@ -1,5 +1,7 @@
-# MoonScript sources and their compiled Lua output
-MOON_SRCS     := $(shell find backend tests scripts -name '*.moon')
+# MoonScript sources and their compiled Lua output.
+# On exclut backend/moonscript/ : c'est le compilateur MoonScript vendu (ses
+# propres .lua sont fournis tels quels et ne doivent pas être recompilés).
+MOON_SRCS     := $(shell find backend tests scripts -name '*.moon' -not -path '*/moonscript/*')
 LUA_OUTS      := $(MOON_SRCS:.moon=.lua)
 
 # CoffeeScript sources and their compiled JS output
@@ -15,6 +17,11 @@ PLAYWRIGHT_JS_OUTS := $(PLAYWRIGHT_COFFEE_SRCS:.coffee=.js)
 .PHONY: all install-hooks build test test-js test-up test-down test-logs up down logs clean vendor audit-deps doc doc-% doc-gen doc-po-update doc-po-build doc-md doc-check sdl-gen sdl-check ci test-browser test-browser-spaces test-browser-data-views test-browser-pages test-browser-relations test-browser-auth test-browser-integration test-browser-e2e playwright-install playwright-setup playwright-compile
 
 all: build
+
+# Compile toutes les sources MoonScript et CoffeeScript vers leurs artefacts.
+# (Les règles de motif %.lua:%.moon et %.js:%.coffee font le travail ; build ne
+#  fait que déclarer la liste complète des cibles.)
+build: $(LUA_OUTS) $(JS_OUTS) $(TEST_JS_OUTS)
 
 # Active les hooks git versionnés (.githooks/), notamment le pre-commit qui
 # lance la suite de tests. À exécuter une fois après le clone.
