@@ -20,6 +20,26 @@ Le dialogue frontend/backend passe par un moteur **GraphQL maison** (pas de dép
 - Les fichiers `.lua` et `.js` sont **commités** en même temps que leur source (le dépôt
   contient à la fois les sources et les artefacts).
 
+## Environnement de développement (Nix)
+
+Un `flake.nix` fournit tous les outils (`moonc`, `coffee`, navigateurs
+Playwright, `shot-scraper`, client `docker`, `jq`) :
+
+```bash
+nix develop                 # entre dans le shell de dev reproductible
+# puis : make build, make test, npx playwright test ...
+```
+
+Hooks git versionnés dans `.githooks/` (pre-commit = `make test`) :
+
+```bash
+make install-hooks          # git config core.hooksPath .githooks (une fois)
+```
+
+> **Réseau Docker sur cet hôte** : le bridge ne fait pas de masquerade. Les
+> builds passent par `--network=host` (variable `DOCKER_BUILD_NET` du Makefile
+> et `build.network: host` des compose). À retirer si le NAT du bridge est réparé.
+
 ## Compilation
 
 ```bash
@@ -243,6 +263,17 @@ curl -s -X POST http://localhost:8081/graphql \
 
 ## Points de vigilance
 
+- **Rendu des custom views (pages)** : afficher une page passe par
+  `AppViewHelpers.renderCustomViewPreview`, qui doit (1) appeler `cv.mount()`
+  sur l'instance `CustomView` et (2) retirer la classe `hidden` de
+  `#custom-view-container`. Oublier l'un des deux donne une page **vide sans
+  erreur**. Couvert par `tests/js/test_view_helpers.coffee` et
+  `tests/playwright/pages/page-rendering.spec.coffee`.
+- **Data view `sourceSpace`** : le frontend stocke l'**id** de l'espace (UUID),
+  pas son nom. `data_views_executor.execute_view` résout par id puis par nom.
+- **Vendor frontend** : tout bundle utilisé doit être inclus dans `backend/index.moon`
+  (ex. `sortablejs.bundle.js` pour `new Sortable`). Un bundle oublié casse la
+  fonctionnalité silencieusement à l'exécution.
 - **Cache de modules Lua** : Tarantool met les modules en cache dans `package.loaded`.
   Une modification de `.lua` n'est prise en compte qu'après redémarrage du container
   (`make down && make up`), sauf si le module est rechargé explicitement.

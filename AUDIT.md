@@ -1,8 +1,53 @@
 # Audit complet — TGui
 
-> Date : juillet 2025 / Mise à jour : mars 2026
+> Date : juillet 2025 / Mises à jour : mars 2026, juin 2026
 >
 > Périmètre : backend (MoonScript), frontend (CoffeeScript), tests, documentation, schéma GraphQL.
+
+---
+
+## Mise à jour juin 2026 — bugs trouvés par tests d'usage réel
+
+Session centrée sur le fonctionnement réel (Docker + parcours navigateur Playwright).
+
+### Bugs applicatifs corrigés
+
+1. **🔴 Pages custom totalement cassées (rendu vide)** — `renderCustomViewPreview`
+   n'appelait jamais `CustomView.mount()` et ne dé-masquait pas
+   `#custom-view-container`. Toute page s'ouvrait vide, sans erreur.
+2. **🔴 Data views inexécutables** — le frontend stocke `sourceSpace` = id de
+   l'espace (UUID) mais `execute_view` cherchait par nom → « Source space not
+   found » à chaque ouverture. Résolu par id avec repli sur le nom.
+3. **🟠 Drag & drop des widgets cassé** — `sortablejs.bundle.js` jamais inclus
+   dans `index.moon` alors que `new Sortable` est utilisé.
+4. **🟡 Logs de debug** verbeux laissés dans `data_views.moon`.
+
+### Infrastructure / tests
+
+- **`flake.nix`** ajouté (dev shell reproductible : moonc, coffee, navigateurs
+  Playwright, shot-scraper, docker, jq).
+- **Docker injouable sur l'hôte** : bridge sans masquerade NAT → build via
+  `--network=host` (workaround ; vrai correctif = config firewall hôte).
+- **Hook pre-commit non portable** (`#!/bin/bash`, `make` hors PATH) → versionné
+  dans `.githooks/`, shebang `env bash`, repli `nix develop`.
+- **Suite de tests JS était rouge** (stub DOM incomplet : `getAttribute`,
+  `window.addEventListener` manquants) → réparée.
+- **Aucune CI** : `.github/workflows/` est vide alors que `make ci` existe — d'où
+  les régressions passées inaperçues. **Recommandation : ajouter un workflow CI**
+  (sur runner standard le réseau Docker fonctionne).
+- **7 specs Playwright en échec** étaient tous des bugs de **test** (pas de reload
+  après création via API, sélecteurs `.page-item` inexistants, dialogue de confirm
+  mal ciblé, `toHaveCount(1)` supposant une base vierge) → corrigés. Ajout de
+  régressions ciblées (`test_view_helpers.coffee`, `page-rendering.spec.coffee`,
+  régression backend id/nom dans `test_data_views.moon`).
+
+### Reste à faire (recommandations)
+
+- Mettre en place une CI (GitHub Actions) lançant `make ci`.
+- Isolation des tests Playwright : ils ne nettoient pas leurs données → la base
+  de l'instance de test se pollue. Prévoir un nettoyage (afterEach/afterAll) ou
+  une réinitialisation entre runs.
+- Réparer le NAT du bridge Docker côté hôte (NixOS) puis retirer les `--network=host`.
 
 ---
 
