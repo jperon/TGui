@@ -1,4 +1,9 @@
 -- core/data_views.moon
+-- Summary: CRUD for Data Views (stored YAML/JSON configs over a source space).
+-- Inputs/outputs:
+-- - Input : view id/name, source space, JSON config (columns, filters, aggregates).
+-- - Output: persisted Data View records in _tdb_data_views.
+-- Used by: resolvers/data_view_resolvers, core/data_views_executor.
 uuid = require 'uuid'
 json = require 'json'
 { :make_self_proxy, :build_fk_def_map, :compile_formula } = require 'core.triggers'

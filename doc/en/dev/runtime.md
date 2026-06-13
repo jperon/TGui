@@ -2,7 +2,7 @@
 
 > Auto-generated file. Do not edit manually.
 >
-> Generated at: 2026-03-14 15:20:38 UTC
+> Generated at: 2026-06-13 10:32:02 UTC
 
 Tarantool startup, HTTP lifecycle and subsystem initialization details.
 
@@ -10,9 +10,10 @@ Tarantool startup, HTTP lifecycle and subsystem initialization details.
 |---|---|
 | `backend/core/auth.moon` | Authentication: hashing, sessions, user management. |
 | `backend/core/config.moon` | Centralized configuration for TGui. |
-| `backend/core/data_views.moon` | (pas de description en tête de fichier) |
+| `backend/core/data_views.moon` | CRUD for Data Views (stored YAML/JSON configs over a source space). |
 | `backend/core/data_views_executor.moon` | Execution engine for Data Views queries. |
 | `backend/core/fk_proxy.moon` | Foreign-key proxy resolution module to simplify triggers.moon. |
+| `backend/core/graphql_flattener.moon` | GraphQL Flattener with intelligent list handling |
 | `backend/core/permissions.moon` | Unix-style group permissions management. |
 | `backend/core/spaces.moon` | Bootstrap and manage tdb system spaces (metadata) in Tarantool. |
 | `backend/core/triggers.moon` | Manages Tarantool before_replace triggers for trigger formula fields. |
@@ -36,6 +37,7 @@ Tarantool startup, HTTP lifecycle and subsystem initialization details.
 | `backend/resolvers/data_resolvers.moon` | Resolvers for CRUD operations on user-defined data spaces. |
 | `backend/resolvers/data_view_resolvers.moon` | CRUD resolvers for data views (persisted queries). |
 | `backend/resolvers/export_resolvers.moon` | Snapshot export, diff and import resolvers. |
+| `backend/resolvers/graphql_view_resolvers.moon` | GraphQL resolvers for data views with list support |
 | `backend/resolvers/init.moon` | Compose and initialize the executable GraphQL schema/resolver graph. |
 | `backend/resolvers/schema_resolvers.moon` | Resolvers for space, field, view, and relation metadata. |
 | `backend/resolvers/utils.moon` | Shared helpers for all resolvers. |

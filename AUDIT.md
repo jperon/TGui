@@ -48,16 +48,24 @@ Session centrée sur le fonctionnement réel (Docker + parcours navigateur Playw
 - **Isolation Playwright** : `globalSetup` (qui n'était même pas branché dans la
   config) ramène la base à une baseline démo avant chaque run.
 
+### Réparé (suite, juin 2026)
+
+- **`make build` n'est plus un no-op** : vraie recette compilant les sources
+  (hors `backend/moonscript/` vendu). Ça a immédiatement révélé un bug latent —
+  `http_server.moon` appelait `index.render!` alors que `index` retourne la
+  fonction de rendu (servir `/` aurait planté) ; le `.lua` périmé le masquait.
+  Corrigé. Un job CI `artifacts` (devShell Nix `.#build`) échoue désormais sur
+  tout artefact désynchronisé.
+- **`make doc-check` repasse au vert** : domaines de doc ajoutés pour les
+  opérations Data Views / Widget Plugins / Layouts & Zones, docs régénérées
+  (`doc/en`, `doc/fr`, `po/tdb-docs.pot`), Summary ajouté à `data_views.moon`.
+  `doc-check` est réintégré à `make ci`.
+- **Duplication factorisée** : `domain_for_operation` (dupliqué à l'identique
+  dans `generate_docs.moon` et `doc_check.moon`) est désormais dans un module
+  partagé `scripts/doc_domains.moon`.
+
 ### Reste à faire (recommandations)
 
-- **`make build` est un no-op** (cible `.PHONY` sans recette) : la compilation
-  `.moon`→`.lua` / `.coffee`→`.js` repose entièrement sur des artefacts commités
-  à la main. Aucune vérification que les artefacts sont à jour. Recommandation :
-  donner une vraie recette à `build` (en excluant `backend/moonscript/` vendu) et
-  ajouter en CI un check « artefacts en phase avec les sources ».
-- **`make doc-check` est en échec** : fichiers de doc générés manquants
-  (`doc/fr/*.md`, `po/tdb-docs.pot`) et mutations non documentées. Régénérer la
-  doc (`make doc-md`) et la committer, puis réintégrer `doc-check` au job CI.
 - Réparer le NAT du bridge Docker côté hôte (NixOS) puis retirer les `--network=host`.
 
 ---

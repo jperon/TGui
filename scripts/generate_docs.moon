@@ -269,22 +269,17 @@ list_files = (cmd) ->
 add_file_if_exists = (files, path) ->
   table.insert files, path if file_exists path
 
-starts_with = (s, prefix) ->
-  s\sub(1, #prefix) == prefix
-
-domain_for_operation = (name) ->
-  return 'snapshot' if name == 'exportSnapshot' or name == 'diffSnapshot' or name == 'importSnapshot'
-  return 'auth' if name == 'login' or name == 'logout' or name == 'me' or name == 'changePassword' or name == 'adminSetPassword'
-  return 'users_groups' if starts_with(name, 'createUser') or starts_with(name, 'createGroup') or starts_with(name, 'deleteGroup') or starts_with(name, 'addMember') or starts_with(name, 'removeMember') or name == 'users' or name == 'user' or name == 'groups' or name == 'group' or name == 'grant' or name == 'revoke'
-  return 'spaces_fields' if starts_with(name, 'space') or starts_with(name, 'createSpace') or starts_with(name, 'updateSpace') or starts_with(name, 'deleteSpace') or starts_with(name, 'addField') or starts_with(name, 'addFields') or starts_with(name, 'removeField') or starts_with(name, 'reorderFields') or starts_with(name, 'updateField') or starts_with(name, 'changeFieldType')
-  return 'views' if starts_with(name, 'view') or starts_with(name, 'views') or starts_with(name, 'createView') or starts_with(name, 'updateView') or starts_with(name, 'deleteView') or starts_with(name, 'customView') or starts_with(name, 'customViews') or starts_with(name, 'createCustomView') or starts_with(name, 'updateCustomView') or starts_with(name, 'deleteCustomView')
-  return 'relations' if starts_with(name, 'relation') or starts_with(name, 'relations') or starts_with(name, 'createRelation') or starts_with(name, 'updateRelation') or starts_with(name, 'deleteRelation') or starts_with(name, 'gridColumnPrefs') or starts_with(name, 'saveGridColumnPrefs')
-  return 'records' if starts_with(name, 'record') or starts_with(name, 'records') or starts_with(name, 'insertRecord') or starts_with(name, 'insertRecords') or starts_with(name, 'updateRecord') or starts_with(name, 'updateRecords') or starts_with(name, 'restoreRecords') or starts_with(name, 'deleteRecord') or starts_with(name, 'deleteRecords') or starts_with(name, 'aggregateSpace')
-  'misc'
+-- domain_for_operation est factorisé dans scripts/doc_domains.moon
+script_dir = (arg and arg[0] and arg[0]\match('^(.*)/[^/]+$')) or '.'
+package.path = "#{script_dir}/?.lua;" .. package.path
+{ :domain_for_operation } = require 'doc_domains'
 
 DOMAIN_LABELS =
   spaces_fields: 'Spaces & Fields'
   views: 'Views'
+  data_views: 'Data Views'
+  widget_plugins: 'Widget Plugins'
+  layouts: 'Layouts & Zones'
   relations: 'Relations'
   records: 'Data (records)'
   auth: 'Authentication'
@@ -298,6 +293,12 @@ describe_operation = (op_name, kind) ->
     return "#{kind == 'query' and 'Read' or 'Mutation'} operation on space/field metadata."
   if domain == 'views'
     return "Manage standard and custom views."
+  if domain == 'data_views'
+    return "Create, update and execute Data Views (server-side filters, joins and aggregations)."
+  if domain == 'widget_plugins'
+    return "Manage custom widget plugins (script + template) usable in views."
+  if domain == 'layouts'
+    return "Manage page layout snapshots and zone composition (create/resize/merge/split)."
   if domain == 'relations'
     return "Manage inter-space relations and column display preferences."
   if domain == 'records'
@@ -361,7 +362,7 @@ append_examples = (out) ->
 
 append_operation_groups = (out, rows, kind) ->
   grouped = rows_by_domain rows
-  ordering = { 'spaces_fields', 'views', 'relations', 'records', 'auth', 'users_groups', 'snapshot', 'misc' }
+  ordering = { 'spaces_fields', 'views', 'data_views', 'widget_plugins', 'layouts', 'relations', 'records', 'auth', 'users_groups', 'snapshot', 'misc' }
   for domain in *ordering
     items = grouped[domain]
     continue unless items and #items > 0

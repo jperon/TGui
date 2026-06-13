@@ -274,35 +274,10 @@ extract_block_rows = function(block_name, schema_lines)
   end
   return rows
 end
-local starts_with
-starts_with = function(s, prefix)
-  return s:sub(1, #prefix) == prefix
-end
+local script_dir = (arg and arg[0] and arg[0]:match('^(.*)/[^/]+$')) or '.'
+package.path = tostring(script_dir) .. "/?.lua;" .. package.path
 local domain_for_operation
-domain_for_operation = function(name)
-  if name == 'exportSnapshot' or name == 'diffSnapshot' or name == 'importSnapshot' then
-    return 'snapshot'
-  end
-  if name == 'login' or name == 'logout' or name == 'me' or name == 'changePassword' or name == 'adminSetPassword' then
-    return 'auth'
-  end
-  if starts_with(name, 'createUser') or starts_with(name, 'createGroup') or starts_with(name, 'deleteGroup') or starts_with(name, 'addMember') or starts_with(name, 'removeMember') or name == 'users' or name == 'user' or name == 'groups' or name == 'group' or name == 'grant' or name == 'revoke' then
-    return 'users_groups'
-  end
-  if starts_with(name, 'space') or starts_with(name, 'createSpace') or starts_with(name, 'updateSpace') or starts_with(name, 'deleteSpace') or starts_with(name, 'addField') or starts_with(name, 'addFields') or starts_with(name, 'removeField') or starts_with(name, 'reorderFields') or starts_with(name, 'updateField') or starts_with(name, 'changeFieldType') then
-    return 'spaces_fields'
-  end
-  if starts_with(name, 'view') or starts_with(name, 'views') or starts_with(name, 'createView') or starts_with(name, 'updateView') or starts_with(name, 'deleteView') or starts_with(name, 'customView') or starts_with(name, 'customViews') or starts_with(name, 'createCustomView') or starts_with(name, 'updateCustomView') or starts_with(name, 'deleteCustomView') then
-    return 'views'
-  end
-  if starts_with(name, 'relation') or starts_with(name, 'relations') or starts_with(name, 'createRelation') or starts_with(name, 'updateRelation') or starts_with(name, 'deleteRelation') or starts_with(name, 'gridColumnPrefs') or starts_with(name, 'saveGridColumnPrefs') then
-    return 'relations'
-  end
-  if starts_with(name, 'record') or starts_with(name, 'records') or starts_with(name, 'insertRecord') or starts_with(name, 'insertRecords') or starts_with(name, 'updateRecord') or starts_with(name, 'updateRecords') or starts_with(name, 'restoreRecords') or starts_with(name, 'deleteRecord') or starts_with(name, 'deleteRecords') or starts_with(name, 'aggregateSpace') then
-    return 'records'
-  end
-  return 'misc'
-end
+domain_for_operation = require('doc_domains').domain_for_operation
 local collect_backend_files
 collect_backend_files = function()
   return run_lines("find ./backend -name '*.moon' -type f ! -path './backend/moonscript/*' | sed 's#^\\./##'")

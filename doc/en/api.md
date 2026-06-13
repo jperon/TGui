@@ -2,7 +2,7 @@
 
 > Auto-generated file. Do not edit manually.
 >
-> Generated at: 2026-03-14 15:20:38 UTC
+> Generated at: 2026-06-13 10:32:02 UTC
 >
 > Source: `schema/tdb.graphql`
 
@@ -31,6 +31,28 @@
 | `view` | `id: ID!` | `View` | Manage standard and custom views. |
 | `customViews` | `-` | `[CustomView!]!` | Manage standard and custom views. |
 | `customView` | `id: ID!` | `CustomView` | Manage standard and custom views. |
+
+### Data Views
+
+| Operation | Arguments | Return | Description |
+|---|---|---|---|
+| `dataViews` | `-` | `[DataView!]!` | Create, update and execute Data Views (server-side filters, joins and aggregations). |
+| `dataView` | `id: ID!` | `DataView` | Create, update and execute Data Views (server-side filters, joins and aggregations). |
+| `executeDataView` | `id: ID!, limit: Int, offset: Int` | `[JSON!]!` | Create, update and execute Data Views (server-side filters, joins and aggregations). |
+
+### Widget Plugins
+
+| Operation | Arguments | Return | Description |
+|---|---|---|---|
+| `widgetPlugins` | `-` | `[WidgetPlugin!]!` | Manage custom widget plugins (script + template) usable in views. |
+| `widgetPlugin` | `id: ID, name: String` | `WidgetPlugin` | Manage custom widget plugins (script + template) usable in views. |
+
+### Layouts & Zones
+
+| Operation | Arguments | Return | Description |
+|---|---|---|---|
+| `exportLayout` | `pageId: ID!` | `String!` | Manage page layout snapshots and zone composition (create/resize/merge/split). |
+| `listLayoutSnapshots` | `pageId: ID!` | `[LayoutSnapshot!]!` | Manage page layout snapshots and zone composition (create/resize/merge/split). |
 
 ### Relations
 
@@ -69,16 +91,6 @@
 | `exportSnapshot` | `includeData: Boolean!, compress: Boolean` | `String!` | Export, diff and import configuration snapshots. |
 | `diffSnapshot` | `yaml: String!` | `SnapshotDiff!` | Export, diff and import configuration snapshots. |
 
-### Misc
-
-| Operation | Arguments | Return | Description |
-|---|---|---|---|
-| `dataViews` | `-` | `[DataView!]!` | GraphQL operation exposed by the backend. |
-| `dataView` | `id: ID!` | `DataView` | GraphQL operation exposed by the backend. |
-| `executeDataView` | `id: ID!, limit: Int, offset: Int` | `[JSON!]!` | GraphQL operation exposed by the backend. |
-| `widgetPlugins` | `-` | `[WidgetPlugin!]!` | GraphQL operation exposed by the backend. |
-| `widgetPlugin` | `id: ID, name: String` | `WidgetPlugin` | GraphQL operation exposed by the backend. |
-
 ## Mutations
 
 ### Spaces & Fields
@@ -105,6 +117,39 @@
 | `createCustomView` | `input: CreateCustomViewInput!` | `CustomView!` | Manage standard and custom views. |
 | `updateCustomView` | `id: ID!, input: UpdateCustomViewInput!` | `CustomView!` | Manage standard and custom views. |
 | `deleteCustomView` | `id: ID!` | `Boolean!` | Manage standard and custom views. |
+
+### Data Views
+
+| Operation | Arguments | Return | Description |
+|---|---|---|---|
+| `createDataView` | `input: DataViewInput!` | `DataView!` | Create, update and execute Data Views (server-side filters, joins and aggregations). |
+| `updateDataView` | `id: ID!, input: DataViewInput!` | `DataView!` | Create, update and execute Data Views (server-side filters, joins and aggregations). |
+| `deleteDataView` | `id: ID!` | `Boolean!` | Create, update and execute Data Views (server-side filters, joins and aggregations). |
+| `addDataViewToPage` | `pageId: ID!, dataViewId: ID!` | `CustomView!` | Create, update and execute Data Views (server-side filters, joins and aggregations). |
+
+### Widget Plugins
+
+| Operation | Arguments | Return | Description |
+|---|---|---|---|
+| `createWidgetPlugin` | `input: CreateWidgetPluginInput!` | `WidgetPlugin!` | Manage custom widget plugins (script + template) usable in views. |
+| `updateWidgetPlugin` | `id: ID!, input: UpdateWidgetPluginInput!` | `WidgetPlugin!` | Manage custom widget plugins (script + template) usable in views. |
+| `deleteWidgetPlugin` | `id: ID!` | `Boolean!` | Manage custom widget plugins (script + template) usable in views. |
+
+### Layouts & Zones
+
+| Operation | Arguments | Return | Description |
+|---|---|---|---|
+| `addWidgetToView` | `viewId: ID!, widget: WidgetInput!` | `CustomView!` | Manage page layout snapshots and zone composition (create/resize/merge/split). |
+| `reorderWidgets` | `pageId: ID!, widgetPositions: [WidgetPosition!]!` | `CustomView!` | Manage page layout snapshots and zone composition (create/resize/merge/split). |
+| `updateWidgetInView` | `viewId: ID!, widgetId: String!, widget: WidgetInput!` | `CustomView!` | Manage page layout snapshots and zone composition (create/resize/merge/split). |
+| `removeWidgetFromView` | `viewId: ID!, widgetId: String!` | `CustomView!` | Manage page layout snapshots and zone composition (create/resize/merge/split). |
+| `importLayout` | `pageId: ID!, yaml: String!` | `CustomView!` | Manage page layout snapshots and zone composition (create/resize/merge/split). |
+| `createLayoutSnapshot` | `pageId: ID!, yaml: String!, description: String` | `LayoutSnapshot!` | Manage page layout snapshots and zone composition (create/resize/merge/split). |
+| `restoreLayoutSnapshot` | `snapshotId: ID!` | `CustomView!` | Manage page layout snapshots and zone composition (create/resize/merge/split). |
+| `createZone` | `pageId: ID!, zoneData: ZoneInput!` | `Zone!` | Manage page layout snapshots and zone composition (create/resize/merge/split). |
+| `resizeZone` | `pageId: ID!, zoneId: ID!, factor: Float!` | `Zone!` | Manage page layout snapshots and zone composition (create/resize/merge/split). |
+| `mergeZones` | `pageId: ID!, zoneId1: ID!, zoneId2: ID!` | `CustomView!` | Manage page layout snapshots and zone composition (create/resize/merge/split). |
+| `splitZone` | `pageId: ID!, zoneId: ID!, direction: String!` | `CustomView!` | Manage page layout snapshots and zone composition (create/resize/merge/split). |
 
 ### Relations
 
@@ -153,20 +198,6 @@
 | Operation | Arguments | Return | Description |
 |---|---|---|---|
 | `importSnapshot` | `yaml: String!, mode: ImportMode!` | `ImportResult!` | Export, diff and import configuration snapshots. |
-
-### Misc
-
-| Operation | Arguments | Return | Description |
-|---|---|---|---|
-| `addWidgetToView` | `viewId: ID!, widget: WidgetInput!` | `CustomView!` | GraphQL operation exposed by the backend. |
-| `updateWidgetInView` | `viewId: ID!, widgetId: String!, widget: WidgetInput!` | `CustomView!` | GraphQL operation exposed by the backend. |
-| `removeWidgetFromView` | `viewId: ID!, widgetId: String!` | `CustomView!` | GraphQL operation exposed by the backend. |
-| `createDataView` | `input: DataViewInput!` | `DataView!` | GraphQL operation exposed by the backend. |
-| `updateDataView` | `id: ID!, input: DataViewInput!` | `DataView!` | GraphQL operation exposed by the backend. |
-| `deleteDataView` | `id: ID!` | `Boolean!` | GraphQL operation exposed by the backend. |
-| `createWidgetPlugin` | `input: CreateWidgetPluginInput!` | `WidgetPlugin!` | GraphQL operation exposed by the backend. |
-| `updateWidgetPlugin` | `id: ID!, input: UpdateWidgetPluginInput!` | `WidgetPlugin!` | GraphQL operation exposed by the backend. |
-| `deleteWidgetPlugin` | `id: ID!` | `Boolean!` | GraphQL operation exposed by the backend. |
 
 ## Usage Examples
 
@@ -231,6 +262,8 @@ mutation AddField($spaceId: ID!, $input: FieldInput!) {
 - `CreateGroupInput`
 - `PermissionInput`
 - `AggregateInput`
+- `WidgetPosition`
+- `ZoneInput`
 
 ## Enums
 
