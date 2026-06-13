@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main, wip]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # Vérifs backend + JS + SDL + doc (tournent en conteneur sur les artefacts commités).
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install CoffeeScript
+        run: npm install -g coffeescript
+
+      - name: sdl-check + backend tests + JS tests
+        # Sur les runners GitHub le bridge Docker fonctionne ; --network=host
+        # (défaut DOCKER_BUILD_NET) reste valide.
+        # NB : 'doc-check' (la 4e étape de `make ci`) est volontairement exclu :
+        # le pipeline de doc générée (doc/fr/*, po/*.pot) est actuellement en
+        # dérive — à réactiver une fois la doc régénérée et commitée.
+        run: make sdl-check test test-js
+
+  # Tests navigateur Playwright contre l'instance de test (port 8081).
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install JS toolchain
+        run: |
+          npm install -g coffeescript
+          npm install --no-save @playwright/test coffeescript
+
+      - name: Start test instance
+        run: |
+          make test-up
+          # Attendre que l'API réponde
+          for i in $(seq 1 60); do
+            if curl -fsS -o /dev/null http://localhost:8081/; then echo "up"; break; fi
+            sleep 2
+          done
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Compile and run Playwright specs
+        run: |
+          make playwright-compile
+          npx playwright test --config=tests/playwright/playwright-optimized.config.js
+
+      - name: Stop test instance
+        if: always()
+        run: make test-down
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7

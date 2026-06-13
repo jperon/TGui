@@ -41,12 +41,23 @@ Session centrée sur le fonctionnement réel (Docker + parcours navigateur Playw
   régressions ciblées (`test_view_helpers.coffee`, `page-rendering.spec.coffee`,
   régression backend id/nom dans `test_data_views.moon`).
 
+### Fait dans cette session (suite)
+
+- **CI** : workflow `.github/workflows/ci.yml` (job `ci` = `make sdl-check test
+  test-js` ; job `e2e` = instance de test + Playwright/chromium).
+- **Isolation Playwright** : `globalSetup` (qui n'était même pas branché dans la
+  config) ramène la base à une baseline démo avant chaque run.
+
 ### Reste à faire (recommandations)
 
-- Mettre en place une CI (GitHub Actions) lançant `make ci`.
-- Isolation des tests Playwright : ils ne nettoient pas leurs données → la base
-  de l'instance de test se pollue. Prévoir un nettoyage (afterEach/afterAll) ou
-  une réinitialisation entre runs.
+- **`make build` est un no-op** (cible `.PHONY` sans recette) : la compilation
+  `.moon`→`.lua` / `.coffee`→`.js` repose entièrement sur des artefacts commités
+  à la main. Aucune vérification que les artefacts sont à jour. Recommandation :
+  donner une vraie recette à `build` (en excluant `backend/moonscript/` vendu) et
+  ajouter en CI un check « artefacts en phase avec les sources ».
+- **`make doc-check` est en échec** : fichiers de doc générés manquants
+  (`doc/fr/*.md`, `po/tdb-docs.pot`) et mutations non documentées. Régénérer la
+  doc (`make doc-md`) et la committer, puis réintégrer `doc-check` au job CI.
 - Réparer le NAT du bridge Docker côté hôte (NixOS) puis retirer les `--network=host`.
 
 ---
