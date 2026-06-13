@@ -50,13 +50,18 @@
         }));
         console.log("Page created:", result);
         await page.waitForTimeout(2000);
-        // Reload the page list to see the new page
-        await page.goto('/#!pages');
-        await page.waitForTimeout(2000);
+        // Reload the page list to see the new page (full reload : un simple
+        // changement de hash ne re-fetch pas la liste).
+        await page.reload();
+        await page.waitForSelector('#main', {
+          state: 'visible'
+        });
+        await page.waitForTimeout(1000);
       }
-      // Verify page exists in the list
+      // Verify at least one page exists in the list (l'instance peut en contenir
+      // d'autres issues d'exécutions précédentes — pas d'hypothèse de singleton).
       pageList = page.locator('#page-list .leaf-item');
-      await expect(pageList).toHaveCount(1);
+      await expect(pageList.first()).toBeVisible();
       // Click on the first page
       await page.locator('#page-list .leaf-item').first().click();
       await page.waitForTimeout(3000);

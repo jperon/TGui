@@ -209,7 +209,7 @@ test.describe('Complete Workflow', ->
     await page.goto '/#!pages'
     await page.waitForTimeout 2000
     
-    result = await page.evaluate((name, dvName) ->
+    result = await page.evaluate(({name, dvName}) ->
       mutation = """
         mutation {
           createCustomView(input: {
@@ -227,12 +227,16 @@ test.describe('Complete Workflow', ->
         }
         body: JSON.stringify({ query: mutation })
       }).then((r) -> r.json())
-    , pageName, dataViewName)
+    , {name: pageName, dvName: dataViewName})
 
     console.log "Created page:", result
-    await page.waitForTimeout 2000
-    
-    pageItem = page.locator(".page-item:has-text('#{pageName}')")
+
+    # Recharge pour refléter la création via l'API
+    await page.reload()
+    await page.waitForSelector '#main', { state: 'visible' }
+    await page.waitForTimeout 1000
+
+    pageItem = page.locator(".leaf-item", { hasText: pageName }).first()
     await expect(pageItem).toBeVisible()
   )
 
@@ -321,20 +325,18 @@ test.describe('Complete Workflow', ->
     , {name: pageName, dvName: dataViewName, field: fieldName})
 
     console.log "Created page:", result
-    await page.waitForTimeout 2000
-    
-    pageItem = page.locator(".page-item:has-text('#{pageName}')")
+
+    # Recharge pour refléter la création via l'API, puis ouvre la page
+    await page.reload()
+    await page.waitForSelector '#main', { state: 'visible' }
+    await page.waitForTimeout 1000
+
+    pageItem = page.locator(".leaf-item", { hasText: pageName }).first()
     await expect(pageItem).toBeVisible()
-    
+
     await pageItem.click()
     await page.waitForTimeout 3000
-    
-    await page.evaluate ->
-      container = document.getElementById('custom-view-container')
-      container.classList.remove('hidden') if container?
 
-    await page.waitForTimeout 1000
-    
     widgets = page.locator('[data-widget-id], .widget, [class*="widget"]')
     widgetCount = await widgets.count()
     

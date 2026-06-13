@@ -14,11 +14,11 @@ test.describe('Data Views', ->
     dataViewsList = page.locator('#data-view-list')
     dataViewsToggle = page.locator('#data-views-toggle-btn')
     
-    try
-      if await dataViewsToggle.isVisible()
-        await dataViewsToggle.click()
-        await page.waitForTimeout 500
-    catch error
+    # Déplier la section Vues seulement si la liste est masquée (un clic
+    # inconditionnel la replierait quand elle est déjà ouverte).
+    if await dataViewsList.isHidden()
+      await dataViewsToggle.click()
+      await page.waitForTimeout 500
     
     if await dataViewsList.isVisible()
       await expect(dataViewsList).toBeVisible()
@@ -32,11 +32,11 @@ test.describe('Data Views', ->
     dataViewsToggle = page.locator('#data-views-toggle-btn')
     dataViewsList = page.locator('#data-view-list')
     
-    try
-      if await dataViewsToggle.isVisible()
-        await dataViewsToggle.click()
-        await page.waitForTimeout 500
-    catch error
+    # Déplier la section Vues seulement si la liste est masquée (un clic
+    # inconditionnel la replierait quand elle est déjà ouverte).
+    if await dataViewsList.isHidden()
+      await dataViewsToggle.click()
+      await page.waitForTimeout 500
     
     existingItems = dataViewsList.locator 'li'
     count = await existingItems.count()
@@ -74,11 +74,11 @@ test.describe('Data Views', ->
     dataViewsToggle = page.locator('#data-views-toggle-btn')
     dataViewsList = page.locator('#data-view-list')
     
-    try
-      if await dataViewsToggle.isVisible()
-        await dataViewsToggle.click()
-        await page.waitForTimeout 500
-    catch error
+    # Déplier la section Vues seulement si la liste est masquée (un clic
+    # inconditionnel la replierait quand elle est déjà ouverte).
+    if await dataViewsList.isHidden()
+      await dataViewsToggle.click()
+      await page.waitForTimeout 500
     
     existingItems = dataViewsList.locator 'li'
     count = await existingItems.count()
@@ -100,11 +100,11 @@ test.describe('Data Views', ->
     dataViewsToggle = page.locator('#data-views-toggle-btn')
     dataViewsList = page.locator('#data-view-list')
     
-    try
-      if await dataViewsToggle.isVisible()
-        await dataViewsToggle.click()
-        await page.waitForTimeout 500
-    catch error
+    # Déplier la section Vues seulement si la liste est masquée (un clic
+    # inconditionnel la replierait quand elle est déjà ouverte).
+    if await dataViewsList.isHidden()
+      await dataViewsToggle.click()
+      await page.waitForTimeout 500
     
     existingItems = dataViewsList.locator 'li'
     count = await existingItems.count()
@@ -134,29 +134,36 @@ test.describe('Data Views', ->
     dataViewsToggle = page.locator('#data-views-toggle-btn')
     dataViewsList = page.locator('#data-view-list')
     
-    try
-      if await dataViewsToggle.isVisible()
-        await dataViewsToggle.click()
-        await page.waitForTimeout 500
-    catch error
+    # Déplier la section Vues seulement si la liste est masquée (un clic
+    # inconditionnel la replierait quand elle est déjà ouverte).
+    if await dataViewsList.isHidden()
+      await dataViewsToggle.click()
+      await page.waitForTimeout 500
     
     existingItems = dataViewsList.locator 'li'
     count = await existingItems.count()
     
     if count > 0
+      # Mémorise l'id de la vue ciblée pour vérifier sa disparition précise
+      # (d'autres vues peuvent subsister : .first().toBeHidden() serait faux).
+      deletedId = await existingItems.first().getAttribute 'data-id'
       await existingItems.first().click()
       await page.waitForTimeout 1000
-      
+
       await page.click '#delete-space-btn'
       await page.waitForTimeout 1000
-      
-      dialog = page.locator '.tui-modal, .modal, [class*="confirm"], [class*="dialog"]'
-      if await dialog.isVisible()
-        confirmBtn = page.locator 'button[class*="danger"], button[class*="delete"], button:has-text("Supprimer"), button:has-text("Delete"), button[class*="confirm"]'
+
+      # Dialogue de confirmation maison (cf. frontend/src/modal.coffee)
+      confirmBtn = page.locator '#tdb-modal-overlay .tdb-modal-actions .btn-primary'
+      if await confirmBtn.isVisible()
         await confirmBtn.click()
         await page.waitForTimeout 2000
-      
-      await expect(existingItems.first()).toBeHidden()
+
+      # La vue supprimée ne doit plus figurer dans la liste
+      if deletedId
+        await expect(dataViewsList.locator("li[data-id=\"#{deletedId}\"]")).toHaveCount(0)
+      else
+        await expect(existingItems).toHaveCount(count - 1)
     else
       test.skip()
   )

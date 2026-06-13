@@ -43,22 +43,19 @@
         });
       }, pageName));
       console.log("Created page:", result);
-      await page.waitForTimeout(2000);
-      // Click on the created page
-      pageItem = page.locator(`.page-item:has-text('${pageName}')`);
-      if ((await pageItem.count()) > 0) {
-        await pageItem.click();
-        await page.waitForTimeout(3000);
-      }
-      // Force container visibility
-      await page.evaluate(function() {
-        var container;
-        container = document.getElementById('custom-view-container');
-        if (container != null) {
-          return container.classList.remove('hidden');
-        }
+      // Recharge l'app pour que la liste des pages reflète la création via l'API
+      await page.reload();
+      await page.waitForSelector('#main', {
+        state: 'visible'
       });
       await page.waitForTimeout(1000);
+      // Click on the created page (les éléments de page sont des .leaf-item)
+      pageItem = page.locator(".leaf-item", {
+        hasText: pageName
+      }).first();
+      await expect(pageItem).toBeVisible();
+      await pageItem.click();
+      await page.waitForTimeout(3000);
       // Verify widgets are rendered
       widgets = page.locator('[data-widget-id]');
       widgetCount = (await widgets.count());
