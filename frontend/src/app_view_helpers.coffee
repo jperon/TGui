@@ -158,6 +158,7 @@ window.AppViewHelpers =
 
   renderCustomViewPreview: (app, yamlText) ->
     container = app.el.customViewContainer()
+    container.classList.remove 'hidden'   # le conteneur d'aperçu est masqué par défaut
     app._activeCustomView?.unmount?()
     container.innerHTML = ''
 
@@ -191,6 +192,7 @@ window.AppViewHelpers =
     try
       cv = new CustomView widgetsContainer, yamlText, app._allSpaces, app._allDataViews
       app._activeCustomView = cv
+      cv.mount()
 
       # Initialiser le DragDropManager avec support des zones (Phase 3)
       if app._currentCustomView?.id

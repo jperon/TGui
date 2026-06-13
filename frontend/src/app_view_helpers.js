@@ -210,6 +210,7 @@
     renderCustomViewPreview: function(app, yamlText) {
       var container, cv, e, ref, ref1, ref2, ref3, widgetsContainer, zoneToolbar;
       container = app.el.customViewContainer();
+      container.classList.remove('hidden'); // le conteneur d'aperçu est masqué par défaut
       if ((ref = app._activeCustomView) != null) {
         if (typeof ref.unmount === "function") {
           ref.unmount();
@@ -243,6 +244,7 @@
       try {
         cv = new CustomView(widgetsContainer, yamlText, app._allSpaces, app._allDataViews);
         app._activeCustomView = cv;
+        cv.mount();
         // Initialiser le DragDropManager avec support des zones (Phase 3)
         if ((ref2 = app._currentCustomView) != null ? ref2.id : void 0) {
           if ((ref3 = app._dragDropManager) != null) {

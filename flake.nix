@@ -44,7 +44,11 @@
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
           PLAYWRIGHT_VERSION = playwrightVersion;
 
+          # N'afficher le bandeau qu'en shell interactif (sinon il pollue les
+          # pipes de `nix develop --command ...`).
           shellHook = ''
+            case $- in
+              *i*)
             echo "TGui dev shell"
             echo "  moonc   $(moonc --version 2>/dev/null | head -1)"
             echo "  coffee  $(coffee --version 2>/dev/null)"
@@ -55,6 +59,8 @@
             echo "    npm install --no-save @playwright/test@${playwrightVersion} coffeescript"
             echo ""
             echo "  Cible Docker : voir 'make up' (build via --network=host sur cet hôte)."
+                ;;
+            esac
           '';
         };
       });
