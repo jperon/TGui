@@ -1,7 +1,6 @@
 -- core/data_views.moon
 uuid = require 'uuid'
 json = require 'json'
-log  = require 'log'
 { :make_self_proxy, :build_fk_def_map, :compile_formula } = require 'core.triggers'
 
 get_view = (id) ->
@@ -18,16 +17,9 @@ get_view = (id) ->
   }
 
 create_view = (name, description, source_space, config_json) ->
-  -- Debug logging
-  log.info "create_view called with parameters:"
-  log.info "  name: #{if name then name else 'nil'}"
-  log.info "  description: #{if description then description else 'nil'}"
-  log.info "  source_space: #{if source_space then source_space else 'nil'}"
-  log.info "  config_json: #{if config_json then config_json else 'nil'}"
-  
   error "Name cannot be empty" if not name or name == ''
   error "Source space cannot be empty" if not source_space or source_space == ''
-  
+
   -- check duplicate name
   existing = box.space._tdb_data_views.index.by_name\get { name }
   error "A view with name '#{name}' already exists" if existing
@@ -39,13 +31,7 @@ create_view = (name, description, source_space, config_json) ->
 
   -- Determine final config value
   final_config = if config_json and config_json != '' then config_json else '{}'
-  
-  -- Debug log final config details
-  log.info "Final config to be stored: #{final_config}"
-  log.info "Config is null: #{config_json == nil}"
-  log.info "Config is empty string: #{config_json == ''}"
-  log.info "Config is null or empty: #{not config_json or config_json == ''}"
-  
+
   view_id = uuid.str!
   now = os.time!
   box.space._tdb_data_views\insert { view_id, name, description or '', source_space, final_config, now, now }
