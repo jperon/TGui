@@ -1,6 +1,11 @@
 services:
   tarantool:
-    build: .
+    build:
+      context: .
+      # Le bridge Docker de cet hôte ne fait pas de masquerade (firewall NixOS) :
+      # la phase build (tt rocks) a besoin d'un accès réseau sortant, fourni ici
+      # par le réseau de l'hôte. À retirer si le NAT du bridge est réparé.
+      network: host
     image: tdb-tarantool
     command: tarantool /app/backend/init.lua
     volumes:

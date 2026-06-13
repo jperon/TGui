@@ -1,7 +1,11 @@
 services:
   tarantool-test:
     container_name: tgui-tarantool-test
-    build: .
+    build:
+      context: .
+      # Voir docker-compose.yml : le bridge Docker de cet hôte ne masquerade pas,
+      # la phase build (tt rocks) passe donc par le réseau de l'hôte.
+      network: host
     command: tarantool /app/backend/init.lua
     volumes:
       - ./backend:/app/backend:ro

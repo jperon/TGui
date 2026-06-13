@@ -18,8 +18,13 @@ all: build
 
 TEST_IMAGE := tdb-test:latest
 
+# Le bridge Docker de cet hôte ne fait pas de masquerade (firewall) : les builds
+# qui téléchargent des rocks ont besoin du réseau de l'hôte. Mettre à vide
+# (DOCKER_BUILD_NET=) si le NAT du bridge est réparé.
+DOCKER_BUILD_NET ?= --network=host
+
 test: build
-	docker build -t $(TEST_IMAGE) .
+	docker build $(DOCKER_BUILD_NET) -t $(TEST_IMAGE) .
 	docker run --rm -v ./backend:/app/backend:ro -v ./frontend:/app/frontend:ro -v ./schema:/app/schema:ro -v ./tests:/app/tests:ro -e TT_LOG_LEVEL=5 -e TGUI_TEST_ENV=true $(TEST_IMAGE) tarantool /app/backend/test_runner.lua
 
 test-up: build
@@ -162,21 +167,21 @@ doc-%:
 doc: doc-md doc-fr doc-en
 
 doc-gen:
-	docker build -t $(TEST_IMAGE) . 2>/dev/null
+	docker build $(DOCKER_BUILD_NET) -t $(TEST_IMAGE) . 2>/dev/null
 	docker run --rm -e HOST_UID=$$(id -u) -e HOST_GID=$$(id -g) -v ./:/app $(TEST_IMAGE) sh -lc 'tarantool /app/scripts/generate_docs.lua && chown -R "$$HOST_UID:$$HOST_GID" /app/doc/en' 2>/dev/null
 
 doc-po-update:
-	docker build -t $(TEST_IMAGE) . 2>/dev/null
+	docker build $(DOCKER_BUILD_NET) -t $(TEST_IMAGE) . 2>/dev/null
 	docker run --rm -e HOST_UID=$$(id -u) -e HOST_GID=$$(id -g) -v ./:/app $(TEST_IMAGE) sh -lc 'cd /app && tarantool /app/scripts/doc_localize.lua update-pot && chown -R "$$HOST_UID:$$HOST_GID" /app/po' 2>/dev/null
 
 doc-po-build:
-	docker build -t $(TEST_IMAGE) . 2>/dev/null
+	docker build $(DOCKER_BUILD_NET) -t $(TEST_IMAGE) . 2>/dev/null
 	docker run --rm -e HOST_UID=$$(id -u) -e HOST_GID=$$(id -g) -v ./:/app $(TEST_IMAGE) sh -lc 'cd /app && tarantool /app/scripts/doc_localize.lua build-fr && chown -R "$$HOST_UID:$$HOST_GID" /app/doc/fr /app/po' 2>/dev/null
 
 doc-md: doc-gen doc-po-build
 
 doc-check:
-	docker build -t $(TEST_IMAGE) . 2>/dev/null
+	docker build $(DOCKER_BUILD_NET) -t $(TEST_IMAGE) . 2>/dev/null
 	docker run --rm -w /app -v ./:/app $(TEST_IMAGE) tarantool /app/scripts/doc_check.lua
 
 # ── Dependencies audit ────────────────────────────────────────────────
@@ -189,12 +194,12 @@ audit-deps:
 	@echo "Audit complete - minimal dependency footprint"
 
 sdl-gen: build
-	docker build -t $(TEST_IMAGE) .
+	docker build $(DOCKER_BUILD_NET) -t $(TEST_IMAGE) .
 	docker run --rm -v ./backend:/app/backend:ro $(TEST_IMAGE) tarantool -e 'package.path="/app/backend/?.lua;/app/backend/?/init.lua;"..package.path; io.write(require("graphql.sdl_generator").generate()); os.exit(0)' > schema/tdb.generated.graphql
 
 sdl-check: build
 	@tmp=$$(mktemp); \
-	docker build -t $(TEST_IMAGE) . >/dev/null; \
+	docker build $(DOCKER_BUILD_NET) -t $(TEST_IMAGE) . >/dev/null; \
 	docker run --rm -v ./backend:/app/backend:ro $(TEST_IMAGE) tarantool -e 'package.path="/app/backend/?.lua;/app/backend/?/init.lua;"..package.path; io.write(require("graphql.sdl_generator").generate()); os.exit(0)' > $$tmp; \
 	diff -u schema/tdb.generated.graphql $$tmp >/dev/null || (echo "SDL drift detected: run 'make sdl-gen' and commit schema/tdb.generated.graphql"; rm -f $$tmp; exit 1); \
 	rm -f $$tmp; \
