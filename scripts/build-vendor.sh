@@ -28,7 +28,8 @@ npm install --save-dev \
   js-yaml \
   codemirror@5 \
   coffeescript \
-  pug
+  pug \
+  sortablejs
 
 # ── Entry: tui-grid (expose as window.tui.Grid) ───────────────────────────
 cat > entry-tui.js <<'JSEOF'
@@ -169,6 +170,36 @@ export default {
 JSEOF
 
 ./node_modules/.bin/rollup -c rollup-plugin-runtime.mjs
+
+# ── Entry: SortableJS (expose as window.Sortable) ──────────────────────────
+cat > entry-sortablejs.js <<'JSEOF'
+import Sortable from 'sortablejs';
+window.Sortable = Sortable;
+JSEOF
+
+cat > rollup-sortablejs.mjs <<JSEOF
+import resolve from "@rollup/plugin-node-resolve";
+import commonjs from "@rollup/plugin-commonjs";
+
+export default {
+  input: "entry-sortablejs.js",
+  output: {
+    file: "$VENDOR/sortablejs.bundle.js",
+    format: "iife",
+    name: "_sortablejs_init",
+  },
+  plugins: [
+    resolve({ browser: true, preferBuiltins: false }),
+    commonjs(),
+  ],
+  onwarn(w, warn) {
+    if (w.code === "CIRCULAR_DEPENDENCY") return;
+    warn(w);
+  },
+};
+JSEOF
+
+./node_modules/.bin/rollup -c rollup-sortablejs.mjs
 
 # ── CSS: CodeMirror core + monokai theme ──────────────────────────────────
 cat node_modules/codemirror/lib/codemirror.css \

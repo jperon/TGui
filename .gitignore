@@ -10,6 +10,10 @@ data/
 # Node (if ever used for tooling)
 node_modules/
 
+# Playwright test artefacts (screenshots, videos, traces, last-run)
+test-results/
+playwright-report/
+
 # Editors
 .vscode/
 .idea/
