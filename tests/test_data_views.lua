@@ -134,6 +134,37 @@ return R.describe("DataViews — system storage", function()
       end
     end
   end)
+  R.it("execute view works when sourceSpace is the space id (frontend behaviour)", function()
+    local ctx = {
+      user_id = 'admin'
+    }
+    local args = {
+      input = {
+        name = "test_view_by_id",
+        sourceSpace = sp1_id,
+        config = json.encode({
+          columns = {
+            "name",
+            "age"
+          }
+        })
+      }
+    }
+    local res = resolvers.Mutation.createDataView(nil, args, ctx)
+    R.eq(res.sourceSpace, sp1_id)
+    local exec_res = resolvers.Query.executeDataView(nil, {
+      id = res.id
+    }, ctx)
+    return R.eq(#exec_res, 3)
+  end)
+  R.it("execute_view resolves a space passed by name too", function()
+    local res = executor.execute_view('dv_test_users', json.encode({
+      columns = {
+        "name"
+      }
+    }), { })
+    return R.eq(#res, 3)
+  end)
   return R.it("cleanup", function()
     local ctx = {
       user_id = 'admin'

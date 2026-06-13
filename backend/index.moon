@@ -716,6 +716,7 @@ make_body = ->
     H.script {src: '/vendor/tui-grid.bundle.js', ''}
     H.script {src: '/vendor/jsyaml.bundle.js', ''}
     H.script {src: '/vendor/codemirror.bundle.js', ''}
+    H.script {src: '/vendor/sortablejs.bundle.js', ''}
     H.script {src: '/vendor/plugin-runtime.bundle.js', ''}
     H.script {src: '/src/i18n.js', ''}
     H.script {src: '/src/modal.js', ''}

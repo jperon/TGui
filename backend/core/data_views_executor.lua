@@ -6,20 +6,24 @@ do
   make_self_proxy, build_fk_def_map = _obj_0.make_self_proxy, _obj_0.build_fk_def_map
 end
 local execute_view
-execute_view = function(source_space_name, config_json, params)
+execute_view = function(source_space_ref, config_json, params)
   local config
   if type(config_json) == 'string' and config_json ~= '' then
     config = json.decode(config_json)
   else
     config = { }
   end
-  local sp_meta = box.space._tdb_spaces.index.by_name:get({
-    source_space_name
+  local sp_meta = box.space._tdb_spaces:get({
+    source_space_ref
+  })
+  sp_meta = sp_meta or box.space._tdb_spaces.index.by_name:get({
+    source_space_ref
   })
   if not (sp_meta) then
-    error("Source space not found: " .. tostring(source_space_name))
+    error("Source space not found: " .. tostring(source_space_ref))
   end
   local space_id = sp_meta[1]
+  local source_space_name = sp_meta[2]
   local sp = box.space["data_" .. tostring(source_space_name)]
   if not (sp) then
     return { }

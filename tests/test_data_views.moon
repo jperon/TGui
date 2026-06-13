@@ -99,6 +99,27 @@ R.describe "DataViews — system storage", ->
         R.eq row.total_age, 60
         R.eq row.avg_age, 30
 
+  -- Régression : le frontend stocke sourceSpace = id de l'espace (UUID),
+  -- pas son nom. L'exécuteur doit résoudre l'espace par id comme par nom.
+  R.it "execute view works when sourceSpace is the space id (frontend behaviour)", ->
+    ctx = { user_id: 'admin' }
+    args = {
+      input: {
+        name: "test_view_by_id"
+        sourceSpace: sp1_id      -- id (UUID), comme envoyé par le frontend
+        config: json.encode { columns: {"name", "age"} }
+      }
+    }
+    res = resolvers.Mutation.createDataView nil, args, ctx
+    R.eq res.sourceSpace, sp1_id
+
+    exec_res = resolvers.Query.executeDataView nil, { id: res.id }, ctx
+    R.eq #exec_res, 3   -- les 3 enregistrements, sans erreur "Source space not found"
+
+  R.it "execute_view resolves a space passed by name too", ->
+    res = executor.execute_view 'dv_test_users', json.encode({ columns: {"name"} }), {}
+    R.eq #res, 3
+
   R.it "cleanup", ->
     ctx = { user_id: 'admin' }
     views = resolvers.Query.dataViews nil, nil, ctx

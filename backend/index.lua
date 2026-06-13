@@ -1708,6 +1708,10 @@ make_body = function()
       ''
     }),
     H.script({
+      src = '/vendor/sortablejs.bundle.js',
+      ''
+    }),
+    H.script({
       src = '/vendor/plugin-runtime.bundle.js',
       ''
     }),

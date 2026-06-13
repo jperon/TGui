@@ -6,16 +6,20 @@ json = require 'json'
 log = require 'log'
 { :make_self_proxy, :build_fk_def_map } = require 'core.triggers'
 
--- Execute a data view config on a source space
-execute_view = (source_space_name, config_json, params) ->
+-- Execute a data view config on a source space.
+-- source_space_ref is the space id (UUID) stored by the frontend; for robustness
+-- we also accept a space name.
+execute_view = (source_space_ref, config_json, params) ->
   config = if type(config_json) == 'string' and config_json != ''
     json.decode config_json
   else
     {}
 
-  sp_meta = box.space._tdb_spaces.index.by_name\get { source_space_name }
-  error "Source space not found: #{source_space_name}" unless sp_meta
+  sp_meta = box.space._tdb_spaces\get { source_space_ref }
+  sp_meta or= box.space._tdb_spaces.index.by_name\get { source_space_ref }
+  error "Source space not found: #{source_space_ref}" unless sp_meta
   space_id = sp_meta[1]
+  source_space_name = sp_meta[2]
   sp = box.space["data_#{source_space_name}"]
   return {} unless sp
 
