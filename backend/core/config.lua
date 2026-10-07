@@ -1,4 +1,5 @@
 local log = require('log')
+local fiber = require('fiber')
 local SESSION_TTL = 24 * 3600
 local TOKEN_LENGTH = 32
 local FRONTEND_DIR = '/app/frontend'
@@ -13,6 +14,8 @@ local LIMITS = {
     max_length = DEFAULT_FIELD_NAME_MAX_LENGTH
   }
 }
+local FORMULA_INSTRUCTION_LIMIT = 200 * 1000 * 1000
+local FORMULA_HOOK_INTERVAL = 10000
 local safe_call
 safe_call = function(fn, context, default_value, record_id)
   if default_value == nil then
@@ -33,33 +36,58 @@ local formula_metrics = {
   errors = { }
 }
 local safe_formula_call
-safe_formula_call = function(fn, context, default_value, record_id)
+safe_formula_call = function(fn, context, default_value, record_id, args)
   if default_value == nil then
     default_value = nil
   end
   if record_id == nil then
     record_id = nil
   end
-  local ok, result = pcall(fn)
+  if args == nil then
+    args = nil
+  end
+  local call_args = args or { }
+  local owner_fid = fiber.self().fid
+  local in_call = true
+  local hook_calls = 0
+  local guard
+  guard = function()
+    if fiber.self().fid ~= owner_fid then
+      return 
+    end
+    hook_calls = hook_calls + 1
+    if in_call and hook_calls * FORMULA_HOOK_INTERVAL > FORMULA_INSTRUCTION_LIMIT then
+      debug.sethook()
+      return error("instruction limit exceeded in " .. tostring(context) .. " (" .. tostring(FORMULA_INSTRUCTION_LIMIT) .. " instructions)", 0)
+    end
+  end
+  local prev_hook, prev_mask, prev_count = debug.gethook()
+  debug.sethook(guard, 'count', FORMULA_HOOK_INTERVAL)
+  local ok, result = pcall(fn, unpack(call_args))
+  in_call = false
+  if prev_hook then
+    debug.sethook(prev_hook, prev_mask, prev_count)
+  else
+    debug.sethook()
+  end
   if ok then
     return result
-  else
-    local now = os.time()
-    if formula_metrics.errors[context] then
-      local _update_0 = context
-      formula_metrics.errors[_update_0].count = formula_metrics.errors[_update_0].count + 1
-      formula_metrics.errors[context].last_error = result
-      formula_metrics.errors[context].last_timestamp = now
-    else
-      formula_metrics.errors[context] = {
-        count = 1,
-        last_error = result,
-        last_timestamp = now
-      }
-    end
-    log.error("Formula error in " .. tostring(context) .. tostring(record_id and " (record: " .. tostring(record_id) .. ")" or "") .. ": " .. tostring(result))
-    return default_value
   end
+  local now = os.time()
+  if formula_metrics.errors[context] then
+    local _update_0 = context
+    formula_metrics.errors[_update_0].count = formula_metrics.errors[_update_0].count + 1
+    formula_metrics.errors[context].last_error = result
+    formula_metrics.errors[context].last_timestamp = now
+  else
+    formula_metrics.errors[context] = {
+      count = 1,
+      last_error = result,
+      last_timestamp = now
+    }
+  end
+  log.error("Formula error in " .. tostring(context) .. tostring(record_id and " (record: " .. tostring(record_id) .. ")" or "") .. ": " .. tostring(result))
+  return default_value, result
 end
 local get_formula_metrics
 get_formula_metrics = function()

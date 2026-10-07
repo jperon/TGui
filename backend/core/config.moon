@@ -2,7 +2,8 @@
 -- Centralized configuration for TGui.
 -- Keeps constants and settings in one place to avoid duplication.
 
-log = require 'log'
+log   = require 'log'
+fiber = require 'fiber'
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- Sessions and authentication
@@ -34,6 +35,12 @@ LIMITS = {
   }
 }
 
+-- Execution guard for formulas (spec §7): maximum number of VM instructions a
+-- single formula call may execute, checked by debug.sethook every
+-- FORMULA_HOOK_INTERVAL instructions. Bounds infinite loops.
+FORMULA_INSTRUCTION_LIMIT = 200 * 1000 * 1000
+FORMULA_HOOK_INTERVAL = 10000
+
 -- ────────────────────────────────────────────────────────────────────────────
 -- Utility helpers
 -- ────────────────────────────────────────────────────────────────────────────
@@ -52,27 +59,53 @@ formula_metrics = {
   errors: {}  -- space_name.field_name -> {count, last_error, last_timestamp}
 }
 
-safe_formula_call = (fn, context, default_value = nil, record_id = nil) ->
-  ok, result = pcall fn
+safe_formula_call = (fn, context, default_value = nil, record_id = nil, args = nil) ->
+  call_args = args or {}
+  owner_fid = fiber.self!.fid
+  in_call = true
+  hook_calls = 0
+  -- Count-hook guard around the formula call.
+  -- The hook MUST disarm itself before raising: LuaJIT only lets pcall catch an
+  -- error raised from a count hook when the hook is already off. LuaJIT hooks
+  -- are global across fibers, so the guard never trips inside another fiber
+  -- (a yielding formula must not raise into an innocent caller).
+  guard = ->
+    return if fiber.self!.fid != owner_fid
+    hook_calls += 1
+    if in_call and hook_calls * FORMULA_HOOK_INTERVAL > FORMULA_INSTRUCTION_LIMIT
+      debug.sethook!
+      error "instruction limit exceeded in #{context} (#{FORMULA_INSTRUCTION_LIMIT} instructions)", 0
+
+  prev_hook, prev_mask, prev_count = debug.gethook!
+  debug.sethook guard, 'count', FORMULA_HOOK_INTERVAL
+  ok, result = pcall fn, unpack(call_args)
+  in_call = false
+  -- Restore the previous hook in all cases (the guard may have disarmed itself).
+  if prev_hook
+    debug.sethook prev_hook, prev_mask, prev_count
+  else
+    debug.sethook!
+
   if ok
     return result
-  else
-    -- Track error metrics
-    now = os.time!
-    if formula_metrics.errors[context]
-      formula_metrics.errors[context].count += 1
-      formula_metrics.errors[context].last_error = result
-      formula_metrics.errors[context].last_timestamp = now
-    else
-      formula_metrics.errors[context] = {
-        count: 1
-        last_error: result
-        last_timestamp: now
-      }
 
-    log.error "Formula error in #{context}#{record_id and " (record: #{record_id})" or ""}: #{result}"
-    -- Return default_value, not nil, to avoid breaking logic
-    return default_value
+  -- Track error metrics
+  now = os.time!
+  if formula_metrics.errors[context]
+    formula_metrics.errors[context].count += 1
+    formula_metrics.errors[context].last_error = result
+    formula_metrics.errors[context].last_timestamp = now
+  else
+    formula_metrics.errors[context] = {
+      count: 1
+      last_error: result
+      last_timestamp: now
+    }
+
+  log.error "Formula error in #{context}#{record_id and " (record: #{record_id})" or ""}: #{result}"
+  -- Return default_value, not nil, to avoid breaking logic. Second return
+  -- value is the error (nil on success) so callers can tell them apart.
+  return default_value, result
 
 -- Get error metrics for monitoring
 get_formula_metrics = ->
