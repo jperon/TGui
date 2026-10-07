@@ -38,7 +38,7 @@ LIMITS = {
 -- Execution guard for formulas (spec §7): maximum number of VM instructions a
 -- single formula call may execute, checked by debug.sethook every
 -- FORMULA_HOOK_INTERVAL instructions. Bounds infinite loops.
-FORMULA_INSTRUCTION_LIMIT = 200 * 1000 * 1000
+FORMULA_INSTRUCTION_LIMIT = 20 * 1000 * 1000
 FORMULA_HOOK_INTERVAL = 10000
 
 -- ────────────────────────────────────────────────────────────────────────────
@@ -147,4 +147,5 @@ validate_input = (type, value, context) ->
   :DEFAULT_FORMULA_MAX_LENGTH, :DEFAULT_FIELD_NAME_MAX_LENGTH
   :LIMITS, :safe_call, :validate_input
   :safe_formula_call, :get_formula_metrics, :clear_formula_metrics
+  :FORMULA_INSTRUCTION_LIMIT, :FORMULA_HOOK_INTERVAL
 }
