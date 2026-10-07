@@ -1,3 +1,13 @@
+-- Summary: Validate record payloads against the declared space fields on insert/update.
+-- Responsibilities:
+-- - Reject unknown fields and enforce not_null and declared field types.
+-- - Coerce incoming values (Int/Float/Boolean) and report one error message per field.
+-- - Return the cleaned values to write plus fields to clear on update.
+-- Depends on:
+-- - core.spaces (list_fields) for the field metadata of the target space.
+-- Used by:
+-- - backend/resolvers/data_resolvers.moon before insertRecord/updateRecord writes.
+
 spaces_mod = require 'core.spaces'
 
 to_number = (v) ->
