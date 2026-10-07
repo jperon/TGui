@@ -57,10 +57,27 @@ require_perm = function(ctx, resource_type, resource_id, level)
   end
   return uid
 end
+local fk_cache_for
+fk_cache_for = function(ctx)
+  local cache = ctx._fk_cache or { }
+  local readable = { }
+  local _list_0 = box.space._tdb_spaces:select({ })
+  for _index_0 = 1, #_list_0 do
+    local sp = _list_0[_index_0]
+    readable[sp[2]] = perm_ok(ctx, 'space', sp[1], 'read')
+  end
+  cache.readable_by_name = readable
+  cache.can_read = function(space_name)
+    return cache.readable_by_name[space_name] == true
+  end
+  ctx._fk_cache = cache
+  return cache
+end
 return {
   require_auth = require_auth,
   require_admin = require_admin,
   require_perm = require_perm,
   perm_ok = perm_ok,
-  is_admin_user = is_admin_user
+  is_admin_user = is_admin_user,
+  fk_cache_for = fk_cache_for
 }

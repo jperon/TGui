@@ -299,7 +299,7 @@ ensure_formulas = function(space_name)
   return formulas
 end
 local make_space_helper
-make_space_helper = function()
+make_space_helper = function(fk_cache)
   local decode_tuple
   decode_tuple = function(t)
     local d
@@ -312,6 +312,9 @@ make_space_helper = function()
     return d
   end
   return function(sname)
+    if fk_cache and fk_cache.can_read and not fk_cache.can_read(sname) then
+      return { }
+    end
     local sp = box.space["data_" .. tostring(sname)]
     if not (sp) then
       return { }
@@ -346,6 +349,12 @@ make_self_proxy = function(record, fk_def_map, fk_cache, space_name)
   end
   local ensure_space
   ensure_space = function(s_name, to_field_name)
+    if fk_cache.can_read and not fk_cache.can_read(s_name) then
+      return {
+        records = { },
+        by_field = { }
+      }
+    end
     local sc = fk_cache.spaces[s_name]
     if not (sc) then
       sc = {
@@ -404,7 +413,7 @@ make_self_proxy = function(record, fk_def_map, fk_cache, space_name)
       if (v == nil or v == '') and space_name then
         local fns = ensure_formulas(space_name)
         if fns[k] then
-          fk_cache.space_helper = fk_cache.space_helper or make_space_helper()
+          fk_cache.space_helper = fk_cache.space_helper or make_space_helper(fk_cache)
           local val, err = safe_formula_call(fns[k], "formula " .. tostring(space_name) .. "." .. tostring(k), nil, nil, {
             t,
             fk_cache.space_helper
@@ -472,6 +481,12 @@ make_self_proxy_extended = function(record, single_fk_map, multiple_fk_map, fk_c
   end
   local ensure_space
   ensure_space = function(s_name, to_field_name)
+    if fk_cache.can_read and not fk_cache.can_read(s_name) then
+      return {
+        records = { },
+        by_field = { }
+      }
+    end
     local sc = fk_cache.spaces[s_name]
     if not (sc) then
       sc = {
@@ -594,7 +609,7 @@ make_self_proxy_extended = function(record, single_fk_map, multiple_fk_map, fk_c
       if (v == nil or v == '') and space_name then
         local fns = ensure_formulas(space_name)
         if fns[k] then
-          fk_cache.space_helper = fk_cache.space_helper or make_space_helper()
+          fk_cache.space_helper = fk_cache.space_helper or make_space_helper(fk_cache)
           local val, err = safe_formula_call(fns[k], "formula " .. tostring(space_name) .. "." .. tostring(k), nil, nil, {
             t,
             fk_cache.space_helper

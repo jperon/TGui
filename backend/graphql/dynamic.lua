@@ -3,10 +3,10 @@ local log = require('log')
 local config = require('core.config')
 local spaces_mod = require('core.spaces')
 local triggers = require('core.triggers')
-local require_perm, perm_ok
+local require_perm, perm_ok, fk_cache_for
 do
   local _obj_0 = require('resolvers.utils')
-  require_perm, perm_ok = _obj_0.require_perm, _obj_0.perm_ok
+  require_perm, perm_ok, fk_cache_for = _obj_0.require_perm, _obj_0.perm_ok, _obj_0.fk_cache_for
 end
 local gql_name
 gql_name = function(name)
@@ -251,7 +251,7 @@ generate = function()
         else
           fk_def_map = { }
         end
-        ctx._fk_cache = ctx._fk_cache or { }
+        ctx._fk_cache = fk_cache_for(ctx)
         all = apply_filter(all, args.filter, fk_def_map, ctx._fk_cache, sp_cap.name)
         local total = #all
         local items
@@ -349,7 +349,7 @@ generate = function()
             else
               fk_def_map = { }
             end
-            ctx._fk_cache = ctx._fk_cache or { }
+            ctx._fk_cache = ctx._fk_cache or fk_cache_for(ctx)
             all = apply_filter(all, args.filter, fk_def_map, ctx._fk_cache, from_sp_name_cap)
           end
           local total = #all
@@ -396,10 +396,13 @@ generate = function()
               if raw_val ~= nil and raw_val ~= '' then
                 return raw_val
               end
-              ctx._fk_cache = ctx._fk_cache or { }
+              ctx._fk_cache = ctx._fk_cache or fk_cache_for(ctx)
               local proxy = triggers.make_self_proxy(obj, fk_nm_cap, ctx._fk_cache, sp_name_cap)
               local space_helper
               space_helper = function(sname)
+                if ctx._fk_cache.can_read and not ctx._fk_cache.can_read(sname) then
+                  return { }
+                end
                 local sp_box = box.space["data_" .. tostring(sname)]
                 if not (sp_box) then
                   return { }
@@ -438,7 +441,7 @@ generate = function()
         if repr_fn then
           tr["_repr_" .. tostring(gql_name(f.name))] = (function(fn_cap, fk_nm_cap, raw_name_cap, sp_name_cap)
             return function(obj, a, ctx)
-              ctx._fk_cache = ctx._fk_cache or { }
+              ctx._fk_cache = ctx._fk_cache or fk_cache_for(ctx)
               local proxy = triggers.make_self_proxy(obj, fk_nm_cap, ctx._fk_cache, sp_name_cap)
               local val, err = config.safe_formula_call(fn_cap, "repr_" .. tostring(f.name) .. " evaluation", nil, obj and obj._id, {
                 proxy,

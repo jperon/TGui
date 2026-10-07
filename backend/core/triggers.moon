@@ -284,12 +284,18 @@ ensure_formulas = (space_name) ->
 
 -- ── Space helper for formulas ─────────────────────────────────────────────────
 
-make_space_helper = ->
+-- fk_cache: optional per-request cache carrying a `can_read(space_name)`
+-- predicate (set by resolvers.utils.fk_cache_for for user-facing reads). When
+-- present and refusing a target space, space(name) returns an empty list so a
+-- formula cannot read a space the user has no `read` grant on. Absent for
+-- write-time triggers, which then keep full access.
+make_space_helper = (fk_cache) ->
   decode_tuple = (t) ->
     d = if type(t[2]) == 'string' then json.decode(t[2]) else t[2]
     d._id = tostring t[1]
     d
   (sname) ->
+    return {} if fk_cache and fk_cache.can_read and not fk_cache.can_read sname
     sp = box.space["data_#{sname}"]
     return {} unless sp
     [decode_tuple t for t in *sp\select {}]
@@ -312,6 +318,10 @@ make_self_proxy = (record, fk_def_map, fk_cache, space_name) ->
 
   -- Load target space once; build field index on demand (no extra scan).
   ensure_space = (s_name, to_field_name) ->
+    -- Refuse to load a space the requesting user cannot read: an empty index
+    -- makes every lookup miss (nil for a single FK, empty list for a 1-to-N).
+    if fk_cache.can_read and not fk_cache.can_read s_name
+      return { records: {}, by_field: {} }
     sc = fk_cache.spaces[s_name]
     unless sc
       sc = { records: {}, by_field: {} }
@@ -359,7 +369,7 @@ make_self_proxy = (record, fk_def_map, fk_cache, space_name) ->
       if (v == nil or v == '') and space_name
         fns = ensure_formulas space_name
         if fns[k]
-          fk_cache.space_helper = fk_cache.space_helper or make_space_helper!
+          fk_cache.space_helper = fk_cache.space_helper or make_space_helper fk_cache
           val, err = safe_formula_call fns[k], "formula #{space_name}.#{k}", nil, nil, { t, fk_cache.space_helper }
           if err != nil
             err_msg = format_formula_error err
@@ -410,6 +420,10 @@ make_self_proxy_extended = (record, single_fk_map, multiple_fk_map, fk_cache, sp
 
   -- Load target space once; build field index on demand (no extra scan).
   ensure_space = (s_name, to_field_name) ->
+    -- Refuse to load a space the requesting user cannot read: an empty index
+    -- makes every lookup miss (nil for a single FK, empty list for a 1-to-N).
+    if fk_cache.can_read and not fk_cache.can_read s_name
+      return { records: {}, by_field: {} }
     sc = fk_cache.spaces[s_name]
     unless sc
       sc = { records: {}, by_field: {} }
@@ -487,7 +501,7 @@ make_self_proxy_extended = (record, single_fk_map, multiple_fk_map, fk_cache, sp
       if (v == nil or v == '') and space_name
         fns = ensure_formulas space_name
         if fns[k]
-          fk_cache.space_helper = fk_cache.space_helper or make_space_helper!
+          fk_cache.space_helper = fk_cache.space_helper or make_space_helper fk_cache
           val, err = safe_formula_call fns[k], "formula #{space_name}.#{k}", nil, nil, { t, fk_cache.space_helper }
           if err != nil
             err_msg = format_formula_error err
