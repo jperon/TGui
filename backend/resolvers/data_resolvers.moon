@@ -7,6 +7,7 @@ uuid_mod  = require 'uuid'
 spaces_mod = require 'core.spaces'
 { :require_auth, :require_perm, :safe_call } = require 'resolvers.utils'
 config_mod = require 'core.config'
+validation_mod = require 'core.validation'
 
 -- Retrieve the Tarantool space for user data
 data_space = (space_id) ->
@@ -93,6 +94,7 @@ Mutation =
     sp = data_space args.spaceId
     id   = tostring uuid_mod.new!
     data = if type(args.data) == 'string' then json.decode(args.data) else args.data
+    data = validation_mod.validate_record args.spaceId, data, 'insert'
     -- Auto-populate Sequence fields (overrides any user-supplied value)
     for field_name, field_id in pairs sequence_fields(args.spaceId)
       seq = box.sequence["_tdb_seq_#{field_id}"]
@@ -108,10 +110,13 @@ Mutation =
     ok_d, old_data = pcall json.decode, existing[2]
     error "Corrupted record data: #{old_data}" unless ok_d
     new_data = if type(args.data) == 'string' then json.decode(args.data) else args.data
+    validated, cleared = validation_mod.validate_record args.spaceId, new_data, 'update'
     -- Skip Sequence fields (immutable)
     seq_fields = sequence_fields args.spaceId
-    for k, v in pairs new_data
+    for k, v in pairs validated
       old_data[k] = v unless seq_fields[k]
+    for k in *cleared
+      old_data[k] = nil
     sp\replace { args.id, json.encode old_data }
     { id: args.id, spaceId: args.spaceId, data: json.encode(old_data) }
 
@@ -140,6 +145,7 @@ Mutation =
       for d in *args.data
         id = tostring uuid_mod.new!
         data = if type(d) == 'string' then json.decode(d) else d
+        data = validation_mod.validate_record args.spaceId, data, 'insert'
         -- Auto-populate Sequence fields
         for field_name, field_id in pairs seq_fields
           seq = box.sequence["_tdb_seq_#{field_id}"]
@@ -168,9 +174,12 @@ Mutation =
           continue
 
         new_data = if type(rec.data) == 'string' then json.decode(rec.data) else rec.data
+        validated, cleared = validation_mod.validate_record args.spaceId, new_data, 'update'
         -- Skip Sequence fields (immutable)
-        for k, v in pairs new_data
+        for k, v in pairs validated
           old_data[k] = v unless seq_fields[k]
+        for k in *cleared
+          old_data[k] = nil
 
         sp\replace { id, json.encode old_data }
         table.insert results, { id: id, spaceId: args.spaceId, data: json.encode(old_data) }
