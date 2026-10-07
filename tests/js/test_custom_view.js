@@ -40,8 +40,15 @@
 
   };
 
-  // Load module under test (exposes window.CustomView)
+  // Load module under test (exposes window.CustomView) and the files that extend
+  // its prototype via Object.assign (loaded after custom_view.js in the SPA).
   require('../../frontend/src/views/custom_view');
+
+  require('../../frontend/src/views/custom_view_plugins');
+
+  require('../../frontend/src/views/custom_view_aggregate');
+
+  require('../../frontend/src/views/custom_view_resize');
 
   CV = global.window.CustomView;
 
@@ -554,6 +561,14 @@
         throw e;
       }
       return global.document.createElement = oldCreate;
+    });
+  });
+
+  describe('CustomView — surface API', function() {
+    return it('exposes the frozen set of prototype methods', function() {
+      var expected;
+      expected = ['constructor', '_setMessage', 'mount', '_renderZoneOrWidget', '_renderWidget', '_renderAggregate', '_wireDepends', '_applyDependencySelection', '_setPluginSelectionListener', '_emitPluginSelection', '_renderPluginWidget', '_mountPluginIframe', '_compilePlugin', '_buildPluginIframeDoc', '_sendPluginMessage', '_findSpace', 'unmount', '_addResizeHandle', '_showResizeTooltip', '_hideResizeTooltip', '_onZoneResize', 'toggleGrid', 'isGridVisible', 'togglePresentationMode', 'isPresentationMode'];
+      return deepEq(Object.getOwnPropertyNames(CV.prototype).sort(), expected.sort());
     });
   });
 
