@@ -32,6 +32,15 @@
         },
         appsPurgeOpenBtn: function() {
           return get('apps-purge-open-btn');
+        },
+        appsPlanBox: function() {
+          return get('apps-plan-box');
+        },
+        appsPlanErrors: function() {
+          return get('apps-plan-errors');
+        },
+        appsApplyBtn: function() {
+          return get('apps-apply-btn');
         }
       }
     };
@@ -275,6 +284,83 @@
         }
       ]);
       return assert(!app.el.appsPurgeOpenBtn().disabled, 'activé quand obsoleteCount > 0');
+    });
+  });
+
+  describe('AppAppsHelpers.renderPlan', function() {
+    it('rend un plan simulé avec conflit et code tiers', function() {
+      var app, plan, tags, text;
+      app = makeApp();
+      plan = {
+        create: [
+          {
+            key: 'plugin:demo',
+            type: 'plugin',
+            content: {
+              name: 'demo'
+            },
+            isCode: true
+          }
+        ],
+        update: [
+          {
+            key: 'space:livres',
+            type: 'space',
+            content: {},
+            isCode: false
+          }
+        ],
+        keepLocal: [
+          {
+            key: 'field:livres.titre',
+            type: 'field',
+            content: {}
+          }
+        ],
+        conflict: [
+          {
+            key: 'view:livres.vue',
+            type: 'view',
+            local: {
+              a: 1
+            },
+            delivered: {
+              a: 2
+            }
+          }
+        ],
+        obsolete: ['page:ancienne'],
+        rename: [
+          {
+            from: 'space:old',
+            to: 'space:new'
+          }
+        ],
+        unchanged: ['group:admin'],
+        errors: []
+      };
+      EH.renderPlan(app, plan);
+      tags = collectTags(app.el.appsPlanBox());
+      eq(app.el.appsApplyBtn().disabled, false);
+      assert(app.el.appsPlanErrors().classList.contains('hidden'), 'pas d’erreurs affichées');
+      assert(tags.indexOf('DETAILS') >= 0, 'détails dépliables pour le code tiers');
+      assert(tags.indexOf('TABLE') < 0, 'aucun tableau dans le plan');
+      text = JSON.stringify(app.el.appsPlanBox());
+      assert(text.indexOf('ui.apps.conflicts') >= 0, 'section conflits');
+      assert(text.indexOf('ui.apps.codeBadge') >= 0, 'badge code tiers');
+      assert(text.indexOf('ui.apps.localVersion') >= 0, 'version locale');
+      return assert(text.indexOf('ui.apps.deliveredVersion') >= 0, 'version livrée');
+    });
+    return it('désactive Appliquer si plan.errors est non vide', function() {
+      var app, errEl;
+      app = makeApp();
+      EH.renderPlan(app, {
+        errors: ['version trop ancienne'],
+        create: []
+      });
+      eq(app.el.appsApplyBtn().disabled, true);
+      errEl = app.el.appsPlanErrors();
+      return assert(!errEl.classList.contains('hidden'), 'erreurs visibles');
     });
   });
 

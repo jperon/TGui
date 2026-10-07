@@ -365,6 +365,27 @@
       appsPurgeOpenBtn: function() {
         return document.getElementById('apps-purge-open-btn');
       },
+      appsPackageInput: function() {
+        return document.getElementById('apps-package-input');
+      },
+      appsPackageName: function() {
+        return document.getElementById('apps-package-name');
+      },
+      appsAllowDowngrade: function() {
+        return document.getElementById('apps-allow-downgrade');
+      },
+      appsPlanErrors: function() {
+        return document.getElementById('apps-plan-errors');
+      },
+      appsPlanBox: function() {
+        return document.getElementById('apps-plan-box');
+      },
+      appsApplyBtn: function() {
+        return document.getElementById('apps-apply-btn');
+      },
+      appsApplyReport: function() {
+        return document.getElementById('apps-apply-report');
+      },
       adminUsersList: function() {
         return document.getElementById('admin-users-list');
       },

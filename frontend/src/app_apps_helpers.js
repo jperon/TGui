@@ -16,11 +16,11 @@
     // conflicts: [{key, ...}] — choices: { key: 'local' | 'delivered' }
     // Retourne [{key, choice}] dans l'ordre des conflits, défaut « local ».
     buildDecisions: function(conflicts, choices) {
-      var c, choice, i, len, ref, result;
+      var c, choice, j, len, ref, result;
       result = [];
       ref = conflicts || [];
-      for (i = 0, len = ref.length; i < len; i++) {
-        c = ref[i];
+      for (j = 0, len = ref.length; j < len; j++) {
+        c = ref[j];
         choice = (choices || {})[c.key] || 'local';
         result.push({
           key: c.key,
@@ -61,12 +61,12 @@
     },
     // Vrai si un élément créé/mis à jour/en conflit porte du code tiers.
     hasCodeChanges: function(plan) {
-      var group, groups, i, item, j, len, len1, t;
+      var group, groups, item, j, l, len, len1, t;
       groups = [plan.create || [], plan.update || [], plan.conflict || []];
-      for (i = 0, len = groups.length; i < len; i++) {
-        group = groups[i];
-        for (j = 0, len1 = group.length; j < len1; j++) {
-          item = group[j];
+      for (j = 0, len = groups.length; j < len; j++) {
+        group = groups[j];
+        for (l = 0, len1 = group.length; l < len1; l++) {
+          item = group[l];
           if (item.isCode === true) {
             return true;
           }
@@ -111,13 +111,13 @@
       });
     },
     renderAppsList: function(app, apps) {
-      var hasObsolete, i, info, len, list, meta, ref, row;
+      var hasObsolete, info, j, len, list, meta, ref, row;
       app._appList = apps || [];
       list = app.el.appsList();
       window.AppAppsHelpers._clear(list);
       ref = app._appList;
-      for (i = 0, len = ref.length; i < len; i++) {
-        info = ref[i];
+      for (j = 0, len = ref.length; j < len; j++) {
+        info = ref[j];
         row = window.AppAppsHelpers._makeEl('div', 'apps-list-item');
         row.appendChild(window.AppAppsHelpers._makeEl('div', 'apps-item-name', String(info.name)));
         meta = window.AppAppsHelpers._makeEl('div', 'apps-item-meta');
@@ -140,9 +140,284 @@
       });
       return app.el.appsPurgeOpenBtn().disabled = !hasObsolete;
     },
+    // ── Aperçu d'un paquet (installer / mettre à jour) ─────────────────────────
+    previewPackage: function(app, yamlText) {
+      app.el.appsApplyBtn().disabled = true;
+      app.el.appsApplyReport().classList.add('hidden');
+      return GQL.query(`query($y: String!, $d: Boolean) {
+  previewAppUpdate(yaml: $y, allowDowngrade: $d) {
+    create { key type content fingerprint isCode }
+    update { key type content fingerprint isCode }
+    conflict { key type local delivered }
+    keepLocal { key type content fingerprint isCode }
+    obsolete
+    rename { from to }
+    unchanged
+    errors
+  }
+}`, {
+        y: yamlText,
+        d: app.el.appsAllowDowngrade().checked
+      }).then(function(data) {
+        var plan;
+        plan = data.previewAppUpdate;
+        app._appPlan = plan;
+        return window.AppAppsHelpers.renderPlan(app, plan);
+      }).catch(function(err) {
+        var errEl;
+        errEl = app.el.appsPlanErrors();
+        window.AppAppsHelpers._clear(errEl);
+        errEl.appendChild(window.AppAppsHelpers._makeEl('p', 'apps-plan-error', app._err(err)));
+        errEl.classList.remove('hidden');
+        return app.el.appsPlanBox().classList.add('hidden');
+      });
+    },
+    renderPlan: function(app, plan) {
+      var box, e, errEl, errors, j, len, summary;
+      box = app.el.appsPlanBox();
+      window.AppAppsHelpers._clear(box);
+      box.classList.remove('hidden');
+      errors = plan.errors || [];
+      if (errors.length > 0) {
+        errEl = app.el.appsPlanErrors();
+        window.AppAppsHelpers._clear(errEl);
+        for (j = 0, len = errors.length; j < len; j++) {
+          e = errors[j];
+          errEl.appendChild(window.AppAppsHelpers._makeEl('p', 'apps-plan-error', String(e)));
+        }
+        errEl.classList.remove('hidden');
+        app.el.appsApplyBtn().disabled = true;
+        return;
+      }
+      app.el.appsPlanErrors().classList.add('hidden');
+      app.el.appsApplyBtn().disabled = false;
+      summary = window.AppAppsHelpers.summarizePlan(plan);
+      box.appendChild(window.AppAppsHelpers._makeEl('h4', null, app._t('ui.apps.previewTitle')));
+      box.appendChild(window.AppAppsHelpers._makeEl('p', 'apps-plan-counts', app._t('ui.apps.counts', summary)));
+      window.AppAppsHelpers._renderItemSection(app, box, 'ui.apps.created', plan.create, 'diff-create');
+      window.AppAppsHelpers._renderItemSection(app, box, 'ui.apps.updated', plan.update, 'diff-change');
+      window.AppAppsHelpers._renderItemSection(app, box, 'ui.apps.kept', plan.keepLocal, 'apps-kept');
+      window.AppAppsHelpers._renderRenames(app, box, plan.rename);
+      window.AppAppsHelpers._renderObsolete(app, box, plan.obsolete);
+      window.AppAppsHelpers._renderConflicts(app, box, plan.conflict);
+      if (summary.unchanged > 0) {
+        return box.appendChild(window.AppAppsHelpers._makeEl('p', 'apps-plan-unchanged', app._t('ui.apps.unchanged', {
+          count: summary.unchanged
+        })));
+      }
+    },
+    _isCodeItem: function(item) {
+      return item.isCode === true || item.type === 'plugin' || item.type === 'page' || item.type === 'dataview';
+    },
+    _appendItemLabel: function(app, li, item) {
+      var details;
+      li.appendChild(window.AppAppsHelpers._makeEl('code', null, String(item.key)));
+      li.appendChild(window.AppAppsHelpers._makeEl('span', 'apps-item-type', ` (${item.type || ''})`));
+      if (!window.AppAppsHelpers._isCodeItem(item)) {
+        return;
+      }
+      li.appendChild(window.AppAppsHelpers._makeEl('span', 'apps-code-badge', app._t('ui.apps.codeBadge')));
+      li.appendChild(window.AppAppsHelpers._makeEl('p', 'apps-code-warning', app._t('ui.apps.codeWarning')));
+      details = document.createElement('details');
+      details.appendChild(window.AppAppsHelpers._makeEl('summary', null, app._t('ui.apps.codeDetails')));
+      details.appendChild(window.AppAppsHelpers._makeEl('pre', 'apps-code-content', JSON.stringify(item.content, null, 2)));
+      return li.appendChild(details);
+    },
+    _renderItemSection: function(app, box, titleKey, items, cls) {
+      var item, j, len, li, ul;
+      items || (items = []);
+      if (items.length === 0) {
+        return;
+      }
+      box.appendChild(window.AppAppsHelpers._makeEl('h5', null, app._t(titleKey)));
+      ul = window.AppAppsHelpers._makeEl('ul', `diff-list ${cls}`);
+      for (j = 0, len = items.length; j < len; j++) {
+        item = items[j];
+        li = window.AppAppsHelpers._makeEl('li');
+        window.AppAppsHelpers._appendItemLabel(app, li, item);
+        ul.appendChild(li);
+      }
+      return box.appendChild(ul);
+    },
+    _renderRenames: function(app, box, renames) {
+      var j, len, li, r, ul;
+      renames || (renames = []);
+      if (renames.length === 0) {
+        return;
+      }
+      box.appendChild(window.AppAppsHelpers._makeEl('h5', null, app._t('ui.apps.renamed')));
+      ul = window.AppAppsHelpers._makeEl('ul', 'diff-list diff-change');
+      for (j = 0, len = renames.length; j < len; j++) {
+        r = renames[j];
+        li = window.AppAppsHelpers._makeEl('li');
+        li.appendChild(window.AppAppsHelpers._makeEl('code', null, String(r.from)));
+        li.appendChild(window.AppAppsHelpers._makeEl('span', null, ' → '));
+        li.appendChild(window.AppAppsHelpers._makeEl('code', null, String(r.to)));
+        ul.appendChild(li);
+      }
+      return box.appendChild(ul);
+    },
+    _renderObsolete: function(app, box, obsolete) {
+      var j, key, len, ul;
+      obsolete || (obsolete = []);
+      if (obsolete.length === 0) {
+        return;
+      }
+      box.appendChild(window.AppAppsHelpers._makeEl('h5', null, app._t('ui.apps.obsolete')));
+      ul = window.AppAppsHelpers._makeEl('ul', 'diff-list diff-delete');
+      for (j = 0, len = obsolete.length; j < len; j++) {
+        key = obsolete[j];
+        ul.appendChild(window.AppAppsHelpers._makeEl('li', null, String(key)));
+      }
+      return box.appendChild(ul);
+    },
+    _radio: function(app, parent, name, value, labelText, checked, key) {
+      var input, label;
+      label = window.AppAppsHelpers._makeEl('label', 'apps-conflict-radio');
+      input = document.createElement('input');
+      input.type = 'radio';
+      input.name = name;
+      input.value = value;
+      input.checked = checked;
+      input.addEventListener('change', function() {
+        if (app._appChoices == null) {
+          app._appChoices = {};
+        }
+        return app._appChoices[key] = value;
+      });
+      label.appendChild(input);
+      label.appendChild(window.AppAppsHelpers._makeEl('span', null, ` ${labelText}`));
+      return parent.appendChild(label);
+    },
+    _renderConflicts: function(app, box, conflicts) {
+      var c, choice, choices, container, deliveredSide, i, j, len, localSide, name, results, row;
+      conflicts || (conflicts = []);
+      if (conflicts.length === 0) {
+        return;
+      }
+      box.appendChild(window.AppAppsHelpers._makeEl('h5', null, app._t('ui.apps.conflicts')));
+      if (app._appChoices == null) {
+        app._appChoices = {};
+      }
+      results = [];
+      for (i = j = 0, len = conflicts.length; j < len; i = ++j) {
+        c = conflicts[i];
+        container = window.AppAppsHelpers._makeEl('div', 'apps-conflict');
+        container.appendChild(window.AppAppsHelpers._makeEl('div', 'apps-conflict-key', String(c.key)));
+        row = window.AppAppsHelpers._makeEl('div', 'apps-conflict-versions');
+        localSide = window.AppAppsHelpers._makeEl('div', 'apps-conflict-side');
+        localSide.appendChild(window.AppAppsHelpers._makeEl('div', 'apps-conflict-side-title', app._t('ui.apps.localVersion')));
+        localSide.appendChild(window.AppAppsHelpers._makeEl('pre', 'apps-conflict-json', JSON.stringify(c['local'], null, 2)));
+        deliveredSide = window.AppAppsHelpers._makeEl('div', 'apps-conflict-side');
+        deliveredSide.appendChild(window.AppAppsHelpers._makeEl('div', 'apps-conflict-side-title', app._t('ui.apps.deliveredVersion')));
+        deliveredSide.appendChild(window.AppAppsHelpers._makeEl('pre', 'apps-conflict-json', JSON.stringify(c.delivered, null, 2)));
+        row.appendChild(localSide);
+        row.appendChild(deliveredSide);
+        container.appendChild(row);
+        choices = window.AppAppsHelpers._makeEl('div', 'apps-conflict-choices');
+        name = `app-conflict-${i}`;
+        choice = app._appChoices[c.key] || 'local';
+        window.AppAppsHelpers._radio(app, choices, name, 'local', app._t('ui.apps.keepMine'), choice === 'local', c.key);
+        window.AppAppsHelpers._radio(app, choices, name, 'delivered', app._t('ui.apps.takeDelivered'), choice === 'delivered', c.key);
+        container.appendChild(choices);
+        results.push(box.appendChild(container));
+      }
+      return results;
+    },
+    renderApplyReport: function(app, r) {
+      var box, parts;
+      box = app.el.appsApplyReport();
+      window.AppAppsHelpers._clear(box);
+      box.classList.remove('hidden');
+      box.className = r.ok ? 'snapshot-import-result snapshot-result-ok' : 'snapshot-import-result snapshot-result-err';
+      parts = [
+        app._t('ui.apps.reportCreated',
+        {
+          count: (r.created || []).length
+        }),
+        app._t('ui.apps.reportUpdated',
+        {
+          count: (r.updated || []).length
+        }),
+        app._t('ui.apps.reportKept',
+        {
+          count: (r.kept || []).length
+        }),
+        app._t('ui.apps.reportObsolete',
+        {
+          count: (r.obsolete || []).length
+        })
+      ];
+      box.appendChild(window.AppAppsHelpers._makeEl('div', null, parts.join(' · ')));
+      if (r.error) {
+        return box.appendChild(window.AppAppsHelpers._makeEl('div', 'apps-apply-error', String(r.error)));
+      }
+    },
+    applyPackage: function(app) {
+      var decisions;
+      if (!(app._appPlan && app._appPackageYaml)) {
+        return;
+      }
+      decisions = window.AppAppsHelpers.buildDecisions(app._appPlan.conflict, app._appChoices || {});
+      return tdbConfirm(app._t('ui.confirms.appApply')).then(function(ok) {
+        if (!ok) {
+          return;
+        }
+        app.el.appsApplyBtn().disabled = true;
+        return GQL.mutate(`mutation($y: String!, $dec: [AppDecisionInput!], $d: Boolean) {
+  applyAppUpdate(yaml: $y, decisions: $dec, allowDowngrade: $d) {
+    ok created updated kept unchanged obsolete skipped error
+  }
+}`, {
+          y: app._appPackageYaml,
+          dec: decisions,
+          d: app.el.appsAllowDowngrade().checked
+        }).then(function(data) {
+          var r;
+          r = data.applyAppUpdate;
+          window.AppAppsHelpers.renderApplyReport(app, r);
+          if (r.ok) {
+            return typeof app._loadApps === "function" ? app._loadApps() : void 0;
+          }
+        }).catch(function(err) {
+          app.el.appsApplyBtn().disabled = false;
+          return tdbAlert(app._err(err), 'error');
+        });
+      });
+    },
     // ── Liaison des évènements ─────────────────────────────────────────────────
     bindAppsPanel: function(app) {
-      return app._appList = [];
+      app._appList = [];
+      app._appPackageYaml = null;
+      app._appPlan = null;
+      app._appChoices = {};
+      app.el.appsPackageInput().addEventListener('change', function(e) {
+        var file, reader;
+        file = e.target.files[0];
+        if (!file) {
+          return;
+        }
+        app.el.appsPackageName().textContent = file.name;
+        app.el.appsPlanBox().classList.add('hidden');
+        app.el.appsPlanErrors().classList.add('hidden');
+        app.el.appsApplyReport().classList.add('hidden');
+        reader = new FileReader();
+        reader.onload = function(ev) {
+          app._appPackageYaml = ev.target.result;
+          app._appChoices = {};
+          return window.AppAppsHelpers.previewPackage(app, app._appPackageYaml);
+        };
+        return reader.readAsText(file);
+      });
+      app.el.appsAllowDowngrade().addEventListener('change', function() {
+        if (!app._appPackageYaml) {
+          return;
+        }
+        return window.AppAppsHelpers.previewPackage(app, app._appPackageYaml);
+      });
+      return app.el.appsApplyBtn().addEventListener('click', function() {
+        return window.AppAppsHelpers.applyPackage(app);
+      });
     }
   };
 

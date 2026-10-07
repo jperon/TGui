@@ -19,6 +19,9 @@ makeApp = ->
     el:
       appsList:        -> get 'apps-list'
       appsPurgeOpenBtn: -> get 'apps-purge-open-btn'
+      appsPlanBox:     -> get 'apps-plan-box'
+      appsPlanErrors:  -> get 'apps-plan-errors'
+      appsApplyBtn:    -> get 'apps-apply-btn'
   app
 
 # Collecte récursive des tagName (pour vérifier l'absence d'éléments injectés).
@@ -125,5 +128,36 @@ describe 'AppAppsHelpers.renderAppsList — sécurité', ->
     app = makeApp()
     EH.renderAppsList app, [{ appId: 'x', name: 'App', version: '1.0.0', activeCount: 1, obsoleteCount: 3 }]
     assert not app.el.appsPurgeOpenBtn().disabled, 'activé quand obsoleteCount > 0'
+
+describe 'AppAppsHelpers.renderPlan', ->
+  it 'rend un plan simulé avec conflit et code tiers', ->
+    app = makeApp()
+    plan =
+      create: [{ key: 'plugin:demo', type: 'plugin', content: { name: 'demo' }, isCode: true }]
+      update: [{ key: 'space:livres', type: 'space', content: {}, isCode: false }]
+      keepLocal: [{ key: 'field:livres.titre', type: 'field', content: {} }]
+      conflict: [{ key: 'view:livres.vue', type: 'view', local: { a: 1 }, delivered: { a: 2 } }]
+      obsolete: ['page:ancienne']
+      rename: [{ from: 'space:old', to: 'space:new' }]
+      unchanged: ['group:admin']
+      errors: []
+    EH.renderPlan app, plan
+    tags = collectTags app.el.appsPlanBox()
+    eq app.el.appsApplyBtn().disabled, false
+    assert app.el.appsPlanErrors().classList.contains('hidden'), 'pas d’erreurs affichées'
+    assert tags.indexOf('DETAILS') >= 0, 'détails dépliables pour le code tiers'
+    assert tags.indexOf('TABLE') < 0, 'aucun tableau dans le plan'
+    text = JSON.stringify app.el.appsPlanBox()
+    assert text.indexOf('ui.apps.conflicts') >= 0, 'section conflits'
+    assert text.indexOf('ui.apps.codeBadge') >= 0, 'badge code tiers'
+    assert text.indexOf('ui.apps.localVersion') >= 0, 'version locale'
+    assert text.indexOf('ui.apps.deliveredVersion') >= 0, 'version livrée'
+
+  it 'désactive Appliquer si plan.errors est non vide', ->
+    app = makeApp()
+    EH.renderPlan app, { errors: ['version trop ancienne'], create: [] }
+    eq app.el.appsApplyBtn().disabled, true
+    errEl = app.el.appsPlanErrors()
+    assert not errEl.classList.contains('hidden'), 'erreurs visibles'
 
 summary()

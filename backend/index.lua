@@ -809,6 +809,71 @@ _appsInstalledBox = function()
     })
   })
 end
+local _appsInstallBox
+_appsInstallBox = function()
+  return H.div({
+    class = 'apps-install-box',
+    H.h3({
+      'Installer ou mettre à jour'
+    }),
+    H.p({
+      'Choisissez un paquet .tdbapp.yaml pour prévisualiser les changements avant de les appliquer.'
+    }),
+    H.div({
+      class = 'snapshot-import-file-row',
+      H.label({
+        ['for'] = 'apps-package-input',
+        class = 'toolbar-btn',
+        '📂 Choisir un fichier'
+      }),
+      H.input({
+        id = 'apps-package-input',
+        type = 'file',
+        accept = '.yaml,.yml,.tdbapp.yaml',
+        class = 'hidden'
+      }),
+      H.span({
+        id = 'apps-package-name',
+        class = 'snapshot-file-name',
+        ''
+      })
+    }),
+    H.label({
+      class = 'apps-downgrade-row',
+      H.input({
+        id = 'apps-allow-downgrade',
+        type = 'checkbox'
+      }),
+      H.span({
+        ' Autoriser une version antérieure'
+      })
+    }),
+    H.p({
+      id = 'apps-plan-errors',
+      class = 'error hidden',
+      ''
+    }),
+    H.div({
+      id = 'apps-plan-box',
+      class = 'hidden snapshot-diff-box',
+      ''
+    }),
+    H.div({
+      class = 'modal-actions',
+      H.button({
+        id = 'apps-apply-btn',
+        class = 'toolbar-btn',
+        disabled = 'disabled',
+        'Appliquer'
+      })
+    }),
+    H.div({
+      id = 'apps-apply-report',
+      class = 'hidden snapshot-import-result',
+      ''
+    })
+  })
+end
 local _adminAppsSection
 _adminAppsSection = function()
   return H.div({
@@ -820,7 +885,8 @@ _adminAppsSection = function()
         'Applications'
       })
     }),
-    _appsInstalledBox()
+    _appsInstalledBox(),
+    _appsInstallBox()
   })
 end
 local make_admin_panel
