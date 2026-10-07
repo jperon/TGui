@@ -1,0 +1,106 @@
+-- backend/core/app_plan.moon
+-- Moteur pur de calcul du plan de mise a jour d'une application (spec §2).
+-- Fonction pure : aucun acces a box ni a la base, uniquement des tables.
+
+SPECIAL_TYPES =
+  seed: true
+  group: true
+  perm: true
+
+_empty_plan = (errors) ->
+  {
+    create: {}
+    update: {}
+    conflict: {}
+    keep_local: {}
+    obsolete: {}
+    rename: {}
+    unchanged: {}
+    errors: errors or {}
+  }
+
+_is_special = (type_) -> SPECIAL_TYPES[type_] == true
+
+_validate = (package) ->
+  errors = {}
+  app = package and package.app
+  if type(app) != 'table' or type(app.id) != 'string' or app.id == ''
+    table.insert errors, "package app id is required"
+  items = package and package.items
+  if type(items) != 'table'
+    table.insert errors, "package items must be a list"
+    return errors
+  for entry in *items
+    if type(entry) != 'table'
+      table.insert errors, "package item must be a table"
+      continue
+    table.insert errors, "package item is missing type" if entry.type == nil
+    table.insert errors, "package item is missing key" if entry.key == nil
+    table.insert errors, "package item is missing fingerprint" if entry.fingerprint == nil
+  errors
+
+_classify_create = (entry, local_state, plan) ->
+  if local_state.fingerprint == entry.fingerprint
+    table.insert plan.unchanged, entry.key
+  elseif _is_special entry.type
+    table.insert plan.keep_local, entry
+  else
+    table.insert plan.conflict, { entry, local_state, entry.fingerprint }
+
+_classify_uninstalled = (entry, local_state, plan) ->
+  return table.insert plan.create, entry if local_state == nil
+  _classify_create entry, local_state, plan
+
+_classify_installed = (entry, old, local_state, plan) ->
+  L = old.fingerprint
+  N = entry.fingerprint
+  if local_state == nil
+    if N == L or _is_special entry.type
+      table.insert plan.keep_local, entry
+    else
+      table.insert plan.conflict, { entry, nil, N }
+    return
+  C = local_state.fingerprint
+  if C == L and N == L
+    table.insert plan.unchanged, entry.key
+  elseif C == L
+    table.insert plan.update, entry
+  elseif N == L or _is_special entry.type
+    table.insert plan.keep_local, entry
+  elseif C == N
+    table.insert plan.unchanged, entry.key
+  else
+    table.insert plan.conflict, { entry, local_state, N }
+
+_sort_by = (list, keyfn) ->
+  table.sort list, (a, b) -> keyfn(a) < keyfn(b)
+
+_sort_plan = (plan) ->
+  _sort_by plan.create, (e) -> e.key
+  _sort_by plan.update, (e) -> e.key
+  _sort_by plan.keep_local, (e) -> e.key
+  _sort_by plan.conflict, (e) -> e[1].key
+  _sort_by plan.rename, (e) -> e[1]
+  table.sort plan.obsolete
+  table.sort plan.unchanged
+  plan
+
+plan_update = (installed, package, local_states, opts) ->
+  installed or= {}
+  local_states or= {}
+  opts or= {}
+  plan = _empty_plan!
+  errors = _validate package
+  if #errors > 0
+    plan.errors = errors
+    return plan
+  for entry in *package.items
+    old = installed[entry.key]
+    local_state = local_states[entry.key]
+    if old == nil
+      _classify_uninstalled entry, local_state, plan
+    else
+      _classify_installed entry, old, local_state, plan
+  _sort_plan plan
+
+{ :plan_update }
