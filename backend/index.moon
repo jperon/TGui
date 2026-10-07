@@ -343,6 +343,29 @@ _appsInstallBox = ->
     H.div {id: 'apps-apply-report', class: 'hidden snapshot-import-result', ''}
   }
 
+_appsExportBox = ->
+  H.div {class: 'apps-export-box',
+    H.h3 {'Exporter une application'}
+    H.p {"Publiez la définition complète de l'application sous forme de paquet installable."}
+    H.div {class: 'apps-export-form',
+      H.label {['for']: 'apps-export-id', 'Identifiant (ex. org.exemple.biblio)'}
+      H.input {id: 'apps-export-id', type: 'text', placeholder: 'org.exemple.biblio'}
+      H.label {['for']: 'apps-export-name', 'Nom'}
+      H.input {id: 'apps-export-name', type: 'text', placeholder: 'Ma bibliothèque'}
+      H.label {['for']: 'apps-export-version', 'Version (x.y.z)'}
+      H.input {id: 'apps-export-version', type: 'text', placeholder: '1.0.0'}
+      H.label {['for']: 'apps-export-description', 'Description'}
+      H.input {id: 'apps-export-description', type: 'text', placeholder: 'Description'}
+      H.label {['for']: 'apps-export-seed', "Lignes d'amorçage (une par ligne, espace:champCle)"}
+      H.textarea {id: 'apps-export-seed', rows: '3',
+        placeholder: 'livres:isbn', ''}
+    }
+    H.p {id: 'apps-export-error', class: 'error hidden', ''}
+    H.div {class: 'modal-actions',
+      H.button {id: 'apps-export-btn', class: 'toolbar-btn', '⬇ Exporter le paquet'}
+    }
+  }
+
 _adminAppsSection = ->
   H.div {id: 'admin-apps-section', class: 'hidden',
     H.div {class: 'admin-section-header',
@@ -350,6 +373,7 @@ _adminAppsSection = ->
     }
     _appsInstalledBox!
     _appsInstallBox!
+    _appsExportBox!
   }
 
 make_admin_panel = ->

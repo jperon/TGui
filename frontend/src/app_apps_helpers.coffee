@@ -283,6 +283,50 @@ window.AppAppsHelpers =
         app.el.appsApplyBtn().disabled = false
         tdbAlert app._err(err), 'error'
 
+  # ── Export d'une application (côté auteur) ─────────────────────────────────
+
+  _download: (filename, content) ->
+    blob = new Blob [content], { type: 'text/yaml' }
+    url = URL.createObjectURL blob
+    a = document.createElement 'a'
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL url
+
+  exportApp: (app) ->
+    id = app.el.appsExportId().value.trim()
+    name = app.el.appsExportName().value.trim()
+    version = app.el.appsExportVersion().value.trim()
+    description = app.el.appsExportDescription().value.trim()
+    errEl = app.el.appsExportError()
+    errEl.classList.add 'hidden'
+    unless id and version
+      errEl.textContent = app._t('ui.apps.exportRequired')
+      errEl.classList.remove 'hidden'
+      return
+    unless window.AppAppsHelpers.isSemver version
+      errEl.textContent = app._t('ui.apps.invalidVersion')
+      errEl.classList.remove 'hidden'
+      return
+    seed = []
+    for line in app.el.appsExportSeed().value.split('\n')
+      line = line.trim()
+      continue unless line
+      parts = line.split(':')
+      continue unless parts.length >= 2
+      seed.push { space: parts[0].trim(), keyField: parts[1].trim() }
+    GQL.query """
+      query($meta: AppMetaInput!, $seed: [AppSeedInput!]) {
+        exportApp(meta: $meta, seed: $seed)
+      }
+    """, { meta: { id, name, version, description }, seed }
+    .then (data) ->
+      window.AppAppsHelpers._download "#{id}-#{version}.tdbapp.yaml", data.exportApp
+    .catch (err) ->
+      errEl.textContent = app._err(err)
+      errEl.classList.remove 'hidden'
+
   # ── Liaison des évènements ─────────────────────────────────────────────────
 
   bindAppsPanel: (app) ->
@@ -311,4 +355,7 @@ window.AppAppsHelpers =
 
     app.el.appsApplyBtn().addEventListener 'click', ->
       window.AppAppsHelpers.applyPackage app
+
+    app.el.appsExportBtn().addEventListener 'click', ->
+      window.AppAppsHelpers.exportApp app
 

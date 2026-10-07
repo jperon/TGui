@@ -386,6 +386,27 @@
       appsApplyReport: function() {
         return document.getElementById('apps-apply-report');
       },
+      appsExportId: function() {
+        return document.getElementById('apps-export-id');
+      },
+      appsExportName: function() {
+        return document.getElementById('apps-export-name');
+      },
+      appsExportVersion: function() {
+        return document.getElementById('apps-export-version');
+      },
+      appsExportDescription: function() {
+        return document.getElementById('apps-export-description');
+      },
+      appsExportSeed: function() {
+        return document.getElementById('apps-export-seed');
+      },
+      appsExportError: function() {
+        return document.getElementById('apps-export-error');
+      },
+      appsExportBtn: function() {
+        return document.getElementById('apps-export-btn');
+      },
       adminUsersList: function() {
         return document.getElementById('admin-users-list');
       },

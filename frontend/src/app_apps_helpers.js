@@ -385,6 +385,66 @@
         });
       });
     },
+    // ── Export d'une application (côté auteur) ─────────────────────────────────
+    _download: function(filename, content) {
+      var a, blob, url;
+      blob = new Blob([content], {
+        type: 'text/yaml'
+      });
+      url = URL.createObjectURL(blob);
+      a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      return URL.revokeObjectURL(url);
+    },
+    exportApp: function(app) {
+      var description, errEl, id, j, len, line, name, parts, ref, seed, version;
+      id = app.el.appsExportId().value.trim();
+      name = app.el.appsExportName().value.trim();
+      version = app.el.appsExportVersion().value.trim();
+      description = app.el.appsExportDescription().value.trim();
+      errEl = app.el.appsExportError();
+      errEl.classList.add('hidden');
+      if (!(id && version)) {
+        errEl.textContent = app._t('ui.apps.exportRequired');
+        errEl.classList.remove('hidden');
+        return;
+      }
+      if (!window.AppAppsHelpers.isSemver(version)) {
+        errEl.textContent = app._t('ui.apps.invalidVersion');
+        errEl.classList.remove('hidden');
+        return;
+      }
+      seed = [];
+      ref = app.el.appsExportSeed().value.split('\n');
+      for (j = 0, len = ref.length; j < len; j++) {
+        line = ref[j];
+        line = line.trim();
+        if (!line) {
+          continue;
+        }
+        parts = line.split(':');
+        if (!(parts.length >= 2)) {
+          continue;
+        }
+        seed.push({
+          space: parts[0].trim(),
+          keyField: parts[1].trim()
+        });
+      }
+      return GQL.query(`query($meta: AppMetaInput!, $seed: [AppSeedInput!]) {
+  exportApp(meta: $meta, seed: $seed)
+}`, {
+        meta: {id, name, version, description},
+        seed
+      }).then(function(data) {
+        return window.AppAppsHelpers._download(`${id}-${version}.tdbapp.yaml`, data.exportApp);
+      }).catch(function(err) {
+        errEl.textContent = app._err(err);
+        return errEl.classList.remove('hidden');
+      });
+    },
     // ── Liaison des évènements ─────────────────────────────────────────────────
     bindAppsPanel: function(app) {
       app._appList = [];
@@ -415,8 +475,11 @@
         }
         return window.AppAppsHelpers.previewPackage(app, app._appPackageYaml);
       });
-      return app.el.appsApplyBtn().addEventListener('click', function() {
+      app.el.appsApplyBtn().addEventListener('click', function() {
         return window.AppAppsHelpers.applyPackage(app);
+      });
+      return app.el.appsExportBtn().addEventListener('click', function() {
+        return window.AppAppsHelpers.exportApp(app);
       });
     }
   };
