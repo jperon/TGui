@@ -50,16 +50,31 @@ do
   end
 end
 math.randomseed(os.time())
+local fio = require('fio')
 local test_files = { }
-local handle = io.popen('ls /app/tests/test_*.moon 2>/dev/null || ls tests/test_*.moon 2>/dev/null')
-for line in handle:lines() do
-  local filename = line:match('([^/]+)%.moon$')
+local paths = { }
+local _list_0 = {
+  '/app/tests/test_*.moon',
+  'tests/test_*.moon'
+}
+for _index_0 = 1, #_list_0 do
+  local pattern = _list_0[_index_0]
+  paths = fio.glob(pattern)
+  if paths and #paths > 0 then
+    break
+  end
+end
+if not (paths) then
+  paths = { }
+end
+for _index_0 = 1, #paths do
+  local path = paths[_index_0]
+  local filename = path:match('([^/]+)%.moon$')
   if filename and not filename:match('_disabled') then
     local modname = filename:gsub('%.moon$', '')
     table.insert(test_files, modname)
   end
 end
-handle:close()
 table.sort(test_files)
 print("   Discovered " .. tostring(#test_files) .. " test files")
 for _index_0 = 1, #test_files do

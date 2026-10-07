@@ -44,14 +44,22 @@ do
 -- Excludes files containing "_disabled" in their name
 math.randomseed os.time!
 
+fio = require 'fio'
+
 test_files = {}
-handle = io.popen 'ls /app/tests/test_*.moon 2>/dev/null || ls tests/test_*.moon 2>/dev/null'
-for line in handle\lines!
-  filename = line\match '([^/]+)%.moon$'
+paths = {}
+-- Mirrors the former `ls /app/tests/... || ls tests/...` fallback: prefer the
+-- container path, otherwise the repository-relative one.
+for pattern in *{'/app/tests/test_*.moon', 'tests/test_*.moon'}
+  paths = fio.glob pattern
+  break if paths and #paths > 0
+paths = {} unless paths
+
+for path in *paths
+  filename = path\match '([^/]+)%.moon$'
   if filename and not filename\match '_disabled'
     modname = filename\gsub '%.moon$', ''
     table.insert test_files, modname
-handle\close!
 
 table.sort test_files
 
