@@ -11,9 +11,9 @@ do
   local _obj_0 = require('resolvers.data_resolvers')
   data_Query, data_Mutation, real_matches_filter = _obj_0.Query, _obj_0.Mutation, _obj_0.matches_filter
 end
-local CTX_FK = {
-  user_id = 'test-user'
-}
+local trusted_ctx
+trusted_ctx = require('resolvers.utils').trusted_ctx
+local CTX_FK = trusted_ctx('test-user')
 local matches_filter
 matches_filter = function(parsed, flt)
   if not (flt) then

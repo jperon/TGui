@@ -6,12 +6,12 @@ log = require 'log'
 spaces = require 'core.spaces'
 auth = require 'core.auth'
 executor = require 'graphql.executor'
+{ :trusted_ctx } = require 'resolvers.utils'
 
 -- Helper function to execute a GraphQL mutation.
 execute_mutation = (mutation, variables) ->
-  -- Build an admin context for mutations.
-  admin_user = { id: 1, username: "admin" }
-  context = { user_id: admin_user.id }
+  -- Build a trusted in-process context for mutations.
+  context = trusted_ctx 1
 
   result = executor.execute { query: mutation, variables: variables, context: context }
   if result.errors

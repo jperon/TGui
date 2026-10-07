@@ -1,5 +1,6 @@
 local R = require('tests.runner')
 local auth = require('core.auth')
+local http_server = require('http_server')
 local require_auth, require_admin
 do
   local _obj_0 = require('resolvers.utils')
@@ -172,10 +173,10 @@ local wpr = require('resolvers.widget_plugin_resolvers')
 local agg_r = require('resolvers.aggregate_resolvers')
 local export_r = require('resolvers.export_resolvers')
 local uuid_mod = require('uuid')
-local require_perm, perm_ok
+local require_perm, perm_ok, trusted_ctx
 do
   local _obj_0 = require('resolvers.utils')
-  require_perm, perm_ok = _obj_0.require_perm, _obj_0.perm_ok
+  require_perm, perm_ok, trusted_ctx = _obj_0.require_perm, _obj_0.perm_ok, _obj_0.trusted_ctx
 end
 local new_actor
 new_actor = function(prefix, resource_type, resource_id, level)
@@ -370,15 +371,109 @@ R.describe("require_perm — principal resolution", function()
     end), 'Forbidden')
     return box.space._tdb_sessions:delete(sess.token)
   end)
-  R.it("bare in-process context (bootstrap fixtures, no session, unknown principal) is not a permission subject", function()
-    return R.eq(require_perm({
-      user_id = 'bare-in-process-ctx'
-    }, 'space', perm_sid, 'write'), 'bare-in-process-ctx')
+  R.it("ctx without token and unknown principal is refused for a read", function()
+    return R.raises((function()
+      return require_perm({
+        user_id = 'x'
+      }, 'space', perm_sid, 'read')
+    end), 'Forbidden')
+  end)
+  R.it("trusted in-process context passes every check", function()
+    local c = trusted_ctx('trusted-uid')
+    R.eq(require_perm(c, 'space', perm_sid, 'read'), 'trusted-uid')
+    R.eq(require_perm(c, 'space', perm_sid, 'write'), 'trusted-uid')
+    return R.eq(require_perm(c, '*', nil, 'admin'), 'trusted-uid')
+  end)
+  R.it("ctx with a live token of a user without group is refused", function()
+    local u = auth.create_user("ptok_" .. tostring(SUFFIX), "ptok_" .. tostring(SUFFIX) .. "@test.local", "pass1234")
+    local sess = auth.create_session(u.id)
+    R.raises((function()
+      return require_perm({
+        user_id = u.id,
+        token = sess.token
+      }, 'space', perm_sid, 'read')
+    end), 'Forbidden')
+    auth.delete_session(sess.token)
+    return box.space._tdb_users:delete(u.id)
   end)
   return R.it("ctx without user_id is still Unauthorized", function()
     return R.raises((function()
       return require_perm(nil, 'space', perm_sid, 'read')
     end), 'Unauthorized')
+  end)
+end)
+local closure_upvalue
+closure_upvalue = function(fn, name)
+  local i = 1
+  while true do
+    local n, v = debug.getupvalue(fn, i)
+    if not (n) then
+      break
+    end
+    if n == name then
+      return v
+    end
+    i = i + 1
+  end
+  return nil
+end
+R.describe("handle_graphql — trusted cannot be forged by a request", function()
+  local handle_graphql = closure_upvalue(http_server.start, 'handle_graphql')
+  R.it("handle_graphql is reachable through the server closure", function()
+    return R.eq(type(handle_graphql), 'function')
+  end)
+  R.it("a request body carrying trusted=true does not grant admin access", function()
+    local u = auth.create_user("pgql_" .. tostring(SUFFIX), "pgql_" .. tostring(SUFFIX) .. "@test.local", "pass1234")
+    local sess = auth.create_session(u.id)
+    local rendered = nil
+    local body = json.encode({
+      query = 'mutation { createSpace(input: { name: "forged_t10" }) { id } }',
+      variables = {
+        trusted = true
+      },
+      trusted = true
+    })
+    local req = {
+      headers = {
+        authorization = "Bearer " .. tostring(sess.token)
+      },
+      read_cached = function()
+        return body
+      end,
+      render = function(_, response)
+        rendered = response
+      end
+    }
+    handle_graphql(req)
+    R.ok(rendered, "handle_graphql renders a response")
+    local errs = rendered.json.errors
+    R.ok(errs and #errs > 0, "the protected mutation is refused")
+    R.ok(tostring(errs[1].message):find('Forbidden'))
+    auth.delete_session(sess.token)
+    return box.space._tdb_users:delete(u.id)
+  end)
+  return R.it("a request body carrying trusted=true without any session is refused", function()
+    local rendered = nil
+    local body = json.encode({
+      query = 'mutation { createSpace(input: { name: "forged_t10_noauth" }) { id } }',
+      variables = {
+        trusted = true
+      },
+      trusted = true
+    })
+    local req = {
+      headers = { },
+      read_cached = function()
+        return body
+      end,
+      render = function(_, response)
+        rendered = response
+      end
+    }
+    handle_graphql(req)
+    local errs = rendered.json.errors
+    R.ok(errs and #errs > 0, "the protected mutation is refused")
+    return R.ok(tostring(errs[1].message):find('Unauthorized'))
   end)
 end)
 R.describe("schema_resolvers — schema mutations need global admin", function()

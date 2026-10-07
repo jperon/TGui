@@ -4,6 +4,7 @@
 
 R    = require 'tests.runner'
 auth = require 'core.auth'
+http_server = require 'http_server'
 { :require_auth, :require_admin } = require 'resolvers.utils'
 spaces_mod = require 'core.spaces'
 auth_r = require 'resolvers.auth_resolvers'
@@ -159,7 +160,7 @@ wpr       = require 'resolvers.widget_plugin_resolvers'
 agg_r     = require 'resolvers.aggregate_resolvers'
 export_r  = require 'resolvers.export_resolvers'
 uuid_mod  = require 'uuid'
-{ :require_perm, :perm_ok } = require 'resolvers.utils'
+{ :require_perm, :perm_ok, :trusted_ctx } = require 'resolvers.utils'
 
 -- Builds a user with its own group and, when resource_type is given, one grant.
 new_actor = (prefix, resource_type, resource_id, level) ->
@@ -310,15 +311,89 @@ R.describe "require_perm — principal resolution", ->
     R.raises (-> require_perm { user_id: u.id, token: sess.token }, 'space', perm_sid, 'read'), 'Forbidden'
     box.space._tdb_sessions\delete sess.token
 
-  R.it "bare in-process context (bootstrap fixtures, no session, unknown principal) is not a permission subject", ->
-    -- backend/fixtures.moon:13-14 runs the demo bootstrap with
-    -- { user_id: 1 } and no token: such a context has no principal for the
-    -- permission model to evaluate, so only require_auth applies to it.
-    R.eq require_perm({ user_id: 'bare-in-process-ctx' }, 'space', perm_sid, 'write'),
-      'bare-in-process-ctx'
+  R.it "ctx without token and unknown principal is refused for a read", ->
+    -- No heuristic exemption any more: a context that carries neither a token
+    -- nor a trusted flag and references no stored user gets no grant.
+    R.raises (-> require_perm { user_id: 'x' }, 'space', perm_sid, 'read'), 'Forbidden'
+
+  R.it "trusted in-process context passes every check", ->
+    c = trusted_ctx 'trusted-uid'
+    R.eq require_perm(c, 'space', perm_sid, 'read'), 'trusted-uid'
+    R.eq require_perm(c, 'space', perm_sid, 'write'), 'trusted-uid'
+    R.eq require_perm(c, '*', nil, 'admin'), 'trusted-uid'
+
+  R.it "ctx with a live token of a user without group is refused", ->
+    u = auth.create_user "ptok_#{SUFFIX}", "ptok_#{SUFFIX}@test.local", "pass1234"
+    sess = auth.create_session u.id
+    R.raises (-> require_perm { user_id: u.id, token: sess.token }, 'space', perm_sid, 'read'), 'Forbidden'
+    auth.delete_session sess.token
+    box.space._tdb_users\delete u.id
 
   R.it "ctx without user_id is still Unauthorized", ->
     R.raises (-> require_perm nil, 'space', perm_sid, 'read'), 'Unauthorized'
+
+-- ── handle_graphql — a client cannot forge the trusted flag ──────────────────
+
+-- Reads a module-local function out of a public closure's upvalues, so the test
+-- can call backend/http_server.moon handle_graphql without exporting it (that
+-- production module is outside T10's allowed file set).
+closure_upvalue = (fn, name) ->
+  i = 1
+  while true
+    n, v = debug.getupvalue fn, i
+    break unless n
+    return v if n == name
+    i += 1
+  nil
+
+R.describe "handle_graphql — trusted cannot be forged by a request", ->
+  handle_graphql = closure_upvalue http_server.start, 'handle_graphql'
+
+  R.it "handle_graphql is reachable through the server closure", ->
+    R.eq type(handle_graphql), 'function'
+
+  R.it "a request body carrying trusted=true does not grant admin access", ->
+    -- Non-admin user, valid live session, and `trusted: true` smuggled both in
+    -- the variables and at the top level of the JSON body. handle_graphql
+    -- rebuilds ctx from scratch (backend/http_server.moon:107-113), so the
+    -- protected schema mutation must still be refused.
+    u = auth.create_user "pgql_#{SUFFIX}", "pgql_#{SUFFIX}@test.local", "pass1234"
+    sess = auth.create_session u.id
+    rendered = nil
+    body = json.encode {
+      query: 'mutation { createSpace(input: { name: "forged_t10" }) { id } }'
+      variables: { trusted: true }
+      trusted: true
+    }
+    req = {
+      headers: { authorization: "Bearer #{sess.token}" }
+      read_cached: -> body
+      render: (_, response) -> rendered = response
+    }
+    handle_graphql req
+    R.ok rendered, "handle_graphql renders a response"
+    errs = rendered.json.errors
+    R.ok errs and #errs > 0, "the protected mutation is refused"
+    R.ok tostring(errs[1].message)\find 'Forbidden'
+    auth.delete_session sess.token
+    box.space._tdb_users\delete u.id
+
+  R.it "a request body carrying trusted=true without any session is refused", ->
+    rendered = nil
+    body = json.encode {
+      query: 'mutation { createSpace(input: { name: "forged_t10_noauth" }) { id } }'
+      variables: { trusted: true }
+      trusted: true
+    }
+    req = {
+      headers: {}
+      read_cached: -> body
+      render: (_, response) -> rendered = response
+    }
+    handle_graphql req
+    errs = rendered.json.errors
+    R.ok errs and #errs > 0, "the protected mutation is refused"
+    R.ok tostring(errs[1].message)\find 'Unauthorized'
 
 -- ── schema_resolvers ────────────────────────────────────────────────────────
 

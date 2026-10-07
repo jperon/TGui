@@ -6,13 +6,15 @@
 R = require 'tests.runner'
 spaces_mod = require 'core.spaces'
 { :Query, :Mutation } = require 'resolvers.schema_resolvers'
+{ :trusted_ctx } = require 'resolvers.utils'
 
 SUFFIX  = tostring math.random(100000, 999999)
 SP_SRC  = "rel_src_#{SUFFIX}"  -- source space (contains FK field)
 SP_TGT  = "rel_tgt_#{SUFFIX}"  -- target space
 
--- Minimal authenticated context (require_auth only checks user_id presence)
-CTX = { user_id: 'test-user' }
+-- Trusted in-process context: these tests exercise relation behaviour, not
+-- permissions, so they explicitly opt out of the permission model.
+CTX = trusted_ctx 'test-user'
 
 src_id, tgt_id, src_fk_field_id, tgt_seq_field_id, rel_id = nil, nil, nil, nil, nil
 

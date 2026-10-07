@@ -5,6 +5,8 @@ local resolvers = require('resolvers.data_view_resolvers')
 local data_r = require('resolvers.data_resolvers')
 local spaces_mod = require('core.spaces')
 local executor = require('core.data_views_executor')
+local trusted_ctx
+trusted_ctx = require('resolvers.utils').trusted_ctx
 local sp1_id = nil
 return R.describe("DataViews — system storage", function()
   R.it("setup test space", function()
@@ -32,9 +34,7 @@ return R.describe("DataViews — system storage", function()
           role = "User"
         }
       }
-    }, {
-      user_id = 'admin'
-    })
+    }, trusted_ctx('admin'))
   end)
   R.it("create view returns metadata", function()
     local config = {
@@ -57,9 +57,7 @@ return R.describe("DataViews — system storage", function()
         }
       }
     }
-    local ctx = {
-      user_id = 'admin'
-    }
+    local ctx = trusted_ctx('admin')
     local args = {
       input = {
         name = "test_view_1",
@@ -72,9 +70,7 @@ return R.describe("DataViews — system storage", function()
     return R.eq(res.config, json.encode(config))
   end)
   R.it("execute view returns filtered/sorted data", function()
-    local ctx = {
-      user_id = 'admin'
-    }
+    local ctx = trusted_ctx('admin')
     local views = resolvers.Query.dataViews(nil, nil, ctx)
     local dv_id = views[#views].id
     local res = resolvers.Query.executeDataView(nil, {
@@ -107,9 +103,7 @@ return R.describe("DataViews — system storage", function()
         }
       }
     }
-    local ctx = {
-      user_id = 'admin'
-    }
+    local ctx = trusted_ctx('admin')
     local args = {
       input = {
         name = "test_view_agg",
@@ -135,9 +129,7 @@ return R.describe("DataViews — system storage", function()
     end
   end)
   R.it("execute view works when sourceSpace is the space id (frontend behaviour)", function()
-    local ctx = {
-      user_id = 'admin'
-    }
+    local ctx = trusted_ctx('admin')
     local args = {
       input = {
         name = "test_view_by_id",
@@ -166,9 +158,7 @@ return R.describe("DataViews — system storage", function()
     return R.eq(#res, 3)
   end)
   return R.it("cleanup", function()
-    local ctx = {
-      user_id = 'admin'
-    }
+    local ctx = trusted_ctx('admin')
     local views = resolvers.Query.dataViews(nil, nil, ctx)
     for _index_0 = 1, #views do
       local v = views[_index_0]

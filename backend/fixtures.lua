@@ -2,15 +2,11 @@ local log = require('log')
 local spaces = require('core.spaces')
 local auth = require('core.auth')
 local executor = require('graphql.executor')
+local trusted_ctx
+trusted_ctx = require('resolvers.utils').trusted_ctx
 local execute_mutation
 execute_mutation = function(mutation, variables)
-  local admin_user = {
-    id = 1,
-    username = "admin"
-  }
-  local context = {
-    user_id = admin_user.id
-  }
+  local context = trusted_ctx(1)
   local result = executor.execute({
     query = mutation,
     variables = variables,
