@@ -87,14 +87,22 @@ aucune suppression. Groupes : créés si absents ; membres et droits locaux pré
 
 ## 6. Ordre de réalisation
 
-Les droits par défaut n'ont de sens que si les permissions sont appliquées. Ordre :
+Les droits par défaut n'ont de sens que si les permissions sont appliquées, et le
+versionnage touche des fichiers à découper : la base est assainie avant. Ordre :
 
+0. **AGENTS.md** (§9, première partie) : objectif du projet, Grist comme idéal visé,
+   règles de conception (permissions appliquées, validation à l'écriture, API GraphQL
+   et plugins YAML à conserver). Lu par tous les sous-agents délégués ensuite.
 1. Sécurité (§7).
 2. Intégrité des données (§8).
-3. Versionnage des apps (§1 à §5).
-4. Documentation, tests et maintenabilité (§9 à §11).
+3. Tests et maintenabilité (§10 et §11) : nettoyage des tests, découpage des gros
+   fichiers, suppression des duplications, sans changement fonctionnel.
+4. Versionnage des apps (§1 à §5).
+5. Documentation publique (§9, seconde partie) : README, `doc/`, racine, `AUDIT.md`,
+   décrivant l'état final.
 
-Chaque étape est un cycle plan → exécution indépendant, commité par petites étapes.
+Chaque étape est un cycle plan → exécution indépendant, commité par petites étapes,
+avec la suite de tests verte à chaque commit.
 
 ## 7. Corrections — sécurité (étape 1)
 
@@ -146,29 +154,30 @@ Problèmes relevés à la revue générale du 2026-10-07 (lecture du code).
 - **Performance** (non bloquant, noté) : les enregistrements sont un blob JSON lu par
   `select {}` complet. Hors périmètre de ce spec ; à traiter si la volumétrie l'exige.
 
-## 9. Corrections — documentation (étape 4)
+## 9. Corrections — documentation (étapes 0 et 5)
 
 - **README** réécrit : objectif du projet, fonctionnalités réelles (espaces, champs,
   relations, formules, API GraphQL, Data Views, pages et plugins YAML, permissions,
   versionnage des apps), installation, structure à jour (suppression des références à
   Univer, `init.lua`, `index.html`). **Aucun positionnement face à Grist.**
-- **AGENTS.md** : mention de Grist comme source d'inspiration et idéal visé.
+- **AGENTS.md** (étape 0) : mention de Grist comme source d'inspiration et idéal visé,
+  plus les règles de conception ci-dessus ; corriger la liste des tests obsolète.
 - **doc/** : supprimer la phrase anglaise sur Grist des versions FR (`get-started.md`,
   `reference.md`) ; documenter le versionnage des apps et les permissions réellement
   appliquées ; régénérer avec `make doc-gen`, vérifier avec `make doc-check`.
 - **Racine** : `AUDIT.md`, `GraphQL.md`, `Views.md`, `ROADMAP_drag_drop_widgets.md`
   déplacés dans `doc/` (ou fusionnés), `AUDIT.md` mis à jour avec l'état réel.
 
-## 10. Corrections — tests (étapes 1 à 4)
+## 10. Corrections — tests (étapes 1 à 3)
 
-- Ajouter les tests listés en §7 et §8, plus ceux du versionnage (§5).
+- Ajouter les tests listés en §7 et §8 (étapes 1-2) ; ceux du versionnage (§5) à l'étape 4.
 - Nettoyer : fusionner les variantes (`test_multiple_relations*`,
   `test_graphql_builder_*`), déplacer ou supprimer les `.coffee` isolés de `tests/`,
   supprimer `test_error_format.lua` (fichier sans source à la racine), remplacer la
   découverte par `io.popen 'ls …'` par `fio.glob`.
 - Vérifier que `tests/run.moon` restaure bien le schéma de production en fin de run.
 
-## 11. Corrections — maintenabilité / KISS (étape 4)
+## 11. Corrections — maintenabilité / KISS (étape 3)
 
 Contraintes : **l'API GraphQL et les plugins YAML sont conservés intacts**.
 
