@@ -3701,7 +3701,7 @@ msgid ">"
 msgstr ""
 
 #: doc/en/api.md:5 doc/en/dev.md:5 doc/en/dev/architecture.md:5 doc/en/dev/runtime.md:5 doc/en/dev/graphql.md:5 doc/en/dev/frontend.md:5 doc/en/dev/tests.md:5
-msgid "> Generated at: 2026-10-07 19:50:07 UTC"
+msgid "> Generated at: 2026-10-07 22:01:05 UTC"
 msgstr ""
 
 #: doc/en/api.md:7
@@ -4432,15 +4432,15 @@ msgstr ""
 msgid "|---|---|"
 msgstr ""
 
-#: doc/en/dev/architecture.md:11 doc/en/dev/runtime.md:37
+#: doc/en/dev/architecture.md:11 doc/en/dev/runtime.md:39
 msgid "| `backend/init.moon` | Tarantool bootstrap entrypoint for TGui backend runtime. |"
 msgstr ""
 
-#: doc/en/dev/architecture.md:12 doc/en/dev/runtime.md:35
+#: doc/en/dev/architecture.md:12 doc/en/dev/runtime.md:37
 msgid "| `backend/http_server.moon` | HTTP edge for TGui (index/static assets + GraphQL POST endpoint). |"
 msgstr ""
 
-#: doc/en/dev/architecture.md:13 doc/en/dev/runtime.md:21
+#: doc/en/dev/architecture.md:13 doc/en/dev/runtime.md:23
 msgid "| `backend/core/spaces.moon` | Bootstrap and manage tdb system spaces (metadata) in Tarantool. |"
 msgstr ""
 
@@ -4448,19 +4448,19 @@ msgstr ""
 msgid "| `backend/core/auth.moon` | Authentication: hashing, sessions, user management. |"
 msgstr ""
 
-#: doc/en/dev/architecture.md:15 doc/en/dev/runtime.md:20
+#: doc/en/dev/architecture.md:15 doc/en/dev/runtime.md:21
 msgid "| `backend/core/permissions.moon` | Unix-style group permissions management. |"
 msgstr ""
 
-#: doc/en/dev/architecture.md:16 doc/en/dev/runtime.md:22
+#: doc/en/dev/architecture.md:16 doc/en/dev/runtime.md:24
 msgid "| `backend/core/triggers.moon` | Manages Tarantool before_replace triggers for trigger formula fields. |"
 msgstr ""
 
-#: doc/en/dev/architecture.md:17 doc/en/dev/runtime.md:24
+#: doc/en/dev/architecture.md:17 doc/en/dev/runtime.md:26
 msgid "| `backend/core/views.moon` | Manage view definitions: named projections over a data space. |"
 msgstr ""
 
-#: doc/en/dev/architecture.md:18 doc/en/dev/runtime.md:49
+#: doc/en/dev/architecture.md:18 doc/en/dev/runtime.md:51
 msgid "| `backend/resolvers/init.moon` | Compose and initialize the executable GraphQL schema/resolver graph. |"
 msgstr ""
 
@@ -4497,130 +4497,174 @@ msgid "| `backend/core/data_views_executor.moon` | Execution engine for Data Vie
 msgstr ""
 
 #: doc/en/dev/runtime.md:18
-msgid "| `backend/core/fk_proxy.moon` | Foreign-key proxy resolution module to simplify triggers.moon. |"
+msgid "| `backend/core/formula_proxy.moon` | Formula plumbing for reads: error formatting, the compiled-formula cache, |"
 msgstr ""
 
 #: doc/en/dev/runtime.md:19
+msgid "| `backend/core/formula_sandbox.moon` | Sandbox used to compile and run user formulas. |"
+msgstr ""
+
+#: doc/en/dev/runtime.md:20
 msgid "| `backend/core/graphql_flattener.moon` | GraphQL Flattener with intelligent list handling |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:23
-msgid "| `backend/core/validation.moon` | (pas de description en tête de fichier) |"
+#: doc/en/dev/runtime.md:22
+msgid "| `backend/core/relation_maps.moon` | Builds FK / relation definition maps for a space from the _tdb_relations, |"
 msgstr ""
 
 #: doc/en/dev/runtime.md:25
+msgid "| `backend/core/validation.moon` | Validate record payloads against the declared space fields on insert/update. |"
+msgstr ""
+
+#: doc/en/dev/runtime.md:27
 msgid "| `backend/fixtures.moon` | Seed dataset for the TGui test container. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:26
+#: doc/en/dev/runtime.md:28
 msgid "| `backend/generate_sdl.moon` | CLI entrypoint to generate passive SDL artifact. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:27 doc/en/dev/graphql.md:15
+#: doc/en/dev/runtime.md:29 doc/en/dev/graphql.md:15
 msgid "| `backend/graphql/dynamic.moon` | Generates GraphQL SDL and resolvers dynamically from space metadata. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:28 doc/en/dev/graphql.md:14
+#: doc/en/dev/runtime.md:30 doc/en/dev/graphql.md:14
 msgid "| `backend/graphql/executor.moon` | Executes a parsed GraphQL operation against a schema and resolvers. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:29 doc/en/dev/graphql.md:16
+#: doc/en/dev/runtime.md:31 doc/en/dev/graphql.md:16
 msgid "| `backend/graphql/introspection.moon` | Implements GraphQL introspection: __schema, __type, __typename. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:30 doc/en/dev/graphql.md:11
+#: doc/en/dev/runtime.md:32 doc/en/dev/graphql.md:11
 msgid "| `backend/graphql/lexer.moon` | Tokenizes a GraphQL document (query or SDL) into a token stream. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:31 doc/en/dev/graphql.md:12
+#: doc/en/dev/runtime.md:33 doc/en/dev/graphql.md:12
 msgid "| `backend/graphql/parser.moon` | Parses a GraphQL document (query or SDL) into an AST. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:32 doc/en/dev/graphql.md:13
+#: doc/en/dev/runtime.md:34 doc/en/dev/graphql.md:13
 msgid "| `backend/graphql/schema.moon` | Type system: builds an executable schema from a parsed SDL document. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:33
+#: doc/en/dev/runtime.md:35
 msgid "| `backend/graphql/sdl_generator.moon` | Generates a passive SDL artifact from MoonScript registry metadata. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:34
+#: doc/en/dev/runtime.md:36
 msgid "| `backend/graphql/sdl_registry.moon` | Passive MoonScript source of truth for static root GraphQL fields. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:36
+#: doc/en/dev/runtime.md:38
 msgid "| `backend/index.moon` | Dynamically generates the main TGui HTML page. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:38
+#: doc/en/dev/runtime.md:40
 msgid "| `backend/resolvers/aggregate_resolvers.moon` | Aggregation query: GROUP BY via Lua iteration over tuples. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:39
+#: doc/en/dev/runtime.md:41
 msgid "| `backend/resolvers/app_resolvers.moon` | GraphQL resolvers for application versioning (list, export, preview, apply, purge). |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:40 doc/en/dev/graphql.md:19
+#: doc/en/dev/runtime.md:42 doc/en/dev/graphql.md:19
 msgid "| `backend/resolvers/auth_resolvers.moon` | Resolvers for authentication, user management, groups, and permissions. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:41
+#: doc/en/dev/runtime.md:43
 msgid "| `backend/resolvers/custom_view_crud.moon` | CRUD, snapshot and layout export/import functions for custom YAML views. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:42
+#: doc/en/dev/runtime.md:44
 msgid "| `backend/resolvers/custom_view_resolvers.moon` | Entry point: assembles Query and Mutation for custom YAML views (dashboard layouts). |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:43
+#: doc/en/dev/runtime.md:45
 msgid "| `backend/resolvers/custom_view_widgets.moon` | Widget and layout-editing functions for custom YAML views. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:44
+#: doc/en/dev/runtime.md:46
 msgid "| `backend/resolvers/custom_view_zones.moon` | Zone layout functions for custom YAML views. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:45 doc/en/dev/graphql.md:18
+#: doc/en/dev/runtime.md:47 doc/en/dev/graphql.md:18
 msgid "| `backend/resolvers/data_resolvers.moon` | Resolvers for CRUD operations on user-defined data spaces. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:46
+#: doc/en/dev/runtime.md:48
 msgid "| `backend/resolvers/data_view_resolvers.moon` | CRUD resolvers for data views (persisted queries). |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:47
+#: doc/en/dev/runtime.md:49
 msgid "| `backend/resolvers/export_resolvers.moon` | Snapshot export, diff and import resolvers. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:48
+#: doc/en/dev/runtime.md:50
 msgid "| `backend/resolvers/graphql_view_resolvers.moon` | GraphQL resolvers for data views with list support |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:50 doc/en/dev/graphql.md:17
+#: doc/en/dev/runtime.md:52 doc/en/dev/graphql.md:17
 msgid "| `backend/resolvers/schema_resolvers.moon` | Resolvers for space, field, view, and relation metadata. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:51
+#: doc/en/dev/runtime.md:53
 msgid "| `backend/resolvers/utils.moon` | Shared helpers for all resolvers. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:52
+#: doc/en/dev/runtime.md:54
 msgid "| `backend/resolvers/widget_plugin_resolvers.moon` | CRUD resolvers for custom widget plugins used by custom views. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:53
+#: doc/en/dev/runtime.md:55
 msgid "| `backend/test_runner.moon` | Entrypoint to run tests in a Docker container. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:54
+#: doc/en/dev/runtime.md:56
+msgid "| `backend/ui/admin_panels.moon` | Administration panels of the SPA (extracted from backend/index.moon, no functional change). |"
+msgstr ""
+
+#: doc/en/dev/runtime.md:57
+msgid "| `backend/ui/content.moon` | Main content area and toolbars of the SPA (extracted from backend/index.moon, no functional change). |"
+msgstr ""
+
+#: doc/en/dev/runtime.md:58
+msgid "| `backend/ui/data_view_modal.moon` | Data view configuration modal of the SPA (extracted from backend/index.moon, no functional change). |"
+msgstr ""
+
+#: doc/en/dev/runtime.md:59
+msgid "| `backend/ui/fields_panel.moon` | Fields panel of the SPA (extracted from backend/index.moon, no functional change). |"
+msgstr ""
+
+#: doc/en/dev/runtime.md:60
+msgid "| `backend/ui/login.moon` | Login overlay of the SPA (extracted from backend/index.moon, no functional change). |"
+msgstr ""
+
+#: doc/en/dev/runtime.md:61
+msgid "| `backend/ui/modals.moon` | Common modals of the SPA (extracted from backend/index.moon, no functional change). |"
+msgstr ""
+
+#: doc/en/dev/runtime.md:62
+msgid "| `backend/ui/scripts.moon` | Ordered list of frontend <script src> tags for the SPA. |"
+msgstr ""
+
+#: doc/en/dev/runtime.md:63
+msgid "| `backend/ui/sidebar.moon` | Sidebar of the SPA (extracted from backend/index.moon, no functional change). |"
+msgstr ""
+
+#: doc/en/dev/runtime.md:64
+msgid "| `backend/ui/widget_modal.moon` | \"Add widget\" modal of the SPA (extracted from backend/index.moon, no functional change). |"
+msgstr ""
+
+#: doc/en/dev/runtime.md:65
 msgid "| `backend/zstd_wrapper.moon` | ZSTD-FFI Wrapper |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:55
+#: doc/en/dev/runtime.md:66
 msgid "| `backend/init.lua` | (pas de description en tête de fichier) |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:56
+#: doc/en/dev/runtime.md:67
 msgid "| `backend/html.lua` | SPDX-License-Identifier: MIT |"
 msgstr ""
 
@@ -4689,225 +4733,241 @@ msgid "| `tests/test_app_apply.moon` | Tests d'intégration pour backend/core/ap
 msgstr ""
 
 #: doc/en/dev/tests.md:15
-msgid "| `tests/test_app_lifecycle_parts.moon` | Tests d'intégration V3b du cycle de vie d'une app (spec §1-§4, plan « Étape 4 ») : |"
+msgid "| `tests/test_app_lifecycle.moon` | V6a : test d'intégration de bout en bout du cycle de vie d'une application, |"
 msgstr ""
 
 #: doc/en/dev/tests.md:16
-msgid "| `tests/test_app_package.moon` | Tests for backend/core/app_package.moon (task V1, plan « Étape 4 » : |"
+msgid "| `tests/test_app_lifecycle_parts.moon` | Tests d'intégration V3b du cycle de vie d'une app (spec §1-§4, plan « Étape 4 ») : |"
 msgstr ""
 
 #: doc/en/dev/tests.md:17
-msgid "| `tests/test_app_plan.moon` | Tests purs pour core/app_plan.moon (moteur de plan de mise a jour, spec §2). |"
+msgid "| `tests/test_app_package.moon` | Tests for backend/core/app_package.moon (task V1, plan « Étape 4 » : |"
 msgstr ""
 
 #: doc/en/dev/tests.md:18
-msgid "| `tests/test_app_resolvers.moon` | Tests des résolveurs GraphQL du versionnage des apps (tâche V4, spec §3/§4, |"
+msgid "| `tests/test_app_plan.moon` | Tests purs pour core/app_plan.moon (moteur de plan de mise a jour, spec §2). |"
 msgstr ""
 
 #: doc/en/dev/tests.md:19
-msgid "| `tests/test_batch_ops.moon` | GraphQL integration tests for insertRecords/updateRecords on a temporary space. |"
+msgid "| `tests/test_app_resolvers.moon` | Tests des résolveurs GraphQL du versionnage des apps (tâche V4, spec §3/§4, |"
 msgstr ""
 
 #: doc/en/dev/tests.md:20
-msgid "| `tests/test_change_parent.moon` | Tests for changing widget parent via reorderWidgets mutation |"
+msgid "| `tests/test_batch_ops.moon` | GraphQL integration tests for insertRecords/updateRecords on a temporary space. |"
 msgstr ""
 
 #: doc/en/dev/tests.md:21
-msgid "| `tests/test_custom_view_resolvers_api.moon` | Guards the public surface of resolvers/custom_view_resolvers.moon: |"
+msgid "| `tests/test_change_parent.moon` | Tests for changing widget parent via reorderWidgets mutation |"
 msgstr ""
 
 #: doc/en/dev/tests.md:22
-msgid "| `tests/test_custom_views.moon` | Tests CRUD operations on custom views (resolvers/custom_view_resolvers.moon). |"
+msgid "| `tests/test_custom_view_resolvers_api.moon` | Guards the public surface of resolvers/custom_view_resolvers.moon: |"
 msgstr ""
 
 #: doc/en/dev/tests.md:23
-msgid "| `tests/test_data_filters.moon` | Tests filter operators (matches_filter / apply_filter). |"
+msgid "| `tests/test_custom_views.moon` | Tests CRUD operations on custom views (resolvers/custom_view_resolvers.moon). |"
 msgstr ""
 
 #: doc/en/dev/tests.md:24
-msgid "| `tests/test_data_views.moon` | (pas de description en tête de fichier) |"
+msgid "| `tests/test_data_filters.moon` | Tests filter operators (matches_filter / apply_filter). |"
 msgstr ""
 
 #: doc/en/dev/tests.md:25
-msgid "| `tests/test_drag_drop_e2e.moon` | E2E tests for drag & drop functionality |"
+msgid "| `tests/test_data_views.moon` | (pas de description en tête de fichier) |"
 msgstr ""
 
 #: doc/en/dev/tests.md:26
-msgid "| `tests/test_executor.moon` | Tests GraphQL executor behavior (graphql/executor.moon). |"
+msgid "| `tests/test_drag_drop_e2e.moon` | E2E tests for drag & drop functionality |"
 msgstr ""
 
 #: doc/en/dev/tests.md:27
-msgid "| `tests/test_extended_proxy.moon` | Tests for extended proxy with list support |"
+msgid "| `tests/test_executor.moon` | Tests GraphQL executor behavior (graphql/executor.moon). |"
 msgstr ""
 
 #: doc/en/dev/tests.md:28
-msgid "| `tests/test_formula_guard.moon` | Every formula call site must run through core.config.safe_formula_call |"
+msgid "| `tests/test_extended_proxy.moon` | Tests for extended proxy with list support |"
 msgstr ""
 
 #: doc/en/dev/tests.md:29
-msgid "| `tests/test_formula_read_perms.moon` | Formula columns and FK traversal must not read a space the requesting user |"
+msgid "| `tests/test_formula_guard.moon` | Every formula call site must run through core.config.safe_formula_call |"
 msgstr ""
 
 #: doc/en/dev/tests.md:30
-msgid "| `tests/test_graphql_flattener.moon` | Tests for GraphQL Flattener with list support |"
+msgid "| `tests/test_formula_read_perms.moon` | Formula columns and FK traversal must not read a space the requesting user |"
 msgstr ""
 
 #: doc/en/dev/tests.md:31
-msgid "| `tests/test_graphql_integration_working.moon` | Working integration tests for GraphQL Builder system |"
+msgid "| `tests/test_graphql_flattener.moon` | Tests for GraphQL Flattener with list support |"
 msgstr ""
 
 #: doc/en/dev/tests.md:32
-msgid "| `tests/test_http_static.moon` | Task 3 — fichiers statiques : garde-fous anti-traversal de chemin. |"
+msgid "| `tests/test_graphql_integration_working.moon` | Working integration tests for GraphQL Builder system |"
 msgstr ""
 
 #: doc/en/dev/tests.md:33
-msgid "| `tests/test_index_html.moon` | Garde-fou : le HTML de la SPA doit inclure tous les bundles vendor requis. |"
+msgid "| `tests/test_http_static.moon` | Task 3 — fichiers statiques : garde-fous anti-traversal de chemin. |"
 msgstr ""
 
 #: doc/en/dev/tests.md:34
-msgid "| `tests/test_lexer.moon` | Tests for GraphQL lexer (graphql/lexer.moon). |"
+msgid "| `tests/test_index_html.moon` | Garde-fou : le HTML de la SPA doit inclure tous les bundles vendor requis. |"
 msgstr ""
 
 #: doc/en/dev/tests.md:35
-msgid "| `tests/test_multiple_relations.moon` | Tests for multiple relations detection functionality |"
+msgid "| `tests/test_index_modules.moon` | Garde-fou du découpage de backend/index.moon : chaque module de backend/ui/ |"
 msgstr ""
 
 #: doc/en/dev/tests.md:36
-msgid "| `tests/test_nesting.moon` | Tests nested GraphQL queries (nesting/sub-queries). |"
+msgid "| `tests/test_lexer.moon` | Tests for GraphQL lexer (graphql/lexer.moon). |"
 msgstr ""
 
 #: doc/en/dev/tests.md:37
-msgid "| `tests/test_parser.moon` | Tests for GraphQL parser (graphql/parser.moon). |"
+msgid "| `tests/test_multiple_relations.moon` | Tests for multiple relations detection functionality |"
 msgstr ""
 
 #: doc/en/dev/tests.md:38
-msgid "| `tests/test_permissions.moon` | Tests permission coverage: require_auth, require_admin, |"
+msgid "| `tests/test_nesting.moon` | Tests nested GraphQL queries (nesting/sub-queries). |"
 msgstr ""
 
 #: doc/en/dev/tests.md:39
-msgid "| `tests/test_relation_cardinality.moon` | Declared relation cardinality ('one' \\| 'many'): storage, GraphQL API and |"
+msgid "| `tests/test_parser.moon` | Tests for GraphQL parser (graphql/parser.moon). |"
 msgstr ""
 
 #: doc/en/dev/tests.md:40
-msgid "| `tests/test_relation_type_regression.moon` | Regression: verifies safe fieldType=Relation -> Int mapping and relation creation. |"
+msgid "| `tests/test_permissions.moon` | Tests permission coverage: require_auth, require_admin, |"
 msgstr ""
 
 #: doc/en/dev/tests.md:41
-msgid "| `tests/test_relations.moon` | Tests FK relation behavior: create_relation, list_relations, update_relation |"
+msgid "| `tests/test_relation_cardinality.moon` | Declared relation cardinality ('one' \\| 'many'): storage, GraphQL API and |"
 msgstr ""
 
 #: doc/en/dev/tests.md:42
-msgid "| `tests/test_reorder_widgets.moon` | Tests for the reorderWidgets mutation |"
+msgid "| `tests/test_relation_type_regression.moon` | Regression: verifies safe fieldType=Relation -> Int mapping and relation creation. |"
 msgstr ""
 
 #: doc/en/dev/tests.md:43
-msgid "| `tests/test_resize_zone.moon` | Tests for the resizeZone mutation |"
+msgid "| `tests/test_relations.moon` | Tests FK relation behavior: create_relation, list_relations, update_relation |"
 msgstr ""
 
 #: doc/en/dev/tests.md:44
-msgid "| `tests/test_schema.moon` | Tests for GraphQL type system (graphql/schema.moon). |"
+msgid "| `tests/test_reorder_widgets.moon` | Tests for the reorderWidgets mutation |"
 msgstr ""
 
 #: doc/en/dev/tests.md:45
-msgid "| `tests/test_snapshot.moon` | Tests exportSnapshot / diffSnapshot / importSnapshot resolvers. |"
+msgid "| `tests/test_resize_zone.moon` | Tests for the resizeZone mutation |"
 msgstr ""
 
 #: doc/en/dev/tests.md:46
-msgid "| `tests/test_spaces.moon` | Tests CRUD operations on spaces (core/spaces.moon). |"
+msgid "| `tests/test_schema.moon` | Tests for GraphQL type system (graphql/schema.moon). |"
 msgstr ""
 
 #: doc/en/dev/tests.md:47
-msgid "| `tests/test_triggers.moon` | Tests trigger formulas (core/triggers.moon). |"
+msgid "| `tests/test_snapshot.moon` | Tests exportSnapshot / diffSnapshot / importSnapshot resolvers. |"
 msgstr ""
 
 #: doc/en/dev/tests.md:48
-msgid "| `tests/test_typed_query_permissions.moon` | Typed space queries generated by graphql/dynamic.moon must enforce the read |"
+msgid "| `tests/test_spaces.moon` | Tests CRUD operations on spaces (core/spaces.moon). |"
 msgstr ""
 
 #: doc/en/dev/tests.md:49
-msgid "| `tests/test_validation.moon` | Write-time record validation (core.validation), through validate_record and |"
+msgid "| `tests/test_triggers.moon` | Tests trigger formulas (core/triggers.moon). |"
 msgstr ""
 
 #: doc/en/dev/tests.md:50
-msgid "| `tests/test_views_core.moon` | Non-regression tests for the two bugs of core/views.moon (task T5). |"
+msgid "| `tests/test_triggers_exports.moon` | Freezes the exact public API of core.triggers so the T14 split into |"
 msgstr ""
 
 #: doc/en/dev/tests.md:51
-msgid "| `tests/test_widget_plugins.moon` | Tests CRUD operations on widget plugins (resolvers/widget_plugin_resolvers.moon). |"
+msgid "| `tests/test_typed_query_permissions.moon` | Typed space queries generated by graphql/dynamic.moon must enforce the read |"
 msgstr ""
 
 #: doc/en/dev/tests.md:52
-msgid "| `tests/test_zone_merge_split.moon` | Tests for the mergeZones and splitZone mutations. |"
+msgid "| `tests/test_validation.moon` | Write-time record validation (core.validation), through validate_record and |"
 msgstr ""
 
 #: doc/en/dev/tests.md:53
-msgid "| `tests/js/dom_stub.coffee` | tests/js/dom_stub.coffee — minimal DOM stub for Node.js |"
+msgid "| `tests/test_views_core.moon` | Non-regression tests for the two bugs of core/views.moon (task T5). |"
 msgstr ""
 
 #: doc/en/dev/tests.md:54
-msgid "| `tests/js/run.coffee` | tests/js/run.coffee — runs all test_*.coffee files sequentially |"
+msgid "| `tests/test_widget_plugins.moon` | Tests CRUD operations on widget plugins (resolvers/widget_plugin_resolvers.moon). |"
 msgstr ""
 
 #: doc/en/dev/tests.md:55
-msgid "| `tests/js/runner.coffee` | tests/js/runner.coffee — minimal test runner (no dependencies) |"
+msgid "| `tests/test_zone_merge_split.moon` | Tests for the mergeZones and splitZone mutations. |"
 msgstr ""
 
 #: doc/en/dev/tests.md:56
-msgid "| `tests/js/test_auth.coffee` | tests/js/test_auth.coffee — tests pour Auth (auth.js) |"
+msgid "| `tests/js/dom_stub.coffee` | tests/js/dom_stub.coffee — minimal DOM stub for Node.js |"
 msgstr ""
 
 #: doc/en/dev/tests.md:57
-msgid "| `tests/js/test_custom_view.coffee` | tests/js/test_custom_view.coffee — tests for CustomView (custom_view.js) |"
+msgid "| `tests/js/run.coffee` | tests/js/run.coffee — runs all test_*.coffee files sequentially |"
 msgstr ""
 
 #: doc/en/dev/tests.md:58
-msgid "| `tests/js/test_data_view.coffee` | tests/js/test_data_view.coffee — tests for DataView (data_view.js) |"
+msgid "| `tests/js/runner.coffee` | tests/js/runner.coffee — minimal test runner (no dependencies) |"
 msgstr ""
 
 #: doc/en/dev/tests.md:59
-msgid "| `tests/js/test_data_view_opts.coffee` | tests/js/test_data_view_opts.coffee — tests for DataView options (readOnly) |"
+msgid "| `tests/js/test_apps_helpers.coffee` | tests/js/test_apps_helpers.coffee — tests de AppAppsHelpers (app_apps_helpers.js) |"
 msgstr ""
 
 #: doc/en/dev/tests.md:60
-msgid "| `tests/js/test_drag_drop_manager.coffee` | tests/js/test_drag_drop_manager.coffee - tests for DragDropManager |"
+msgid "| `tests/js/test_auth.coffee` | tests/js/test_auth.coffee — tests pour Auth (auth.js) |"
 msgstr ""
 
 #: doc/en/dev/tests.md:61
-msgid "| `tests/js/test_graphql_client.coffee` | tests/js/test_graphql_client.coffee — tests pour GQL (graphql_client.js) |"
+msgid "| `tests/js/test_custom_view.coffee` | tests/js/test_custom_view.coffee — tests for CustomView (custom_view.js) |"
 msgstr ""
 
 #: doc/en/dev/tests.md:62
-msgid "| `tests/js/test_i18n.coffee` | tests/js/test_i18n.coffee — tests du runtime i18n minimal |"
+msgid "| `tests/js/test_data_view.coffee` | tests/js/test_data_view.coffee — tests for DataView (data_view.js) |"
 msgstr ""
 
 #: doc/en/dev/tests.md:63
-msgid "| `tests/js/test_relation_display_frontend.coffee` | Static frontend tests (Node) for relation display. |"
+msgid "| `tests/js/test_data_view_opts.coffee` | tests/js/test_data_view_opts.coffee — tests for DataView options (readOnly) |"
 msgstr ""
 
 #: doc/en/dev/tests.md:64
-msgid "| `tests/js/test_relation_display_frontend_regression.coffee` | Targeted regressions for frontend relation rendering. |"
+msgid "| `tests/js/test_drag_drop_manager.coffee` | tests/js/test_drag_drop_manager.coffee - tests for DragDropManager |"
 msgstr ""
 
 #: doc/en/dev/tests.md:65
-msgid "| `tests/js/test_spaces.coffee` | tests/js/test_spaces.coffee — tests for Spaces (spaces.js) |"
+msgid "| `tests/js/test_graphql_client.coffee` | tests/js/test_graphql_client.coffee — tests pour GQL (graphql_client.js) |"
 msgstr ""
 
 #: doc/en/dev/tests.md:66
-msgid "| `tests/js/test_undo_helpers.coffee` | tests/js/test_undo_helpers.coffee — tests for global AppUndoHelpers service. |"
+msgid "| `tests/js/test_i18n.coffee` | tests/js/test_i18n.coffee — tests du runtime i18n minimal |"
 msgstr ""
 
 #: doc/en/dev/tests.md:67
-msgid "| `tests/js/test_view_helpers.coffee` | Régression pour AppViewHelpers.renderCustomViewPreview. |"
+msgid "| `tests/js/test_relation_display_frontend.coffee` | Static frontend tests (Node) for relation display. |"
 msgstr ""
 
 #: doc/en/dev/tests.md:68
-msgid "| `tests/js/test_view_helpers_dedup.coffee` | T11 refactor guard: AppViewHelpers must not define any key twice, and every |"
+msgid "| `tests/js/test_relation_display_frontend_regression.coffee` | Targeted regressions for frontend relation rendering. |"
 msgstr ""
 
 #: doc/en/dev/tests.md:69
-msgid "| `tests/js/test_widget_plugins_dedup.coffee` | T13 guard: LIST_WIDGET_PLUGINS must be defined in exactly one frontend source |"
+msgid "| `tests/js/test_spaces.coffee` | tests/js/test_spaces.coffee — tests for Spaces (spaces.js) |"
 msgstr ""
 
 #: doc/en/dev/tests.md:70
+msgid "| `tests/js/test_undo_helpers.coffee` | tests/js/test_undo_helpers.coffee — tests for global AppUndoHelpers service. |"
+msgstr ""
+
+#: doc/en/dev/tests.md:71
+msgid "| `tests/js/test_view_helpers.coffee` | Régression pour AppViewHelpers.renderCustomViewPreview. |"
+msgstr ""
+
+#: doc/en/dev/tests.md:72
+msgid "| `tests/js/test_view_helpers_dedup.coffee` | T11 refactor guard: AppViewHelpers must not define any key twice, and every |"
+msgstr ""
+
+#: doc/en/dev/tests.md:73
+msgid "| `tests/js/test_widget_plugins_dedup.coffee` | T13 guard: LIST_WIDGET_PLUGINS must be defined in exactly one frontend source |"
+msgstr ""
+
+#: doc/en/dev/tests.md:74
 msgid "| `tests/js/test_yaml_builder.coffee` | tests/js/test_yaml_builder.coffee — tests for YamlBuilder (yaml_builder.js) |"
 msgstr ""
