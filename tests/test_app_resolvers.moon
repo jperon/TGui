@@ -245,6 +245,20 @@ R.describe "app_resolvers — exportApp", ->
     bad3 = { meta: { id: APP_ID, name: 'AR', version: nil, description: '' } }
     R.raises (-> app_r.Query.exportApp nil, bad3, ADMIN_CTX), 'semver'
 
+  R.it "propagates an invalid seed configuration as a readable GraphQL error", ->
+    require('resolvers.init').reinit!
+    ghost = "ar_ghost_seed_#{SUFFIX}"
+    q = 'query($m: AppMetaInput!, $s: [AppSeedInput!]) { exportApp(meta: $m, seed: $s) }'
+    res = run_gql q, {
+      m: { id: APP_ID, name: 'AR', version: '1.0.0', description: '' }
+      s: { { space: ghost, keyField: 'code' } }
+    }, ADMIN_CTX
+    R.ok res.errors, 'export with an unknown seed space must fail'
+    msg = tostring res.errors[1].message
+    R.matches msg, ghost
+    R.matches msg, 'space'
+    R.is_nil res.data.exportApp, 'no partial package is returned'
+
 -- ────────────────────────────────────────────────────────────────────────────
 R.describe "app_resolvers — previewAppUpdate is read-only", ->
 
