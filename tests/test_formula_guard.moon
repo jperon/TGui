@@ -12,7 +12,6 @@
 --   5. config.FORMULA_INSTRUCTION_LIMIT     (bounded interruption + control)
 
 R          = require 'tests.runner'
-log        = require 'log'
 json       = require 'json'
 auth       = require 'core.auth'
 spaces_mod = require 'core.spaces'
@@ -30,28 +29,16 @@ LOOP_SRC = '(function() while true do end end)()'
 HEALTHY_SRC = '(function() local t = 0 for i = 1, 400 do t = t + i end return "sum=" .. tostring(t) .. "/" .. string.rep("x", 50) end)()'
 HEALTHY_VAL = "sum=80200/" .. string.rep('x', 50)
 
--- Watchdog: without it an infinite-loop formula hangs the whole suite instead
--- of failing it. It is disarmed before raising, so pcall can catch an error
--- raised from a count hook (LuaJIT requirement).
-WATCHDOG_INTERVAL     = 10000
-WATCHDOG_INSTRUCTIONS = 20 * 1000 * 1000
-
-watchdog_on = ->
-  calls = 0
-  hook = ->
-    calls += 1
-    if calls == 1 or calls % 500 == 0
-      log.info "[wd] hook call ##{calls}"
-    if calls * WATCHDOG_INTERVAL > WATCHDOG_INSTRUCTIONS
-      debug.sethook!
-      log.info "[wd] RAISING at call ##{calls}"
-      error "watchdog: formula exceeded #{WATCHDOG_INSTRUCTIONS} instructions", 0
-  debug.sethook hook, 'count', WATCHDOG_INTERVAL
-  h, m, c = debug.gethook!
-  log.info "[wd] armed hook=#{tostring h} mask=#{tostring m} count=#{tostring c}"
-
-watchdog_off = ->
-  debug.sethook!
+-- Wall-clock bound for every timing assertion below. These assertions prove
+-- that an infinite-loop formula is INTERRUPTED by the instruction-count
+-- guard (backend/core/config.moon: FORMULA_INSTRUCTION_LIMIT = 20M) instead
+-- of blocking forever — without the guard such a formula never terminates,
+-- so ANY finite threshold proves the same fact. The bound only has to
+-- tolerate machine load: under concurrent Docker load a site measured
+-- 2.049s against the old hard-coded 2s threshold. 8s stays orders of
+-- magnitude below a real blockage (the guard cuts at 20M instructions;
+-- unloaded per-site measurements are well under 1s).
+MAX_BOUNDED_SECONDS = 8
 
 err_count = (key) ->
   m = config_mod.get_formula_metrics!.error_details[key]
@@ -88,18 +75,16 @@ R.describe "Formula guard — instruction limit", ->
   R.it "FORMULA_INSTRUCTION_LIMIT is 20 million", ->
     R.eq config_mod.FORMULA_INSTRUCTION_LIMIT, 20 * 1000 * 1000, "config.moon limit"
 
-  R.it "infinite loop formula is interrupted in well under 2s", ->
+  R.it "infinite loop formula is interrupted in bounded time", ->
     fn = triggers.compile_formula LOOP_SRC, 'fg_loop', 'lua'
     R.ok fn != nil, 'infinite-loop formula must compile'
-    watchdog_on!
     t0 = os.clock!
     val, err = config_mod.safe_formula_call fn, 'fg infinite loop'
-    watchdog_off!
     elapsed = os.clock! - t0
     print "    [measure] infinite loop stopped in #{elapsed}s (limit #{config_mod.FORMULA_INSTRUCTION_LIMIT} instructions)"
     R.ok err != nil, "the loop must be stopped with an error"
     R.matches tostring(err), 'instruction limit', "bounded error, got #{tostring err}"
-    R.ok elapsed < 2, "must return in <2s (took #{elapsed}s)"
+    R.ok elapsed < MAX_BOUNDED_SECONDS, "must return in <#{MAX_BOUNDED_SECONDS}s (took #{elapsed}s)"
 
   R.it "healthy formula (concat + sum over 400 elements) is not interrupted", ->
     fn = triggers.compile_formula HEALTHY_SRC, 'fg_healthy', 'lua'
@@ -110,7 +95,7 @@ R.describe "Formula guard — instruction limit", ->
     print "    [measure] healthy formula finished in #{elapsed}s"
     R.eq err, nil, "healthy formula must not be interrupted: #{tostring err}"
     R.eq val, HEALTHY_VAL, 'healthy formula return value'
-    R.ok elapsed < 2, "healthy formula must run fast (took #{elapsed}s)"
+    R.ok elapsed < MAX_BOUNDED_SECONDS, "healthy formula must run fast (took #{elapsed}s)"
 
 -- ── 2/3. Typed GraphQL query: formula column + reprFormula ──────────────────
 
@@ -123,33 +108,27 @@ R.describe "Formula guard — typed GraphQL query", ->
     page = page_of res
     R.eq(page and page.items[1].label, 'row-1', 'stored field')
     R.eq(page and page.items[1].sain, HEALTHY_VAL, 'healthy formula column value')
-    R.ok elapsed < 2, "healthy read must be bounded (took #{elapsed}s)"
+    R.ok elapsed < MAX_BOUNDED_SECONDS, "healthy read must be bounded (took #{elapsed}s)"
 
   R.it "infinite-loop formula column -> rendered [ERROR|...] without blocking", ->
-    watchdog_on!
     t0 = os.clock!
-    log.info "[wd] before run_q (boucle)"
     res = run_q "{ #{FG_T} { items { boucle } } }"
-    log.info "[wd] after run_q (boucle)"
-    watchdog_off!
     elapsed = os.clock! - t0
     print "    [measure] formula column site bounded in #{elapsed}s"
     R.nok res.errors, errs_json res
-    R.ok elapsed < 2, "typed query must stay bounded (took #{elapsed}s)"
+    R.ok elapsed < MAX_BOUNDED_SECONDS, "typed query must stay bounded (took #{elapsed}s)"
     page = page_of res
     v = page and page.items[1] and page.items[1].boucle
     R.matches tostring(v), '^%[ERROR|', "rendered formula error, got #{tostring v}"
     R.matches tostring(v), 'instruction limit', "guard error message, got #{tostring v}"
 
   R.it "infinite-loop reprFormula -> rendered [ERROR|...] without blocking", ->
-    watchdog_on!
     t0 = os.clock!
     res = run_q "{ #{FG_T} { items { _repr_affichage } } }"
-    watchdog_off!
     elapsed = os.clock! - t0
     print "    [measure] reprFormula site bounded in #{elapsed}s"
     R.nok res.errors, errs_json res
-    R.ok elapsed < 2, "typed query must stay bounded (took #{elapsed}s)"
+    R.ok elapsed < MAX_BOUNDED_SECONDS, "typed query must stay bounded (took #{elapsed}s)"
     page = page_of res
     v = page and page.items[1] and page.items[1]._repr_affichage
     R.matches tostring(v), '^%[ERROR|', "rendered repr error, got #{tostring v}"
@@ -161,15 +140,13 @@ R.describe "Formula guard — filter formula", ->
   R.it "infinite-loop filter formula -> bounded, record excluded, error tracked", ->
     q = "{ #{FG_T}(filter: { formula: \"#{LOOP_SRC}\", language: \"lua\" }) { total items { _id } } }"
     before = err_count 'filter formula evaluation'
-    watchdog_on!
     t0 = os.clock!
     res = run_q q
-    watchdog_off!
     elapsed = os.clock! - t0
     after = err_count 'filter formula evaluation'
     print "    [measure] filter site bounded in #{elapsed}s"
     R.nok res.errors, errs_json res
-    R.ok elapsed < 2, "typed query must stay bounded (took #{elapsed}s)"
+    R.ok elapsed < MAX_BOUNDED_SECONDS, "typed query must stay bounded (took #{elapsed}s)"
     page = page_of res
     R.ok page != nil, "typed query must return a page"
     R.eq(page and page.total, 0, "infinite-loop filter must match nothing")
@@ -181,15 +158,13 @@ R.describe "Formula guard — change_field_type conversion", ->
   R.it "infinite-loop conversion formula is bounded and leaves data untouched", ->
     ctx_key = "conversion #{CV_SP}.montant"
     before = err_count ctx_key
-    watchdog_on!
     t0 = os.clock!
     ok_c, res_or_err = pcall spaces_mod.change_field_type, cv_field.id, 'Int', LOOP_SRC, 'lua'
-    watchdog_off!
     elapsed = os.clock! - t0
     after = err_count ctx_key
     print "    [measure] conversion site bounded in #{elapsed}s"
     R.ok ok_c, "change_field_type must not raise: #{tostring res_or_err}"
-    R.ok elapsed < 2, "conversion must stay bounded (took #{elapsed}s)"
+    R.ok elapsed < MAX_BOUNDED_SECONDS, "conversion must stay bounded (took #{elapsed}s)"
     R.ok after > before, "conversion formula error must be tracked by safe_formula_call (#{before} -> #{after})"
     t = box.space["data_#{CV_SP}"]\get 'cv_1'
     d = json.decode t[2]
