@@ -151,6 +151,8 @@ window.AppSidebarHelpers =
       app._showAdminPanel 'groups'
     app.el.adminNavSnapshot().addEventListener 'click', ->
       app._showAdminPanel 'snapshot'
+    app.el.adminNavApps().addEventListener 'click', ->
+      app._showAdminPanel 'apps'
 
     app.el.pluginsNavManage().addEventListener 'click', ->
       app._openWidgetPluginModal()
@@ -162,6 +164,7 @@ window.AppSidebarHelpers =
     app._bindCreateUserDialog()
     app._bindCreateGroupDialog()
     app._bindSnapshotPanel()
+    app._bindAppsPanel()
 
   showAdminPanel: (app, section = 'users') ->
     app.el.dataToolbar().classList.add 'hidden'
@@ -172,12 +175,16 @@ window.AppSidebarHelpers =
     app.el.adminUsersSection().classList.add 'hidden'
     app.el.adminGroupsSection().classList.add 'hidden'
     app.el.adminSnapshotSection().classList.add 'hidden'
+    app.el.adminAppsSection().classList.add 'hidden'
     if section == 'users'
       app.el.adminUsersSection().classList.remove 'hidden'
       app._loadAdminUsers()
     else if section == 'groups'
       app.el.adminGroupsSection().classList.remove 'hidden'
       app._loadAdminGroups()
+    else if section == 'apps'
+      app.el.adminAppsSection().classList.remove 'hidden'
+      app._loadApps()
     else
       app.el.adminSnapshotSection().classList.remove 'hidden'
 

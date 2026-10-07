@@ -1057,6 +1057,74 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
 .snapshot-result-err { background: #fff3e0; color: #e65100; border: 1px solid #ffcc80; }
 .snapshot-import-result code { display: block; margin-top: .25rem; font-size: .8rem; }
 
+/* ── Applications (versionnage) ────────────────────────────────────────────── */
+.apps-installed-box, .apps-install-box, .apps-export-box, .apps-purge-box {
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: 8px; padding: 1.25rem; display: flex; flex-direction: column; gap: .75rem;
+}
+.apps-installed-box h3, .apps-install-box h3, .apps-export-box h3, .apps-purge-box h3 {
+  margin: 0; font-size: 1rem; font-weight: 600;
+}
+.apps-list { display: flex; flex-direction: column; gap: .5rem; }
+.apps-list-item {
+  display: flex; flex-direction: column; gap: .15rem;
+  padding: .5rem .75rem; border: 1px solid var(--color-border);
+  border-radius: 6px; background: var(--color-bg);
+}
+.apps-item-name { font-weight: 600; }
+.apps-item-meta { color: #888; font-size: .85rem; }
+.apps-downgrade-row { display: flex; align-items: center; gap: .4rem; font-size: .875rem; cursor: pointer; }
+.apps-plan-counts { margin: 0; font-size: .85rem; color: var(--color-text); }
+.apps-plan-unchanged { margin: 0; font-size: .85rem; color: #888; }
+.apps-plan-error { margin: .15rem 0; color: var(--color-error); font-size: .85rem; }
+.apps-item-type { color: #888; font-size: .8rem; }
+.apps-code-badge {
+  display: inline-block; margin-left: .4rem; padding: .05rem .4rem;
+  background: #fff3e0; color: #e65100; border: 1px solid #ffcc80;
+  border-radius: 4px; font-size: .75rem; font-weight: 600;
+}
+.apps-code-warning { margin: .25rem 0 0; color: #e65100; font-size: .8rem; }
+.apps-code-content {
+  max-height: 14rem; overflow: auto; background: var(--color-bg);
+  border: 1px solid var(--color-border); border-radius: 4px;
+  padding: .5rem; font-size: .75rem; white-space: pre-wrap;
+}
+.apps-conflict {
+  border: 1px solid #ffcc80; border-radius: 6px; padding: .75rem;
+  margin-bottom: .5rem; background: #fffdf7;
+}
+.apps-conflict-key { font-weight: 600; margin-bottom: .35rem; }
+.apps-conflict-versions { display: flex; gap: .75rem; flex-wrap: wrap; }
+.apps-conflict-side { flex: 1; min-width: 12rem; }
+.apps-conflict-side-title { font-size: .8rem; font-weight: 600; color: #888; }
+.apps-conflict-json {
+  max-height: 12rem; overflow: auto; background: var(--color-bg);
+  border: 1px solid var(--color-border); border-radius: 4px;
+  padding: .4rem; font-size: .75rem; white-space: pre-wrap; margin: .25rem 0 0;
+}
+.apps-conflict-choices { display: flex; gap: 1rem; margin-top: .4rem; font-size: .85rem; }
+.apps-kept { color: #6c757d; }
+.apps-apply-error { color: var(--color-error); font-size: .8rem; margin-top: .25rem; }
+.apps-export-form { display: flex; flex-direction: column; gap: .35rem; }
+.apps-export-form label { font-size: .8rem; font-weight: 600; }
+.apps-export-form input, .apps-export-form textarea {
+  padding: .4rem .6rem; border: 1px solid var(--color-border);
+  border-radius: 4px; font-size: .85rem; background: var(--color-bg);
+  color: var(--color-text); font-family: inherit;
+}
+.apps-purge-items { display: flex; flex-direction: column; gap: .35rem; }
+.apps-purge-item { display: flex; align-items: center; gap: .4rem; font-size: .875rem; cursor: pointer; }
+.apps-purge-warning {
+  margin: 0; padding: .5rem .75rem; border-radius: 4px; font-size: .85rem;
+  background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; font-weight: 600;
+}
+.apps-purge-loss { border-collapse: collapse; width: 100%; font-size: .8rem; color: #c62828; }
+.apps-purge-loss th, .apps-purge-loss td {
+  border: 1px solid #ef9a9a; padding: .3rem .5rem; text-align: left;
+}
+.apps-purge-loss th { background: #ffebee; }
+.apps-purge-total { margin: .25rem 0 0; color: #c62828; font-weight: 600; font-size: .85rem; }
+
 /* ── Modals tdb (remplaçants promisifiés de alert/confirm/prompt) ─────────── */
 .tdb-modal-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,.45);

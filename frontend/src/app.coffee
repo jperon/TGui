@@ -113,6 +113,7 @@ window.App =
     adminNavUsers:     -> document.getElementById 'admin-nav-users'
     adminNavGroups:    -> document.getElementById 'admin-nav-groups'
     adminNavSnapshot:  -> document.getElementById 'admin-nav-snapshot'
+    adminNavApps:      -> document.getElementById 'admin-nav-apps'
     dataToolbar:       -> document.getElementById 'data-toolbar'
     dataTitle:         -> document.getElementById 'data-title'
     undoBtn:           -> document.getElementById 'undo-btn'
@@ -185,6 +186,32 @@ window.App =
     adminUsersSection: -> document.getElementById 'admin-users-section'
     adminGroupsSection: -> document.getElementById 'admin-groups-section'
     adminSnapshotSection: -> document.getElementById 'admin-snapshot-section'
+    adminAppsSection: -> document.getElementById 'admin-apps-section'
+    appsList:          -> document.getElementById 'apps-list'
+    appsPurgeOpenBtn:  -> document.getElementById 'apps-purge-open-btn'
+    appsPackageInput:  -> document.getElementById 'apps-package-input'
+    appsPackageName:   -> document.getElementById 'apps-package-name'
+    appsAllowDowngrade: -> document.getElementById 'apps-allow-downgrade'
+    appsPlanErrors:    -> document.getElementById 'apps-plan-errors'
+    appsPlanBox:       -> document.getElementById 'apps-plan-box'
+    appsApplyBtn:      -> document.getElementById 'apps-apply-btn'
+    appsApplyReport:   -> document.getElementById 'apps-apply-report'
+    appsExportId:          -> document.getElementById 'apps-export-id'
+    appsExportName:        -> document.getElementById 'apps-export-name'
+    appsExportVersion:     -> document.getElementById 'apps-export-version'
+    appsExportDescription: -> document.getElementById 'apps-export-description'
+    appsExportSeed:        -> document.getElementById 'apps-export-seed'
+    appsExportError:       -> document.getElementById 'apps-export-error'
+    appsExportBtn:         -> document.getElementById 'apps-export-btn'
+    appsPurgeBox:          -> document.getElementById 'apps-purge-box'
+    appsPurgeAppName:      -> document.getElementById 'apps-purge-app-name'
+    appsPurgeItems:        -> document.getElementById 'apps-purge-items'
+    appsPurgePreviewBtn:   -> document.getElementById 'apps-purge-preview-btn'
+    appsPurgePreview:      -> document.getElementById 'apps-purge-preview'
+    appsPurgeConfirmInput: -> document.getElementById 'apps-purge-confirm-input'
+    appsPurgeConfirmHint:  -> document.getElementById 'apps-purge-confirm-hint'
+    appsPurgeConfirmBtn:   -> document.getElementById 'apps-purge-confirm-btn'
+    appsPurgeReport:       -> document.getElementById 'apps-purge-report'
     adminUsersList:    -> document.getElementById 'admin-users-list'
     adminGroupsList:   -> document.getElementById 'admin-groups-list'
     adminCreateUserBtn: -> document.getElementById 'admin-create-user-btn'
@@ -327,6 +354,13 @@ window.App =
 
   _loadAdminGroups: ->
     window.AppSidebarHelpers.loadAdminGroups @
+
+  # ── App versioning ───────────────────────────────────────────────────────────
+  _bindAppsPanel: ->
+    window.AppAppsHelpers.bindAppsPanel @
+
+  _loadApps: ->
+    window.AppAppsHelpers.loadApps @
 
   # ── Dialog: change password ──────────────────────────────────────────────────
   _openChangePasswordDialog: ->

@@ -114,6 +114,7 @@ make_sidebar = ->
         H.li {id: 'admin-nav-users', 'Utilisateurs'}
         H.li {id: 'admin-nav-groups', 'Groupes'}
         H.li {id: 'admin-nav-snapshot', 'Export / Import'}
+        H.li {id: 'admin-nav-apps', 'Applications'}
       }
     }
     _sidebarFooter!
@@ -286,10 +287,6 @@ _snapshotImportBox = ->
           H.input {id: 'snapshot-mode-merge', type: 'radio', name: 'snapshot-mode', value: 'merge', checked: true}
           H.span {' Fusion (recommandé) — crée ce qui manque, ignore l\'existant'}
         }
-        H.label {
-          H.input {id: 'snapshot-mode-replace', type: 'radio', name: 'snapshot-mode', value: 'replace'}
-          H.span {' Remplacement — efface tout puis recrée'}
-        }
       }
       H.p {id: 'snapshot-import-error', class: 'error hidden', ''}
       H.div {class: 'modal-actions',
@@ -308,11 +305,101 @@ _adminSnapshotSection = ->
     _snapshotImportBox!
   }
 
+_appsInstalledBox = ->
+  H.div {class: 'apps-installed-box',
+    H.h3 {'Applications installées'}
+    H.p {'Gérez les applications installées sur cette instance.'}
+    H.div {id: 'apps-list', class: 'apps-list', ''}
+    H.div {class: 'modal-actions',
+      H.button {id: 'apps-purge-open-btn', class: 'toolbar-btn',
+        disabled: 'disabled', 'Éléments obsolètes…'}
+    }
+  }
+
+_appsInstallBox = ->
+  H.div {class: 'apps-install-box',
+    H.h3 {'Installer ou mettre à jour'}
+    H.p {'Choisissez un paquet .tdbapp.yaml pour prévisualiser les changements avant de les appliquer.'}
+    H.div {class: 'snapshot-import-file-row',
+      H.label {['for']: 'apps-package-input', class: 'toolbar-btn', '📂 Choisir un fichier'}
+      H.input {id: 'apps-package-input', type: 'file',
+        accept: '.yaml,.yml,.tdbapp.yaml', class: 'hidden'}
+      H.span {id: 'apps-package-name', class: 'snapshot-file-name', ''}
+    }
+    H.label {class: 'apps-downgrade-row',
+      H.input {id: 'apps-allow-downgrade', type: 'checkbox'}
+      H.span {' Autoriser une version antérieure'}
+    }
+    H.p {id: 'apps-plan-errors', class: 'error hidden', ''}
+    H.div {id: 'apps-plan-box', class: 'hidden snapshot-diff-box', ''}
+    H.div {class: 'modal-actions',
+      H.button {id: 'apps-apply-btn', class: 'toolbar-btn',
+        disabled: 'disabled', 'Appliquer'}
+    }
+    H.div {id: 'apps-apply-report', class: 'hidden snapshot-import-result', ''}
+  }
+
+_appsExportBox = ->
+  H.div {class: 'apps-export-box',
+    H.h3 {'Exporter une application'}
+    H.p {"Publiez la définition complète de l'application sous forme de paquet installable."}
+    H.div {class: 'apps-export-form',
+      H.label {['for']: 'apps-export-id', 'Identifiant (ex. org.exemple.biblio)'}
+      H.input {id: 'apps-export-id', type: 'text', placeholder: 'org.exemple.biblio'}
+      H.label {['for']: 'apps-export-name', 'Nom'}
+      H.input {id: 'apps-export-name', type: 'text', placeholder: 'Ma bibliothèque'}
+      H.label {['for']: 'apps-export-version', 'Version (x.y.z)'}
+      H.input {id: 'apps-export-version', type: 'text', placeholder: '1.0.0'}
+      H.label {['for']: 'apps-export-description', 'Description'}
+      H.input {id: 'apps-export-description', type: 'text', placeholder: 'Description'}
+      H.label {['for']: 'apps-export-seed', "Lignes d'amorçage (une par ligne, espace:champCle)"}
+      H.textarea {id: 'apps-export-seed', rows: '3',
+        placeholder: 'livres:isbn', ''}
+    }
+    H.p {id: 'apps-export-error', class: 'error hidden', ''}
+    H.div {class: 'modal-actions',
+      H.button {id: 'apps-export-btn', class: 'toolbar-btn', '⬇ Exporter le paquet'}
+    }
+  }
+
+_appsPurgeBox = ->
+  H.div {id: 'apps-purge-box', class: 'hidden apps-purge-box',
+    H.h3 {'Purger les éléments obsolètes'}
+    H.p {id: 'apps-purge-app-name', ''}
+    H.div {id: 'apps-purge-items', class: 'apps-purge-items', ''}
+    H.div {class: 'modal-actions',
+      H.button {id: 'apps-purge-preview-btn', class: 'toolbar-btn', 'Aperçu des pertes'}
+    }
+    H.div {id: 'apps-purge-preview', class: 'hidden', ''}
+    H.label {['for']: 'apps-purge-confirm-input',
+      'Saisissez exactement le nom indiqué pour confirmer'}
+    H.input {id: 'apps-purge-confirm-input', type: 'text', placeholder: ''}
+    H.p {id: 'apps-purge-confirm-hint', class: 'formula-hint', ''}
+    H.div {class: 'modal-actions',
+      H.button {id: 'apps-purge-confirm-btn',
+        class: 'toolbar-btn toolbar-btn--danger',
+        disabled: 'disabled', 'Purger définitivement'}
+    }
+    H.div {id: 'apps-purge-report', class: 'hidden snapshot-import-result', ''}
+  }
+
+_adminAppsSection = ->
+  H.div {id: 'admin-apps-section', class: 'hidden',
+    H.div {class: 'admin-section-header',
+      H.h2 {'Applications'}
+    }
+    _appsInstalledBox!
+    _appsInstallBox!
+    _appsExportBox!
+    _appsPurgeBox!
+  }
+
 make_admin_panel = ->
   H.div {id: 'admin-panel', class: 'hidden admin-panel',
     _adminUsersSection!
     _adminGroupsSection!
     _adminSnapshotSection!
+    _adminAppsSection!
   }
 
 make_content = ->
@@ -738,6 +825,7 @@ make_body = ->
     H.script {src: '/src/app_view_helpers_zones.js', ''}
     H.script {src: '/src/app_view_config_helpers.js', ''}
     H.script {src: '/src/app_snapshot_helpers.js', ''}
+    H.script {src: '/src/app_apps_helpers.js', ''}
     H.script {src: '/src/views/data_view.js', ''}
     H.script {src: '/src/views/custom_view.js', ''}
     H.script {src: '/src/yaml_builder.js', ''}

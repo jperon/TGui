@@ -145,6 +145,9 @@
       adminNavSnapshot: function() {
         return document.getElementById('admin-nav-snapshot');
       },
+      adminNavApps: function() {
+        return document.getElementById('admin-nav-apps');
+      },
       dataToolbar: function() {
         return document.getElementById('data-toolbar');
       },
@@ -352,6 +355,84 @@
       },
       adminSnapshotSection: function() {
         return document.getElementById('admin-snapshot-section');
+      },
+      adminAppsSection: function() {
+        return document.getElementById('admin-apps-section');
+      },
+      appsList: function() {
+        return document.getElementById('apps-list');
+      },
+      appsPurgeOpenBtn: function() {
+        return document.getElementById('apps-purge-open-btn');
+      },
+      appsPackageInput: function() {
+        return document.getElementById('apps-package-input');
+      },
+      appsPackageName: function() {
+        return document.getElementById('apps-package-name');
+      },
+      appsAllowDowngrade: function() {
+        return document.getElementById('apps-allow-downgrade');
+      },
+      appsPlanErrors: function() {
+        return document.getElementById('apps-plan-errors');
+      },
+      appsPlanBox: function() {
+        return document.getElementById('apps-plan-box');
+      },
+      appsApplyBtn: function() {
+        return document.getElementById('apps-apply-btn');
+      },
+      appsApplyReport: function() {
+        return document.getElementById('apps-apply-report');
+      },
+      appsExportId: function() {
+        return document.getElementById('apps-export-id');
+      },
+      appsExportName: function() {
+        return document.getElementById('apps-export-name');
+      },
+      appsExportVersion: function() {
+        return document.getElementById('apps-export-version');
+      },
+      appsExportDescription: function() {
+        return document.getElementById('apps-export-description');
+      },
+      appsExportSeed: function() {
+        return document.getElementById('apps-export-seed');
+      },
+      appsExportError: function() {
+        return document.getElementById('apps-export-error');
+      },
+      appsExportBtn: function() {
+        return document.getElementById('apps-export-btn');
+      },
+      appsPurgeBox: function() {
+        return document.getElementById('apps-purge-box');
+      },
+      appsPurgeAppName: function() {
+        return document.getElementById('apps-purge-app-name');
+      },
+      appsPurgeItems: function() {
+        return document.getElementById('apps-purge-items');
+      },
+      appsPurgePreviewBtn: function() {
+        return document.getElementById('apps-purge-preview-btn');
+      },
+      appsPurgePreview: function() {
+        return document.getElementById('apps-purge-preview');
+      },
+      appsPurgeConfirmInput: function() {
+        return document.getElementById('apps-purge-confirm-input');
+      },
+      appsPurgeConfirmHint: function() {
+        return document.getElementById('apps-purge-confirm-hint');
+      },
+      appsPurgeConfirmBtn: function() {
+        return document.getElementById('apps-purge-confirm-btn');
+      },
+      appsPurgeReport: function() {
+        return document.getElementById('apps-purge-report');
       },
       adminUsersList: function() {
         return document.getElementById('admin-users-list');
@@ -618,6 +699,13 @@
     },
     _loadAdminGroups: function() {
       return window.AppSidebarHelpers.loadAdminGroups(this);
+    },
+    // ── App versioning ───────────────────────────────────────────────────────────
+    _bindAppsPanel: function() {
+      return window.AppAppsHelpers.bindAppsPanel(this);
+    },
+    _loadApps: function() {
+      return window.AppAppsHelpers.loadApps(this);
     },
     // ── Dialog: change password ──────────────────────────────────────────────────
     _openChangePasswordDialog: function() {
