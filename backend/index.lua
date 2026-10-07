@@ -295,6 +295,10 @@ make_sidebar = function()
         H.li({
           id = 'admin-nav-snapshot',
           'Export / Import'
+        }),
+        H.li({
+          id = 'admin-nav-apps',
+          'Applications'
         })
       })
     }),
@@ -779,6 +783,46 @@ _adminSnapshotSection = function()
     _snapshotImportBox()
   })
 end
+local _appsInstalledBox
+_appsInstalledBox = function()
+  return H.div({
+    class = 'apps-installed-box',
+    H.h3({
+      'Applications installées'
+    }),
+    H.p({
+      'Gérez les applications installées sur cette instance.'
+    }),
+    H.div({
+      id = 'apps-list',
+      class = 'apps-list',
+      ''
+    }),
+    H.div({
+      class = 'modal-actions',
+      H.button({
+        id = 'apps-purge-open-btn',
+        class = 'toolbar-btn',
+        disabled = 'disabled',
+        'Éléments obsolètes…'
+      })
+    })
+  })
+end
+local _adminAppsSection
+_adminAppsSection = function()
+  return H.div({
+    id = 'admin-apps-section',
+    class = 'hidden',
+    H.div({
+      class = 'admin-section-header',
+      H.h2({
+        'Applications'
+      })
+    }),
+    _appsInstalledBox()
+  })
+end
 local make_admin_panel
 make_admin_panel = function()
   return H.div({
@@ -786,7 +830,8 @@ make_admin_panel = function()
     class = 'hidden admin-panel',
     _adminUsersSection(),
     _adminGroupsSection(),
-    _adminSnapshotSection()
+    _adminSnapshotSection(),
+    _adminAppsSection()
   })
 end
 local make_content
@@ -1793,6 +1838,10 @@ make_body = function()
     }),
     H.script({
       src = '/src/app_snapshot_helpers.js',
+      ''
+    }),
+    H.script({
+      src = '/src/app_apps_helpers.js',
       ''
     }),
     H.script({

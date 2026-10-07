@@ -145,6 +145,9 @@
       adminNavSnapshot: function() {
         return document.getElementById('admin-nav-snapshot');
       },
+      adminNavApps: function() {
+        return document.getElementById('admin-nav-apps');
+      },
       dataToolbar: function() {
         return document.getElementById('data-toolbar');
       },
@@ -352,6 +355,15 @@
       },
       adminSnapshotSection: function() {
         return document.getElementById('admin-snapshot-section');
+      },
+      adminAppsSection: function() {
+        return document.getElementById('admin-apps-section');
+      },
+      appsList: function() {
+        return document.getElementById('apps-list');
+      },
+      appsPurgeOpenBtn: function() {
+        return document.getElementById('apps-purge-open-btn');
       },
       adminUsersList: function() {
         return document.getElementById('admin-users-list');
@@ -618,6 +630,13 @@
     },
     _loadAdminGroups: function() {
       return window.AppSidebarHelpers.loadAdminGroups(this);
+    },
+    // ── App versioning ───────────────────────────────────────────────────────────
+    _bindAppsPanel: function() {
+      return window.AppAppsHelpers.bindAppsPanel(this);
+    },
+    _loadApps: function() {
+      return window.AppAppsHelpers.loadApps(this);
     },
     // ── Dialog: change password ──────────────────────────────────────────────────
     _openChangePasswordDialog: function() {

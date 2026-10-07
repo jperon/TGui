@@ -219,6 +219,9 @@
       app.el.adminNavSnapshot().addEventListener('click', function() {
         return app._showAdminPanel('snapshot');
       });
+      app.el.adminNavApps().addEventListener('click', function() {
+        return app._showAdminPanel('apps');
+      });
       app.el.pluginsNavManage().addEventListener('click', function() {
         return app._openWidgetPluginModal();
       });
@@ -228,7 +231,8 @@
       app._bindChangePasswordDialog();
       app._bindCreateUserDialog();
       app._bindCreateGroupDialog();
-      return app._bindSnapshotPanel();
+      app._bindSnapshotPanel();
+      return app._bindAppsPanel();
     },
     showAdminPanel: function(app, section = 'users') {
       app.el.dataToolbar().classList.add('hidden');
@@ -239,12 +243,16 @@
       app.el.adminUsersSection().classList.add('hidden');
       app.el.adminGroupsSection().classList.add('hidden');
       app.el.adminSnapshotSection().classList.add('hidden');
+      app.el.adminAppsSection().classList.add('hidden');
       if (section === 'users') {
         app.el.adminUsersSection().classList.remove('hidden');
         return app._loadAdminUsers();
       } else if (section === 'groups') {
         app.el.adminGroupsSection().classList.remove('hidden');
         return app._loadAdminGroups();
+      } else if (section === 'apps') {
+        app.el.adminAppsSection().classList.remove('hidden');
+        return app._loadApps();
       } else {
         return app.el.adminSnapshotSection().classList.remove('hidden');
       }

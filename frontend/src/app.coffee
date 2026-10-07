@@ -113,6 +113,7 @@ window.App =
     adminNavUsers:     -> document.getElementById 'admin-nav-users'
     adminNavGroups:    -> document.getElementById 'admin-nav-groups'
     adminNavSnapshot:  -> document.getElementById 'admin-nav-snapshot'
+    adminNavApps:      -> document.getElementById 'admin-nav-apps'
     dataToolbar:       -> document.getElementById 'data-toolbar'
     dataTitle:         -> document.getElementById 'data-title'
     undoBtn:           -> document.getElementById 'undo-btn'
@@ -185,6 +186,9 @@ window.App =
     adminUsersSection: -> document.getElementById 'admin-users-section'
     adminGroupsSection: -> document.getElementById 'admin-groups-section'
     adminSnapshotSection: -> document.getElementById 'admin-snapshot-section'
+    adminAppsSection: -> document.getElementById 'admin-apps-section'
+    appsList:          -> document.getElementById 'apps-list'
+    appsPurgeOpenBtn:  -> document.getElementById 'apps-purge-open-btn'
     adminUsersList:    -> document.getElementById 'admin-users-list'
     adminGroupsList:   -> document.getElementById 'admin-groups-list'
     adminCreateUserBtn: -> document.getElementById 'admin-create-user-btn'
@@ -327,6 +331,13 @@ window.App =
 
   _loadAdminGroups: ->
     window.AppSidebarHelpers.loadAdminGroups @
+
+  # ── App versioning ───────────────────────────────────────────────────────────
+  _bindAppsPanel: ->
+    window.AppAppsHelpers.bindAppsPanel @
+
+  _loadApps: ->
+    window.AppAppsHelpers.loadApps @
 
   # ── Dialog: change password ──────────────────────────────────────────────────
   _openChangePasswordDialog: ->

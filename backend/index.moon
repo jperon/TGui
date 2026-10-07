@@ -114,6 +114,7 @@ make_sidebar = ->
         H.li {id: 'admin-nav-users', 'Utilisateurs'}
         H.li {id: 'admin-nav-groups', 'Groupes'}
         H.li {id: 'admin-nav-snapshot', 'Export / Import'}
+        H.li {id: 'admin-nav-apps', 'Applications'}
       }
     }
     _sidebarFooter!
@@ -308,11 +309,31 @@ _adminSnapshotSection = ->
     _snapshotImportBox!
   }
 
+_appsInstalledBox = ->
+  H.div {class: 'apps-installed-box',
+    H.h3 {'Applications installées'}
+    H.p {'Gérez les applications installées sur cette instance.'}
+    H.div {id: 'apps-list', class: 'apps-list', ''}
+    H.div {class: 'modal-actions',
+      H.button {id: 'apps-purge-open-btn', class: 'toolbar-btn',
+        disabled: 'disabled', 'Éléments obsolètes…'}
+    }
+  }
+
+_adminAppsSection = ->
+  H.div {id: 'admin-apps-section', class: 'hidden',
+    H.div {class: 'admin-section-header',
+      H.h2 {'Applications'}
+    }
+    _appsInstalledBox!
+  }
+
 make_admin_panel = ->
   H.div {id: 'admin-panel', class: 'hidden admin-panel',
     _adminUsersSection!
     _adminGroupsSection!
     _adminSnapshotSection!
+    _adminAppsSection!
   }
 
 make_content = ->
@@ -738,6 +759,7 @@ make_body = ->
     H.script {src: '/src/app_view_helpers_zones.js', ''}
     H.script {src: '/src/app_view_config_helpers.js', ''}
     H.script {src: '/src/app_snapshot_helpers.js', ''}
+    H.script {src: '/src/app_apps_helpers.js', ''}
     H.script {src: '/src/views/data_view.js', ''}
     H.script {src: '/src/views/custom_view.js', ''}
     H.script {src: '/src/yaml_builder.js', ''}
