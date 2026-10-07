@@ -52,20 +52,6 @@ _split_scope = function(key, prefix)
   end
   return _scope_name(rest)
 end
-local _normalize_field_content
-_normalize_field_content = function(item_type, content)
-  if not (item_type == 'field') then
-    return content
-  end
-  return {
-    fieldType = content.fieldType,
-    notNull = content.notNull == true,
-    description = content.description or '',
-    formula = content.formula or '',
-    triggerFields = content.triggerFields or { },
-    language = content.language or 'lua'
-  }
-end
 local _normalize_item
 _normalize_item = function(entry, errors)
   if not (type(entry) == 'table') then
@@ -84,7 +70,7 @@ _normalize_item = function(entry, errors)
     table.insert(errors, "package item " .. tostring(entry.key) .. " is missing content")
     return nil
   end
-  local content = _normalize_field_content(entry.type, entry.content)
+  local content = app_package.normalize_content(entry.type, app_package.strip_null(entry.content))
   local item = {
     type = entry.type,
     key = entry.key,
@@ -117,7 +103,7 @@ _normalize = function(package)
       id = app.id,
       name = app.name,
       version = app.version,
-      description = app.description or ''
+      description = app_package.strip_null(app.description) or ''
     }
   else
     table.insert(errors, 'package app id is required')
@@ -137,7 +123,7 @@ _normalize = function(package)
       table.insert(pkg.items, item)
     end
   end
-  pkg.seed_keys = package.seed_keys or { }
+  pkg.seed_keys = app_package.strip_null(package.seed_keys) or { }
   return {
     package = pkg,
     errors = errors

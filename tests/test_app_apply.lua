@@ -12,6 +12,7 @@ local dv_r = require('resolvers.data_view_resolvers')
 local data_r = require('resolvers.data_resolvers')
 local auth = require('core.auth')
 local json = require('json')
+local yaml = require('yaml')
 local SUFFIX = tostring(math.random(100000, 999999))
 local SP_BOOKS = "aap_books_" .. tostring(SUFFIX)
 local SP_AUTHORS = "aap_authors_" .. tostring(SUFFIX)
@@ -960,7 +961,7 @@ retarget_esc = function(key, old, new)
   end
   return nil
 end
-return R.describe("app_apply — special names full cycle and space rename", function()
+R.describe("app_apply — special names full cycle and space rename", function()
   R.it("creates spaces, a special field and a relation, then builds the package", function()
     local cyc = spaces.create_user_space(SP_CYC, 'cycle books')
     local cycb = spaces.create_user_space(SP_CYCB, 'cycle authors')
@@ -1095,5 +1096,354 @@ return R.describe("app_apply — special names full cycle and space rename", fun
     spaces.delete_user_space(SP_CYCB)
     R.is_nil(spaces.get_space_by_name(SP_CYC2))
     return R.is_nil(spaces.get_space_by_name(SP_CYCB))
+  end)
+end)
+local SP_T22 = "aap_t22_" .. tostring(SUFFIX)
+local SP_T22B = "aap_t22b_" .. tostring(SUFFIX)
+local APP_T22 = "org.test.aapt22_" .. tostring(SUFFIX)
+local VIEW_T22 = "aap_t22view_" .. tostring(SUFFIX)
+local PAGE_T22 = "aap_t22page_" .. tostring(SUFFIX)
+local DV_T22 = "aap_t22dv_" .. tostring(SUFFIX)
+local PLG_T22 = "aap_t22plugin_" .. tostring(SUFFIX)
+local GRP_T22 = "aap_t22group_" .. tostring(SUFFIX)
+local REL_T22 = "aap_t22rel_" .. tostring(SUFFIX)
+local F22 = { }
+local YAML_PAGE_T22 = [[layout:
+  direction: vertical
+  children:
+    - widget:
+        title: T22
+        space: t22
+]]
+local OPTIONAL_KEYS = {
+  space = {
+    'description'
+  },
+  field = {
+    'description',
+    'formula',
+    'triggerFields',
+    'language'
+  },
+  relation = {
+    'cardinality'
+  },
+  page = {
+    'description'
+  },
+  dataview = {
+    'description'
+  },
+  plugin = {
+    'description',
+    'scriptLanguage',
+    'templateLanguage',
+    'scriptCode',
+    'templateCode'
+  },
+  group = {
+    'description'
+  }
+}
+local _sparse_content
+_sparse_content = function(item_type, content, mode)
+  local copy = { }
+  for k, v in pairs(content) do
+    copy[k] = v
+  end
+  local _list_0 = (OPTIONAL_KEYS[item_type] or { })
+  for _index_0 = 1, #_list_0 do
+    local k = _list_0[_index_0]
+    if mode == 'null' then
+      if copy[k] ~= nil then
+        copy[k] = box.NULL
+      end
+    else
+      copy[k] = nil
+    end
+  end
+  return copy
+end
+local sparse_pkg
+sparse_pkg = function(package, mode)
+  local items = { }
+  local _list_0 = package.items
+  for _index_0 = 1, #_list_0 do
+    local it = _list_0[_index_0]
+    table.insert(items, {
+      type = it.type,
+      key = it.key,
+      content = _sparse_content(it.type, it.content, mode)
+    })
+  end
+  return {
+    app = package.app,
+    items = items,
+    seed_keys = package.seed_keys or { }
+  }
+end
+local roundtrip
+roundtrip = function(package)
+  local decoded = yaml.decode(yaml.encode(package))
+  local norm, err = apply.load_package(decoded)
+  R.ok(norm, "load_package: " .. tostring(err))
+  return norm
+end
+local remove_t22
+remove_t22 = function()
+  local _list_0 = box.space._tdb_views:select({ })
+  for _index_0 = 1, #_list_0 do
+    local v = _list_0[_index_0]
+    if v[3] == VIEW_T22 then
+      views.delete_view(v[1])
+    end
+  end
+  local _list_1 = box.space._tdb_data_views:select({ })
+  for _index_0 = 1, #_list_1 do
+    local dv = _list_1[_index_0]
+    if dv[2] == DV_T22 then
+      data_views.delete_view(dv[1])
+    end
+  end
+  local _list_2 = box.space._tdb_custom_views:select({ })
+  for _index_0 = 1, #_list_2 do
+    local cv = _list_2[_index_0]
+    if cv[2] == PAGE_T22 then
+      box.space._tdb_custom_views:delete(cv[1])
+    end
+  end
+  local _list_3 = box.space._tdb_widget_plugins:select({ })
+  for _index_0 = 1, #_list_3 do
+    local wp = _list_3[_index_0]
+    if wp[2] == PLG_T22 then
+      box.space._tdb_widget_plugins:delete(wp[1])
+    end
+  end
+  local _list_4 = perms.list_groups()
+  for _index_0 = 1, #_list_4 do
+    local g = _list_4[_index_0]
+    if g.name == GRP_T22 then
+      perms.delete_group(g.id)
+    end
+  end
+  local _list_5 = {
+    SP_T22,
+    SP_T22B
+  }
+  for _index_0 = 1, #_list_5 do
+    local nm = _list_5[_index_0]
+    local sp = spaces.get_space_by_name(nm)
+    if sp then
+      local _list_6 = box.space._tdb_relations.index.by_from:select({
+        sp.id
+      })
+      for _index_1 = 1, #_list_6 do
+        local t = _list_6[_index_1]
+        box.space._tdb_relations:delete(t[1])
+      end
+      local _list_7 = box.space._tdb_relations.index.by_to:select({
+        sp.id
+      })
+      for _index_1 = 1, #_list_7 do
+        local t = _list_7[_index_1]
+        box.space._tdb_relations:delete(t[1])
+      end
+    end
+  end
+  spaces.delete_user_space(SP_T22)
+  return spaces.delete_user_space(SP_T22B)
+end
+R.describe("app_apply — T22 fixture", function()
+  return R.it("creates every element type with default optional values", function()
+    local books = spaces.create_user_space(SP_T22, '')
+    local authors = spaces.create_user_space(SP_T22B, '')
+    spaces.add_field(books.id, 'code', 'String', true, '')
+    local fk = spaces.add_field(books.id, 'author_id', 'Int', false, '')
+    local seq = spaces.add_field(authors.id, 'seq_id', 'Sequence')
+    local res = schema_r.Mutation.createRelation({ }, {
+      input = {
+        name = REL_T22,
+        fromSpaceId = books.id,
+        fromFieldId = fk.id,
+        toSpaceId = authors.id,
+        toFieldId = seq.id,
+        reprFormula = '@seq_id',
+        cardinality = 'one'
+      }
+    }, CTX)
+    F22.rel_id = res.id
+    local v = views.create_view(books.id, VIEW_T22, 'grid', {
+      layout = {
+        direction = 'vertical',
+        children = { }
+      }
+    })
+    F22.view_id = v.id
+    local p = cvr.Mutation.createCustomView({ }, {
+      name = PAGE_T22,
+      description = '',
+      yaml = YAML_PAGE_T22
+    }, CTX)
+    F22.page_id = p.id
+    local dv = dv_r.Mutation.createDataView(nil, {
+      input = {
+        name = DV_T22,
+        description = '',
+        sourceSpace = SP_T22,
+        config = json.encode({
+          columns = {
+            'code'
+          }
+        })
+      }
+    }, CTX)
+    F22.dv_id = dv.id
+    local now = os.time()
+    F22.plugin_id = "aap_t22plugin_id_" .. tostring(SUFFIX)
+    box.space._tdb_widget_plugins:insert({
+      F22.plugin_id,
+      PLG_T22,
+      '',
+      'coffeescript',
+      'pug',
+      '',
+      '',
+      now,
+      now
+    })
+    local g = perms.create_group(GRP_T22, '')
+    F22.group_id = g.id
+    perms.grant(g.id, 'space', books.id, 'read')
+    perms.grant(g.id, 'space', nil, 'write')
+    local _list_0 = {
+      {
+        code = 'T22-1',
+        author_id = 0
+      },
+      {
+        code = 'T22-2',
+        author_id = 0
+      }
+    }
+    for _index_0 = 1, #_list_0 do
+      local row = _list_0[_index_0]
+      data_r.Mutation.insertRecord({ }, {
+        spaceId = books.id,
+        data = row
+      }, CTX)
+    end
+    F22.seed = {
+      [SP_T22] = 'code'
+    }
+    return R.ok(books and authors and res and v and p and dv and F22.plugin_id and g)
+  end)
+end)
+R.describe("app_apply — T22 export round-trip invariant", function()
+  R.it("a build_package YAML round-trip is entirely unchanged", function()
+    F22.pkg = subset(pkg.build_package({
+      id = APP_T22,
+      name = 'T22',
+      version = '1.0.0',
+      description = ''
+    }, {
+      seed = F22.seed
+    }))
+    F22.norm = roundtrip(F22.pkg)
+    local plan = apply.preview_update(F22.norm)
+    R.eq(#plan.errors, 0, 'preview errors')
+    R.eq(#plan.update, 0, 'no spurious update')
+    R.eq(#plan.conflict, 0, 'no spurious conflict')
+    R.eq(#plan.create, 0, 'no spurious create')
+    return R.eq(#plan.unchanged, #F22.norm.items, 'all unchanged')
+  end)
+  return R.it("nulled and dropped optional keys are still entirely unchanged", function()
+    local _list_0 = {
+      'null',
+      'drop'
+    }
+    for _index_0 = 1, #_list_0 do
+      local mode = _list_0[_index_0]
+      local norm = roundtrip(sparse_pkg(F22.pkg, mode))
+      local plan = apply.preview_update(norm)
+      R.eq(#plan.errors, 0, "errors (" .. tostring(mode) .. ")")
+      R.eq(#plan.update, 0, "update (" .. tostring(mode) .. ")")
+      R.eq(#plan.conflict, 0, "conflict (" .. tostring(mode) .. ")")
+      R.eq(#plan.unchanged, #norm.items, "unchanged (" .. tostring(mode) .. ")")
+    end
+  end)
+end)
+R.describe("app_apply — T22 install and update through yaml", function()
+  R.it("installs a nulled package on a clean base", function()
+    remove_t22()
+    clean_app_rows(APP_T22)
+    R.is_nil(spaces.get_space_by_name(SP_T22))
+    F22.norm2 = roundtrip(sparse_pkg(F22.pkg, 'null'))
+    local report = apply.apply_update(F22.norm2, { }, { })
+    R.ok(report.ok, report.error)
+    R.eq(#report.created, #F22.norm2.items, 'created')
+    return R.eq(#describe_intact(F22.norm2), 0, 'all delivered elements match')
+  end)
+  R.it("a real author change stays an update", function()
+    local changed = sparse_pkg(F22.pkg, 'null')
+    local _list_0 = changed.items
+    for _index_0 = 1, #_list_0 do
+      local it = _list_0[_index_0]
+      if it.key == "space:" .. tostring(SP_T22) then
+        it.content.description = 'author changed'
+      end
+    end
+    local norm = roundtrip(changed)
+    local plan = apply.preview_update(norm)
+    R.eq(#plan.errors, 0)
+    R.eq(#plan.update, 1, 'one update')
+    return R.eq(plan.update[1].key, "space:" .. tostring(SP_T22))
+  end)
+  return R.it("updates a page and a data view delivered with a null description", function()
+    local local_pkg = subset(pkg.build_package({
+      id = APP_T22,
+      name = 'T22',
+      version = '1.1.0',
+      description = ''
+    }, {
+      seed = F22.seed
+    }))
+    local changed = sparse_pkg(local_pkg, 'null')
+    local _list_0 = changed.items
+    for _index_0 = 1, #_list_0 do
+      local it = _list_0[_index_0]
+      if it.key == "page:" .. tostring(PAGE_T22) then
+        it.content.yaml = tostring(it.content.yaml) .. "\n# changed\n"
+      end
+      if it.key == "dataview:" .. tostring(DV_T22) then
+        it.content.config = json.encode({
+          columns = {
+            'code',
+            'author_id'
+          }
+        })
+      end
+    end
+    local norm = roundtrip(changed)
+    local plan = apply.preview_update(norm)
+    R.eq(#plan.errors, 0, 'preview errors')
+    R.eq(#plan.update, 2, 'page and data view update')
+    local report = apply.apply_update(norm, { }, { })
+    R.ok(report.ok, report.error)
+    R.eq(#report.updated, 2, 'updated')
+    R.eq(pkg.describe_local('page', "page:" .. tostring(PAGE_T22)).description, '')
+    return R.eq(pkg.describe_local('dataview', "dataview:" .. tostring(DV_T22)).description, '')
+  end)
+end)
+return R.describe("app_apply — T22 cleanup", function()
+  return R.it("removes the T22 fixture", function()
+    clean_app_rows(APP_T22)
+    remove_t22()
+    R.is_nil(spaces.get_space_by_name(SP_T22))
+    R.is_nil(spaces.get_space_by_name(SP_T22B))
+    R.is_nil(pkg.describe_local('page', "page:" .. tostring(PAGE_T22)))
+    R.is_nil(pkg.describe_local('dataview', "dataview:" .. tostring(DV_T22)))
+    R.is_nil(pkg.describe_local('plugin', "plugin:" .. tostring(PLG_T22)))
+    R.is_nil(pkg.describe_local('group', "group:" .. tostring(GRP_T22)))
+    return R.eq(installed_count(APP_T22), 0)
   end)
 end)

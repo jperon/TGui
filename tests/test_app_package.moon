@@ -17,6 +17,7 @@ dv_r = require 'resolvers.data_view_resolvers'
 data_r = require 'resolvers.data_resolvers'
 auth = require 'core.auth'
 json = require 'json'
+yaml = require 'yaml'
 
 SUFFIX = tostring math.random 100000, 999999
 
@@ -623,3 +624,83 @@ R.describe "app_package — cleanup", ->
     for s in *spaces.list_spaces!
       found = true if s.name == SP_BOOKS or s.name == SP_AUTHORS
     R.nok found
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- T22 : normalisation à la frontière de lecture (box.NULL, clés absentes).
+-- Les valeurs sont produites par le VRAI yaml.decode de Tarantool, jamais
+-- construites à la main côté Lua.
+-- ────────────────────────────────────────────────────────────────────────────
+R.describe "app_package — strip_null (T22)", ->
+
+  R.it "drops box.NULL from object values and array elements decoded by yaml", ->
+    raw = yaml.decode "a: null\nb: ~\nc:\nd: [1, null, 2]\ne:\n  x: null\n  y: ok\n"
+    R.ok raw.a == box.NULL, 'yaml null decodes to box.NULL'
+    R.ok raw.b == box.NULL, 'yaml ~ decodes to box.NULL'
+    R.eq raw.c, '', 'an empty yaml value is an empty string'
+    R.ok raw.d[2] == box.NULL, 'null inside a list decodes to box.NULL'
+    s = pkg.strip_null raw
+    R.is_nil s.a
+    R.is_nil s.b
+    R.eq s.c, ''
+    R.eq #s.d, 2
+    R.eq s.d[1], 1
+    R.eq s.d[2], 2
+    R.is_nil s.e.x
+    R.eq s.e.y, 'ok'
+    R.ok raw.a == box.NULL, 'strip_null does not mutate its argument'
+
+  R.it "leaves ordinary scalars and non-null cdata untouched", ->
+    R.eq pkg.strip_null('x'), 'x'
+    R.eq pkg.strip_null(3), 3
+    R.eq pkg.strip_null(true), true
+    R.is_nil pkg.strip_null(nil)
+    R.is_nil pkg.strip_null(box.NULL)
+
+R.describe "app_package — normalize_content (T22)", ->
+
+  R.it "reproduces each builder's defaults for absent optional keys", ->
+    expected = {
+      space: { description: '' }
+      field: { notNull: false, description: '', formula: '', triggerFields: {}, language: 'lua' }
+      relation: { cardinality: 'one' }
+      view: {}
+      page: { description: '', yaml: '' }
+      dataview: { description: '', sourceSpace: '' }
+      plugin: { description: '', scriptLanguage: 'coffeescript', templateLanguage: 'pug',
+                scriptCode: '', templateCode: '' }
+      group: { description: '' }
+      perm: { resource: '*' }
+      seed: { data: {} }
+    }
+    for item_type, exp in pairs expected
+      got = pkg.normalize_content item_type, {}
+      R.eq pkg.canonical(got), pkg.canonical(exp), "normalize #{item_type}"
+
+  R.it "normalizes a field content decoded by yaml (null optionals)", ->
+    raw = yaml.decode "fieldType: Int\nnotNull: ~\ndescription: null\nformula: ~\ntriggerFields: null\nlanguage: null\n"
+    c = pkg.normalize_content 'field', pkg.strip_null(raw)
+    R.eq pkg.canonical(c), pkg.canonical {
+      fieldType: 'Int'
+      notNull: false
+      description: ''
+      formula: ''
+      triggerFields: {}
+      language: 'lua'
+    }
+
+  R.it "is idempotent and does not mutate its argument", ->
+    original = { fieldType: 'Int', description: 'x' }
+    c1 = pkg.normalize_content 'field', original
+    c2 = pkg.normalize_content 'field', c1
+    R.eq pkg.canonical(c1), pkg.canonical(c2)
+    R.eq pkg.canonical(original), pkg.canonical({ fieldType: 'Int', description: 'x' })
+    R.eq original.formula, nil, 'the argument gained no key'
+
+  R.it "matches the fingerprint of the equivalent builder content", ->
+    raw = yaml.decode "fieldType: String\nnotNull: false\ndescription: null\nformula: ~\ntriggerFields:\nlanguage: null\n"
+    c = pkg.normalize_content 'field', pkg.strip_null(raw)
+    built = {
+      fieldType: 'String', notNull: false, description: '', formula: '',
+      triggerFields: {}, language: 'lua'
+    }
+    R.eq pkg.fingerprint(c), pkg.fingerprint(built)

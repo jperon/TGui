@@ -274,6 +274,155 @@ seed_content = function(space_name, key, data)
     data = data
   }
 end
+local strip_null
+strip_null = function(value)
+  if value == box.NULL then
+    return nil
+  end
+  if not (type(value) == 'table') then
+    return value
+  end
+  local result = { }
+  local len = array_len(value)
+  if len ~= nil then
+    for i = 1, len do
+      local v = strip_null(value[i])
+      if v ~= nil then
+        table.insert(result, v)
+      end
+    end
+  else
+    for k, v in pairs(value) do
+      local sv = strip_null(v)
+      if sv ~= nil then
+        result[k] = sv
+      end
+    end
+  end
+  return result
+end
+local _nonempty_or
+_nonempty_or = function(value, default)
+  if value == nil or value == '' then
+    return default
+  end
+  return value
+end
+local _table_or_empty
+_table_or_empty = function(value)
+  return (type(value) == 'table') and value or { }
+end
+local _normalize_space_content
+_normalize_space_content = function(c)
+  return {
+    description = c.description or ''
+  }
+end
+local _normalize_field_content
+_normalize_field_content = function(c)
+  return {
+    fieldType = c.fieldType,
+    notNull = c.notNull == true,
+    description = c.description or '',
+    formula = c.formula or '',
+    triggerFields = _table_or_empty(c.triggerFields),
+    language = _nonempty_or(c.language, 'lua')
+  }
+end
+local _normalize_relation_content
+_normalize_relation_content = function(c)
+  return {
+    fromSpace = c.fromSpace,
+    fromField = c.fromField,
+    toSpace = c.toSpace,
+    toField = c.toField,
+    cardinality = relation_cardinality(c.cardinality)
+  }
+end
+local _normalize_view_content
+_normalize_view_content = function(c)
+  return {
+    space = c.space,
+    name = c.name,
+    viewType = c.viewType,
+    config = decode_config(c.config)
+  }
+end
+local _normalize_page_content
+_normalize_page_content = function(c)
+  return {
+    name = c.name,
+    description = c.description or '',
+    yaml = c.yaml or ''
+  }
+end
+local _normalize_dataview_content
+_normalize_dataview_content = function(c)
+  return {
+    name = c.name,
+    description = c.description or '',
+    sourceSpace = resolve_space_name(c.sourceSpace),
+    config = decode_config(c.config)
+  }
+end
+local _normalize_plugin_content
+_normalize_plugin_content = function(c)
+  return {
+    name = c.name,
+    description = c.description or '',
+    scriptLanguage = _nonempty_or(c.scriptLanguage, 'coffeescript'),
+    templateLanguage = _nonempty_or(c.templateLanguage, 'pug'),
+    scriptCode = c.scriptCode or '',
+    templateCode = c.templateCode or ''
+  }
+end
+local _normalize_group_content
+_normalize_group_content = function(c)
+  return {
+    name = c.name,
+    description = c.description or ''
+  }
+end
+local _normalize_perm_content
+_normalize_perm_content = function(c)
+  return {
+    group = c.group,
+    resourceType = c.resourceType,
+    resource = resource_name(c.resource),
+    level = c.level
+  }
+end
+local _normalize_seed_content
+_normalize_seed_content = function(c)
+  return {
+    space = c.space,
+    key = c.key,
+    data = _table_or_empty(c.data)
+  }
+end
+local CONTENT_NORMALIZERS = {
+  space = _normalize_space_content,
+  field = _normalize_field_content,
+  relation = _normalize_relation_content,
+  view = _normalize_view_content,
+  page = _normalize_page_content,
+  dataview = _normalize_dataview_content,
+  plugin = _normalize_plugin_content,
+  group = _normalize_group_content,
+  perm = _normalize_perm_content,
+  seed = _normalize_seed_content
+}
+local normalize_content
+normalize_content = function(item_type, content)
+  if not (type(content) == 'table') then
+    return content
+  end
+  local normalizer = CONTENT_NORMALIZERS[item_type]
+  if not (normalizer) then
+    return content
+  end
+  return normalizer(content)
+end
 local strip_prefix
 strip_prefix = function(key, prefix)
   if not (type(key) == 'string' and key:sub(1, #prefix) == prefix) then
@@ -934,5 +1083,7 @@ return {
   build_package = build_package,
   ITEM_TYPES = ITEM_TYPES,
   key_part = key_part,
-  unkey_part = unkey_part
+  unkey_part = unkey_part,
+  strip_null = strip_null,
+  normalize_content = normalize_content
 }

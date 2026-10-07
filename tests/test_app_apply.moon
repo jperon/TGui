@@ -24,6 +24,7 @@ dv_r = require 'resolvers.data_view_resolvers'
 data_r = require 'resolvers.data_resolvers'
 auth = require 'core.auth'
 json = require 'json'
+yaml = require 'yaml'
 
 SUFFIX = tostring math.random 100000, 999999
 
@@ -716,3 +717,202 @@ R.describe "app_apply — special names full cycle and space rename", ->
     spaces.delete_user_space SP_CYCB
     R.is_nil spaces.get_space_by_name SP_CYC2
     R.is_nil spaces.get_space_by_name SP_CYCB
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- T22 : normalisation à la frontière de lecture. Un paquet décodé par le vrai
+-- parseur YAML de Tarantool (null → box.NULL, clés absentes) s'installe et se
+-- met à jour sans erreur ; l'empreinte du paquet redevient égale à celle de
+-- l'état local identique (aucun faux conflit).
+-- ────────────────────────────────────────────────────────────────────────────
+SP_T22   = "aap_t22_#{SUFFIX}"
+SP_T22B  = "aap_t22b_#{SUFFIX}"
+APP_T22  = "org.test.aapt22_#{SUFFIX}"
+VIEW_T22 = "aap_t22view_#{SUFFIX}"
+PAGE_T22 = "aap_t22page_#{SUFFIX}"
+DV_T22   = "aap_t22dv_#{SUFFIX}"
+PLG_T22  = "aap_t22plugin_#{SUFFIX}"
+GRP_T22  = "aap_t22group_#{SUFFIX}"
+REL_T22  = "aap_t22rel_#{SUFFIX}"
+F22 = {}
+
+YAML_PAGE_T22 = [[
+layout:
+  direction: vertical
+  children:
+    - widget:
+        title: T22
+        space: t22
+]]
+
+OPTIONAL_KEYS = {
+  space: { 'description' }
+  field: { 'description', 'formula', 'triggerFields', 'language' }
+  relation: { 'cardinality' }
+  page: { 'description' }
+  dataview: { 'description' }
+  plugin: { 'description', 'scriptLanguage', 'templateLanguage', 'scriptCode', 'templateCode' }
+  group: { 'description' }
+}
+
+_sparse_content = (item_type, content, mode) ->
+  copy = {}
+  for k, v in pairs content
+    copy[k] = v
+  for k in *(OPTIONAL_KEYS[item_type] or {})
+    if mode == 'null'
+      copy[k] = box.NULL if copy[k] != nil
+    else
+      copy[k] = nil
+  copy
+
+sparse_pkg = (package, mode) ->
+  items = {}
+  for it in *package.items
+    table.insert items, {
+      type: it.type
+      key: it.key
+      content: _sparse_content it.type, it.content, mode
+    }
+  { app: package.app, items: items, seed_keys: package.seed_keys or {} }
+
+roundtrip = (package) ->
+  decoded = yaml.decode yaml.encode(package)
+  norm, err = apply.load_package decoded
+  R.ok norm, "load_package: #{err}"
+  norm
+
+remove_t22 = ->
+  for v in *box.space._tdb_views\select {}
+    views.delete_view v[1] if v[3] == VIEW_T22
+  for dv in *box.space._tdb_data_views\select {}
+    data_views.delete_view dv[1] if dv[2] == DV_T22
+  for cv in *box.space._tdb_custom_views\select {}
+    box.space._tdb_custom_views\delete cv[1] if cv[2] == PAGE_T22
+  for wp in *box.space._tdb_widget_plugins\select {}
+    box.space._tdb_widget_plugins\delete wp[1] if wp[2] == PLG_T22
+  for g in *perms.list_groups!
+    perms.delete_group g.id if g.name == GRP_T22
+  for nm in *{ SP_T22, SP_T22B }
+    sp = spaces.get_space_by_name nm
+    if sp
+      for t in *box.space._tdb_relations.index.by_from\select { sp.id }
+        box.space._tdb_relations\delete t[1]
+      for t in *box.space._tdb_relations.index.by_to\select { sp.id }
+        box.space._tdb_relations\delete t[1]
+  spaces.delete_user_space SP_T22
+  spaces.delete_user_space SP_T22B
+
+R.describe "app_apply — T22 fixture", ->
+
+  R.it "creates every element type with default optional values", ->
+    books = spaces.create_user_space SP_T22, ''
+    authors = spaces.create_user_space SP_T22B, ''
+    spaces.add_field books.id, 'code', 'String', true, ''
+    fk = spaces.add_field books.id, 'author_id', 'Int', false, ''
+    seq = spaces.add_field authors.id, 'seq_id', 'Sequence'
+    res = schema_r.Mutation.createRelation {}, {
+      input: { name: REL_T22, fromSpaceId: books.id, fromFieldId: fk.id,
+               toSpaceId: authors.id, toFieldId: seq.id, reprFormula: '@seq_id',
+               cardinality: 'one' }
+    }, CTX
+    F22.rel_id = res.id
+    v = views.create_view books.id, VIEW_T22, 'grid', { layout: { direction: 'vertical', children: {} } }
+    F22.view_id = v.id
+    p = cvr.Mutation.createCustomView {}, { name: PAGE_T22, description: '', yaml: YAML_PAGE_T22 }, CTX
+    F22.page_id = p.id
+    dv = dv_r.Mutation.createDataView nil, {
+      input: { name: DV_T22, description: '', sourceSpace: SP_T22,
+               config: json.encode { columns: { 'code' } } }
+    }, CTX
+    F22.dv_id = dv.id
+    now = os.time!
+    F22.plugin_id = "aap_t22plugin_id_#{SUFFIX}"
+    box.space._tdb_widget_plugins\insert {
+      F22.plugin_id, PLG_T22, '', 'coffeescript', 'pug', '', '', now, now
+    }
+    g = perms.create_group GRP_T22, ''
+    F22.group_id = g.id
+    perms.grant g.id, 'space', books.id, 'read'
+    perms.grant g.id, 'space', nil, 'write'
+    for row in *{ { code: 'T22-1', author_id: 0 }, { code: 'T22-2', author_id: 0 } }
+      data_r.Mutation.insertRecord {}, { spaceId: books.id, data: row }, CTX
+    F22.seed = { [SP_T22]: 'code' }
+    R.ok books and authors and res and v and p and dv and F22.plugin_id and g
+
+R.describe "app_apply — T22 export round-trip invariant", ->
+
+  R.it "a build_package YAML round-trip is entirely unchanged", ->
+    F22.pkg = subset pkg.build_package {
+      id: APP_T22, name: 'T22', version: '1.0.0', description: ''
+    }, { seed: F22.seed }
+    F22.norm = roundtrip F22.pkg
+    plan = apply.preview_update F22.norm
+    R.eq #plan.errors, 0, 'preview errors'
+    R.eq #plan.update, 0, 'no spurious update'
+    R.eq #plan.conflict, 0, 'no spurious conflict'
+    R.eq #plan.create, 0, 'no spurious create'
+    R.eq #plan.unchanged, #F22.norm.items, 'all unchanged'
+
+  R.it "nulled and dropped optional keys are still entirely unchanged", ->
+    for mode in *{ 'null', 'drop' }
+      norm = roundtrip sparse_pkg F22.pkg, mode
+      plan = apply.preview_update norm
+      R.eq #plan.errors, 0, "errors (#{mode})"
+      R.eq #plan.update, 0, "update (#{mode})"
+      R.eq #plan.conflict, 0, "conflict (#{mode})"
+      R.eq #plan.unchanged, #norm.items, "unchanged (#{mode})"
+
+R.describe "app_apply — T22 install and update through yaml", ->
+
+  R.it "installs a nulled package on a clean base", ->
+    remove_t22!
+    clean_app_rows APP_T22
+    R.is_nil spaces.get_space_by_name SP_T22
+    F22.norm2 = roundtrip sparse_pkg F22.pkg, 'null'
+    report = apply.apply_update F22.norm2, {}, {}
+    R.ok report.ok, report.error
+    R.eq #report.created, #F22.norm2.items, 'created'
+    R.eq #describe_intact(F22.norm2), 0, 'all delivered elements match'
+
+  R.it "a real author change stays an update", ->
+    changed = sparse_pkg F22.pkg, 'null'
+    for it in *changed.items
+      it.content.description = 'author changed' if it.key == "space:#{SP_T22}"
+    norm = roundtrip changed
+    plan = apply.preview_update norm
+    R.eq #plan.errors, 0
+    R.eq #plan.update, 1, 'one update'
+    R.eq plan.update[1].key, "space:#{SP_T22}"
+
+  R.it "updates a page and a data view delivered with a null description", ->
+    local_pkg = subset pkg.build_package {
+      id: APP_T22, name: 'T22', version: '1.1.0', description: ''
+    }, { seed: F22.seed }
+    changed = sparse_pkg local_pkg, 'null'
+    for it in *changed.items
+      if it.key == "page:#{PAGE_T22}"
+        it.content.yaml = "#{it.content.yaml}\n# changed\n"
+      if it.key == "dataview:#{DV_T22}"
+        it.content.config = json.encode { columns: { 'code', 'author_id' } }
+    norm = roundtrip changed
+    plan = apply.preview_update norm
+    R.eq #plan.errors, 0, 'preview errors'
+    R.eq #plan.update, 2, 'page and data view update'
+    report = apply.apply_update norm, {}, {}
+    R.ok report.ok, report.error
+    R.eq #report.updated, 2, 'updated'
+    R.eq pkg.describe_local('page', "page:#{PAGE_T22}").description, ''
+    R.eq pkg.describe_local('dataview', "dataview:#{DV_T22}").description, ''
+
+R.describe "app_apply — T22 cleanup", ->
+
+  R.it "removes the T22 fixture", ->
+    clean_app_rows APP_T22
+    remove_t22!
+    R.is_nil spaces.get_space_by_name SP_T22
+    R.is_nil spaces.get_space_by_name SP_T22B
+    R.is_nil pkg.describe_local('page', "page:#{PAGE_T22}")
+    R.is_nil pkg.describe_local('dataview', "dataview:#{DV_T22}")
+    R.is_nil pkg.describe_local('plugin', "plugin:#{PLG_T22}")
+    R.is_nil pkg.describe_local('group', "group:#{GRP_T22}")
+    R.eq installed_count(APP_T22), 0
