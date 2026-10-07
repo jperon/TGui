@@ -16,8 +16,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@v9
       - name: Compile sources and check artifacts are up to date
+        # `make -B` force la recompilation de TOUTES les sources : un `make build`
+        # ordinaire est piloté par les dates de fichiers et, sur un clone neuf
+        # (tous les artefacts plus récents que leurs sources), ne recompile rien
+        # et laisserait passer une désynchronisation. La compilation forcée est
+        # donc déterministe et détecte réellement tout écart sources/artefacts.
         run: |
-          nix develop .#build --command make build
+          nix develop .#build --command make -B build
           if ! git diff --exit-code; then
             echo "::error::Artefacts désynchronisés : lance 'nix develop .#build --command make build' et commite."
             exit 1
@@ -52,9 +57,17 @@ jobs:
           node-version: '22'
 
       - name: Install JS toolchain
+        # Installation reproductible : `npm ci` installe exactement les versions
+        # verrouillées dans package-lock.json (ici @playwright/test et
+        # playwright 1.59.1, alignés sur le driver Nix). L'ancien
+        # `npm install --no-save @playwright/test coffeescript` tirait la
+        # dernière version publiée, qui pouvait ne pas correspondre au
+        # navigateur téléchargé par `npx playwright install` ci-dessous
+        # (`npx` résout le binaire local). coffeescript reste installé
+        # globalement car le Makefile appelle directement `coffee`.
         run: |
           npm install -g coffeescript
-          npm install --no-save @playwright/test coffeescript
+          npm ci
 
       - name: Start test instance
         run: |
