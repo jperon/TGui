@@ -109,8 +109,11 @@ test-browser-auth: playwright-compile
 	npx playwright test tests/playwright/auth --config=tests/playwright/playwright-optimized.config.js
 
 test-browser-apps: playwright-compile
-	@echo "🧪 Running Apps E2E tests (parallel)..."
-	npx playwright test tests/playwright/apps --config=tests/playwright/playwright-optimized.config.js
+	@echo "🧪 Running Apps E2E tests (serial, isolated)..."
+	# --no-deps : la cible cible UNIQUEMENT ce fichier. Sans lui, la
+	# dépendance du projet `chromium-apps` vers `chromium` ferait tourner
+	# toute la suite non-apps avant les tests d'applications.
+	npx playwright test tests/playwright/apps --no-deps --config=tests/playwright/playwright-optimized.config.js
 
 test-browser-integration: playwright-compile
 	@echo "🧪 Running Integration E2E tests (parallel)..."
