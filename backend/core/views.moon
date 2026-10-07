@@ -43,11 +43,10 @@ update_view = (view_id, patch) ->
   now  = os.time!
   name = patch.name or t[3]
   vtype = patch.viewType or t[4]
+  config_str = t[5]
   if patch.config
     validate_view_yaml patch.config
     config_str = json.encode(patch.config)
-  else
-    config_str = t[5]
   box.space._tdb_views\replace { view_id, t[2], name, vtype, config_str, t[6], now }
 
 delete_view = (view_id) ->

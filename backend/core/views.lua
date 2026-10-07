@@ -88,11 +88,10 @@ update_view = function(view_id, patch)
   local now = os.time()
   local name = patch.name or t[3]
   local vtype = patch.viewType or t[4]
+  local config_str = t[5]
   if patch.config then
     validate_view_yaml(patch.config)
-    local config_str = json.encode(patch.config)
-  else
-    local config_str = t[5]
+    config_str = json.encode(patch.config)
   end
   return box.space._tdb_views:replace({
     view_id,

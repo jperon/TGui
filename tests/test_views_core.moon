@@ -40,6 +40,31 @@ R.describe "core/views — create_view validates its config", ->
   R.it "create_view with an invalid config raises the validation message", ->
     R.raises (-> views.create_view FIX.sid, "#{VIEW_NAME}_bad", 'grid', {}), 'layout'
 
+R.describe "core/views — update_view writes config_str", ->
+  upd = { id: nil, name: "#{VIEW_NAME}_upd" }
+
+  R.it "creates the view used by the update tests", ->
+    v = views.create_view FIX.sid, upd.name, 'grid', VALID_CONFIG
+    R.ok v
+    upd.id = v.id
+    table.insert FIX.created, v.id
+
+  R.it "update_view with a new config replaces the stored config", ->
+    new_config = { layout: { direction: 'horizontal', children: {} } }
+    views.update_view upd.id, { config: new_config }
+    row = box.space._tdb_views\get upd.id
+    R.ok row, "row still present after update"
+    decoded = json.decode row[5]
+    R.eq decoded.layout.direction, 'horizontal'
+    R.eq views.get_view(upd.id).config, row[5], "get_view returns the stored config"
+
+  R.it "update_view without config keeps the stored config and updates the name", ->
+    before_cfg = box.space._tdb_views\get(upd.id)[5]
+    views.update_view upd.id, { name: "#{upd.name}_v2" }
+    row = box.space._tdb_views\get upd.id
+    R.eq row[3], "#{upd.name}_v2", "name updated"
+    R.eq row[5], before_cfg, "config preserved when patch.config is absent"
+
 R.describe "core/views — cleanup", ->
   R.it "removes the fixture view rows and the test space", ->
     for id in *FIX.created

@@ -43,6 +43,43 @@ R.describe("core/views — create_view validates its config", function()
     end), 'layout')
   end)
 end)
+R.describe("core/views — update_view writes config_str", function()
+  local upd = {
+    id = nil,
+    name = tostring(VIEW_NAME) .. "_upd"
+  }
+  R.it("creates the view used by the update tests", function()
+    local v = views.create_view(FIX.sid, upd.name, 'grid', VALID_CONFIG)
+    R.ok(v)
+    upd.id = v.id
+    return table.insert(FIX.created, v.id)
+  end)
+  R.it("update_view with a new config replaces the stored config", function()
+    local new_config = {
+      layout = {
+        direction = 'horizontal',
+        children = { }
+      }
+    }
+    views.update_view(upd.id, {
+      config = new_config
+    })
+    local row = box.space._tdb_views:get(upd.id)
+    R.ok(row, "row still present after update")
+    local decoded = json.decode(row[5])
+    R.eq(decoded.layout.direction, 'horizontal')
+    return R.eq(views.get_view(upd.id).config, row[5], "get_view returns the stored config")
+  end)
+  return R.it("update_view without config keeps the stored config and updates the name", function()
+    local before_cfg = box.space._tdb_views:get(upd.id)[5]
+    views.update_view(upd.id, {
+      name = tostring(upd.name) .. "_v2"
+    })
+    local row = box.space._tdb_views:get(upd.id)
+    R.eq(row[3], tostring(upd.name) .. "_v2", "name updated")
+    return R.eq(row[5], before_cfg, "config preserved when patch.config is absent")
+  end)
+end)
 return R.describe("core/views — cleanup", function()
   return R.it("removes the fixture view rows and the test space", function()
     local _list_0 = FIX.created
