@@ -258,11 +258,34 @@ strip_prefix = (key, prefix) ->
   return nil if rest == ''
   rest
 
--- '<scope>.<name>' split on the last dot (a scope may contain dots).
+-- Percent-encode one component of a key so that no unescaped key delimiter ('.',
+-- '|', ':', '%') remains inside it: '%' first, then '.', '|', ':'. A component
+-- without any special character is returned unchanged. Keys are otherwise
+-- opaque; only these two functions decide how components are embedded.
+key_part = (s) ->
+  s = "#{s}"
+  s = s\gsub '%%', '%%25'
+  s = s\gsub '%.', '%%2E'
+  s = s\gsub '%|', '%%7C'
+  s = s\gsub ':', '%%3A'
+  s
+
+-- Inverse of key_part. Decoding runs in the reverse order so that a literal
+-- '%2E' in a name survives the round-trip ('%' → '%25' on encode).
+unkey_part = (s) ->
+  s = "#{s}"
+  s = s\gsub '%%3A', ':'
+  s = s\gsub '%%7C', '|'
+  s = s\gsub '%%2E', '.'
+  s = s\gsub '%%25', '%%'
+  s
+
+-- '<scope>.<name>' split on the last dot (a scope may contain dots). Both
+-- components are decoded back to their original names.
 split_scope_name = (rest) ->
   scope, name = rest\match '^(.*)%.([^%.]+)$'
   return nil unless scope and name and scope != ''
-  scope, name
+  unkey_part(scope), unkey_part(name)
 
 split_pipes = (rest) ->
   parts = {}
@@ -283,13 +306,13 @@ collect_spaces_and_fields = (space_bucket, field_bucket, space_list) ->
   for sp in *space_list
     table.insert space_bucket, {
       type: ITEM_TYPES.space
-      key: "space:#{sp.name}"
+      key: "space:#{key_part sp.name}"
       content: space_content(sp)
     }
     for f in *spaces_mod.list_fields sp.id
       table.insert field_bucket, {
         type: ITEM_TYPES.field
-        key: "field:#{sp.name}.#{f.name}"
+        key: "field:#{key_part sp.name}.#{key_part f.name}"
         content: field_content(f)
       }
 
@@ -305,7 +328,7 @@ collect_relations = (bucket, space_list) ->
       to_sp    = space_name_by_id t[4]
       to_fld   = field_name_by_id t[5]
       continue unless from_sp and from_fld and to_sp and to_fld
-      key = "relation:#{from_sp}.#{from_fld}"
+      key = "relation:#{key_part from_sp}.#{key_part from_fld}"
       continue if seen_keys[key]
       seen_keys[key] = true
       table.insert bucket, {
@@ -319,7 +342,7 @@ collect_views = (bucket, space_list) ->
     for v in *views_mod.list_views sp.id
       table.insert bucket, {
         type: ITEM_TYPES.view
-        key: "view:#{sp.name}.#{v.name}"
+        key: "view:#{key_part sp.name}.#{key_part v.name}"
         content: view_content(sp.name, v)
       }
 
@@ -327,7 +350,7 @@ collect_pages = (bucket) ->
   for row in *box.space._tdb_custom_views\select {}
     table.insert bucket, {
       type: ITEM_TYPES.page
-      key: "page:#{row[2]}"
+      key: "page:#{key_part row[2]}"
       content: page_content(row)
     }
 
@@ -335,7 +358,7 @@ collect_dataviews = (bucket) ->
   for row in *box.space._tdb_data_views\select {}
     table.insert bucket, {
       type: ITEM_TYPES.dataview
-      key: "dataview:#{row[2]}"
+      key: "dataview:#{key_part row[2]}"
       content: dataview_content(row)
     }
 
@@ -343,7 +366,7 @@ collect_plugins = (bucket) ->
   for row in *box.space._tdb_widget_plugins\select {}
     table.insert bucket, {
       type: ITEM_TYPES.plugin
-      key: "plugin:#{row[2]}"
+      key: "plugin:#{key_part row[2]}"
       content: plugin_content(row)
     }
 
@@ -353,11 +376,11 @@ collect_groups_and_perms = (group_bucket, perm_bucket) ->
     continue if BUILTIN_GROUPS[g.name]
     table.insert group_bucket, {
       type: ITEM_TYPES.group
-      key: "group:#{g.name}"
+      key: "group:#{key_part g.name}"
       content: group_content(g)
     }
     for p in *perms_mod.list_permissions g.id
-      key = "perm:#{g.name}|#{p.resourceType}|#{resource_name p.resourceId}|#{p.level}"
+      key = "perm:#{key_part g.name}|#{key_part p.resourceType}|#{key_part(resource_name p.resourceId)}|#{key_part p.level}"
       continue if seen_perms[key]
       seen_perms[key] = true
       table.insert perm_bucket, {
@@ -376,7 +399,7 @@ collect_seeds = (bucket, seed_keys) ->
       continue if v == nil
       table.insert bucket, {
         type: ITEM_TYPES.seed
-        key: "seed:#{space_name}|#{v}"
+        key: "seed:#{key_part space_name}|#{key_part v}"
         content: seed_content(space_name, v, data)
       }
 
@@ -429,6 +452,7 @@ find_seed = (space_name, raw_key) ->
 describe_space = (key) ->
   name = strip_prefix key, 'space:'
   return nil unless name
+  name = unkey_part name
   sp = spaces_mod.get_space_by_name name
   return nil unless sp
   space_content sp
@@ -472,28 +496,28 @@ describe_view = (key) ->
 describe_page = (key) ->
   name = strip_prefix key, 'page:'
   return nil unless name
-  row = find_page_row name
+  row = find_page_row unkey_part name
   return nil unless row
   page_content row
 
 describe_dataview = (key) ->
   name = strip_prefix key, 'dataview:'
   return nil unless name
-  row = find_dataview_row name
+  row = find_dataview_row unkey_part name
   return nil unless row
   dataview_content row
 
 describe_plugin = (key) ->
   name = strip_prefix key, 'plugin:'
   return nil unless name
-  row = find_plugin_row name
+  row = find_plugin_row unkey_part name
   return nil unless row
   plugin_content row
 
 describe_group = (key) ->
   name = strip_prefix key, 'group:'
   return nil unless name
-  g = find_group name
+  g = find_group unkey_part name
   return nil unless g
   group_content g
 
@@ -502,7 +526,10 @@ describe_perm = (key) ->
   return nil unless rest
   parts = split_pipes rest
   return nil unless #parts == 4
-  group_name, rtype, res, lvl = parts[1], parts[2], parts[3], parts[4]
+  group_name = unkey_part parts[1]
+  rtype = unkey_part parts[2]
+  res = unkey_part parts[3]
+  lvl = unkey_part parts[4]
   g = find_group group_name
   return nil unless g
   for p in *perms_mod.list_permissions g.id
@@ -515,8 +542,8 @@ describe_seed = (key) ->
   return nil unless rest
   idx = rest\find '|'
   return nil unless idx
-  space_name = rest\sub(1, idx - 1)
-  raw_key = rest\sub(idx + 1)
+  space_name = unkey_part rest\sub(1, idx - 1)
+  raw_key = unkey_part rest\sub(idx + 1)
   found = find_seed space_name, raw_key
   return nil unless found
   seed_content space_name, found.key, found.data
@@ -632,4 +659,4 @@ build_package = (meta, opts) ->
     seed_keys: seed_keys
   }
 
-{ :canonical, :fingerprint, :describe_local, :build_package, :ITEM_TYPES }
+{ :canonical, :fingerprint, :describe_local, :build_package, :ITEM_TYPES, :key_part, :unkey_part }

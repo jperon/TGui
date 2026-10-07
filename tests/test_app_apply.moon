@@ -559,3 +559,160 @@ R.describe "app_apply — cleanup", ->
     R.is_nil pkg.describe_local('group', "group:#{GROUP_NAME}")
     R.is_nil box.space._tdb_apps\get APP_ID
     R.eq installed_count(APP_ID), 0
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- DÉFAUT 2 (v) : via app_apply, un contenu de champ sans formule (parseur
+-- standard) doit quand même appliquer la description sans perdre de colonne.
+SP_UF   = "aap_uf_#{SUFFIX}"
+APP_UF  = "org.test.aapuf_#{SUFFIX}"
+KEY_UF  = "field:#{SP_UF}.calc"
+
+R.describe "app_apply — field without formula in package (DÉFAUT 2)", ->
+
+  R.it "updates the description of a formula field with formula absent", ->
+    sp = spaces.create_user_space SP_UF, 'uf'
+    spaces.add_field sp.id, 'calc', 'String', false, 'orig desc', 'self.plain or ""'
+    p1 = subset pkg.build_package {
+      id: APP_UF, name: 'UF', version: '1.0.0', description: ''
+    }, {}
+    R.ok apply.load_package(p1), 'p1 valid'
+    r1 = apply.apply_update p1, {}, {}
+    R.ok r1.ok, r1.error
+    items = {}
+    for it in *p1.items
+      if it.key == KEY_UF
+        table.insert items, {
+          type: 'field'
+          key: it.key
+          content: {
+            fieldType: 'String'
+            notNull: false
+            description: 'delivered desc'
+            triggerFields: {}
+            language: 'lua'
+          }
+        }
+      else
+        table.insert items, it
+    p2 = {
+      app: { id: APP_UF, name: 'UF', version: '1.1.0', description: '' }
+      items: items
+      seed_keys: {}
+    }
+    r2 = apply.apply_update p2, {}, {}
+    R.ok r2.ok, r2.error
+    sid = spaces.get_space_by_name(SP_UF).id
+    R.eq (field_by_name sid, 'calc').description, 'delivered desc'
+    local_c = pkg.describe_local 'field', KEY_UF
+    R.eq local_c.description, 'delivered desc'
+    R.eq local_c.formula, '', 'delivered field carries no formula'
+
+  R.it "cleans up the field-formula fixture", ->
+    clean_app_rows APP_UF
+    spaces.delete_user_space SP_UF
+    R.is_nil spaces.get_space_by_name SP_UF
+    R.eq installed_count(APP_UF), 0
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- DÉFAUT 1 (c)(e) : cycle complet et renommage d'un espace au nom à point.
+SP_CYC  = "aap_cyc.books_#{SUFFIX}"
+SP_CYCB = "aap_cycauth_#{SUFFIX}"
+SP_CYC2 = "aap_cyc.moved_#{SUFFIX}"
+FLD_CYC = 'cod.e|x'
+APP_CYC = "org.test.aapcyc_#{SUFFIX}"
+FIXC = {}
+
+retarget_esc = (key, old, new) ->
+  for prefix in *{ 'field:', 'relation:', 'view:' }
+    old_pref = "#{prefix}#{pkg.key_part old}."
+    if key\sub(1, #old_pref) == old_pref
+      return "#{prefix}#{pkg.key_part new}.#{key\sub(#old_pref + 1)}"
+  nil
+
+R.describe "app_apply — special names full cycle and space rename", ->
+
+  R.it "creates spaces, a special field and a relation, then builds the package", ->
+    cyc = spaces.create_user_space SP_CYC, 'cycle books'
+    cycb = spaces.create_user_space SP_CYCB, 'cycle authors'
+    FIXC.cyc_id = cyc.id
+    FIXC.cycb_id = cycb.id
+    spaces.add_field cyc.id, FLD_CYC, 'String', false, 'special field'
+    fk = spaces.add_field cyc.id, 'author_id', 'Int', false, ''
+    seq = spaces.add_field cycb.id, 'seq_id', 'Sequence'
+    res = schema_r.Mutation.createRelation {}, {
+      input: { name: "aap_cycrel_#{SUFFIX}", fromSpaceId: cyc.id, fromFieldId: fk.id,
+               toSpaceId: cycb.id, toFieldId: seq.id, reprFormula: '@name',
+               cardinality: 'many' }
+    }, CTX
+    FIXC.rel_id = res.id
+    R.ok res
+    FIXC.p1 = subset pkg.build_package {
+      id: APP_CYC, name: 'Cycle', version: '1.0.0', description: ''
+    }, {}
+    R.ok FIXC.p1
+
+  R.it "removes the local elements, then reinstalls the package", ->
+    schema_r.Mutation.deleteRelation {}, { id: FIXC.rel_id }, CTX
+    spaces.delete_user_space SP_CYC
+    spaces.delete_user_space SP_CYCB
+    R.is_nil spaces.get_space_by_name SP_CYC
+    report = apply.apply_update FIXC.p1, {}, {}
+    R.ok report.ok, report.error
+    R.eq #describe_intact(FIXC.p1), 0, 'every delivered element matches the package'
+    R.ok spaces.get_space_by_name SP_CYC, 'space recreated'
+    sid = spaces.get_space_by_name(SP_CYC).id
+    R.ok (field_by_name sid, FLD_CYC), 'special field recreated'
+    R.ok pkg.describe_local('relation', "relation:#{pkg.key_part SP_CYC}.author_id"), 'relation recreated'
+
+  R.it "renames the dotted space and remaps child keys", ->
+    items = {}
+    old_space_key = "space:#{pkg.key_part SP_CYC}"
+    for it in *FIXC.p1.items
+      if it.key == old_space_key
+        table.insert items, {
+          type: 'space'
+          key: "space:#{pkg.key_part SP_CYC2}"
+          content: it.content
+          renamed_from: old_space_key
+        }
+        continue
+      new_key = retarget_esc it.key, SP_CYC, SP_CYC2
+      if new_key
+        content = it.content
+        if it.type == 'relation' and content.fromSpace == SP_CYC
+          content = {
+            fromSpace: SP_CYC2, fromField: content.fromField
+            toSpace: content.toSpace, toField: content.toField
+            cardinality: content.cardinality
+          }
+        entry = { type: it.type, key: new_key, content: content, renamed_from: it.key }
+        table.insert items, entry
+      else
+        table.insert items, it
+    p2 = {
+      app: { id: APP_CYC, name: 'Cycle', version: '1.1.0', description: '' }
+      items: items
+      seed_keys: {}
+    }
+    report = apply.apply_update p2, {}, {}
+    R.ok report.ok, report.error
+    R.ok spaces.get_space_by_name(SP_CYC2), 'renamed space exists'
+    R.is_nil spaces.get_space_by_name(SP_CYC), 'old space gone'
+    nsid = spaces.get_space_by_name(SP_CYC2).id
+    R.ok (field_by_name nsid, FLD_CYC), 'child field remapped to the new space'
+    R.ok pkg.describe_local('field', "field:#{pkg.key_part SP_CYC2}.#{pkg.key_part FLD_CYC}")
+    old_child = "field:#{pkg.key_part SP_CYC}.#{pkg.key_part FLD_CYC}"
+    new_child = "field:#{pkg.key_part SP_CYC2}.#{pkg.key_part FLD_CYC}"
+    R.is_nil box.space._tdb_app_items\get { APP_CYC, old_child }, 'old child untracked'
+    R.ok box.space._tdb_app_items\get { APP_CYC, new_child }, 'new child tracked'
+
+  R.it "cleans up the special-name cycle fixture", ->
+    cyc = spaces.get_space_by_name SP_CYC2
+    if cyc
+      for t in *box.space._tdb_relations.index.by_from\select { cyc.id }
+        box.space._tdb_relations\delete t[1]
+    clean_app_rows APP_CYC
+    spaces.delete_user_space SP_CYC2
+    spaces.delete_user_space SP_CYCB
+    R.is_nil spaces.get_space_by_name SP_CYC2
+    R.is_nil spaces.get_space_by_name SP_CYCB

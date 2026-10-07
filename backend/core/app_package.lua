@@ -285,13 +285,31 @@ strip_prefix = function(key, prefix)
   end
   return rest
 end
+local key_part
+key_part = function(s)
+  s = tostring(s)
+  s = s:gsub('%%', '%%25')
+  s = s:gsub('%.', '%%2E')
+  s = s:gsub('%|', '%%7C')
+  s = s:gsub(':', '%%3A')
+  return s
+end
+local unkey_part
+unkey_part = function(s)
+  s = tostring(s)
+  s = s:gsub('%%3A', ':')
+  s = s:gsub('%%7C', '|')
+  s = s:gsub('%%2E', '.')
+  s = s:gsub('%%25', '%%')
+  return s
+end
 local split_scope_name
 split_scope_name = function(rest)
   local scope, name = rest:match('^(.*)%.([^%.]+)$')
   if not (scope and name and scope ~= '') then
     return nil
   end
-  return scope, name
+  return unkey_part(scope), unkey_part(name)
 end
 local split_pipes
 split_pipes = function(rest)
@@ -315,7 +333,7 @@ collect_spaces_and_fields = function(space_bucket, field_bucket, space_list)
     local sp = space_list[_index_0]
     table.insert(space_bucket, {
       type = ITEM_TYPES.space,
-      key = "space:" .. tostring(sp.name),
+      key = "space:" .. tostring(key_part(sp.name)),
       content = space_content(sp)
     })
     local _list_0 = spaces_mod.list_fields(sp.id)
@@ -323,7 +341,7 @@ collect_spaces_and_fields = function(space_bucket, field_bucket, space_list)
       local f = _list_0[_index_1]
       table.insert(field_bucket, {
         type = ITEM_TYPES.field,
-        key = "field:" .. tostring(sp.name) .. "." .. tostring(f.name),
+        key = "field:" .. tostring(key_part(sp.name)) .. "." .. tostring(key_part(f.name)),
         content = field_content(f)
       })
     end
@@ -355,7 +373,7 @@ collect_relations = function(bucket, space_list)
           _continue_0 = true
           break
         end
-        local key = "relation:" .. tostring(from_sp) .. "." .. tostring(from_fld)
+        local key = "relation:" .. tostring(key_part(from_sp)) .. "." .. tostring(key_part(from_fld))
         if seen_keys[key] then
           _continue_0 = true
           break
@@ -383,7 +401,7 @@ collect_views = function(bucket, space_list)
       local v = _list_0[_index_1]
       table.insert(bucket, {
         type = ITEM_TYPES.view,
-        key = "view:" .. tostring(sp.name) .. "." .. tostring(v.name),
+        key = "view:" .. tostring(key_part(sp.name)) .. "." .. tostring(key_part(v.name)),
         content = view_content(sp.name, v)
       })
     end
@@ -396,7 +414,7 @@ collect_pages = function(bucket)
     local row = _list_0[_index_0]
     table.insert(bucket, {
       type = ITEM_TYPES.page,
-      key = "page:" .. tostring(row[2]),
+      key = "page:" .. tostring(key_part(row[2])),
       content = page_content(row)
     })
   end
@@ -408,7 +426,7 @@ collect_dataviews = function(bucket)
     local row = _list_0[_index_0]
     table.insert(bucket, {
       type = ITEM_TYPES.dataview,
-      key = "dataview:" .. tostring(row[2]),
+      key = "dataview:" .. tostring(key_part(row[2])),
       content = dataview_content(row)
     })
   end
@@ -420,7 +438,7 @@ collect_plugins = function(bucket)
     local row = _list_0[_index_0]
     table.insert(bucket, {
       type = ITEM_TYPES.plugin,
-      key = "plugin:" .. tostring(row[2]),
+      key = "plugin:" .. tostring(key_part(row[2])),
       content = plugin_content(row)
     })
   end
@@ -439,7 +457,7 @@ collect_groups_and_perms = function(group_bucket, perm_bucket)
       end
       table.insert(group_bucket, {
         type = ITEM_TYPES.group,
-        key = "group:" .. tostring(g.name),
+        key = "group:" .. tostring(key_part(g.name)),
         content = group_content(g)
       })
       local _list_1 = perms_mod.list_permissions(g.id)
@@ -447,7 +465,7 @@ collect_groups_and_perms = function(group_bucket, perm_bucket)
         local _continue_1 = false
         repeat
           local p = _list_1[_index_1]
-          local key = "perm:" .. tostring(g.name) .. "|" .. tostring(p.resourceType) .. "|" .. tostring(resource_name(p.resourceId)) .. "|" .. tostring(p.level)
+          local key = "perm:" .. tostring(key_part(g.name)) .. "|" .. tostring(key_part(p.resourceType)) .. "|" .. tostring(key_part(resource_name(p.resourceId))) .. "|" .. tostring(key_part(p.level))
           if seen_perms[key] then
             _continue_1 = true
             break
@@ -494,7 +512,7 @@ collect_seeds = function(bucket, seed_keys)
           end
           table.insert(bucket, {
             type = ITEM_TYPES.seed,
-            key = "seed:" .. tostring(space_name) .. "|" .. tostring(v),
+            key = "seed:" .. tostring(key_part(space_name)) .. "|" .. tostring(key_part(v)),
             content = seed_content(space_name, v, data)
           })
           _continue_1 = true
@@ -600,6 +618,7 @@ describe_space = function(key)
   if not (name) then
     return nil
   end
+  name = unkey_part(name)
   local sp = spaces_mod.get_space_by_name(name)
   if not (sp) then
     return nil
@@ -693,7 +712,7 @@ describe_page = function(key)
   if not (name) then
     return nil
   end
-  local row = find_page_row(name)
+  local row = find_page_row(unkey_part(name))
   if not (row) then
     return nil
   end
@@ -705,7 +724,7 @@ describe_dataview = function(key)
   if not (name) then
     return nil
   end
-  local row = find_dataview_row(name)
+  local row = find_dataview_row(unkey_part(name))
   if not (row) then
     return nil
   end
@@ -717,7 +736,7 @@ describe_plugin = function(key)
   if not (name) then
     return nil
   end
-  local row = find_plugin_row(name)
+  local row = find_plugin_row(unkey_part(name))
   if not (row) then
     return nil
   end
@@ -729,7 +748,7 @@ describe_group = function(key)
   if not (name) then
     return nil
   end
-  local g = find_group(name)
+  local g = find_group(unkey_part(name))
   if not (g) then
     return nil
   end
@@ -745,7 +764,10 @@ describe_perm = function(key)
   if not (#parts == 4) then
     return nil
   end
-  local group_name, rtype, res, lvl = parts[1], parts[2], parts[3], parts[4]
+  local group_name = unkey_part(parts[1])
+  local rtype = unkey_part(parts[2])
+  local res = unkey_part(parts[3])
+  local lvl = unkey_part(parts[4])
   local g = find_group(group_name)
   if not (g) then
     return nil
@@ -769,8 +791,8 @@ describe_seed = function(key)
   if not (idx) then
     return nil
   end
-  local space_name = rest:sub(1, idx - 1)
-  local raw_key = rest:sub(idx + 1)
+  local space_name = unkey_part(rest:sub(1, idx - 1))
+  local raw_key = unkey_part(rest:sub(idx + 1))
   local found = find_seed(space_name, raw_key)
   if not (found) then
     return nil
@@ -910,5 +932,7 @@ return {
   fingerprint = fingerprint,
   describe_local = describe_local,
   build_package = build_package,
-  ITEM_TYPES = ITEM_TYPES
+  ITEM_TYPES = ITEM_TYPES,
+  key_part = key_part,
+  unkey_part = unkey_part
 }

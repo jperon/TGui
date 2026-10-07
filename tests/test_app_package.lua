@@ -20,6 +20,12 @@ local PLUGIN_NAME = "apkg_plugin_" .. tostring(SUFFIX)
 local GROUP_NAME = "apkg_group_" .. tostring(SUFFIX)
 local REL_NAME = "apkg_rel_" .. tostring(SUFFIX)
 local SP_SEED = "apkg_seed_" .. tostring(SUFFIX)
+local SP_ESP = "apkg_esp.ace_" .. tostring(SUFFIX)
+local FLD_ESP = 'a.b|c:d%e'
+local FLDN_ESP = 'plain_field'
+local GRP_ESP = "apkg_grp|x.y_" .. tostring(SUFFIX)
+local GRP_FORGE = tostring(GRP_ESP) .. "|space|*|read"
+local FIX_ESP = { }
 local META = {
   id = 'org.test.apkg',
   name = 'Apkg fixture',
@@ -139,6 +145,37 @@ R.describe("app_package — fingerprint", function()
       a = 1,
       b = 2
     }))
+  end)
+end)
+R.describe("app_package — key escaping", function()
+  R.it("key_part/unkey_part round-trip every special character", function()
+    local _list_0 = {
+      '',
+      'plain',
+      'a.b|c:d%e',
+      '%2E',
+      'esp ace',
+      'accÉnt',
+      'idself.id',
+      'a|space|*|admin',
+      'Esp.ace',
+      'x%7Cy'
+    }
+    for _index_0 = 1, #_list_0 do
+      local s = _list_0[_index_0]
+      R.eq(pkg.unkey_part(pkg.key_part(s)), s, "round-trip " .. tostring(s))
+    end
+  end)
+  R.it("only the four delimiters are escaped", function()
+    R.eq(pkg.key_part('a.b|c:d%e'), 'a%2Eb%7Cc%3Ad%25e')
+    R.eq(pkg.key_part('plain_name'), 'plain_name')
+    return R.eq(pkg.key_part('%2E'), '%252E')
+  end)
+  return R.it("a component never keeps an unescaped delimiter", function()
+    local k = pkg.key_part('a.b|c:d%e')
+    R.is_nil((k:find('.', 1, true)))
+    R.is_nil((k:find('|', 1, true)))
+    return R.is_nil((k:find(':', 1, true)))
   end)
 end)
 R.describe("app_package — system spaces (_tdb_apps, _tdb_app_items)", function()
@@ -727,6 +764,109 @@ R.describe("app_package — seed validation (F1)", function()
     R.eq(item.content.space, SP_SEED)
     R.eq(item.content.key, 'BASE')
     return R.eq(item.content.data.label, 'baseline')
+  end)
+end)
+R.describe("app_package — special names are unambiguous", function()
+  R.it("creates a space, a field and groups whose names contain delimiters", function()
+    local sp = spaces.create_user_space(SP_ESP, 'esp ace space')
+    FIX_ESP.space_id = sp.id
+    local f = spaces.add_field(sp.id, FLD_ESP, 'String', false, 'champ spécial')
+    FIX_ESP.field_id = f.id
+    spaces.add_field(sp.id, FLDN_ESP, 'String', false, '')
+    local g1 = perms.create_group(GRP_ESP, 'groupe à barres')
+    FIX_ESP.group_id = g1.id
+    perms.grant(g1.id, 'space', sp.id, 'read')
+    local g2 = perms.create_group(GRP_FORGE, 'groupe forgeant une clé')
+    FIX_ESP.forge_id = g2.id
+    perms.grant(g2.id, 'space', nil, 'read')
+    return R.ok(sp and f and g1 and g2)
+  end)
+  R.it("the generated keys are unambiguous and round-trip through describe_local", function()
+    local package = pkg.build_package(META, { })
+    local esp
+    do
+      local _accum_0 = { }
+      local _len_0 = 1
+      local _list_0 = package.items
+      for _index_0 = 1, #_list_0 do
+        local it = _list_0[_index_0]
+        if it.key:find(SUFFIX, 1, true) then
+          _accum_0[_len_0] = it
+          _len_0 = _len_0 + 1
+        end
+      end
+      esp = _accum_0
+    end
+    local sp_key = "space:" .. tostring(pkg.key_part(SP_ESP))
+    local f_key = "field:" .. tostring(pkg.key_part(SP_ESP)) .. "." .. tostring(pkg.key_part(FLD_ESP))
+    local fn_key = "field:" .. tostring(pkg.key_part(SP_ESP)) .. "." .. tostring(pkg.key_part(FLDN_ESP))
+    local p_key = "perm:" .. tostring(pkg.key_part(GRP_ESP)) .. "|space|" .. tostring(pkg.key_part(SP_ESP)) .. "|read"
+    local forge_key = "perm:" .. tostring(pkg.key_part(GRP_FORGE)) .. "|space|*|read"
+    local _list_0 = {
+      sp_key,
+      f_key,
+      fn_key,
+      p_key,
+      forge_key
+    }
+    for _index_0 = 1, #_list_0 do
+      local key = _list_0[_index_0]
+      local item = find_item(package, key)
+      R.ok(item, "missing item " .. tostring(key))
+      local local_content = pkg.describe_local(item.type, key)
+      R.ok(local_content, "describe_local(" .. tostring(key) .. ")")
+      R.eq(pkg.canonical(local_content), pkg.canonical(item.content), "content " .. tostring(key))
+    end
+    local fld = pkg.describe_local('field', f_key)
+    R.eq(fld.fieldType, 'String')
+    R.eq(fld.description, 'champ spécial')
+    local body = p_key:match('^perm:(.*)$')
+    local n_parts = 0
+    for _ in body:gmatch('[^|]+') do
+      n_parts = n_parts + 1
+    end
+    R.eq(n_parts, 4)
+    R.ne(p_key, forge_key)
+    local keys = { }
+    local dup = nil
+    for _index_0 = 1, #esp do
+      local it = esp[_index_0]
+      if keys[it.key] then
+        dup = it.key
+      end
+      keys[it.key] = true
+    end
+    return R.is_nil(dup, "duplicate key " .. tostring(dup))
+  end)
+  R.it("an escaped key survives a JSON round-trip unchanged", function()
+    local package = pkg.build_package(META, { })
+    local _list_0 = package.items
+    for _index_0 = 1, #_list_0 do
+      local _continue_0 = false
+      repeat
+        local it = _list_0[_index_0]
+        if not (it.key:find(SUFFIX, 1, true)) then
+          _continue_0 = true
+          break
+        end
+        R.eq(json.decode(json.encode(it.key)), it.key)
+        _continue_0 = true
+      until true
+      if not _continue_0 then
+        break
+      end
+    end
+  end)
+  return R.it("removes the special-name fixture", function()
+    if FIX_ESP.forge_id then
+      perms.delete_group(FIX_ESP.forge_id)
+    end
+    if FIX_ESP.group_id then
+      perms.delete_group(FIX_ESP.group_id)
+    end
+    spaces.delete_user_space(SP_ESP)
+    R.is_nil(pkg.describe_local('space', "space:" .. tostring(pkg.key_part(SP_ESP))))
+    return R.is_nil(pkg.describe_local('group', "group:" .. tostring(pkg.key_part(GRP_ESP))))
   end)
 end)
 return R.describe("app_package — cleanup", function()

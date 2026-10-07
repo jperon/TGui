@@ -818,7 +818,7 @@ R.describe("app_apply — relation cardinality", function()
     return R.is_nil(pkg.describe_local('relation', REL_RB_KEY))
   end)
 end)
-return R.describe("app_apply — cleanup", function()
+R.describe("app_apply — cleanup", function()
   return R.it("removes every fixture element and tracking row", function()
     local sid = spaces.get_space_by_name(SP_BOOKS)
     if sid then
@@ -875,5 +875,225 @@ return R.describe("app_apply — cleanup", function()
     R.is_nil(pkg.describe_local('group', "group:" .. tostring(GROUP_NAME)))
     R.is_nil(box.space._tdb_apps:get(APP_ID))
     return R.eq(installed_count(APP_ID), 0)
+  end)
+end)
+local SP_UF = "aap_uf_" .. tostring(SUFFIX)
+local APP_UF = "org.test.aapuf_" .. tostring(SUFFIX)
+local KEY_UF = "field:" .. tostring(SP_UF) .. ".calc"
+R.describe("app_apply — field without formula in package (DÉFAUT 2)", function()
+  R.it("updates the description of a formula field with formula absent", function()
+    local sp = spaces.create_user_space(SP_UF, 'uf')
+    spaces.add_field(sp.id, 'calc', 'String', false, 'orig desc', 'self.plain or ""')
+    local p1 = subset(pkg.build_package({
+      id = APP_UF,
+      name = 'UF',
+      version = '1.0.0',
+      description = ''
+    }, { }))
+    R.ok(apply.load_package(p1), 'p1 valid')
+    local r1 = apply.apply_update(p1, { }, { })
+    R.ok(r1.ok, r1.error)
+    local items = { }
+    local _list_0 = p1.items
+    for _index_0 = 1, #_list_0 do
+      local it = _list_0[_index_0]
+      if it.key == KEY_UF then
+        table.insert(items, {
+          type = 'field',
+          key = it.key,
+          content = {
+            fieldType = 'String',
+            notNull = false,
+            description = 'delivered desc',
+            triggerFields = { },
+            language = 'lua'
+          }
+        })
+      else
+        table.insert(items, it)
+      end
+    end
+    local p2 = {
+      app = {
+        id = APP_UF,
+        name = 'UF',
+        version = '1.1.0',
+        description = ''
+      },
+      items = items,
+      seed_keys = { }
+    }
+    local r2 = apply.apply_update(p2, { }, { })
+    R.ok(r2.ok, r2.error)
+    local sid = spaces.get_space_by_name(SP_UF).id
+    R.eq((field_by_name(sid, 'calc')).description, 'delivered desc')
+    local local_c = pkg.describe_local('field', KEY_UF)
+    R.eq(local_c.description, 'delivered desc')
+    return R.eq(local_c.formula, '', 'delivered field carries no formula')
+  end)
+  return R.it("cleans up the field-formula fixture", function()
+    clean_app_rows(APP_UF)
+    spaces.delete_user_space(SP_UF)
+    R.is_nil(spaces.get_space_by_name(SP_UF))
+    return R.eq(installed_count(APP_UF), 0)
+  end)
+end)
+local SP_CYC = "aap_cyc.books_" .. tostring(SUFFIX)
+local SP_CYCB = "aap_cycauth_" .. tostring(SUFFIX)
+local SP_CYC2 = "aap_cyc.moved_" .. tostring(SUFFIX)
+local FLD_CYC = 'cod.e|x'
+local APP_CYC = "org.test.aapcyc_" .. tostring(SUFFIX)
+local FIXC = { }
+local retarget_esc
+retarget_esc = function(key, old, new)
+  local _list_0 = {
+    'field:',
+    'relation:',
+    'view:'
+  }
+  for _index_0 = 1, #_list_0 do
+    local prefix = _list_0[_index_0]
+    local old_pref = tostring(prefix) .. tostring(pkg.key_part(old)) .. "."
+    if key:sub(1, #old_pref) == old_pref then
+      return tostring(prefix) .. tostring(pkg.key_part(new)) .. "." .. tostring(key:sub(#old_pref + 1))
+    end
+  end
+  return nil
+end
+return R.describe("app_apply — special names full cycle and space rename", function()
+  R.it("creates spaces, a special field and a relation, then builds the package", function()
+    local cyc = spaces.create_user_space(SP_CYC, 'cycle books')
+    local cycb = spaces.create_user_space(SP_CYCB, 'cycle authors')
+    FIXC.cyc_id = cyc.id
+    FIXC.cycb_id = cycb.id
+    spaces.add_field(cyc.id, FLD_CYC, 'String', false, 'special field')
+    local fk = spaces.add_field(cyc.id, 'author_id', 'Int', false, '')
+    local seq = spaces.add_field(cycb.id, 'seq_id', 'Sequence')
+    local res = schema_r.Mutation.createRelation({ }, {
+      input = {
+        name = "aap_cycrel_" .. tostring(SUFFIX),
+        fromSpaceId = cyc.id,
+        fromFieldId = fk.id,
+        toSpaceId = cycb.id,
+        toFieldId = seq.id,
+        reprFormula = '@name',
+        cardinality = 'many'
+      }
+    }, CTX)
+    FIXC.rel_id = res.id
+    R.ok(res)
+    FIXC.p1 = subset(pkg.build_package({
+      id = APP_CYC,
+      name = 'Cycle',
+      version = '1.0.0',
+      description = ''
+    }, { }))
+    return R.ok(FIXC.p1)
+  end)
+  R.it("removes the local elements, then reinstalls the package", function()
+    schema_r.Mutation.deleteRelation({ }, {
+      id = FIXC.rel_id
+    }, CTX)
+    spaces.delete_user_space(SP_CYC)
+    spaces.delete_user_space(SP_CYCB)
+    R.is_nil(spaces.get_space_by_name(SP_CYC))
+    local report = apply.apply_update(FIXC.p1, { }, { })
+    R.ok(report.ok, report.error)
+    R.eq(#describe_intact(FIXC.p1), 0, 'every delivered element matches the package')
+    R.ok(spaces.get_space_by_name(SP_CYC, 'space recreated'))
+    local sid = spaces.get_space_by_name(SP_CYC).id
+    R.ok((field_by_name(sid, FLD_CYC)), 'special field recreated')
+    return R.ok(pkg.describe_local('relation', "relation:" .. tostring(pkg.key_part(SP_CYC)) .. ".author_id"), 'relation recreated')
+  end)
+  R.it("renames the dotted space and remaps child keys", function()
+    local items = { }
+    local old_space_key = "space:" .. tostring(pkg.key_part(SP_CYC))
+    local _list_0 = FIXC.p1.items
+    for _index_0 = 1, #_list_0 do
+      local _continue_0 = false
+      repeat
+        local it = _list_0[_index_0]
+        if it.key == old_space_key then
+          table.insert(items, {
+            type = 'space',
+            key = "space:" .. tostring(pkg.key_part(SP_CYC2)),
+            content = it.content,
+            renamed_from = old_space_key
+          })
+          _continue_0 = true
+          break
+        end
+        local new_key = retarget_esc(it.key, SP_CYC, SP_CYC2)
+        if new_key then
+          local content = it.content
+          if it.type == 'relation' and content.fromSpace == SP_CYC then
+            content = {
+              fromSpace = SP_CYC2,
+              fromField = content.fromField,
+              toSpace = content.toSpace,
+              toField = content.toField,
+              cardinality = content.cardinality
+            }
+          end
+          local entry = {
+            type = it.type,
+            key = new_key,
+            content = content,
+            renamed_from = it.key
+          }
+          table.insert(items, entry)
+        else
+          table.insert(items, it)
+        end
+        _continue_0 = true
+      until true
+      if not _continue_0 then
+        break
+      end
+    end
+    local p2 = {
+      app = {
+        id = APP_CYC,
+        name = 'Cycle',
+        version = '1.1.0',
+        description = ''
+      },
+      items = items,
+      seed_keys = { }
+    }
+    local report = apply.apply_update(p2, { }, { })
+    R.ok(report.ok, report.error)
+    R.ok(spaces.get_space_by_name(SP_CYC2), 'renamed space exists')
+    R.is_nil(spaces.get_space_by_name(SP_CYC), 'old space gone')
+    local nsid = spaces.get_space_by_name(SP_CYC2).id
+    R.ok((field_by_name(nsid, FLD_CYC)), 'child field remapped to the new space')
+    R.ok(pkg.describe_local('field', "field:" .. tostring(pkg.key_part(SP_CYC2)) .. "." .. tostring(pkg.key_part(FLD_CYC))))
+    local old_child = "field:" .. tostring(pkg.key_part(SP_CYC)) .. "." .. tostring(pkg.key_part(FLD_CYC))
+    local new_child = "field:" .. tostring(pkg.key_part(SP_CYC2)) .. "." .. tostring(pkg.key_part(FLD_CYC))
+    R.is_nil(box.space._tdb_app_items:get({
+      APP_CYC,
+      old_child
+    }, 'old child untracked'))
+    return R.ok(box.space._tdb_app_items:get({
+      APP_CYC,
+      new_child
+    }, 'new child tracked'))
+  end)
+  return R.it("cleans up the special-name cycle fixture", function()
+    local cyc = spaces.get_space_by_name(SP_CYC2)
+    if cyc then
+      local _list_0 = box.space._tdb_relations.index.by_from:select({
+        cyc.id
+      })
+      for _index_0 = 1, #_list_0 do
+        local t = _list_0[_index_0]
+        box.space._tdb_relations:delete(t[1])
+      end
+    end
+    clean_app_rows(APP_CYC)
+    spaces.delete_user_space(SP_CYC2)
+    spaces.delete_user_space(SP_CYCB)
+    R.is_nil(spaces.get_space_by_name(SP_CYC2))
+    return R.is_nil(spaces.get_space_by_name(SP_CYCB))
   end)
 end)

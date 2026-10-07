@@ -30,6 +30,15 @@ GROUP_NAME  = "apkg_group_#{SUFFIX}"
 REL_NAME    = "apkg_rel_#{SUFFIX}"
 SP_SEED     = "apkg_seed_#{SUFFIX}"
 
+-- DÉFAUT 1 : noms contenant des délimiteurs de clé (., |, :, %).
+SP_ESP   = "apkg_esp.ace_#{SUFFIX}"
+FLD_ESP  = 'a.b|c:d%e'
+FLDN_ESP = 'plain_field'
+GRP_ESP  = "apkg_grp|x.y_#{SUFFIX}"
+GRP_FORGE = "#{GRP_ESP}|space|*|read"
+
+FIX_ESP = {}
+
 META = {
   id: 'org.test.apkg'
   name: 'Apkg fixture'
@@ -100,6 +109,26 @@ R.describe "app_package — fingerprint", ->
   R.it "changes when the content changes", ->
     R.ne(pkg.fingerprint({ a: 1 }), pkg.fingerprint({ a: 2 }))
     R.ne(pkg.fingerprint({ a: 1 }), pkg.fingerprint({ a: 1, b: 2 }))
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- DÉFAUT 1 : les clés encodent chaque composante de nom (app_package.key_part).
+R.describe "app_package — key escaping", ->
+
+  R.it "key_part/unkey_part round-trip every special character", ->
+    for s in *{ '', 'plain', 'a.b|c:d%e', '%2E', 'esp ace', 'accÉnt', 'idself.id',
+                'a|space|*|admin', 'Esp.ace', 'x%7Cy' }
+      R.eq pkg.unkey_part(pkg.key_part(s)), s, "round-trip #{s}"
+
+  R.it "only the four delimiters are escaped", ->
+    R.eq pkg.key_part('a.b|c:d%e'), 'a%2Eb%7Cc%3Ad%25e'
+    R.eq pkg.key_part('plain_name'), 'plain_name'
+    R.eq pkg.key_part('%2E'), '%252E'
+
+  R.it "a component never keeps an unescaped delimiter", ->
+    k = pkg.key_part 'a.b|c:d%e'
+    R.is_nil (k\find '.', 1, true)
+    R.is_nil (k\find '|', 1, true)
+    R.is_nil (k\find ':', 1, true)
 
 -- ────────────────────────────────────────────────────────────────────────────
 R.describe "app_package — system spaces (_tdb_apps, _tdb_app_items)", ->
@@ -491,6 +520,73 @@ R.describe "app_package — seed validation (F1)", ->
     R.eq item.content.space, SP_SEED
     R.eq item.content.key, 'BASE'
     R.eq item.content.data.label, 'baseline'
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- DÉFAUT 1 : build_package et describe_local pour des noms à délimiteurs.
+R.describe "app_package — special names are unambiguous", ->
+
+  R.it "creates a space, a field and groups whose names contain delimiters", ->
+    sp = spaces.create_user_space SP_ESP, 'esp ace space'
+    FIX_ESP.space_id = sp.id
+    f = spaces.add_field sp.id, FLD_ESP, 'String', false, 'champ spécial'
+    FIX_ESP.field_id = f.id
+    spaces.add_field sp.id, FLDN_ESP, 'String', false, ''
+    g1 = perms.create_group GRP_ESP, 'groupe à barres'
+    FIX_ESP.group_id = g1.id
+    perms.grant g1.id, 'space', sp.id, 'read'
+    g2 = perms.create_group GRP_FORGE, 'groupe forgeant une clé'
+    FIX_ESP.forge_id = g2.id
+    perms.grant g2.id, 'space', nil, 'read'
+    R.ok sp and f and g1 and g2
+
+  R.it "the generated keys are unambiguous and round-trip through describe_local", ->
+    package = pkg.build_package META, {}
+    esp = [it for it in *package.items when it.key\find SUFFIX, 1, true]
+    -- Clés attendues, encodées explicitement.
+    sp_key = "space:#{pkg.key_part SP_ESP}"
+    f_key = "field:#{pkg.key_part SP_ESP}.#{pkg.key_part FLD_ESP}"
+    fn_key = "field:#{pkg.key_part SP_ESP}.#{pkg.key_part FLDN_ESP}"
+    p_key = "perm:#{pkg.key_part GRP_ESP}|space|#{pkg.key_part SP_ESP}|read"
+    forge_key = "perm:#{pkg.key_part GRP_FORGE}|space|*|read"
+    for key in *{ sp_key, f_key, fn_key, p_key, forge_key }
+      item = find_item package, key
+      R.ok item, "missing item #{key}"
+      local_content = pkg.describe_local item.type, key
+      R.ok local_content, "describe_local(#{key})"
+      R.eq pkg.canonical(local_content), pkg.canonical(item.content), "content #{key}"
+    -- Le champ spécial se relit bien sous son espace et son nom d'origine.
+    fld = pkg.describe_local 'field', f_key
+    R.eq fld.fieldType, 'String'
+    R.eq fld.description, 'champ spécial'
+    -- La clé perm d'un groupe à barres a exactement trois barres non échappées.
+    body = p_key\match '^perm:(.*)$'
+    n_parts = 0
+    for _ in body\gmatch '[^|]+'
+      n_parts += 1
+    R.eq n_parts, 4
+    -- Deux groupes aux noms forgés ne produisent jamais la même clé.
+    R.ne p_key, forge_key
+    keys = {}
+    dup = nil
+    for it in *esp
+      dup = it.key if keys[it.key]
+      keys[it.key] = true
+    R.is_nil dup, "duplicate key #{dup}"
+
+  R.it "an escaped key survives a JSON round-trip unchanged", ->
+    package = pkg.build_package META, {}
+    for it in *package.items
+      continue unless it.key\find SUFFIX, 1, true
+      R.eq json.decode(json.encode(it.key)), it.key
+
+  R.it "removes the special-name fixture", ->
+    if FIX_ESP.forge_id
+      perms.delete_group FIX_ESP.forge_id
+    if FIX_ESP.group_id
+      perms.delete_group FIX_ESP.group_id
+    spaces.delete_user_space SP_ESP
+    R.is_nil pkg.describe_local('space', "space:#{pkg.key_part SP_ESP}")
+    R.is_nil pkg.describe_local('group', "group:#{pkg.key_part GRP_ESP}")
 
 -- ────────────────────────────────────────────────────────────────────────────
 R.describe "app_package — cleanup", ->
