@@ -12,6 +12,16 @@ fiber = require 'fiber'
 SESSION_TTL = 24 * 3600  -- 24 hours in seconds
 TOKEN_LENGTH = 32
 
+-- Login rate-limiting (spec §7 / audit 1.2). The counters are persisted in the
+-- `_tdb_login_attempts` system space so a server restart does not forgive
+-- accumulated failures. The lockout delay doubles on every new cycle.
+LOGIN_MAX_ATTEMPTS         = 5      -- consecutive failures before an account lockout
+LOGIN_IP_MAX_ATTEMPTS      = 25     -- consecutive failures before an address lockout
+LOGIN_ATTEMPT_WINDOW       = 300    -- seconds; failures older than this are forgotten
+LOGIN_LOCKOUT_BASE_SECONDS = 60     -- first lockout duration (doubles per cycle)
+LOGIN_LOCKOUT_MAX_SECONDS  = 3600   -- upper bound of the exponential backoff (1 hour)
+LOGIN_ATTEMPTS_TTL         = 86400  -- seconds; stale entries purged after one day
+
 -- ────────────────────────────────────────────────────────────────────────────
 -- Paths and directories
 -- ────────────────────────────────────────────────────────────────────────────
@@ -144,6 +154,8 @@ validate_input = (type, value, context) ->
 -- Export configuration
 {
   :SESSION_TTL, :TOKEN_LENGTH, :FRONTEND_DIR
+  :LOGIN_MAX_ATTEMPTS, :LOGIN_IP_MAX_ATTEMPTS, :LOGIN_ATTEMPT_WINDOW
+  :LOGIN_LOCKOUT_BASE_SECONDS, :LOGIN_LOCKOUT_MAX_SECONDS, :LOGIN_ATTEMPTS_TTL
   :DEFAULT_FORMULA_MAX_LENGTH, :DEFAULT_FIELD_NAME_MAX_LENGTH
   :LIMITS, :safe_call, :validate_input
   :safe_formula_call, :get_formula_metrics, :clear_formula_metrics

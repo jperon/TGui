@@ -215,6 +215,19 @@ SYSTEM_SPACES =
       primary:  { parts: {'token'},   unique: true, type: 'HASH' }
       by_user:  { parts: {'user_id'}, unique: false, type: 'TREE' }
 
+  -- Login rate-limiting (key = 'user:<lower>' or 'ip:<addr>'), persisted in
+  -- memtx so it survives a server restart (spec §7 / audit 1.2).
+  _tdb_login_attempts:
+    format: {
+      { name: 'key',             type: 'string' }
+      { name: 'failures',        type: 'number' }
+      { name: 'last_failure_at', type: 'number' }
+      { name: 'locked_until',    type: 'number' }
+      { name: 'lock_count',      type: 'number' }
+    }
+    indexes:
+      primary: { parts: {'key'}, unique: true, type: 'HASH' }
+
   -- Installed applications (app packages, versioning)
   _tdb_apps:
     format: {

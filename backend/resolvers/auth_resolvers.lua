@@ -42,7 +42,7 @@ local Query = {
 }
 local Mutation = {
   login = function(_, args, ctx)
-    local session, err = auth_mod.login(args.username, args.password)
+    local session, err = auth_mod.login(args.username, args.password, (ctx and ctx.client_addr))
     if not (session) then
       error(err or 'Login failed')
     end
