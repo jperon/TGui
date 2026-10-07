@@ -2,6 +2,11 @@ local json = require('json')
 local log = require('log')
 local spaces_mod = require('core.spaces')
 local triggers = require('core.triggers')
+local require_perm, perm_ok
+do
+  local _obj_0 = require('resolvers.utils')
+  require_perm, perm_ok = _obj_0.require_perm, _obj_0.perm_ok
+end
 local gql_name
 gql_name = function(name)
   local s = name:gsub('[^%w]', '_')
@@ -213,6 +218,7 @@ generate = function()
     table.insert(query_fields, "  " .. tostring(tname) .. "(limit: Int, offset: Int, filter: RecordFilter): " .. tostring(tname) .. "_page!")
     query_resolvers[tname] = (function(sp_cap, tname_cap, fk_sp_cap, backrefs_cap)
       return function(_, args, ctx)
+        require_perm(ctx, 'space', sp_cap.id, 'read')
         local sp_box = box.space["data_" .. tostring(sp_cap.name)]
         if not (sp_box) then
           return {
@@ -272,6 +278,9 @@ generate = function()
       if rel and space_by_id[rel.toSpaceId] then
         tr[gql_name(f.name)] = (function(fn_cap, to_sp_cap, to_fn_cap)
           return function(obj, a, ctx)
+            if not (perm_ok(ctx, 'space', to_sp_cap.id, 'read')) then
+              return nil
+            end
             local raw = obj[fn_cap]
             if raw == nil then
               return nil
@@ -301,6 +310,14 @@ generate = function()
       local ref = backrefs[_index_1]
       tr[gql_name(ref.rel.name)] = (function(rel_fn_cap, to_fn_cap, from_fn_cap, from_sp_name_cap, from_sp_id_cap)
         return function(obj, args, ctx)
+          if not (perm_ok(ctx, 'space', from_sp_id_cap, 'read')) then
+            return {
+              items = { },
+              total = 0,
+              offset = 0,
+              limit = 0
+            }
+          end
           local filter_val = tostring((obj[to_fn_cap] or obj._id or ''))
           local tb = box.space["data_" .. tostring(from_sp_name_cap)]
           if not (tb) then

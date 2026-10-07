@@ -6,6 +6,7 @@ json       = require 'json'
 log        = require 'log'
 spaces_mod = require 'core.spaces'
 triggers   = require 'core.triggers'
+{ :require_perm, :perm_ok } = require 'resolvers.utils'
 
 -- Sanitize a name to a valid GraphQL identifier
 gql_name = (name) ->
@@ -145,6 +146,7 @@ generate = ->
     -- Query resolver for this space
     query_resolvers[tname] = ((sp_cap, tname_cap, fk_sp_cap, backrefs_cap) ->
       (_, args, ctx) ->
+        require_perm ctx, 'space', sp_cap.id, 'read'
         sp_box = box.space["data_#{sp_cap.name}"]
         unless sp_box
           return { items: {}, total: 0, offset: 0, limit: 0 }
@@ -171,6 +173,7 @@ generate = ->
       if rel and space_by_id[rel.toSpaceId]
         tr[gql_name f.name] = ((fn_cap, to_sp_cap, to_fn_cap) ->
           (obj, a, ctx) ->
+            return nil unless perm_ok ctx, 'space', to_sp_cap.id, 'read'
             raw = obj[fn_cap]
             return nil if raw == nil
             tb  = box.space["data_#{to_sp_cap.name}"]
@@ -198,6 +201,8 @@ generate = ->
     for ref in *backrefs
       tr[gql_name ref.rel.name] = ((rel_fn_cap, to_fn_cap, from_fn_cap, from_sp_name_cap, from_sp_id_cap) ->
         (obj, args, ctx) ->
+          unless perm_ok ctx, 'space', from_sp_id_cap, 'read'
+            return { items: {}, total: 0, offset: 0, limit: 0 }
           filter_val = tostring (obj[to_fn_cap] or obj._id or '')
           tb = box.space["data_#{from_sp_name_cap}"]
           unless tb
