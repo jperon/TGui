@@ -44,10 +44,36 @@ read_file = (path) ->
   f\close!
   content
 
-serve_static = (req) ->
-  url_path = req.path
-  -- Requests to / are handled by serve_index; this path serves only assets.
+-- Refuse anything that is not a plain URL path rooted under FRONTEND_DIR.
+-- Plan Task 3 / spec §7: no `..`, no `//`, no NUL byte, no percent-encoded
+-- traversal (`%2e%2e`), no absolute path (URI form, drive letter, UNC) and no
+-- relative path. Pure function (no filesystem access): returns the disk path
+-- under FRONTEND_DIR, or nil when the request must be refused.
+safe_static_path = (url_path) ->
+  return nil unless type(url_path) == 'string'
+  return nil if url_path == ''
+  -- URL paths are rooted (`/src/app.js`); a bare drive/URI/UNC path or a
+  -- relative path never is.
+  return nil unless url_path\sub(1, 1) == '/'
+  return nil if url_path\find '\0', 1, true
+  return nil if url_path\find '\\', 1, true
+  return nil if url_path\find ':', 1, true
+  return nil if url_path\find '..', 1, true
+  return nil if url_path\find '//', 1, true
+  lowered = url_path\lower!
+  return nil if lowered\find '%2e', 1, true
+  return nil if lowered\find '%2f', 1, true
+  return nil if lowered\find '%5c', 1, true
   disk_path = FRONTEND_DIR .. url_path
+  prefix = FRONTEND_DIR .. '/'
+  return nil unless disk_path\sub(1, #prefix) == prefix
+  disk_path
+
+serve_static = (req) ->
+  -- Requests to / are handled by serve_index; this path serves only assets.
+  disk_path = safe_static_path req.path
+  unless disk_path
+    return { status: 404, headers: {}, body: 'Not found' }
   content = read_file disk_path
   unless content
     return { status: 404, headers: {}, body: 'Not found' }
@@ -198,4 +224,4 @@ start = (opts = {}) ->
   server\start!
   log.info "tdb HTTP server listening on #{host}:#{port}"
 
-{ :start }
+{ :start, :safe_static_path, :serve_static }

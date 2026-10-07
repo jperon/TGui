@@ -35,10 +35,59 @@ read_file = function(path)
   f:close()
   return content
 end
+local safe_static_path
+safe_static_path = function(url_path)
+  if not (type(url_path) == 'string') then
+    return nil
+  end
+  if url_path == '' then
+    return nil
+  end
+  if not (url_path:sub(1, 1) == '/') then
+    return nil
+  end
+  if url_path:find('\0', 1, true) then
+    return nil
+  end
+  if url_path:find('\\', 1, true) then
+    return nil
+  end
+  if url_path:find(':', 1, true) then
+    return nil
+  end
+  if url_path:find('..', 1, true) then
+    return nil
+  end
+  if url_path:find('//', 1, true) then
+    return nil
+  end
+  local lowered = url_path:lower()
+  if lowered:find('%2e', 1, true) then
+    return nil
+  end
+  if lowered:find('%2f', 1, true) then
+    return nil
+  end
+  if lowered:find('%5c', 1, true) then
+    return nil
+  end
+  local disk_path = FRONTEND_DIR .. url_path
+  local prefix = FRONTEND_DIR .. '/'
+  if not (disk_path:sub(1, #prefix) == prefix) then
+    return nil
+  end
+  return disk_path
+end
 local serve_static
 serve_static = function(req)
-  local url_path = req.path
-  local disk_path = FRONTEND_DIR .. url_path
+  local disk_path = safe_static_path(req.path)
+  if not (disk_path) then
+    return {
+      status = 404,
+      headers = { },
+      body = 'Not found'
+    }
+  end
   local content = read_file(disk_path)
   if not (content) then
     return {
@@ -245,5 +294,7 @@ start = function(opts)
   return log.info("tdb HTTP server listening on " .. tostring(host) .. ":" .. tostring(port))
 end
 return {
-  start = start
+  start = start,
+  safe_static_path = safe_static_path,
+  serve_static = serve_static
 }
