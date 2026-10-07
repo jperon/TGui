@@ -548,6 +548,48 @@ describe_local = (item_type, key) ->
 
 by_key = (a, b) -> a.key < b.key
 
+-- ────────────────────────────────────────────────────────────────────────────
+-- Seed configuration validation (task F1)
+-- The whole export is all-or-nothing: an unknown space, an unknown key field,
+-- a required key field left empty on some row, or two rows sharing one key
+-- value must refuse the package instead of silently dropping seed rows.
+-- A row missing an *optional* key field is a local non-seed row and stays out
+-- of the package (tests/test_app_lifecycle_parts.moon:306-334 requires this).
+-- ────────────────────────────────────────────────────────────────────────────
+
+seed_rows_error = (space_name, key_field, key_required) ->
+  user_sp = box.space["data_#{space_name}"]
+  return unless user_sp
+  missing = 0
+  seen = {}
+  duplicate = nil
+  for t in *user_sp\select {}
+    v = stable_key decode_record(t[2])[key_field]
+    if v == nil
+      missing += 1 if key_required
+    else
+      sk = tostring v
+      duplicate = sk if duplicate == nil and seen[sk] != nil
+      seen[sk] = true
+  error "#{missing} seed row(s) in space '#{space_name}' have no value for key field '#{key_field}'" if missing > 0
+  error "duplicate seed key '#{duplicate}' in space '#{space_name}' for field '#{key_field}'" if duplicate
+
+validate_seed_entry = (space_ref, key_field) ->
+  space_name = resolve_space_name space_ref
+  sp = nil
+  sp = spaces_mod.get_space_by_name space_name if space_name and space_name != ''
+  error "unknown seed space '#{space_ref}'" unless sp
+  field = find_field space_name, key_field
+  error "unknown field '#{key_field}' in seed space '#{space_name}'" unless field
+  seed_rows_error space_name, key_field, field.notNull == true
+  space_name
+
+validate_seed_config = (seed_opts) ->
+  seed_keys = {}
+  for space_ref, key_field in pairs(seed_opts or {})
+    seed_keys[validate_seed_entry space_ref, key_field] = key_field
+  seed_keys
+
 -- meta: { id, name, version, description }
 -- opts.seed: { [space name or id] = natural key field }, optional.
 -- Returns { app, items = { {type, key, content} … }, seed_keys }.
@@ -557,10 +599,7 @@ build_package = (meta, opts) ->
   for t in *TYPE_ORDER
     buckets[t] = {}
 
-  seed_keys = {}
-  for space_ref, key_field in pairs(opts.seed or {})
-    space_name = resolve_space_name space_ref
-    seed_keys[space_name] = key_field if space_name and space_name != ''
+  seed_keys = validate_seed_config opts.seed
 
   space_list = sorted_spaces!
   collect_spaces_and_fields buckets.space, buckets.field, space_list

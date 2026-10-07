@@ -483,7 +483,7 @@ R.describe("app_resolvers — exportApp", function()
     R.ok((find_item(DECODED1, "seed:" .. tostring(SP_NAME) .. "|AR-1")), 'seed row delivered')
     return R.is_nil(find_item(DECODED1, 'group:admin'), 'admin group never delivered')
   end)
-  return R.it("refuses a version that is not x.y.z", function()
+  R.it("refuses a version that is not x.y.z", function()
     local bad = {
       meta = {
         id = APP_ID,
@@ -517,6 +517,30 @@ R.describe("app_resolvers — exportApp", function()
     return R.raises((function()
       return app_r.Query.exportApp(nil, bad3, ADMIN_CTX)
     end), 'semver')
+  end)
+  return R.it("propagates an invalid seed configuration as a readable GraphQL error", function()
+    require('resolvers.init').reinit()
+    local ghost = "ar_ghost_seed_" .. tostring(SUFFIX)
+    local q = 'query($m: AppMetaInput!, $s: [AppSeedInput!]) { exportApp(meta: $m, seed: $s) }'
+    local res = run_gql(q, {
+      m = {
+        id = APP_ID,
+        name = 'AR',
+        version = '1.0.0',
+        description = ''
+      },
+      s = {
+        {
+          space = ghost,
+          keyField = 'code'
+        }
+      }
+    }, ADMIN_CTX)
+    R.ok(res.errors, 'export with an unknown seed space must fail')
+    local msg = tostring(res.errors[1].message)
+    R.matches(msg, ghost)
+    R.matches(msg, 'space')
+    return R.is_nil(res.data.exportApp, 'no partial package is returned')
   end)
 end)
 R.describe("app_resolvers — previewAppUpdate is read-only", function()

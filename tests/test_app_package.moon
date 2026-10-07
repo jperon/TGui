@@ -28,6 +28,7 @@ DV_NAME     = "apkg_dataview_#{SUFFIX}"
 PLUGIN_NAME = "apkg_plugin_#{SUFFIX}"
 GROUP_NAME  = "apkg_group_#{SUFFIX}"
 REL_NAME    = "apkg_rel_#{SUFFIX}"
+SP_SEED     = "apkg_seed_#{SUFFIX}"
 
 META = {
   id: 'org.test.apkg'
@@ -49,6 +50,7 @@ layout:
 ]]
 
 FIX = {}
+FIX_SEED = {}
 PKG  = nil
 PKG2 = nil
 seed_opts = {}
@@ -57,6 +59,12 @@ find_item = (package, key) ->
   for it in *package.items
     return it if it.key == key
   nil
+
+-- build_package with a seed config must raise; return the message for asserts.
+seed_error = (seed_config) ->
+  ok, err = pcall -> pkg.build_package META, { seed: seed_config }
+  R.nok ok, 'expected an invalid seed configuration to raise'
+  tostring err
 
 -- ────────────────────────────────────────────────────────────────────────────
 R.describe "app_package — canonical", ->
@@ -436,6 +444,55 @@ R.describe "app_package — describe_local", ->
     R.is_nil pkg.describe_local('nonsense', 'nonsense:x')
 
 -- ────────────────────────────────────────────────────────────────────────────
+R.describe "app_package — seed validation (F1)", ->
+
+  R.it "creates a dedicated seed space with one field and a baseline row", ->
+    sp = spaces.create_user_space SP_SEED, 'apkg seed'
+    FIX_SEED.id = sp.id
+    spaces.add_field sp.id, 'code', 'String', true, ''
+    box.space["data_#{SP_SEED}"]\insert {
+      "apkgseed_base_#{SUFFIX}", json.encode { code: 'BASE', label: 'baseline' }
+    }
+    R.ok sp
+
+  R.it "rejects an unknown seed space, naming it and the word 'space'", ->
+    msg = seed_error { ["apkg_ghost_#{SUFFIX}"]: 'code' }
+    R.matches msg, "apkg_ghost_#{SUFFIX}"
+    R.matches msg, 'space'
+
+  R.it "rejects an unknown key field, naming the space and the field", ->
+    msg = seed_error { [SP_SEED]: 'no_such_field' }
+    R.matches msg, SP_SEED
+    R.matches msg, 'no_such_field'
+
+  R.it "rejects rows missing the key value, naming space, field and count", ->
+    row_id = "apkgseed_nokey_#{SUFFIX}"
+    box.space["data_#{SP_SEED}"]\insert { row_id, json.encode { label: 'no code' } }
+    msg = seed_error { [SP_SEED]: 'code' }
+    R.matches msg, SP_SEED
+    R.matches msg, 'code'
+    R.matches msg, '1 seed row'
+    box.space["data_#{SP_SEED}"]\delete row_id
+
+  R.it "rejects a duplicated key value, naming the space and the value", ->
+    row_id = "apkgseed_dup_#{SUFFIX}"
+    box.space["data_#{SP_SEED}"]\insert { row_id, json.encode { code: 'BASE' } }
+    msg = seed_error { [SP_SEED]: 'code' }
+    R.matches msg, SP_SEED
+    R.matches msg, 'BASE'
+    R.matches msg, 'duplicate'
+    box.space["data_#{SP_SEED}"]\delete row_id
+
+  R.it "a valid seed configuration still delivers the same items", ->
+    package = pkg.build_package META, { seed: { [SP_SEED]: 'code' } }
+    R.eq package.seed_keys[SP_SEED], 'code'
+    item = find_item package, "seed:#{SP_SEED}|BASE"
+    R.ok item
+    R.eq item.content.space, SP_SEED
+    R.eq item.content.key, 'BASE'
+    R.eq item.content.data.label, 'baseline'
+
+-- ────────────────────────────────────────────────────────────────────────────
 R.describe "app_package — cleanup", ->
 
   R.it "removes the fixture elements", ->
@@ -461,8 +518,10 @@ R.describe "app_package — cleanup", ->
   R.it "removes the two test spaces and their seed rows", ->
     spaces.delete_user_space SP_BOOKS
     spaces.delete_user_space SP_AUTHORS
+    spaces.delete_user_space SP_SEED
     R.is_nil pkg.describe_local('space', "space:#{SP_BOOKS}")
     R.is_nil pkg.describe_local('space', "space:#{SP_AUTHORS}")
+    R.is_nil pkg.describe_local('space', "space:#{SP_SEED}")
     R.is_nil pkg.describe_local('seed', "seed:#{SP_BOOKS}|APKG-1")
     found = false
     for s in *spaces.list_spaces!

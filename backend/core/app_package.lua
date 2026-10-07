@@ -804,6 +804,63 @@ local by_key
 by_key = function(a, b)
   return a.key < b.key
 end
+local seed_rows_error
+seed_rows_error = function(space_name, key_field, key_required)
+  local user_sp = box.space["data_" .. tostring(space_name)]
+  if not (user_sp) then
+    return 
+  end
+  local missing = 0
+  local seen = { }
+  local duplicate = nil
+  local _list_0 = user_sp:select({ })
+  for _index_0 = 1, #_list_0 do
+    local t = _list_0[_index_0]
+    local v = stable_key(decode_record(t[2])[key_field])
+    if v == nil then
+      if key_required then
+        missing = missing + 1
+      end
+    else
+      local sk = tostring(v)
+      if duplicate == nil and seen[sk] ~= nil then
+        duplicate = sk
+      end
+      seen[sk] = true
+    end
+  end
+  if missing > 0 then
+    error(tostring(missing) .. " seed row(s) in space '" .. tostring(space_name) .. "' have no value for key field '" .. tostring(key_field) .. "'")
+  end
+  if duplicate then
+    return error("duplicate seed key '" .. tostring(duplicate) .. "' in space '" .. tostring(space_name) .. "' for field '" .. tostring(key_field) .. "'")
+  end
+end
+local validate_seed_entry
+validate_seed_entry = function(space_ref, key_field)
+  local space_name = resolve_space_name(space_ref)
+  local sp = nil
+  if space_name and space_name ~= '' then
+    sp = spaces_mod.get_space_by_name(space_name)
+  end
+  if not (sp) then
+    error("unknown seed space '" .. tostring(space_ref) .. "'")
+  end
+  local field = find_field(space_name, key_field)
+  if not (field) then
+    error("unknown field '" .. tostring(key_field) .. "' in seed space '" .. tostring(space_name) .. "'")
+  end
+  seed_rows_error(space_name, key_field, field.notNull == true)
+  return space_name
+end
+local validate_seed_config
+validate_seed_config = function(seed_opts)
+  local seed_keys = { }
+  for space_ref, key_field in pairs(seed_opts or { }) do
+    seed_keys[validate_seed_entry(space_ref, key_field)] = key_field
+  end
+  return seed_keys
+end
 local build_package
 build_package = function(meta, opts)
   opts = opts or { }
@@ -812,13 +869,7 @@ build_package = function(meta, opts)
     local t = TYPE_ORDER[_index_0]
     buckets[t] = { }
   end
-  local seed_keys = { }
-  for space_ref, key_field in pairs(opts.seed or { }) do
-    local space_name = resolve_space_name(space_ref)
-    if space_name and space_name ~= '' then
-      seed_keys[space_name] = key_field
-    end
-  end
+  local seed_keys = validate_seed_config(opts.seed)
   local space_list = sorted_spaces()
   collect_spaces_and_fields(buckets.space, buckets.field, space_list)
   collect_relations(buckets.relation, space_list)

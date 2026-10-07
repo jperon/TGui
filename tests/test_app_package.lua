@@ -19,6 +19,7 @@ local DV_NAME = "apkg_dataview_" .. tostring(SUFFIX)
 local PLUGIN_NAME = "apkg_plugin_" .. tostring(SUFFIX)
 local GROUP_NAME = "apkg_group_" .. tostring(SUFFIX)
 local REL_NAME = "apkg_rel_" .. tostring(SUFFIX)
+local SP_SEED = "apkg_seed_" .. tostring(SUFFIX)
 local META = {
   id = 'org.test.apkg',
   name = 'Apkg fixture',
@@ -37,6 +38,7 @@ local YAML_PAGE = [[layout:
         space: apkg
 ]]
 local FIX = { }
+local FIX_SEED = { }
 local PKG = nil
 local PKG2 = nil
 local seed_opts = { }
@@ -50,6 +52,16 @@ find_item = function(package, key)
     end
   end
   return nil
+end
+local seed_error
+seed_error = function(seed_config)
+  local ok, err = pcall(function()
+    return pkg.build_package(META, {
+      seed = seed_config
+    })
+  end)
+  R.nok(ok, 'expected an invalid seed configuration to raise')
+  return tostring(err)
 end
 R.describe("app_package — canonical", function()
   R.it("is independent of object key order, recursively", function()
@@ -643,6 +655,80 @@ R.describe("app_package — describe_local", function()
     return R.is_nil(pkg.describe_local('nonsense', 'nonsense:x'))
   end)
 end)
+R.describe("app_package — seed validation (F1)", function()
+  R.it("creates a dedicated seed space with one field and a baseline row", function()
+    local sp = spaces.create_user_space(SP_SEED, 'apkg seed')
+    FIX_SEED.id = sp.id
+    spaces.add_field(sp.id, 'code', 'String', true, '')
+    box.space["data_" .. tostring(SP_SEED)]:insert({
+      "apkgseed_base_" .. tostring(SUFFIX),
+      json.encode({
+        code = 'BASE',
+        label = 'baseline'
+      })
+    })
+    return R.ok(sp)
+  end)
+  R.it("rejects an unknown seed space, naming it and the word 'space'", function()
+    local msg = seed_error({
+      ["apkg_ghost_" .. tostring(SUFFIX)] = 'code'
+    })
+    R.matches(msg, "apkg_ghost_" .. tostring(SUFFIX))
+    return R.matches(msg, 'space')
+  end)
+  R.it("rejects an unknown key field, naming the space and the field", function()
+    local msg = seed_error({
+      [SP_SEED] = 'no_such_field'
+    })
+    R.matches(msg, SP_SEED)
+    return R.matches(msg, 'no_such_field')
+  end)
+  R.it("rejects rows missing the key value, naming space, field and count", function()
+    local row_id = "apkgseed_nokey_" .. tostring(SUFFIX)
+    box.space["data_" .. tostring(SP_SEED)]:insert({
+      row_id,
+      json.encode({
+        label = 'no code'
+      })
+    })
+    local msg = seed_error({
+      [SP_SEED] = 'code'
+    })
+    R.matches(msg, SP_SEED)
+    R.matches(msg, 'code')
+    R.matches(msg, '1 seed row')
+    return box.space["data_" .. tostring(SP_SEED)]:delete(row_id)
+  end)
+  R.it("rejects a duplicated key value, naming the space and the value", function()
+    local row_id = "apkgseed_dup_" .. tostring(SUFFIX)
+    box.space["data_" .. tostring(SP_SEED)]:insert({
+      row_id,
+      json.encode({
+        code = 'BASE'
+      })
+    })
+    local msg = seed_error({
+      [SP_SEED] = 'code'
+    })
+    R.matches(msg, SP_SEED)
+    R.matches(msg, 'BASE')
+    R.matches(msg, 'duplicate')
+    return box.space["data_" .. tostring(SP_SEED)]:delete(row_id)
+  end)
+  return R.it("a valid seed configuration still delivers the same items", function()
+    local package = pkg.build_package(META, {
+      seed = {
+        [SP_SEED] = 'code'
+      }
+    })
+    R.eq(package.seed_keys[SP_SEED], 'code')
+    local item = find_item(package, "seed:" .. tostring(SP_SEED) .. "|BASE")
+    R.ok(item)
+    R.eq(item.content.space, SP_SEED)
+    R.eq(item.content.key, 'BASE')
+    return R.eq(item.content.data.label, 'baseline')
+  end)
+end)
 return R.describe("app_package — cleanup", function()
   R.it("removes the fixture elements", function()
     if FIX.rel_id then
@@ -681,8 +767,10 @@ return R.describe("app_package — cleanup", function()
   return R.it("removes the two test spaces and their seed rows", function()
     spaces.delete_user_space(SP_BOOKS)
     spaces.delete_user_space(SP_AUTHORS)
+    spaces.delete_user_space(SP_SEED)
     R.is_nil(pkg.describe_local('space', "space:" .. tostring(SP_BOOKS)))
     R.is_nil(pkg.describe_local('space', "space:" .. tostring(SP_AUTHORS)))
+    R.is_nil(pkg.describe_local('space', "space:" .. tostring(SP_SEED)))
     R.is_nil(pkg.describe_local('seed', "seed:" .. tostring(SP_BOOKS) .. "|APKG-1"))
     local found = false
     local _list_0 = spaces.list_spaces()
