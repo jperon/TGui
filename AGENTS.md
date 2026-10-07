@@ -10,6 +10,35 @@ Le backend est en **MoonScript compilé en Lua** et tourne dans Tarantool.
 Le frontend est en **CoffeeScript compilé en JS**, servi statiquement par Tarantool.
 Le dialogue frontend/backend passe par un moteur **GraphQL maison** (pas de dépendance externe).
 
+## Objectif du projet
+
+`TGui` (paquet `tdb`) vise à être une **alternative à Grist**, fondée sur
+Tarantool, Lua et MoonScript. Grist est la source d'inspiration et l'idéal visé.
+
+## Règles de conception
+
+Renvois au spec `docs/superpowers/specs/2026-10-07-app-versioning-design.md` (§7, §8).
+
+- **Permissions réellement appliquées dans chaque résolveur** : `core.permissions.can`
+  doit être appelé par les résolveurs (lecture → `read`, écriture de données → `write`,
+  schéma → `admin`). Voir le spec §7.
+- **Validation à l'écriture** : `insertRecord`/`updateRecord` contrôlent les champs
+  inconnus, `not_null` et le type déclaré, avec un message d'erreur par champ.
+  Voir le spec §8.
+- **API GraphQL et plugins YAML = piliers à conserver intacts** : l'API GraphQL et
+  les plugins YAML ne doivent pas être réduits.
+- **Versionnage des apps prévu** : conçu dans le spec ci-dessus — s'y référer avant
+  toute modification liée aux apps, exports ou imports.
+
+## Délégation
+
+- Se référer au spec et aux plans de `docs/superpowers/` : toute tâche y est cadrée
+  (périmètre, fichiers, vérifications). Exemple :
+  `docs/superpowers/plans/2026-10-07-etapes-0-1-agents-et-securite.md`.
+- **Une tâche à la fois, dans son propre worktree git. Commits intermédiaires
+  obligatoires.** Vérifier par exécution réelle (compilation + tests), pas par
+  relecture.
+
 ## Règles absolues
 
 - **Ne jamais éditer les fichiers `.lua` ou `.js` directement.** Les sources sont les
@@ -71,16 +100,9 @@ L'instance de production (`tgui-tarantool-1`) ne doit être utilisée que pour u
 Ils sont écrits en MoonScript dans `tests/` avec un micro-framework maison (`tests/runner.moon`).
 **Aucune dépendance externe** de test.
 
-Fichiers de test :
-
-| Fichier | Ce qu'il teste |
-|---|---|
-| `test_lexer.moon` | Tokenizer GraphQL |
-| `test_parser.moon` | Parser GraphQL (AST) |
-| `test_schema.moon` | Système de types GraphQL |
-| `test_executor.moon` | Executor GraphQL (schéma minimal mocké, sans Tarantool) |
-| `test_spaces.moon` | CRUD espaces et champs (`core/spaces`) |
-| `test_triggers.moon` | Triggers et formules Lua/MoonScript (`core/triggers`) |
+Fichiers de test : la liste complète est dans le répertoire `tests/` (une trentaine
+de fichiers) et dans la documentation des tests, `doc/fr/dev/tests.md` et
+`doc/en/dev/tests.md`.
 
 `test_executor.moon` remplace temporairement le schéma de production par un schéma
 de test. `tests/run.moon` restaure le schéma de production à la fin via
