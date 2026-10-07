@@ -1768,6 +1768,26 @@ make_body = function()
       ''
     }),
     H.script({
+      src = '/src/app_view_helpers_pages.js',
+      ''
+    }),
+    H.script({
+      src = '/src/app_view_helpers_yaml.js',
+      ''
+    }),
+    H.script({
+      src = '/src/app_view_helpers_widget_plugins.js',
+      ''
+    }),
+    H.script({
+      src = '/src/app_view_helpers_add_widget.js',
+      ''
+    }),
+    H.script({
+      src = '/src/app_view_helpers_zones.js',
+      ''
+    }),
+    H.script({
       src = '/src/app_view_config_helpers.js',
       ''
     }),

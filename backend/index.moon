@@ -731,6 +731,11 @@ make_body = ->
     H.script {src: '/src/drag_drop_manager.js', ''}
     H.script {src: '/src/app_data_helpers.js', ''}
     H.script {src: '/src/app_view_helpers.js', ''}
+    H.script {src: '/src/app_view_helpers_pages.js', ''}
+    H.script {src: '/src/app_view_helpers_yaml.js', ''}
+    H.script {src: '/src/app_view_helpers_widget_plugins.js', ''}
+    H.script {src: '/src/app_view_helpers_add_widget.js', ''}
+    H.script {src: '/src/app_view_helpers_zones.js', ''}
     H.script {src: '/src/app_view_config_helpers.js', ''}
     H.script {src: '/src/app_snapshot_helpers.js', ''}
     H.script {src: '/src/views/data_view.js', ''}
