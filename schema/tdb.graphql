@@ -221,6 +221,7 @@ type Relation {
   toSpaceId:    ID!
   toFieldId:    ID!
   reprFormula:  String
+  cardinality:  String
 }
 
 type CustomView {
@@ -422,10 +423,12 @@ input CreateRelationInput {
   toSpaceId:   ID!
   toFieldId:   ID!
   reprFormula: String
+  cardinality: String
 }
 
 input UpdateRelationInput {
   reprFormula: String
+  cardinality: String
 }
 
 input CreateCustomViewInput {

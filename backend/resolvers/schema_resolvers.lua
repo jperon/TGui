@@ -30,15 +30,27 @@ list_relations = function(space_id)
       toSpaceId = t[4],
       toFieldId = t[5],
       name = t[6],
-      reprFormula = t[7] or ''
+      reprFormula = t[7] or '',
+      cardinality = t[8] or 'one'
     })
   end
   return result
 end
+local normalize_cardinality
+normalize_cardinality = function(value)
+  if value == nil or value == '' then
+    return 'one'
+  end
+  if not (value == 'one' or value == 'many') then
+    error("Invalid relation cardinality '" .. tostring(value) .. "': expected 'one' or 'many'")
+  end
+  return value
+end
 local create_relation
-create_relation = function(name, from_space_id, from_field_id, to_space_id, to_field_id, repr_formula)
+create_relation = function(name, from_space_id, from_field_id, to_space_id, to_field_id, repr_formula, cardinality)
   local uuid_mod = require('uuid')
   local rid = tostring(uuid_mod.new())
+  local card = normalize_cardinality(cardinality)
   box.space._tdb_relations:insert({
     rid,
     from_space_id,
@@ -46,7 +58,8 @@ create_relation = function(name, from_space_id, from_field_id, to_space_id, to_f
     to_space_id,
     to_field_id,
     name,
-    repr_formula or ''
+    repr_formula or '',
+    card
   })
   return {
     id = rid,
@@ -55,7 +68,8 @@ create_relation = function(name, from_space_id, from_field_id, to_space_id, to_f
     fromFieldId = from_field_id,
     toSpaceId = to_space_id,
     toFieldId = to_field_id,
-    reprFormula = repr_formula or ''
+    reprFormula = repr_formula or '',
+    cardinality = card
   }
 end
 local delete_relation
@@ -64,7 +78,7 @@ delete_relation = function(id)
   return true
 end
 local update_relation
-update_relation = function(id, repr_formula)
+update_relation = function(id, repr_formula, cardinality)
   local t = box.space._tdb_relations:get(id)
   if not (t) then
     return nil
@@ -76,6 +90,16 @@ update_relation = function(id, repr_formula)
       repr_formula or ''
     }
   })
+  if cardinality ~= nil then
+    local card = normalize_cardinality(cardinality)
+    box.space._tdb_relations:update(id, {
+      {
+        '=',
+        8,
+        card
+      }
+    })
+  end
   local t2 = box.space._tdb_relations:get(id)
   return {
     id = t2[1],
@@ -84,7 +108,8 @@ update_relation = function(id, repr_formula)
     toSpaceId = t2[4],
     toFieldId = t2[5],
     name = t2[6],
-    reprFormula = t2[7] or ''
+    reprFormula = t2[7] or '',
+    cardinality = t2[8] or 'one'
   }
 end
 local Query = {
@@ -285,7 +310,7 @@ local Mutation = {
   createRelation = function(_, args, ctx)
     require_perm(ctx, '*', nil, 'admin')
     local i = args.input
-    local result = create_relation(i.name, i.fromSpaceId, i.fromFieldId, i.toSpaceId, i.toFieldId, i.reprFormula)
+    local result = create_relation(i.name, i.fromSpaceId, i.fromFieldId, i.toSpaceId, i.toFieldId, i.reprFormula, i.cardinality)
     reinit_with_formula_cache_reset()
     return result
   end,
@@ -297,7 +322,7 @@ local Mutation = {
   end,
   updateRelation = function(_, args, ctx)
     require_perm(ctx, '*', nil, 'admin')
-    local result = update_relation(args.id, args.input.reprFormula)
+    local result = update_relation(args.id, args.input.reprFormula, args.input.cardinality)
     reinit_with_formula_cache_reset()
     return result
   end,

@@ -29,26 +29,39 @@ list_relations = (space_id) ->
       toFieldId:    t[5]
       name:         t[6]
       reprFormula:  t[7] or ''
+      cardinality:  t[8] or 'one'
     }
   result
 
-create_relation = (name, from_space_id, from_field_id, to_space_id, to_field_id, repr_formula) ->
+-- Declared cardinality of a relation: 'one' (default) or 'many'.
+normalize_cardinality = (value) ->
+  return 'one' if value == nil or value == ''
+  unless value == 'one' or value == 'many'
+    error "Invalid relation cardinality '#{value}': expected 'one' or 'many'"
+  value
+
+create_relation = (name, from_space_id, from_field_id, to_space_id, to_field_id, repr_formula, cardinality) ->
   uuid_mod = require 'uuid'
   rid = tostring uuid_mod.new!
-  box.space._tdb_relations\insert { rid, from_space_id, from_field_id, to_space_id, to_field_id, name, repr_formula or '' }
+  card = normalize_cardinality cardinality
+  box.space._tdb_relations\insert { rid, from_space_id, from_field_id, to_space_id, to_field_id, name, repr_formula or '', card }
   { id: rid, name: name, fromSpaceId: from_space_id, fromFieldId: from_field_id,
-    toSpaceId: to_space_id, toFieldId: to_field_id, reprFormula: repr_formula or '' }
+    toSpaceId: to_space_id, toFieldId: to_field_id, reprFormula: repr_formula or '',
+    cardinality: card }
 
 delete_relation = (id) ->
   box.space._tdb_relations\delete id
   true
 
-update_relation = (id, repr_formula) ->
+update_relation = (id, repr_formula, cardinality) ->
   t = box.space._tdb_relations\get id
   return nil unless t
   box.space._tdb_relations\update id, { {'=', 7, repr_formula or ''} }
+  if cardinality != nil
+    card = normalize_cardinality cardinality
+    box.space._tdb_relations\update id, { {'=', 8, card} }
   t2 = box.space._tdb_relations\get id
-  { id: t2[1], fromSpaceId: t2[2], fromFieldId: t2[3], toSpaceId: t2[4], toFieldId: t2[5], name: t2[6], reprFormula: t2[7] or '' }
+  { id: t2[1], fromSpaceId: t2[2], fromFieldId: t2[3], toSpaceId: t2[4], toFieldId: t2[5], name: t2[6], reprFormula: t2[7] or '', cardinality: t2[8] or 'one' }
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- Resolvers map
@@ -199,7 +212,7 @@ Mutation =
   createRelation: (_, args, ctx) ->
     require_perm ctx, '*', nil, 'admin'
     i = args.input
-    result = create_relation i.name, i.fromSpaceId, i.fromFieldId, i.toSpaceId, i.toFieldId, i.reprFormula
+    result = create_relation i.name, i.fromSpaceId, i.fromFieldId, i.toSpaceId, i.toFieldId, i.reprFormula, i.cardinality
     reinit_with_formula_cache_reset!
     result
 
@@ -211,7 +224,7 @@ Mutation =
 
   updateRelation: (_, args, ctx) ->
     require_perm ctx, '*', nil, 'admin'
-    result = update_relation args.id, args.input.reprFormula
+    result = update_relation args.id, args.input.reprFormula, args.input.cardinality
     reinit_with_formula_cache_reset!
     result
 
