@@ -2,7 +2,7 @@
 
 > Auto-generated file. Do not edit manually.
 >
-> Generated at: 2026-10-07 22:01:05 UTC
+> Generated at: 2026-10-07 23:08:51 UTC
 
 Backend/frontend test panorama and per-file intent.
 
@@ -17,6 +17,7 @@ Backend/frontend test panorama and per-file intent.
 | `tests/test_app_package.moon` | Tests for backend/core/app_package.moon (task V1, plan « Étape 4 » : |
 | `tests/test_app_plan.moon` | Tests purs pour core/app_plan.moon (moteur de plan de mise a jour, spec §2). |
 | `tests/test_app_resolvers.moon` | Tests des résolveurs GraphQL du versionnage des apps (tâche V4, spec §3/§4, |
+| `tests/test_auth_ratelimit.moon` | Persistent login rate-limiting (spec §7 / audit 1.2): |
 | `tests/test_batch_ops.moon` | GraphQL integration tests for insertRecords/updateRecords on a temporary space. |
 | `tests/test_change_parent.moon` | Tests for changing widget parent via reorderWidgets mutation |
 | `tests/test_custom_view_resolvers_api.moon` | Guards the public surface of resolvers/custom_view_resolvers.moon: |
@@ -37,6 +38,7 @@ Backend/frontend test panorama and per-file intent.
 | `tests/test_multiple_relations.moon` | Tests for multiple relations detection functionality |
 | `tests/test_nesting.moon` | Tests nested GraphQL queries (nesting/sub-queries). |
 | `tests/test_parser.moon` | Tests for GraphQL parser (graphql/parser.moon). |
+| `tests/test_password_policy.moon` | Forced change of the default admin password (spec §7 / audit 1.4). |
 | `tests/test_permissions.moon` | Tests permission coverage: require_auth, require_admin, |
 | `tests/test_relation_cardinality.moon` | Declared relation cardinality ('one' \| 'many'): storage, GraphQL API and |
 | `tests/test_relation_type_regression.moon` | Regression: verifies safe fieldType=Relation -> Int mapping and relation creation. |
@@ -64,6 +66,7 @@ Backend/frontend test panorama and per-file intent.
 | `tests/js/test_drag_drop_manager.coffee` | tests/js/test_drag_drop_manager.coffee - tests for DragDropManager |
 | `tests/js/test_graphql_client.coffee` | tests/js/test_graphql_client.coffee — tests pour GQL (graphql_client.js) |
 | `tests/js/test_i18n.coffee` | tests/js/test_i18n.coffee — tests du runtime i18n minimal |
+| `tests/js/test_password_policy.coffee` | Forced default-password change, frontend side (spec §7 / audit 1.4): |
 | `tests/js/test_relation_display_frontend.coffee` | Static frontend tests (Node) for relation display. |
 | `tests/js/test_relation_display_frontend_regression.coffee` | Targeted regressions for frontend relation rendering. |
 | `tests/js/test_spaces.coffee` | tests/js/test_spaces.coffee — tests for Spaces (spaces.js) |
