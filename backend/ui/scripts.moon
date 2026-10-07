@@ -36,6 +36,9 @@ SCRIPT_SRCS = {
   '/src/app_apps_helpers.js'
   '/src/views/data_view.js'
   '/src/views/custom_view.js'
+  '/src/views/custom_view_plugins.js'
+  '/src/views/custom_view_aggregate.js'
+  '/src/views/custom_view_resize.js'
   '/src/yaml_builder.js'
   '/src/app.js'
 }

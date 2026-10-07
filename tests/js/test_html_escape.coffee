@@ -245,6 +245,7 @@ describe 'AppViewHelpers.renderCustomViewPreview — sécurité (erreur YAML)', 
   it 'n’injecte pas de HTML depuis un message d’erreur de plugin YAML', ->
     require '../../frontend/src/html_escape'
     require '../../frontend/src/views/custom_view'
+    require '../../frontend/src/views/custom_view_plugins'
     # app_view_helpers.js référence CustomView en identifiant nu (window en
     # navigateur) : il faut aussi l'exposer sur global pour Node.
     global.CustomView = global.window.CustomView
