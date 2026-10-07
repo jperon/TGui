@@ -196,13 +196,21 @@ field_content = function(f)
     language = f.language or 'lua'
   }
 end
+local relation_cardinality
+relation_cardinality = function(value)
+  if value == 'many' then
+    return 'many'
+  end
+  return 'one'
+end
 local relation_content
-relation_content = function(from_space, from_field, to_space, to_field)
+relation_content = function(from_space, from_field, to_space, to_field, cardinality)
   return {
     fromSpace = from_space,
     fromField = from_field,
     toSpace = to_space,
-    toField = to_field
+    toField = to_field,
+    cardinality = relation_cardinality(cardinality)
   }
 end
 local view_content
@@ -356,7 +364,7 @@ collect_relations = function(bucket, space_list)
         table.insert(bucket, {
           type = ITEM_TYPES.relation,
           key = key,
-          content = relation_content(from_sp, from_fld, to_sp, to_fld)
+          content = relation_content(from_sp, from_fld, to_sp, to_fld, t[8])
         })
         _continue_0 = true
       until true
@@ -646,7 +654,7 @@ describe_relation = function(key)
         if not (from_name and to_sp and to_fld) then
           return nil
         end
-        return relation_content(from_name, from_fld, to_sp, to_fld)
+        return relation_content(from_name, from_fld, to_sp, to_fld, t[8])
       end
       _continue_0 = true
     until true

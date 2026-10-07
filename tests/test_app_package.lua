@@ -272,7 +272,8 @@ R.describe("app_package — fixture", function()
         fromFieldId = FIX.fk_id,
         toSpaceId = FIX.authors_id,
         toFieldId = FIX.seq_id,
-        reprFormula = '@name'
+        reprFormula = '@name',
+        cardinality = 'many'
       }
     }, CTX)
     R.ok(res)
@@ -483,6 +484,14 @@ R.describe("app_package — build_package", function()
     end
     return R.nok(found)
   end)
+  R.it("relation items carry the declared cardinality", function()
+    local key = "relation:" .. tostring(SP_BOOKS) .. ".author_id"
+    local item = find_item(PKG, key)
+    R.ok(item)
+    R.eq(item.content.cardinality, 'many')
+    R.eq(pkg.describe_local('relation', key).cardinality, 'many')
+    return R.eq(pkg.canonical(pkg.describe_local('relation', key)), pkg.canonical(item.content))
+  end)
   return R.it("is deterministic: two calls give the same items and fingerprints", function()
     PKG2 = pkg.build_package(META, {
       seed = seed_opts
@@ -547,7 +556,8 @@ R.describe("app_package — describe_local", function()
     R.eq(local_content.fromSpace, SP_BOOKS)
     R.eq(local_content.fromField, 'author_id')
     R.eq(local_content.toSpace, SP_AUTHORS)
-    return R.eq(local_content.toField, 'seq_id')
+    R.eq(local_content.toField, 'seq_id')
+    return R.eq(local_content.cardinality, 'many')
   end)
   R.it("view: returns space, name, viewType and config", function()
     local key = "view:" .. tostring(SP_BOOKS) .. "." .. tostring(VIEW_NAME)

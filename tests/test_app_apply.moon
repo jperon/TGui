@@ -128,6 +128,7 @@ R.describe "app_apply — fixture", ->
         toSpaceId: authors.id
         toFieldId: seq.id
         reprFormula: '@name'
+        cardinality: 'many'
       }
     }, CTX
     FIX.rel_id = res.id
@@ -269,6 +270,7 @@ R.describe "app_apply — installation on a half-empty base", ->
     R.ok spaces.get_space_by_name SP_AUTHORS
     R.ok (field_by_name spaces.get_space_by_name(SP_BOOKS).id, 'code')
     R.ok pkg.describe_local('relation', "relation:#{SP_BOOKS}.author_id")
+    R.eq pkg.describe_local('relation', "relation:#{SP_BOOKS}.author_id").cardinality, 'many'
     R.ok pkg.describe_local('view', "view:#{SP_BOOKS}.#{VIEW_NAME}")
     R.ok pkg.describe_local('page', "page:#{PAGE_NAME}")
     R.ok pkg.describe_local('dataview', "dataview:#{DV_NAME}")
@@ -443,6 +445,91 @@ R.describe "app_apply — failure in the middle rolls back everything", ->
     R.eq #spaces.list_spaces!, spaces_before, 'space count restored'
     R.is_nil box.space._tdb_apps\get(APP_BAD_ID), 'no app row'
     R.eq #box.space._tdb_app_items.index.by_app\select({ APP_BAD_ID }), 0, 'no item rows'
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- V1b : la cardinalité déclarée d'une relation fait partie du paquet.
+-- ────────────────────────────────────────────────────────────────────────────
+SP_RB = "aap_relbooks_#{SUFFIX}"
+SP_RA = "aap_relauthors_#{SUFFIX}"
+APP_REL = "org.test.aaprel_#{SUFFIX}"
+REL_RB_KEY = "relation:#{SP_RB}.author_id"
+REL_RB_EDITOR = "relation:#{SP_RB}.editor_id"
+
+-- Contenu d'une relation : la clé cardinality n'est posée que si déclarée,
+-- pour reproduire un paquet à l'ancien format quand card est nil.
+rel_content = (from_field, card) ->
+  c = { fromSpace: SP_RB, fromField: from_field, toSpace: SP_RA, toField: 'seq_id' }
+  c.cardinality = card if card
+  c
+
+rel_field = (name) ->
+  { type: 'field', key: "field:#{SP_RB}.#{name}",
+    content: { fieldType: 'Int', notNull: false, description: '',
+               formula: '', triggerFields: {}, language: 'lua' } }
+
+rel_pkg = (version, author_card) ->
+  {
+    app: { id: APP_REL, name: 'Rel cardinality', version: version, description: '' }
+    items: {
+      { type: 'space', key: "space:#{SP_RB}", content: { description: 'rel books' } }
+      { type: 'space', key: "space:#{SP_RA}", content: { description: 'rel authors' } }
+      rel_field 'author_id'
+      rel_field 'editor_id'
+      { type: 'field', key: "field:#{SP_RA}.seq_id",
+        content: { fieldType: 'Sequence', notNull: false, description: '',
+                   formula: '', triggerFields: {}, language: 'lua' } }
+      { type: 'relation', key: REL_RB_KEY, content: rel_content('author_id', author_card) }
+      { type: 'relation', key: REL_RB_EDITOR, content: rel_content('editor_id', nil) }
+    }
+    seed_keys: {}
+  }
+
+R.describe "app_apply — relation cardinality", ->
+
+  R.it "installs 'many' when declared and 'one' for an old-format relation", ->
+    report = apply.apply_update rel_pkg('1.0.0', 'many'), {}, {}
+    R.ok report.ok, report.error
+    R.eq #report.created, 7, 'created'
+    R.eq pkg.describe_local('relation', REL_RB_KEY).cardinality, 'many'
+    R.eq pkg.describe_local('relation', REL_RB_EDITOR).cardinality, 'one'
+
+  R.it "an author cardinality change is an update while the local is unchanged", ->
+    report = apply.apply_update rel_pkg('1.1.0', 'one'), {}, {}
+    R.ok report.ok, report.error
+    R.eq #report.updated, 1, 'updated'
+    R.eq report.updated[1], REL_RB_KEY
+    R.eq pkg.describe_local('relation', REL_RB_KEY).cardinality, 'one'
+
+  R.it "a local-only cardinality change is kept", ->
+    sid = spaces.get_space_by_name(SP_RB).id
+    fid = (field_by_name sid, 'author_id').id
+    rel_id = nil
+    for t in *box.space._tdb_relations.index.by_from\select { sid }
+      rel_id = t[1] if t[3] == fid
+    R.ok rel_id, 'author_id relation row'
+    schema_r.Mutation.updateRelation {}, { id: rel_id, input: { cardinality: 'many' } }, CTX
+    R.eq pkg.describe_local('relation', REL_RB_KEY).cardinality, 'many'
+    report = apply.apply_update rel_pkg('1.1.0', 'one'), {}, {}
+    R.ok report.ok, report.error
+    found = false
+    for k in *report.kept
+      found = true if k == REL_RB_KEY
+    R.ok found, "expected #{REL_RB_KEY} in kept"
+    R.eq pkg.describe_local('relation', REL_RB_KEY).cardinality, 'many'
+
+  R.it "cleans up the relation cardinality fixture", ->
+    for nm in *{ SP_RB, SP_RA }
+      sp = spaces.get_space_by_name nm
+      if sp
+        for t in *box.space._tdb_relations.index.by_from\select { sp.id }
+          box.space._tdb_relations\delete t[1]
+        for t in *box.space._tdb_relations.index.by_to\select { sp.id }
+          box.space._tdb_relations\delete t[1]
+    clean_app_rows APP_REL
+    spaces.delete_user_space SP_RB
+    spaces.delete_user_space SP_RA
+    R.is_nil spaces.get_space_by_name SP_RB
+    R.is_nil pkg.describe_local('relation', REL_RB_KEY)
 
 -- ────────────────────────────────────────────────────────────────────────────
 R.describe "app_apply — cleanup", ->
