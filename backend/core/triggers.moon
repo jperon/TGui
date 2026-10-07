@@ -17,31 +17,74 @@ DEBUG_FK_PROXY = false
 -- Maps space_name -> currently registered before_replace function (for later removal).
 active_triggers = {}
 
--- Safe sandbox environment for formula execution.
--- Only exposes pure/math/string functions. Explicitly excludes os, io, debug,
+-- ── Formula sandbox ─────────────────────────────────────────────────────────
+
+-- Refuse string.rep results above this many bytes (memory DoS guard, spec §7).
+MAX_STRING_REP_BYTES = 10 * 1024 * 1024
+
+real_string_rep = string.rep
+
+-- Bounded string.rep: checks the result size BEFORE allocating anything.
+rep_guarded = (s, n, sep) ->
+  len = 0
+  len = #s if type(s) == 'string'
+  sep_len = 0
+  sep_len = #sep if type(sep) == 'string'
+  n_num = tonumber n
+  if n_num and n_num > 0 and len + sep_len > 0 and n_num * (len + sep_len) > MAX_STRING_REP_BYTES
+    error "string.rep result exceeds limit #{MAX_STRING_REP_BYTES} bytes", 0
+  if sep != nil
+    return real_string_rep s, n, sep
+  real_string_rep s, n
+
+-- Shallow copy of a table of functions (string, table, math are such tables).
+shallow_copy = (t) ->
+  c = {}
+  for k, v in pairs t
+    c[k] = v
+  c
+
+-- Fresh copy of the string library with the bounded rep.
+make_string_copy = ->
+  c = shallow_copy string
+  c.rep = rep_guarded
+  c
+
+-- The string metatable __index is shared by every string method call
+-- (("x"):rep(n)): rebind it to the protected copy so the bound applies to
+-- method syntax too, not only to explicit string.rep lookups (spec §7).
+string_mt = getmetatable ""
+if string_mt and type(string_mt) == 'table'
+  string_mt.__index = make_string_copy!
+
+-- Safe sandbox environment for formula execution, BUILT FOR EACH FORMULA so
+-- that a formula mutating string/table/math cannot corrupt any other formula.
+-- Only exposes pure/math/string functions. Explicitly excludes io, debug,
 -- box, load, require — anything that could access the filesystem or Tarantool internals.
-FORMULA_ENV = {
-  math:      math
-  string:    string
-  table:     table
-  type:      type
-  tostring:  tostring
-  tonumber:  tonumber
-  pairs:     pairs
-  ipairs:    ipairs
-  next:      next
-  select:    select
-  unpack:    rawget(_G, 'unpack') or table.unpack
-  pcall:     pcall
-  error:     error
-  assert:    assert
-  rawget:    rawget
-  rawset:    rawset
-  rawequal:  rawequal
-  -- Limited os: only safe time functions
-  os: { time: os.time, clock: os.clock, date: os.date }
-}
-FORMULA_ENV._ENV = FORMULA_ENV  -- self-reference for inner closures
+build_formula_env = ->
+  env = {
+    math:      shallow_copy(math)
+    string:    make_string_copy()
+    table:     shallow_copy(table)
+    type:      type
+    tostring:  tostring
+    tonumber:  tonumber
+    pairs:     pairs
+    ipairs:    ipairs
+    next:      next
+    select:    select
+    unpack:    rawget(_G, 'unpack') or table.unpack
+    pcall:     pcall
+    error:     error
+    assert:    assert
+    rawget:    rawget
+    rawset:    rawset
+    rawequal:  rawequal
+    -- Limited os: only safe time functions
+    os: { time: os.time, clock: os.clock, date: os.date }
+  }
+  env._ENV = env  -- self-reference for inner closures
+  env
 
 -- ── Formula compilation ───────────────────────────────────────────────────────
 
@@ -78,8 +121,10 @@ compile_formula = (formula, field_name, language) ->
   if not chunk_fn
     log.error "tdb triggers: parse error for field '#{field_name}': #{load_err}"
     return nil
-  -- Apply sandbox via setfenv (Lua 5.1 / LuaJIT) — mandatory for security
-  ok_env, _ = pcall setfenv, chunk_fn, FORMULA_ENV
+  -- Apply sandbox via setfenv (Lua 5.1 / LuaJIT) — mandatory for security.
+  -- Each formula gets its own environment: fresh copies of string/table/math/os,
+  -- so mutating them inside a formula cannot affect any other formula.
+  ok_env, _ = pcall setfenv, chunk_fn, build_formula_env!
   unless ok_env
     log.error "tdb triggers: setfenv not available, refusing to run formula '#{field_name}' unsandboxed"
     return nil
@@ -88,6 +133,11 @@ compile_formula = (formula, field_name, language) ->
   if not ok2 or type(fn) != 'function'
     log.error "tdb triggers: init error for field '#{field_name}': #{fn}"
     return nil
+  -- Run the formula interpreted: the instruction-count guard inspects hooks
+  -- reliably only in interpreted code, and it trips ~20x faster on it
+  -- (measured on Tarantool 3.7/LuaJIT: 8.3s vs 0.4s for a 200M-instruction budget).
+  if jit and jit.off
+    pcall jit.off, fn, true
   fn
 
 -- ── FK def map builder ────────────────────────────────────────────────────────
@@ -121,12 +171,15 @@ build_fk_def_map = (space_id) ->
 
 -- Helper to format and categorize formula execution errors for the frontend
 format_formula_error = (err) ->
-  if type(err) == 'string'
-    s = err
+  -- Single assignment outside the branches: a variable first assigned inside a
+  -- branch would be local to that branch and nil afterwards (compiled to
+  -- `local s` per branch, then `s:find` on a nil global — observed crash).
+  s = if type(err) == 'string'
+    err
   elseif type(err) == 'table' and err.message
-    s = err.message
+    err.message
   else
-    s = tostring(err)
+    tostring(err)
 
   -- Categorize common error patterns
   if s\find "attempt to concatenate"
@@ -348,15 +401,14 @@ make_self_proxy = (record, fk_def_map, fk_cache, space_name) ->
         fns = ensure_formulas space_name
         if fns[k]
           fk_cache.space_helper = fk_cache.space_helper or make_space_helper!
-          r_ok, val = pcall fns[k], t, fk_cache.space_helper
-          if r_ok and val != nil and val != ''
+          val, err = safe_formula_call fns[k], "formula #{space_name}.#{k}", nil, nil, { t, fk_cache.space_helper }
+          if err != nil
+            err_msg = format_formula_error err
+            log.error "tdb proxy: error evaluating formula for '#{space_name}.#{k}': #{err}"
+            return err_msg
+          if val != nil and val != ''
             v = val
             rawset t, k, v -- cache computed value for next time
-          else
-            if not r_ok
-              err_msg = format_formula_error val
-              log.error "tdb proxy: error evaluating formula for '#{space_name}.#{k}': #{val}"
-              return err_msg
 
       return nil if v == nil or v == ''
 
@@ -477,15 +529,14 @@ make_self_proxy_extended = (record, single_fk_map, multiple_fk_map, fk_cache, sp
         fns = ensure_formulas space_name
         if fns[k]
           fk_cache.space_helper = fk_cache.space_helper or make_space_helper!
-          r_ok, val = pcall fns[k], t, fk_cache.space_helper
-          if r_ok and val != nil and val != ''
+          val, err = safe_formula_call fns[k], "formula #{space_name}.#{k}", nil, nil, { t, fk_cache.space_helper }
+          if err != nil
+            err_msg = format_formula_error err
+            log.error "tdb proxy: error evaluating formula for '#{space_name}.#{k}': #{err}"
+            return err_msg
+          if val != nil and val != ''
             v = val
             rawset t, k, v -- cache computed value for next time
-          else
-            if not r_ok
-              err_msg = format_formula_error val
-              log.error "tdb proxy: error evaluating formula for '#{space_name}.#{k}': #{val}"
-              return err_msg
 
       return nil if v == nil or v == ''
 
@@ -552,12 +603,12 @@ make_trigger_fn = (trigger_defs, space_name) ->
         -- fk_cache is passed as nil for triggers (triggers are usually single-record ops),
         -- but space_name is passed to allow proxy to evaluate other computed formulas of the same record.
         proxy = make_self_proxy new_data, def.fk_def_map, nil, space_name
-        r_ok, val = pcall def.fn, proxy, space_helper
-        if r_ok
+        val, err = safe_formula_call def.fn, "trigger #{space_name}.#{def.field_name}", nil, nil, { proxy, space_helper }
+        if err != nil
+          log.error "tdb trigger: error evaluating formula for '#{def.field_name}': #{err}"
+        else
           new_data[def.field_name] = val
           modified = true
-        else
-          log.error "tdb trigger: error evaluating formula for '#{def.field_name}': #{val}"
     if modified
       box.tuple.new { new_tuple[1], json.encode(new_data) }
     else
@@ -631,4 +682,4 @@ deregister_space_trigger = (space_name) ->
     pcall -> data_sp\before_replace nil, old_fn
   active_triggers[space_name] = nil
 
-{ :compile_formula, :make_self_proxy, :make_self_proxy_extended, :build_fk_def_map, :build_relation_map, :is_multiple_relation, :build_single_and_multiple_maps, :register_space_trigger, :deregister_space_trigger, :init_all_triggers, :format_formula_error, :invalidate_formula_cache }
+{ :compile_formula, :make_self_proxy, :make_self_proxy_extended, :build_fk_def_map, :build_relation_map, :is_multiple_relation, :build_single_and_multiple_maps, :register_space_trigger, :deregister_space_trigger, :init_all_triggers, :format_formula_error, :invalidate_formula_cache, :MAX_STRING_REP_BYTES }
