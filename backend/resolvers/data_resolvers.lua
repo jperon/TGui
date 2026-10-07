@@ -8,6 +8,7 @@ do
   require_auth, require_perm, safe_call = _obj_0.require_auth, _obj_0.require_perm, _obj_0.safe_call
 end
 local config_mod = require('core.config')
+local validation_mod = require('core.validation')
 local data_space
 data_space = function(space_id)
   local meta = box.space._tdb_spaces:get(space_id)
@@ -148,6 +149,7 @@ local Mutation = {
     else
       data = args.data
     end
+    data = validation_mod.validate_record(args.spaceId, data, 'insert')
     for field_name, field_id in pairs(sequence_fields(args.spaceId)) do
       local seq = box.sequence["_tdb_seq_" .. tostring(field_id)]
       if seq then
@@ -181,11 +183,16 @@ local Mutation = {
     else
       new_data = args.data
     end
+    local validated, cleared = validation_mod.validate_record(args.spaceId, new_data, 'update')
     local seq_fields = sequence_fields(args.spaceId)
-    for k, v in pairs(new_data) do
+    for k, v in pairs(validated) do
       if not (seq_fields[k]) then
         old_data[k] = v
       end
+    end
+    for _index_0 = 1, #cleared do
+      local k = cleared[_index_0]
+      old_data[k] = nil
     end
     sp:replace({
       args.id,
@@ -239,6 +246,7 @@ local Mutation = {
         else
           data = d
         end
+        data = validation_mod.validate_record(args.spaceId, data, 'insert')
         for field_name, field_id in pairs(seq_fields) do
           local seq = box.sequence["_tdb_seq_" .. tostring(field_id)]
           if seq then
@@ -288,10 +296,15 @@ local Mutation = {
           else
             new_data = rec.data
           end
-          for k, v in pairs(new_data) do
+          local validated, cleared = validation_mod.validate_record(args.spaceId, new_data, 'update')
+          for k, v in pairs(validated) do
             if not (seq_fields[k]) then
               old_data[k] = v
             end
+          end
+          for _index_1 = 1, #cleared do
+            local k = cleared[_index_1]
+            old_data[k] = nil
           end
           sp:replace({
             id,
