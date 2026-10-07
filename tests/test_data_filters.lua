@@ -548,6 +548,52 @@ R.describe("Query.records — numeric filter on non-numeric data", function()
     return spaces_mod.delete_user_space(num_space_name)
   end)
 end)
+R.describe("Query.records — repr formulas guarded by safe_formula_call", function()
+  local RFFX = tostring(math.random(100000, 999999))
+  local rf_space_name = "reprguard_" .. tostring(RFFX)
+  local rf_sp_id = nil
+  local json_mod = require('json')
+  local config_mod = require('core.config')
+  do
+    local sp = spaces_mod.create_user_space(rf_space_name, "repr guard test")
+    rf_sp_id = sp.id
+    spaces_mod.add_field(rf_sp_id, 'label', 'String', false, '', '', nil, 'lua', 'error("boom")')
+    data_Mutation.insertRecord({ }, {
+      spaceId = rf_sp_id,
+      data = {
+        label = 'x'
+      }
+    }, CTX_FK)
+  end
+  R.it("global reprFormula failure: query succeeds and is counted in metrics", function()
+    config_mod.clear_formula_metrics()
+    local res = data_Query.records({ }, {
+      spaceId = rf_sp_id,
+      reprFormula = 'error("boom")',
+      reprLanguage = 'moonscript'
+    }, CTX_FK)
+    R.eq(res.total, 1)
+    local d = json_mod.decode(res.items[1].data)
+    R.ok(d._repr ~= nil)
+    local metrics = config_mod.get_formula_metrics()
+    return R.ok(metrics.total_errors > 0)
+  end)
+  R.it("per-field reprFormula failure: query succeeds and is counted in metrics", function()
+    config_mod.clear_formula_metrics()
+    local res = data_Query.records({ }, {
+      spaceId = rf_sp_id
+    }, CTX_FK)
+    R.eq(res.total, 1)
+    local d = json_mod.decode(res.items[1].data)
+    R.ok(d._repr_label ~= nil)
+    local metrics = config_mod.get_formula_metrics()
+    return R.ok(metrics.total_errors > 0)
+  end)
+  return R.it("cleanup", function()
+    config_mod.clear_formula_metrics()
+    return spaces_mod.delete_user_space(rf_space_name)
+  end)
+end)
 R.describe("matches_filter — CONTAINS operator", function()
   R.it("CONTAINS: substring present -> true", function()
     return R.ok(matches_filter({

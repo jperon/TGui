@@ -223,6 +223,51 @@ R.describe "Query.records — numeric filter on non-numeric data", ->
     spaces_mod.delete_user_space num_space_name
 
 -- ────────────────────────────────────────────────────────────────────────────
+-- repr formulas evaluated by Query.records must go through
+-- config_mod.safe_formula_call (instruction guard + error metrics), not
+-- through a bare pcall: a failing repr formula is counted in the metrics.
+-- ────────────────────────────────────────────────────────────────────────────
+R.describe "Query.records — repr formulas guarded by safe_formula_call", ->
+  RFFX = tostring math.random(100000, 999999)
+  rf_space_name = "reprguard_#{RFFX}"
+  rf_sp_id = nil
+  json_mod = require 'json'
+  config_mod = require 'core.config'
+
+  do
+    sp = spaces_mod.create_user_space rf_space_name, "repr guard test"
+    rf_sp_id = sp.id
+    -- reprFormula stored on the field: compiles, fails at runtime
+    spaces_mod.add_field rf_sp_id, 'label', 'String', false, '', '', nil, 'lua', 'error("boom")'
+    data_Mutation.insertRecord {}, { spaceId: rf_sp_id, data: { label: 'x' } }, CTX_FK
+
+  R.it "global reprFormula failure: query succeeds and is counted in metrics", ->
+    config_mod.clear_formula_metrics!
+    res = data_Query.records {}, {
+      spaceId: rf_sp_id
+      reprFormula: 'error("boom")'
+      reprLanguage: 'moonscript'
+    }, CTX_FK
+    R.eq res.total, 1
+    d = json_mod.decode res.items[1].data
+    R.ok d._repr != nil
+    metrics = config_mod.get_formula_metrics!
+    R.ok metrics.total_errors > 0
+
+  R.it "per-field reprFormula failure: query succeeds and is counted in metrics", ->
+    config_mod.clear_formula_metrics!
+    res = data_Query.records {}, { spaceId: rf_sp_id }, CTX_FK
+    R.eq res.total, 1
+    d = json_mod.decode res.items[1].data
+    R.ok d._repr_label != nil
+    metrics = config_mod.get_formula_metrics!
+    R.ok metrics.total_errors > 0
+
+  R.it "cleanup", ->
+    config_mod.clear_formula_metrics!
+    spaces_mod.delete_user_space rf_space_name
+
+-- ────────────────────────────────────────────────────────────────────────────
 R.describe "matches_filter — CONTAINS operator", ->
 
   R.it "CONTAINS: substring present -> true", ->
