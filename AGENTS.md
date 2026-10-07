@@ -52,12 +52,23 @@ Renvois au spec `docs/superpowers/specs/2026-10-07-app-versioning-design.md` (§
 ## Environnement de développement (Nix)
 
 Un `flake.nix` fournit tous les outils (`moonc`, `coffee`, navigateurs
-Playwright, `shot-scraper`, client `docker`, `jq`) :
+Playwright, `shot-scraper`, client `docker`, `jq`). Les entrées `nixpkgs` et
+`flake-utils` sont **épinglées à une révision exacte** (elle-même figée dans
+`flake.lock`) : l'environnement est reproductible. Le `shellHook` **efface
+`LD_LIBRARY_PATH`/`LD_PRELOAD`/`LD_AUDIT`** héritées de l'hôte pour rester
+hermétique (sinon les navigateurs Playwright échouent sur une version de glibc).
 
 ```bash
 nix develop                 # entre dans le shell de dev reproductible
+make doctor                 # vérifie outils, hermétisme et navigateur headless
 # puis : make build, make test, npx playwright test ...
 ```
+
+Mise à jour volontaire des dépendances Nix : `nix flake update
+--override-input nixpkgs github:NixOS/nixpkgs/nixos-unstable`, puis ré-épingler
+dans `flake.nix` la nouvelle `rev` lue dans `flake.lock` et committer les deux
+fichiers ensemble. La version de `@playwright/test` dans `package.json` doit
+rester égale à `pkgs.playwright-driver.version` (`make doctor` le contrôle).
 
 Hooks git versionnés dans `.githooks/` (pre-commit = `make test`) :
 
