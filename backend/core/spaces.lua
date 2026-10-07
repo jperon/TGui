@@ -442,6 +442,11 @@ local SYSTEM_SPACES = {
         name = 'repr_formula',
         type = 'string',
         is_nullable = true
+      },
+      {
+        name = 'cardinality',
+        type = 'string',
+        is_nullable = true
       }
     },
     indexes = {
@@ -744,7 +749,7 @@ bootstrap = function()
     })
     return log.info("tdb bootstrap complete. Default admin: " .. tostring(admin_user))
   end)
-  return box.once('tdb_v2', function()
+  box.once('tdb_v2', function()
     local sp = box.space._tdb_relations
     if sp then
       local new_fmt = {
@@ -780,6 +785,49 @@ bootstrap = function()
       }
       sp:format(new_fmt)
       return log.info('tdb_v2: added repr_formula to _tdb_relations')
+    end
+  end)
+  return box.once('tdb_v3', function()
+    local sp = box.space._tdb_relations
+    if sp then
+      local new_fmt = {
+        {
+          name = 'id',
+          type = 'string'
+        },
+        {
+          name = 'from_space_id',
+          type = 'string'
+        },
+        {
+          name = 'from_field_id',
+          type = 'string'
+        },
+        {
+          name = 'to_space_id',
+          type = 'string'
+        },
+        {
+          name = 'to_field_id',
+          type = 'string'
+        },
+        {
+          name = 'name',
+          type = 'string'
+        },
+        {
+          name = 'repr_formula',
+          type = 'string',
+          is_nullable = true
+        },
+        {
+          name = 'cardinality',
+          type = 'string',
+          is_nullable = true
+        }
+      }
+      sp:format(new_fmt)
+      return log.info("tdb_v3: added cardinality to _tdb_relations — relations existantes : cardinalité 'one' par défaut")
     end
   end)
 end
