@@ -34,8 +34,9 @@ list_relations = (space_id) ->
   result
 
 -- Declared cardinality of a relation: 'one' (default) or 'many'.
+-- nil (field absent) means 'one'; any other value than 'one'/'many' is rejected.
 normalize_cardinality = (value) ->
-  return 'one' if value == nil or value == ''
+  return 'one' if value == nil
   unless value == 'one' or value == 'many'
     error "Invalid relation cardinality '#{value}': expected 'one' or 'many'"
   value
@@ -56,10 +57,14 @@ delete_relation = (id) ->
 update_relation = (id, repr_formula, cardinality) ->
   t = box.space._tdb_relations\get id
   return nil unless t
-  box.space._tdb_relations\update id, { {'=', 7, repr_formula or ''} }
+  -- Validate first: an invalid cardinality must not leave a partial write.
+  card = nil
   if cardinality != nil
     card = normalize_cardinality cardinality
-    box.space._tdb_relations\update id, { {'=', 8, card} }
+  ops = {}
+  table.insert ops, {'=', 7, repr_formula} if repr_formula != nil
+  table.insert ops, {'=', 8, card} if card != nil
+  box.space._tdb_relations\update id, ops if #ops > 0
   t2 = box.space._tdb_relations\get id
   { id: t2[1], fromSpaceId: t2[2], fromFieldId: t2[3], toSpaceId: t2[4], toFieldId: t2[5], name: t2[6], reprFormula: t2[7] or '', cardinality: t2[8] or 'one' }
 

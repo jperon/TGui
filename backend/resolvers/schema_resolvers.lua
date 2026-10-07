@@ -38,7 +38,7 @@ list_relations = function(space_id)
 end
 local normalize_cardinality
 normalize_cardinality = function(value)
-  if value == nil or value == '' then
+  if value == nil then
     return 'one'
   end
   if not (value == 'one' or value == 'many') then
@@ -83,22 +83,27 @@ update_relation = function(id, repr_formula, cardinality)
   if not (t) then
     return nil
   end
-  box.space._tdb_relations:update(id, {
-    {
+  local card = nil
+  if cardinality ~= nil then
+    card = normalize_cardinality(cardinality)
+  end
+  local ops = { }
+  if repr_formula ~= nil then
+    table.insert(ops, {
       '=',
       7,
-      repr_formula or ''
-    }
-  })
-  if cardinality ~= nil then
-    local card = normalize_cardinality(cardinality)
-    box.space._tdb_relations:update(id, {
-      {
-        '=',
-        8,
-        card
-      }
+      repr_formula
     })
+  end
+  if card ~= nil then
+    table.insert(ops, {
+      '=',
+      8,
+      card
+    })
+  end
+  if #ops > 0 then
+    box.space._tdb_relations:update(id, ops)
   end
   local t2 = box.space._tdb_relations:get(id)
   return {
