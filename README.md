@@ -139,6 +139,9 @@ sources** ; ce sont des artefacts, jamais édités directement.
 
 - `doc/fr/` et `doc/en/` : `README`, `get-started`, `api` et `dev`, plus la
   documentation développeur détaillée dans `doc/<lang>/dev/`.
+- `doc/graphql-guide.md` : guide de l'API GraphQL (requêtes, mutations, formules).
+- `doc/views-yaml.md` : format YAML des vues personnalisées (pages et widgets).
+- `doc/audit.md` : audit historique, corrections appliquées et points ouverts.
 - `AGENTS.md` : conventions, architecture et procédures pour les
   contributeurs (et les agents IA).
 
