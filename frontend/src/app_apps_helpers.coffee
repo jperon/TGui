@@ -327,6 +327,143 @@ window.AppAppsHelpers =
       errEl.textContent = app._err(err)
       errEl.classList.remove 'hidden'
 
+  # ── Purge des éléments obsolètes ───────────────────────────────────────────
+
+  openPurge: (app) ->
+    target = ((app._appList or []).filter (a) -> (a.obsoleteCount or 0) > 0)[0]
+    return unless target
+    app._appPurgeAppId = target.appId
+    app._appPurgeSelected = []
+    app._appPurgePreview = null
+    app._appPurgeCheckboxes = []
+    app.el.appsPurgeBox().classList.remove 'hidden'
+    app.el.appsPurgeReport().classList.add 'hidden'
+    app.el.appsPurgeAppName().textContent = target.name or target.appId
+    window.AppAppsHelpers._resetPurgeConfirm app
+    GQL.query """
+      query($id: String!) { appItems(appId: $id) { key type state version } }
+    """, { id: target.appId }
+    .then (data) ->
+      window.AppAppsHelpers.renderPurgeItems app, data.appItems
+    .catch (err) -> tdbAlert app._err(err), 'error'
+
+  renderPurgeItems: (app, items) ->
+    box = app.el.appsPurgeItems()
+    window.AppAppsHelpers._clear box
+    app._appPurgeSelected = []
+    app._appPurgeCheckboxes = []
+    for item in (items or [])
+      continue unless item.state == 'obsolète' or item.state == 'obsolete'
+      label = window.AppAppsHelpers._makeEl 'label', 'apps-purge-item'
+      cb = document.createElement 'input'
+      cb.type = 'checkbox'
+      cb.value = item.key
+      cb.addEventListener 'change', ->
+        window.AppAppsHelpers._syncPurgeSelection app
+      app._appPurgeCheckboxes.push { input: cb, key: item.key }
+      label.appendChild cb
+      label.appendChild window.AppAppsHelpers._makeEl 'span', null, " #{item.key} (#{item.type})"
+      box.appendChild label
+    window.AppAppsHelpers._invalidatePurgePreview app
+
+  _syncPurgeSelection: (app) ->
+    app._appPurgeSelected = (e.key for e in (app._appPurgeCheckboxes or []) when e.input.checked)
+    window.AppAppsHelpers._invalidatePurgePreview app
+
+  _invalidatePurgePreview: (app) ->
+    app._appPurgePreview = null
+    app.el.appsPurgePreview().classList.add 'hidden'
+    window.AppAppsHelpers._resetPurgeConfirm app
+
+  _resetPurgeConfirm: (app) ->
+    app.el.appsPurgeConfirmInput().value = ''
+    app.el.appsPurgeConfirmBtn().disabled = true
+    app.el.appsPurgeConfirmHint().textContent = ''
+
+  refreshPurgeConfirm: (app) ->
+    input = app.el.appsPurgeConfirmInput()
+    ok = app._appPurgePreview? and input.value == app._appPurgeTarget
+    app.el.appsPurgeConfirmBtn().disabled = not ok
+
+  previewPurge: (app) ->
+    keys = app._appPurgeSelected or []
+    unless keys.length > 0
+      tdbAlert app._t('ui.apps.selectItems'), 'warn'
+      return
+    GQL.query """
+      query($id: String!, $keys: [String!]!) {
+        previewAppPurge(appId: $id, keys: $keys) {
+          losses { key type records fields relations views }
+          totalRecords
+        }
+      }
+    """, { id: app._appPurgeAppId, keys: keys }
+    .then (data) ->
+      app._appPurgePreview = { preview: data.previewAppPurge, keys: keys }
+      window.AppAppsHelpers.renderPurgePreview app, data.previewAppPurge
+    .catch (err) -> tdbAlert app._err(err), 'error'
+
+  renderPurgePreview: (app, preview) ->
+    box = app.el.appsPurgePreview()
+    window.AppAppsHelpers._clear box
+    box.classList.remove 'hidden'
+    box.appendChild window.AppAppsHelpers._makeEl 'p', 'apps-purge-warning', app._t('ui.apps.purgeWarning')
+    table = document.createElement 'table'
+    table.className = 'apps-purge-loss'
+    thead = document.createElement 'thead'
+    hrow = document.createElement 'tr'
+    cols = ['ui.apps.colKey', 'ui.apps.colType', 'ui.apps.colRecords',
+            'ui.apps.colFields', 'ui.apps.colRelations', 'ui.apps.colViews']
+    for colKey in cols
+      hrow.appendChild window.AppAppsHelpers._makeEl 'th', null, app._t(colKey)
+    thead.appendChild hrow
+    table.appendChild thead
+    tbody = document.createElement 'tbody'
+    for loss in (preview.losses or [])
+      tr = document.createElement 'tr'
+      vals = [loss.key, loss.type, loss.records, loss.fields, loss.relations, loss.views]
+      for v in vals
+        tr.appendChild window.AppAppsHelpers._makeEl 'td', null, String v
+      tbody.appendChild tr
+    table.appendChild tbody
+    box.appendChild table
+    box.appendChild window.AppAppsHelpers._makeEl 'p', 'apps-purge-total',
+      app._t 'ui.apps.purgeTotal', { count: preview.totalRecords }
+    app._appPurgeTarget = window.AppAppsHelpers.confirmationTarget(
+      (app._appPurgePreview or {}).keys or [], app._appPurgeAppId)
+    app.el.appsPurgeConfirmHint().textContent =
+      app._t 'ui.apps.confirmHint', { target: app._appPurgeTarget }
+    window.AppAppsHelpers.refreshPurgeConfirm app
+
+  confirmPurge: (app) ->
+    return unless app._appPurgePreview
+    input = app.el.appsPurgeConfirmInput()
+    return unless input.value == app._appPurgeTarget
+    keys = app._appPurgePreview.keys or []
+    tdbConfirm(app._t('ui.apps.confirmPurge', { target: app._appPurgeTarget })).then (ok) ->
+      return unless ok
+      GQL.mutate """
+        mutation($id: String!, $keys: [String!]!, $c: Boolean!) {
+          purgeAppObsolete(appId: $id, keys: $keys, confirmed: $c) {
+            ok purged error
+          }
+        }
+      """, { id: app._appPurgeAppId, keys: keys, c: true }
+      .then (data) ->
+        r = data.purgeAppObsolete
+        report = app.el.appsPurgeReport()
+        window.AppAppsHelpers._clear report
+        report.classList.remove 'hidden'
+        report.className = if r.ok then 'snapshot-import-result snapshot-result-ok' else 'snapshot-import-result snapshot-result-err'
+        report.textContent = if r.ok
+          app._t 'ui.apps.purgeOk', { count: (r.purged or []).length }
+        else
+          app._t 'ui.apps.purgeErr', { error: r.error or '' }
+        if r.ok
+          app.el.appsPurgeBox().classList.add 'hidden'
+          app._loadApps?()
+      .catch (err) -> tdbAlert app._err(err), 'error'
+
   # ── Liaison des évènements ─────────────────────────────────────────────────
 
   bindAppsPanel: (app) ->
@@ -334,6 +471,11 @@ window.AppAppsHelpers =
     app._appPackageYaml = null
     app._appPlan = null
     app._appChoices = {}
+    app._appPurgeAppId = null
+    app._appPurgeSelected = []
+    app._appPurgePreview = null
+    app._appPurgeCheckboxes = []
+    app._appPurgeTarget = ''
 
     app.el.appsPackageInput().addEventListener 'change', (e) ->
       file = e.target.files[0]
@@ -358,4 +500,13 @@ window.AppAppsHelpers =
 
     app.el.appsExportBtn().addEventListener 'click', ->
       window.AppAppsHelpers.exportApp app
+
+    app.el.appsPurgeOpenBtn().addEventListener 'click', ->
+      window.AppAppsHelpers.openPurge app
+    app.el.appsPurgePreviewBtn().addEventListener 'click', ->
+      window.AppAppsHelpers.previewPurge app
+    app.el.appsPurgeConfirmInput().addEventListener 'input', ->
+      window.AppAppsHelpers.refreshPurgeConfirm app
+    app.el.appsPurgeConfirmBtn().addEventListener 'click', ->
+      window.AppAppsHelpers.confirmPurge app
 

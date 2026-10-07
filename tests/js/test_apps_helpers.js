@@ -41,6 +41,18 @@
         },
         appsApplyBtn: function() {
           return get('apps-apply-btn');
+        },
+        appsPurgePreview: function() {
+          return get('apps-purge-preview');
+        },
+        appsPurgeConfirmInput: function() {
+          return get('apps-purge-confirm-input');
+        },
+        appsPurgeConfirmBtn: function() {
+          return get('apps-purge-confirm-btn');
+        },
+        appsPurgeConfirmHint: function() {
+          return get('apps-purge-confirm-hint');
         }
       }
     };
@@ -361,6 +373,67 @@
       eq(app.el.appsApplyBtn().disabled, true);
       errEl = app.el.appsPlanErrors();
       return assert(!errEl.classList.contains('hidden'), 'erreurs visibles');
+    });
+  });
+
+  describe('AppAppsHelpers purge', function() {
+    it('confirmation désactivée sans aperçu', function() {
+      var app;
+      app = makeApp();
+      app._appPurgeTarget = 'livres';
+      EH.refreshPurgeConfirm(app);
+      return assert(app.el.appsPurgeConfirmBtn().disabled, 'désactivé sans aperçu');
+    });
+    it('confirmation activée seulement après aperçu et saisie exacte', function() {
+      var app;
+      app = makeApp();
+      app._appPurgeAppId = 'org.app';
+      app._appPurgePreview = {
+        keys: ['space:livres']
+      };
+      EH.renderPurgePreview(app, {
+        losses: [
+          {
+            key: 'space:livres',
+            type: 'space',
+            records: 3,
+            fields: 2,
+            relations: 0,
+            views: 1
+          }
+        ],
+        totalRecords: 3
+      });
+      eq(app._appPurgeTarget, 'livres');
+      app.el.appsPurgeConfirmInput().value = 'livres';
+      EH.refreshPurgeConfirm(app);
+      assert(!app.el.appsPurgeConfirmBtn().disabled, 'activé quand la saisie correspond');
+      app.el.appsPurgeConfirmInput().value = 'mauvais';
+      EH.refreshPurgeConfirm(app);
+      return assert(app.el.appsPurgeConfirmBtn().disabled, 'désactivé quand la saisie diffère');
+    });
+    return it('n’injecte pas de HTML depuis une clé de perte', function() {
+      var app, tags;
+      app = makeApp();
+      app._appPurgeAppId = 'org.app';
+      app._appPurgePreview = {
+        keys: ['space:x']
+      };
+      EH.renderPurgePreview(app, {
+        losses: [
+          {
+            key: '<img src=x onerror=alert(1)>',
+            type: 'space',
+            records: 1,
+            fields: 0,
+            relations: 0,
+            views: 0
+          }
+        ],
+        totalRecords: 1
+      });
+      tags = collectTags(app.el.appsPurgePreview());
+      return assert(tags.indexOf('IMG') < 0, 'aucun élément img ne doit être créé');
     });
   });
 

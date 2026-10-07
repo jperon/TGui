@@ -407,6 +407,33 @@
       appsExportBtn: function() {
         return document.getElementById('apps-export-btn');
       },
+      appsPurgeBox: function() {
+        return document.getElementById('apps-purge-box');
+      },
+      appsPurgeAppName: function() {
+        return document.getElementById('apps-purge-app-name');
+      },
+      appsPurgeItems: function() {
+        return document.getElementById('apps-purge-items');
+      },
+      appsPurgePreviewBtn: function() {
+        return document.getElementById('apps-purge-preview-btn');
+      },
+      appsPurgePreview: function() {
+        return document.getElementById('apps-purge-preview');
+      },
+      appsPurgeConfirmInput: function() {
+        return document.getElementById('apps-purge-confirm-input');
+      },
+      appsPurgeConfirmHint: function() {
+        return document.getElementById('apps-purge-confirm-hint');
+      },
+      appsPurgeConfirmBtn: function() {
+        return document.getElementById('apps-purge-confirm-btn');
+      },
+      appsPurgeReport: function() {
+        return document.getElementById('apps-purge-report');
+      },
       adminUsersList: function() {
         return document.getElementById('admin-users-list');
       },

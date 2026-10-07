@@ -366,6 +366,27 @@ _appsExportBox = ->
     }
   }
 
+_appsPurgeBox = ->
+  H.div {id: 'apps-purge-box', class: 'hidden apps-purge-box',
+    H.h3 {'Purger les éléments obsolètes'}
+    H.p {id: 'apps-purge-app-name', ''}
+    H.div {id: 'apps-purge-items', class: 'apps-purge-items', ''}
+    H.div {class: 'modal-actions',
+      H.button {id: 'apps-purge-preview-btn', class: 'toolbar-btn', 'Aperçu des pertes'}
+    }
+    H.div {id: 'apps-purge-preview', class: 'hidden', ''}
+    H.label {['for']: 'apps-purge-confirm-input',
+      'Saisissez exactement le nom indiqué pour confirmer'}
+    H.input {id: 'apps-purge-confirm-input', type: 'text', placeholder: ''}
+    H.p {id: 'apps-purge-confirm-hint', class: 'formula-hint', ''}
+    H.div {class: 'modal-actions',
+      H.button {id: 'apps-purge-confirm-btn',
+        class: 'toolbar-btn toolbar-btn--danger',
+        disabled: 'disabled', 'Purger définitivement'}
+    }
+    H.div {id: 'apps-purge-report', class: 'hidden snapshot-import-result', ''}
+  }
+
 _adminAppsSection = ->
   H.div {id: 'admin-apps-section', class: 'hidden',
     H.div {class: 'admin-section-header',
@@ -374,6 +395,7 @@ _adminAppsSection = ->
     _appsInstalledBox!
     _appsInstallBox!
     _appsExportBox!
+    _appsPurgeBox!
   }
 
 make_admin_panel = ->

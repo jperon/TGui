@@ -22,6 +22,10 @@ makeApp = ->
       appsPlanBox:     -> get 'apps-plan-box'
       appsPlanErrors:  -> get 'apps-plan-errors'
       appsApplyBtn:    -> get 'apps-apply-btn'
+      appsPurgePreview:      -> get 'apps-purge-preview'
+      appsPurgeConfirmInput: -> get 'apps-purge-confirm-input'
+      appsPurgeConfirmBtn:   -> get 'apps-purge-confirm-btn'
+      appsPurgeConfirmHint:  -> get 'apps-purge-confirm-hint'
   app
 
 # Collecte récursive des tagName (pour vérifier l'absence d'éléments injectés).
@@ -159,5 +163,37 @@ describe 'AppAppsHelpers.renderPlan', ->
     eq app.el.appsApplyBtn().disabled, true
     errEl = app.el.appsPlanErrors()
     assert not errEl.classList.contains('hidden'), 'erreurs visibles'
+
+describe 'AppAppsHelpers purge', ->
+  it 'confirmation désactivée sans aperçu', ->
+    app = makeApp()
+    app._appPurgeTarget = 'livres'
+    EH.refreshPurgeConfirm app
+    assert app.el.appsPurgeConfirmBtn().disabled, 'désactivé sans aperçu'
+
+  it 'confirmation activée seulement après aperçu et saisie exacte', ->
+    app = makeApp()
+    app._appPurgeAppId = 'org.app'
+    app._appPurgePreview = { keys: ['space:livres'] }
+    EH.renderPurgePreview app,
+      losses: [{ key: 'space:livres', type: 'space', records: 3, fields: 2, relations: 0, views: 1 }]
+      totalRecords: 3
+    eq app._appPurgeTarget, 'livres'
+    app.el.appsPurgeConfirmInput().value = 'livres'
+    EH.refreshPurgeConfirm app
+    assert not app.el.appsPurgeConfirmBtn().disabled, 'activé quand la saisie correspond'
+    app.el.appsPurgeConfirmInput().value = 'mauvais'
+    EH.refreshPurgeConfirm app
+    assert app.el.appsPurgeConfirmBtn().disabled, 'désactivé quand la saisie diffère'
+
+  it 'n’injecte pas de HTML depuis une clé de perte', ->
+    app = makeApp()
+    app._appPurgeAppId = 'org.app'
+    app._appPurgePreview = { keys: ['space:x'] }
+    EH.renderPurgePreview app,
+      losses: [{ key: '<img src=x onerror=alert(1)>', type: 'space', records: 1, fields: 0, relations: 0, views: 0 }]
+      totalRecords: 1
+    tags = collectTags app.el.appsPurgePreview()
+    assert tags.indexOf('IMG') < 0, 'aucun élément img ne doit être créé'
 
 summary()

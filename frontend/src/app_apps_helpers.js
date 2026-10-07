@@ -445,12 +445,213 @@
         return errEl.classList.remove('hidden');
       });
     },
+    // ── Purge des éléments obsolètes ───────────────────────────────────────────
+    openPurge: function(app) {
+      var target;
+      target = ((app._appList || []).filter(function(a) {
+        return (a.obsoleteCount || 0) > 0;
+      }))[0];
+      if (!target) {
+        return;
+      }
+      app._appPurgeAppId = target.appId;
+      app._appPurgeSelected = [];
+      app._appPurgePreview = null;
+      app._appPurgeCheckboxes = [];
+      app.el.appsPurgeBox().classList.remove('hidden');
+      app.el.appsPurgeReport().classList.add('hidden');
+      app.el.appsPurgeAppName().textContent = target.name || target.appId;
+      window.AppAppsHelpers._resetPurgeConfirm(app);
+      return GQL.query(`query($id: String!) { appItems(appId: $id) { key type state version } }`, {
+        id: target.appId
+      }).then(function(data) {
+        return window.AppAppsHelpers.renderPurgeItems(app, data.appItems);
+      }).catch(function(err) {
+        return tdbAlert(app._err(err), 'error');
+      });
+    },
+    renderPurgeItems: function(app, items) {
+      var box, cb, item, j, label, len, ref;
+      box = app.el.appsPurgeItems();
+      window.AppAppsHelpers._clear(box);
+      app._appPurgeSelected = [];
+      app._appPurgeCheckboxes = [];
+      ref = items || [];
+      for (j = 0, len = ref.length; j < len; j++) {
+        item = ref[j];
+        if (!(item.state === 'obsolète' || item.state === 'obsolete')) {
+          continue;
+        }
+        label = window.AppAppsHelpers._makeEl('label', 'apps-purge-item');
+        cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = item.key;
+        cb.addEventListener('change', function() {
+          return window.AppAppsHelpers._syncPurgeSelection(app);
+        });
+        app._appPurgeCheckboxes.push({
+          input: cb,
+          key: item.key
+        });
+        label.appendChild(cb);
+        label.appendChild(window.AppAppsHelpers._makeEl('span', null, ` ${item.key} (${item.type})`));
+        box.appendChild(label);
+      }
+      return window.AppAppsHelpers._invalidatePurgePreview(app);
+    },
+    _syncPurgeSelection: function(app) {
+      var e;
+      app._appPurgeSelected = (function() {
+        var j, len, ref, results;
+        ref = app._appPurgeCheckboxes || [];
+        results = [];
+        for (j = 0, len = ref.length; j < len; j++) {
+          e = ref[j];
+          if (e.input.checked) {
+            results.push(e.key);
+          }
+        }
+        return results;
+      })();
+      return window.AppAppsHelpers._invalidatePurgePreview(app);
+    },
+    _invalidatePurgePreview: function(app) {
+      app._appPurgePreview = null;
+      app.el.appsPurgePreview().classList.add('hidden');
+      return window.AppAppsHelpers._resetPurgeConfirm(app);
+    },
+    _resetPurgeConfirm: function(app) {
+      app.el.appsPurgeConfirmInput().value = '';
+      app.el.appsPurgeConfirmBtn().disabled = true;
+      return app.el.appsPurgeConfirmHint().textContent = '';
+    },
+    refreshPurgeConfirm: function(app) {
+      var input, ok;
+      input = app.el.appsPurgeConfirmInput();
+      ok = (app._appPurgePreview != null) && input.value === app._appPurgeTarget;
+      return app.el.appsPurgeConfirmBtn().disabled = !ok;
+    },
+    previewPurge: function(app) {
+      var keys;
+      keys = app._appPurgeSelected || [];
+      if (!(keys.length > 0)) {
+        tdbAlert(app._t('ui.apps.selectItems'), 'warn');
+        return;
+      }
+      return GQL.query(`query($id: String!, $keys: [String!]!) {
+  previewAppPurge(appId: $id, keys: $keys) {
+    losses { key type records fields relations views }
+    totalRecords
+  }
+}`, {
+        id: app._appPurgeAppId,
+        keys: keys
+      }).then(function(data) {
+        app._appPurgePreview = {
+          preview: data.previewAppPurge,
+          keys: keys
+        };
+        return window.AppAppsHelpers.renderPurgePreview(app, data.previewAppPurge);
+      }).catch(function(err) {
+        return tdbAlert(app._err(err), 'error');
+      });
+    },
+    renderPurgePreview: function(app, preview) {
+      var box, colKey, cols, hrow, j, l, len, len1, len2, loss, m, ref, table, tbody, thead, tr, v, vals;
+      box = app.el.appsPurgePreview();
+      window.AppAppsHelpers._clear(box);
+      box.classList.remove('hidden');
+      box.appendChild(window.AppAppsHelpers._makeEl('p', 'apps-purge-warning', app._t('ui.apps.purgeWarning')));
+      table = document.createElement('table');
+      table.className = 'apps-purge-loss';
+      thead = document.createElement('thead');
+      hrow = document.createElement('tr');
+      cols = ['ui.apps.colKey', 'ui.apps.colType', 'ui.apps.colRecords', 'ui.apps.colFields', 'ui.apps.colRelations', 'ui.apps.colViews'];
+      for (j = 0, len = cols.length; j < len; j++) {
+        colKey = cols[j];
+        hrow.appendChild(window.AppAppsHelpers._makeEl('th', null, app._t(colKey)));
+      }
+      thead.appendChild(hrow);
+      table.appendChild(thead);
+      tbody = document.createElement('tbody');
+      ref = preview.losses || [];
+      for (l = 0, len1 = ref.length; l < len1; l++) {
+        loss = ref[l];
+        tr = document.createElement('tr');
+        vals = [loss.key, loss.type, loss.records, loss.fields, loss.relations, loss.views];
+        for (m = 0, len2 = vals.length; m < len2; m++) {
+          v = vals[m];
+          tr.appendChild(window.AppAppsHelpers._makeEl('td', null, String(v)));
+        }
+        tbody.appendChild(tr);
+      }
+      table.appendChild(tbody);
+      box.appendChild(table);
+      box.appendChild(window.AppAppsHelpers._makeEl('p', 'apps-purge-total', app._t('ui.apps.purgeTotal', {
+        count: preview.totalRecords
+      })));
+      app._appPurgeTarget = window.AppAppsHelpers.confirmationTarget((app._appPurgePreview || {}).keys || [], app._appPurgeAppId);
+      app.el.appsPurgeConfirmHint().textContent = app._t('ui.apps.confirmHint', {
+        target: app._appPurgeTarget
+      });
+      return window.AppAppsHelpers.refreshPurgeConfirm(app);
+    },
+    confirmPurge: function(app) {
+      var input, keys;
+      if (!app._appPurgePreview) {
+        return;
+      }
+      input = app.el.appsPurgeConfirmInput();
+      if (input.value !== app._appPurgeTarget) {
+        return;
+      }
+      keys = app._appPurgePreview.keys || [];
+      return tdbConfirm(app._t('ui.apps.confirmPurge', {
+        target: app._appPurgeTarget
+      })).then(function(ok) {
+        if (!ok) {
+          return;
+        }
+        return GQL.mutate(`mutation($id: String!, $keys: [String!]!, $c: Boolean!) {
+  purgeAppObsolete(appId: $id, keys: $keys, confirmed: $c) {
+    ok purged error
+  }
+}`, {
+          id: app._appPurgeAppId,
+          keys: keys,
+          c: true
+        }).then(function(data) {
+          var r, report;
+          r = data.purgeAppObsolete;
+          report = app.el.appsPurgeReport();
+          window.AppAppsHelpers._clear(report);
+          report.classList.remove('hidden');
+          report.className = r.ok ? 'snapshot-import-result snapshot-result-ok' : 'snapshot-import-result snapshot-result-err';
+          report.textContent = r.ok ? app._t('ui.apps.purgeOk', {
+            count: (r.purged || []).length
+          }) : app._t('ui.apps.purgeErr', {
+            error: r.error || ''
+          });
+          if (r.ok) {
+            app.el.appsPurgeBox().classList.add('hidden');
+            return typeof app._loadApps === "function" ? app._loadApps() : void 0;
+          }
+        }).catch(function(err) {
+          return tdbAlert(app._err(err), 'error');
+        });
+      });
+    },
     // ── Liaison des évènements ─────────────────────────────────────────────────
     bindAppsPanel: function(app) {
       app._appList = [];
       app._appPackageYaml = null;
       app._appPlan = null;
       app._appChoices = {};
+      app._appPurgeAppId = null;
+      app._appPurgeSelected = [];
+      app._appPurgePreview = null;
+      app._appPurgeCheckboxes = [];
+      app._appPurgeTarget = '';
       app.el.appsPackageInput().addEventListener('change', function(e) {
         var file, reader;
         file = e.target.files[0];
@@ -478,8 +679,20 @@
       app.el.appsApplyBtn().addEventListener('click', function() {
         return window.AppAppsHelpers.applyPackage(app);
       });
-      return app.el.appsExportBtn().addEventListener('click', function() {
+      app.el.appsExportBtn().addEventListener('click', function() {
         return window.AppAppsHelpers.exportApp(app);
+      });
+      app.el.appsPurgeOpenBtn().addEventListener('click', function() {
+        return window.AppAppsHelpers.openPurge(app);
+      });
+      app.el.appsPurgePreviewBtn().addEventListener('click', function() {
+        return window.AppAppsHelpers.previewPurge(app);
+      });
+      app.el.appsPurgeConfirmInput().addEventListener('input', function() {
+        return window.AppAppsHelpers.refreshPurgeConfirm(app);
+      });
+      return app.el.appsPurgeConfirmBtn().addEventListener('click', function() {
+        return window.AppAppsHelpers.confirmPurge(app);
       });
     }
   };
