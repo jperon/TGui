@@ -710,6 +710,18 @@ _update_field = function(entry, old)
     space = sp_name
   }
 end
+local _relations_have_cardinality
+_relations_have_cardinality = function()
+  local fmt = box.space._tdb_relations:format()
+  return fmt ~= nil and #fmt >= 8
+end
+local _cardinality
+_cardinality = function(value)
+  if value == 'many' then
+    return 'many'
+  end
+  return 'one'
+end
 local _create_relation
 _create_relation = function(entry)
   local rest = _after(entry.key, 'relation:')
@@ -723,7 +735,7 @@ _create_relation = function(entry)
   local from_fid = _field_id(from_sid, from_fld)
   local to_fid = _field_id(to_sid, c.toField)
   local rid = tostring(uuid_mod.new())
-  box.space._tdb_relations:insert({
+  local tuple = {
     rid,
     from_sid,
     from_fid,
@@ -731,7 +743,11 @@ _create_relation = function(entry)
     to_fid,
     tostring(from_sp) .. "_" .. tostring(from_fld),
     ''
-  })
+  }
+  if _relations_have_cardinality() then
+    table.insert(tuple, _cardinality(c.cardinality))
+  end
+  box.space._tdb_relations:insert(tuple)
   return {
     id = rid,
     space = from_sp
@@ -744,7 +760,7 @@ _update_relation = function(entry, old)
   local c = entry.content
   local to_sid = _space_id(c.toSpace)
   local to_fid = _field_id(to_sid, c.toField)
-  box.space._tdb_relations:update(old.local_id, {
+  local ops = {
     {
       '=',
       4,
@@ -755,7 +771,15 @@ _update_relation = function(entry, old)
       5,
       to_fid
     }
-  })
+  }
+  if _relations_have_cardinality() then
+    table.insert(ops, {
+      '=',
+      8,
+      _cardinality(c.cardinality)
+    })
+  end
+  box.space._tdb_relations:update(old.local_id, ops)
   return {
     id = old.local_id,
     space = from_sp

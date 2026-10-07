@@ -176,7 +176,8 @@ R.describe("app_apply — fixture", function()
         fromFieldId = fk.id,
         toSpaceId = authors.id,
         toFieldId = seq.id,
-        reprFormula = '@name'
+        reprFormula = '@name',
+        cardinality = 'many'
       }
     }, CTX)
     FIX.rel_id = res.id
@@ -399,6 +400,7 @@ R.describe("app_apply — installation on a half-empty base", function()
     R.ok(spaces.get_space_by_name(SP_AUTHORS))
     R.ok((field_by_name(spaces.get_space_by_name(SP_BOOKS).id, 'code')))
     R.ok(pkg.describe_local('relation', "relation:" .. tostring(SP_BOOKS) .. ".author_id"))
+    R.eq(pkg.describe_local('relation', "relation:" .. tostring(SP_BOOKS) .. ".author_id").cardinality, 'many')
     R.ok(pkg.describe_local('view', "view:" .. tostring(SP_BOOKS) .. "." .. tostring(VIEW_NAME)))
     R.ok(pkg.describe_local('page', "page:" .. tostring(PAGE_NAME)))
     R.ok(pkg.describe_local('dataview', "dataview:" .. tostring(DV_NAME)))
@@ -648,6 +650,172 @@ R.describe("app_apply — failure in the middle rolls back everything", function
     return R.eq(#box.space._tdb_app_items.index.by_app:select({
       APP_BAD_ID
     }), 0, 'no item rows')
+  end)
+end)
+local SP_RB = "aap_relbooks_" .. tostring(SUFFIX)
+local SP_RA = "aap_relauthors_" .. tostring(SUFFIX)
+local APP_REL = "org.test.aaprel_" .. tostring(SUFFIX)
+local REL_RB_KEY = "relation:" .. tostring(SP_RB) .. ".author_id"
+local REL_RB_EDITOR = "relation:" .. tostring(SP_RB) .. ".editor_id"
+local rel_content
+rel_content = function(from_field, card)
+  local c = {
+    fromSpace = SP_RB,
+    fromField = from_field,
+    toSpace = SP_RA,
+    toField = 'seq_id'
+  }
+  if card then
+    c.cardinality = card
+  end
+  return c
+end
+local rel_field
+rel_field = function(name)
+  return {
+    type = 'field',
+    key = "field:" .. tostring(SP_RB) .. "." .. tostring(name),
+    content = {
+      fieldType = 'Int',
+      notNull = false,
+      description = '',
+      formula = '',
+      triggerFields = { },
+      language = 'lua'
+    }
+  }
+end
+local rel_pkg
+rel_pkg = function(version, author_card)
+  return {
+    app = {
+      id = APP_REL,
+      name = 'Rel cardinality',
+      version = version,
+      description = ''
+    },
+    items = {
+      {
+        type = 'space',
+        key = "space:" .. tostring(SP_RB),
+        content = {
+          description = 'rel books'
+        }
+      },
+      {
+        type = 'space',
+        key = "space:" .. tostring(SP_RA),
+        content = {
+          description = 'rel authors'
+        }
+      },
+      rel_field('author_id'),
+      rel_field('editor_id'),
+      {
+        type = 'field',
+        key = "field:" .. tostring(SP_RA) .. ".seq_id",
+        content = {
+          fieldType = 'Sequence',
+          notNull = false,
+          description = '',
+          formula = '',
+          triggerFields = { },
+          language = 'lua'
+        }
+      },
+      {
+        type = 'relation',
+        key = REL_RB_KEY,
+        content = rel_content('author_id', author_card)
+      },
+      {
+        type = 'relation',
+        key = REL_RB_EDITOR,
+        content = rel_content('editor_id', nil)
+      }
+    },
+    seed_keys = { }
+  }
+end
+R.describe("app_apply — relation cardinality", function()
+  R.it("installs 'many' when declared and 'one' for an old-format relation", function()
+    local report = apply.apply_update(rel_pkg('1.0.0', 'many'), { }, { })
+    R.ok(report.ok, report.error)
+    R.eq(#report.created, 7, 'created')
+    R.eq(pkg.describe_local('relation', REL_RB_KEY).cardinality, 'many')
+    return R.eq(pkg.describe_local('relation', REL_RB_EDITOR).cardinality, 'one')
+  end)
+  R.it("an author cardinality change is an update while the local is unchanged", function()
+    local report = apply.apply_update(rel_pkg('1.1.0', 'one'), { }, { })
+    R.ok(report.ok, report.error)
+    R.eq(#report.updated, 1, 'updated')
+    R.eq(report.updated[1], REL_RB_KEY)
+    return R.eq(pkg.describe_local('relation', REL_RB_KEY).cardinality, 'one')
+  end)
+  R.it("a local-only cardinality change is kept", function()
+    local sid = spaces.get_space_by_name(SP_RB).id
+    local fid = (field_by_name(sid, 'author_id')).id
+    local rel_id = nil
+    local _list_0 = box.space._tdb_relations.index.by_from:select({
+      sid
+    })
+    for _index_0 = 1, #_list_0 do
+      local t = _list_0[_index_0]
+      if t[3] == fid then
+        rel_id = t[1]
+      end
+    end
+    R.ok(rel_id, 'author_id relation row')
+    schema_r.Mutation.updateRelation({ }, {
+      id = rel_id,
+      input = {
+        cardinality = 'many'
+      }
+    }, CTX)
+    R.eq(pkg.describe_local('relation', REL_RB_KEY).cardinality, 'many')
+    local report = apply.apply_update(rel_pkg('1.1.0', 'one'), { }, { })
+    R.ok(report.ok, report.error)
+    local found = false
+    local _list_1 = report.kept
+    for _index_0 = 1, #_list_1 do
+      local k = _list_1[_index_0]
+      if k == REL_RB_KEY then
+        found = true
+      end
+    end
+    R.ok(found, "expected " .. tostring(REL_RB_KEY) .. " in kept")
+    return R.eq(pkg.describe_local('relation', REL_RB_KEY).cardinality, 'many')
+  end)
+  return R.it("cleans up the relation cardinality fixture", function()
+    local _list_0 = {
+      SP_RB,
+      SP_RA
+    }
+    for _index_0 = 1, #_list_0 do
+      local nm = _list_0[_index_0]
+      local sp = spaces.get_space_by_name(nm)
+      if sp then
+        local _list_1 = box.space._tdb_relations.index.by_from:select({
+          sp.id
+        })
+        for _index_1 = 1, #_list_1 do
+          local t = _list_1[_index_1]
+          box.space._tdb_relations:delete(t[1])
+        end
+        local _list_2 = box.space._tdb_relations.index.by_to:select({
+          sp.id
+        })
+        for _index_1 = 1, #_list_2 do
+          local t = _list_2[_index_1]
+          box.space._tdb_relations:delete(t[1])
+        end
+      end
+    end
+    clean_app_rows(APP_REL)
+    spaces.delete_user_space(SP_RB)
+    spaces.delete_user_space(SP_RA)
+    R.is_nil(spaces.get_space_by_name(SP_RB))
+    return R.is_nil(pkg.describe_local('relation', REL_RB_KEY))
   end)
 end)
 return R.describe("app_apply — cleanup", function()

@@ -441,6 +441,20 @@ _update_field = (entry, old) ->
   }
   { id: fid, space: sp_name }
 
+-- Colonne 8 de _tdb_relations (« cardinality », core/spaces.moon:145-146),
+-- ajoutée par la migration tdb_v3. Un tuple de 8 champs n'est écrit que si la
+-- colonne existe ; sinon la cardinalité reste au défaut 'one' de la colonne.
+_relations_have_cardinality = ->
+  fmt = box.space._tdb_relations\format!
+  fmt != nil and #fmt >= 8
+
+-- 'many' seulement si explicitement déclaré ; tout le reste (clé absente d'un
+-- ancien paquet, valeur vide) vaut 'one'. Miroir de app_package et de
+-- schema_resolvers.normalize_cardinality.
+_cardinality = (value) ->
+  return 'many' if value == 'many'
+  'one'
+
 _create_relation = (entry) ->
   rest = _after entry.key, 'relation:'
   from_sp, from_fld = _scope_name rest
@@ -451,9 +465,9 @@ _create_relation = (entry) ->
   from_fid = _field_id from_sid, from_fld
   to_fid = _field_id to_sid, c.toField
   rid = tostring uuid_mod.new!
-  box.space._tdb_relations\insert {
-    rid, from_sid, from_fid, to_sid, to_fid, "#{from_sp}_#{from_fld}", ''
-  }
+  tuple = { rid, from_sid, from_fid, to_sid, to_fid, "#{from_sp}_#{from_fld}", '' }
+  table.insert tuple, _cardinality(c.cardinality) if _relations_have_cardinality!
+  box.space._tdb_relations\insert tuple
   { id: rid, space: from_sp }
 
 _update_relation = (entry, old) ->
@@ -462,10 +476,12 @@ _update_relation = (entry, old) ->
   c = entry.content
   to_sid = _space_id c.toSpace
   to_fid = _field_id to_sid, c.toField
-  box.space._tdb_relations\update old.local_id, {
+  ops = {
     { '=', 4, to_sid }
     { '=', 5, to_fid }
   }
+  table.insert ops, { '=', 8, _cardinality(c.cardinality) } if _relations_have_cardinality!
+  box.space._tdb_relations\update old.local_id, ops
   { id: old.local_id, space: from_sp }
 
 _create_view = (entry) ->

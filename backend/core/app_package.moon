@@ -186,8 +186,23 @@ field_content = (f) ->
     language: f.language or 'lua'
   }
 
-relation_content = (from_space, from_field, to_space, to_field) ->
-  { fromSpace: from_space, fromField: from_field, toSpace: to_space, toField: to_field }
+-- Declared cardinality of a relation: 'many' only when explicitly declared,
+-- 'one' otherwise (missing or empty column 8, or an older package without the
+-- key). Mirrors schema_resolvers.normalize_cardinality
+-- (resolvers/schema_resolvers.moon:36-42) and triggers.build_relation_map
+-- (`t[8] or 'one'`, core/triggers.moon:227).
+relation_cardinality = (value) ->
+  return 'many' if value == 'many'
+  'one'
+
+relation_content = (from_space, from_field, to_space, to_field, cardinality) ->
+  {
+    fromSpace: from_space
+    fromField: from_field
+    toSpace: to_space
+    toField: to_field
+    cardinality: relation_cardinality cardinality
+  }
 
 view_content = (space_name, v) ->
   { space: space_name, name: v.name, viewType: v.viewType, config: decode_config(v.config) }
@@ -296,7 +311,7 @@ collect_relations = (bucket, space_list) ->
       table.insert bucket, {
         type: ITEM_TYPES.relation
         key: key
-        content: relation_content(from_sp, from_fld, to_sp, to_fld)
+        content: relation_content(from_sp, from_fld, to_sp, to_fld, t[8])
       }
 
 collect_views = (bucket, space_list) ->
@@ -440,7 +455,7 @@ describe_relation = (key) ->
     to_sp = space_name_by_id t[4]
     to_fld = field_name_by_id t[5]
     return nil unless from_name and to_sp and to_fld
-    return relation_content(from_name, from_fld, to_sp, to_fld)
+    return relation_content(from_name, from_fld, to_sp, to_fld, t[8])
   nil
 
 describe_view = (key) ->

@@ -172,6 +172,7 @@ R.describe "app_package — fixture", ->
         toSpaceId: FIX.authors_id
         toFieldId: FIX.seq_id
         reprFormula: '@name'
+        cardinality: 'many'
       }
     }, CTX
     R.ok res
@@ -283,6 +284,14 @@ R.describe "app_package — build_package", ->
       found = true if it.key == 'group:admin' or it.key\match '^perm:admin|'
     R.nok found
 
+  R.it "relation items carry the declared cardinality", ->
+    key = "relation:#{SP_BOOKS}.author_id"
+    item = find_item PKG, key
+    R.ok item
+    R.eq item.content.cardinality, 'many'
+    R.eq pkg.describe_local('relation', key).cardinality, 'many'
+    R.eq pkg.canonical(pkg.describe_local('relation', key)), pkg.canonical(item.content)
+
   R.it "is deterministic: two calls give the same items and fingerprints", ->
     PKG2 = pkg.build_package META, { seed: seed_opts }
     R.eq #PKG2.items, #PKG.items
@@ -341,6 +350,7 @@ R.describe "app_package — describe_local", ->
     R.eq local_content.fromField, 'author_id'
     R.eq local_content.toSpace, SP_AUTHORS
     R.eq local_content.toField, 'seq_id'
+    R.eq local_content.cardinality, 'many'
 
   R.it "view: returns space, name, viewType and config", ->
     key = "view:#{SP_BOOKS}.#{VIEW_NAME}"
