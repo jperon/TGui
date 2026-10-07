@@ -60,6 +60,12 @@ type Query {
   exportSnapshot(includeData: Boolean!, compress: Boolean): String!
   diffSnapshot(yaml: String!):           SnapshotDiff!
 
+  # App versioning (admin only)
+  listApps: [AppInfo!]!
+  exportApp(meta: AppMetaInput!, seed: [AppSeedInput!]): String!
+  previewAppUpdate(yaml: String!, allowDowngrade: Boolean): AppPlan!
+  previewAppPurge(appId: String!, keys: [String!]!): AppPurgePreview!
+
   # Layout export / import
   exportLayout(pageId: ID!): String!
 
@@ -151,6 +157,10 @@ type Mutation {
 
   # Snapshot import
   importSnapshot(yaml: String!, mode: ImportMode!): ImportResult!
+
+  # App versioning (admin only)
+  applyAppUpdate(yaml: String!, decisions: [AppDecisionInput!], allowDowngrade: Boolean): AppApplyReport!
+  purgeAppObsolete(appId: String!, keys: [String!]!, confirmed: Boolean!): AppPurgeReport!
 }
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -538,6 +548,99 @@ type SnapshotDiff {
   pagesToUpdate:        [String!]!
   widgetPluginsToCreate: [String!]!
   widgetPluginsToUpdate: [String!]!
+}
+
+# ────────────────────────────────────────────────────────────────────────────
+# App versioning
+# ────────────────────────────────────────────────────────────────────────────
+
+input AppMetaInput {
+  id:          String!
+  name:        String
+  version:     String!
+  description: String
+}
+
+input AppSeedInput {
+  space:    String!
+  keyField: String!
+}
+
+input AppDecisionInput {
+  key:    String!
+  choice: String!
+}
+
+type AppInfo {
+  appId:         String!
+  name:          String!
+  version:       String!
+  installedAt:   Float!
+  source:        String!
+  activeCount:   Int!
+  obsoleteCount: Int!
+}
+
+type AppPlanItem {
+  key:         String!
+  type:        String!
+  content:     JSON
+  fingerprint: String
+  isCode:      Boolean!
+}
+
+type AppConflict {
+  key:       String!
+  type:      String!
+  local:     JSON
+  delivered: JSON
+}
+
+type AppRename {
+  from: String!
+  to:   String!
+}
+
+type AppPlan {
+  create:    [AppPlanItem!]!
+  update:    [AppPlanItem!]!
+  conflict:  [AppConflict!]!
+  keepLocal: [AppPlanItem!]!
+  obsolete:  [String!]!
+  rename:    [AppRename!]!
+  unchanged: [String!]!
+  errors:    [String!]!
+}
+
+type AppApplyReport {
+  ok:        Boolean!
+  created:   [String!]!
+  updated:   [String!]!
+  kept:      [String!]!
+  unchanged: [String!]!
+  obsolete:  [String!]!
+  skipped:   [String!]!
+  error:     String
+}
+
+type AppLoss {
+  key:       String!
+  type:      String!
+  records:   Int!
+  fields:    Int!
+  relations: Int!
+  views:     Int!
+}
+
+type AppPurgePreview {
+  losses:       [AppLoss!]!
+  totalRecords: Int!
+}
+
+type AppPurgeReport {
+  ok:     Boolean!
+  purged: [String!]!
+  error:  String
 }
 
 input WidgetPosition {

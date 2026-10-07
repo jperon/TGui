@@ -19,6 +19,7 @@ data_view_r   = require 'resolvers.data_view_resolvers'
 widget_plugin_r = require 'resolvers.widget_plugin_resolvers'
 aggregate_r   = require 'resolvers.aggregate_resolvers'
 export_r      = require 'resolvers.export_resolvers'
+app_r         = require 'resolvers.app_resolvers'
 dynamic       = require 'graphql.dynamic'
 introspection = require 'graphql.introspection'
 triggers      = require 'core.triggers'
@@ -60,10 +61,19 @@ build = ->
   -- Combine SDL strings: static + introspection types + dynamic space types
   combined_sdl = static_sdl .. "\n\n" .. introspection.SDL .. "\n\n" .. dyn.sdl
 
-  -- Build static resolvers base
+  -- Build static resolvers base. Query merge order: schema, data, auth,
+  -- custom_view, data_view, widget_plugin, aggregate, export, app.
+  query_resolvers = schema_r.Query
+  for mod in *{ data_r, auth_r, custom_view_r, data_view_r, widget_plugin_r, aggregate_r, export_r, app_r }
+    query_resolvers = merge query_resolvers, mod.Query
+  -- Mutation merge order: schema, data, auth, custom_view, data_view,
+  -- widget_plugin, export, app (no aggregate).
+  mutation_resolvers = schema_r.Mutation
+  for mod in *{ data_r, auth_r, custom_view_r, data_view_r, widget_plugin_r, export_r, app_r }
+    mutation_resolvers = merge mutation_resolvers, mod.Mutation
   static_resolvers = {
-    Query:    merge(schema_r.Query,    merge(data_r.Query,    merge(auth_r.Query,    merge(custom_view_r.Query, merge(data_view_r.Query, merge(widget_plugin_r.Query, merge(aggregate_r.Query, export_r.Query)))))))
-    Mutation: merge(schema_r.Mutation, merge(data_r.Mutation, merge(auth_r.Mutation, merge(custom_view_r.Mutation, merge(data_view_r.Mutation, merge(widget_plugin_r.Mutation, export_r.Mutation))))))
+    Query:    query_resolvers
+    Mutation: mutation_resolvers
     Space:    schema_r.Space
     User:     auth_r.User
     Group:    auth_r.Group

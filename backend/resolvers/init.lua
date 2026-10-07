@@ -6,6 +6,7 @@ local data_view_r = require('resolvers.data_view_resolvers')
 local widget_plugin_r = require('resolvers.widget_plugin_resolvers')
 local aggregate_r = require('resolvers.aggregate_resolvers')
 local export_r = require('resolvers.export_resolvers')
+local app_r = require('resolvers.app_resolvers')
 local dynamic = require('graphql.dynamic')
 local introspection = require('graphql.introspection')
 local triggers = require('core.triggers')
@@ -48,9 +49,38 @@ build = function()
   local static_sdl = load_static_sdl()
   local dyn = dynamic.generate()
   local combined_sdl = static_sdl .. "\n\n" .. introspection.SDL .. "\n\n" .. dyn.sdl
+  local query_resolvers = schema_r.Query
+  local _list_0 = {
+    data_r,
+    auth_r,
+    custom_view_r,
+    data_view_r,
+    widget_plugin_r,
+    aggregate_r,
+    export_r,
+    app_r
+  }
+  for _index_0 = 1, #_list_0 do
+    local mod = _list_0[_index_0]
+    query_resolvers = merge(query_resolvers, mod.Query)
+  end
+  local mutation_resolvers = schema_r.Mutation
+  local _list_1 = {
+    data_r,
+    auth_r,
+    custom_view_r,
+    data_view_r,
+    widget_plugin_r,
+    export_r,
+    app_r
+  }
+  for _index_0 = 1, #_list_1 do
+    local mod = _list_1[_index_0]
+    mutation_resolvers = merge(mutation_resolvers, mod.Mutation)
+  end
   local static_resolvers = {
-    Query = merge(schema_r.Query, merge(data_r.Query, merge(auth_r.Query, merge(custom_view_r.Query, merge(data_view_r.Query, merge(widget_plugin_r.Query, merge(aggregate_r.Query, export_r.Query))))))),
-    Mutation = merge(schema_r.Mutation, merge(data_r.Mutation, merge(auth_r.Mutation, merge(custom_view_r.Mutation, merge(data_view_r.Mutation, merge(widget_plugin_r.Mutation, export_r.Mutation)))))),
+    Query = query_resolvers,
+    Mutation = mutation_resolvers,
     Space = schema_r.Space,
     User = auth_r.User,
     Group = auth_r.Group,
