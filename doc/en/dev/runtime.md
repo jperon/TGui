@@ -2,12 +2,15 @@
 
 > Auto-generated file. Do not edit manually.
 >
-> Generated at: 2026-06-13 10:32:02 UTC
+> Generated at: 2026-10-07 19:36:41 UTC
 
 Tarantool startup, HTTP lifecycle and subsystem initialization details.
 
 | Module | Summary |
 |---|---|
+| `backend/core/app_apply.moon` | Application atomique d'un paquet d'app (spec §4, plan « Étape 4 », ligne V3). |
+| `backend/core/app_package.moon` | App versioning foundation (task V1): stable item identity, canonical JSON |
+| `backend/core/app_plan.moon` | Moteur pur de calcul du plan de mise a jour d'une application (spec §2). |
 | `backend/core/auth.moon` | Authentication: hashing, sessions, user management. |
 | `backend/core/config.moon` | Centralized configuration for TGui. |
 | `backend/core/data_views.moon` | CRUD for Data Views (stored YAML/JSON configs over a source space). |
@@ -17,6 +20,7 @@ Tarantool startup, HTTP lifecycle and subsystem initialization details.
 | `backend/core/permissions.moon` | Unix-style group permissions management. |
 | `backend/core/spaces.moon` | Bootstrap and manage tdb system spaces (metadata) in Tarantool. |
 | `backend/core/triggers.moon` | Manages Tarantool before_replace triggers for trigger formula fields. |
+| `backend/core/validation.moon` | (pas de description en tête de fichier) |
 | `backend/core/views.moon` | Manage view definitions: named projections over a data space. |
 | `backend/fixtures.moon` | Seed dataset for the TGui test container. |
 | `backend/generate_sdl.moon` | CLI entrypoint to generate passive SDL artifact. |
@@ -32,8 +36,12 @@ Tarantool startup, HTTP lifecycle and subsystem initialization details.
 | `backend/index.moon` | Dynamically generates the main TGui HTML page. |
 | `backend/init.moon` | Tarantool bootstrap entrypoint for TGui backend runtime. |
 | `backend/resolvers/aggregate_resolvers.moon` | Aggregation query: GROUP BY via Lua iteration over tuples. |
+| `backend/resolvers/app_resolvers.moon` | GraphQL resolvers for application versioning (list, export, preview, apply, purge). |
 | `backend/resolvers/auth_resolvers.moon` | Resolvers for authentication, user management, groups, and permissions. |
-| `backend/resolvers/custom_view_resolvers.moon` | CRUD resolvers for custom YAML views (dashboard layouts). |
+| `backend/resolvers/custom_view_crud.moon` | CRUD, snapshot and layout export/import functions for custom YAML views. |
+| `backend/resolvers/custom_view_resolvers.moon` | Entry point: assembles Query and Mutation for custom YAML views (dashboard layouts). |
+| `backend/resolvers/custom_view_widgets.moon` | Widget and layout-editing functions for custom YAML views. |
+| `backend/resolvers/custom_view_zones.moon` | Zone layout functions for custom YAML views. |
 | `backend/resolvers/data_resolvers.moon` | Resolvers for CRUD operations on user-defined data spaces. |
 | `backend/resolvers/data_view_resolvers.moon` | CRUD resolvers for data views (persisted queries). |
 | `backend/resolvers/export_resolvers.moon` | Snapshot export, diff and import resolvers. |

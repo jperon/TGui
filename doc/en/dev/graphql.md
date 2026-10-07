@@ -2,7 +2,7 @@
 
 > Auto-generated file. Do not edit manually.
 >
-> Generated at: 2026-06-13 10:32:02 UTC
+> Generated at: 2026-10-07 19:36:41 UTC
 
 SDL/parser/executor/resolver flow (static + dynamic).
 

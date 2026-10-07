@@ -10,6 +10,10 @@ starts_with = (s, prefix) -> s\sub(1, #prefix) == prefix
 
 domain_for_operation = (name) ->
   return 'snapshot' if name == 'exportSnapshot' or name == 'diffSnapshot' or name == 'importSnapshot'
+  -- App versioning (export/import of app packages) is documented with the
+  -- closest existing domain, Snapshots; a dedicated 'Applications' domain would
+  -- need a matching label/order in scripts/generate_docs.moon (out of scope).
+  return 'snapshot' if name == 'listApps' or name == 'exportApp' or name == 'previewAppUpdate' or name == 'previewAppPurge' or name == 'applyAppUpdate' or name == 'purgeAppObsolete'
   return 'auth' if name == 'login' or name == 'logout' or name == 'me' or name == 'changePassword' or name == 'adminSetPassword'
   return 'users_groups' if starts_with(name, 'createUser') or starts_with(name, 'createGroup') or starts_with(name, 'deleteGroup') or starts_with(name, 'addMember') or starts_with(name, 'removeMember') or name == 'users' or name == 'user' or name == 'groups' or name == 'group' or name == 'grant' or name == 'revoke'
   return 'spaces_fields' if starts_with(name, 'space') or starts_with(name, 'createSpace') or starts_with(name, 'updateSpace') or starts_with(name, 'deleteSpace') or starts_with(name, 'addField') or starts_with(name, 'addFields') or starts_with(name, 'removeField') or starts_with(name, 'reorderFields') or starts_with(name, 'updateField') or starts_with(name, 'changeFieldType')
