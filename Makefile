@@ -14,7 +14,7 @@ TEST_JS_OUTS     := $(TEST_COFFEE_SRCS:.coffee=.js)
 PLAYWRIGHT_COFFEE_SRCS := $(shell find tests/playwright -name '*.coffee')
 PLAYWRIGHT_JS_OUTS := $(PLAYWRIGHT_COFFEE_SRCS:.coffee=.js)
 
-.PHONY: all install-hooks build test test-js test-up test-down test-logs up down logs clean vendor audit-deps doc doc-% doc-gen doc-po-update doc-po-build doc-md doc-check sdl-gen sdl-check ci test-browser test-browser-spaces test-browser-data-views test-browser-pages test-browser-relations test-browser-auth test-browser-integration test-browser-e2e playwright-install playwright-setup playwright-compile
+.PHONY: all install-hooks build test test-js test-up test-down test-logs up down logs clean doctor vendor audit-deps doc doc-% doc-gen doc-po-update doc-po-build doc-md doc-check sdl-gen sdl-check ci test-browser test-browser-spaces test-browser-data-views test-browser-pages test-browser-relations test-browser-auth test-browser-integration test-browser-e2e playwright-install playwright-setup playwright-compile
 
 all: build
 
@@ -145,6 +145,15 @@ logs:
 
 clean:
 	rm -f $(LUA_OUTS) $(JS_OUTS) $(TEST_JS_OUTS)
+
+# Vérifie l'environnement de dev Nix (outils, hermétisme, Playwright,
+# navigateur headless). Entre dans le dev shell si on n'y est pas déjà.
+doctor:
+	@if [ -n "$${PLAYWRIGHT_VERSION:-}" ]; then \
+		scripts/env-check.sh; \
+	else \
+		nix develop --command scripts/env-check.sh; \
+	fi
 
 # ── Documentation PDF ────────────────────────────────────────────────────────
 DOC_DIR    = doc
