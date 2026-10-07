@@ -6,6 +6,7 @@ resolvers    = require 'resolvers.data_view_resolvers'
 data_r       = require 'resolvers.data_resolvers'
 spaces_mod   = require 'core.spaces'
 executor     = require 'core.data_views_executor'
+{ :trusted_ctx } = require 'resolvers.utils'
 
 -- Setup test spaces
 sp1_id = nil
@@ -26,7 +27,7 @@ R.describe "DataViews — system storage", ->
         { name: "Bob",   age: 25, role: "User" }
         { name: "Charlie", age: 35, role: "User" }
       }
-    }, { user_id: 'admin' }
+    }, trusted_ctx('admin')
 
   R.it "create view returns metadata", ->
     config = {
@@ -39,7 +40,7 @@ R.describe "DataViews — system storage", ->
       orderBy: { {field: "age", desc: true} }
     }
     
-    ctx = { user_id: 'admin' }
+    ctx = trusted_ctx 'admin'
     args = {
       input: {
         name: "test_view_1"
@@ -53,7 +54,7 @@ R.describe "DataViews — system storage", ->
     R.eq res.config, json.encode(config)
 
   R.it "execute view returns filtered/sorted data", ->
-    ctx = { user_id: 'admin' }
+    ctx = trusted_ctx 'admin'
     -- Fetch the view
     views = resolvers.Query.dataViews nil, nil, ctx
     dv_id = views[#views].id
@@ -77,7 +78,7 @@ R.describe "DataViews — system storage", ->
       }
     }
     
-    ctx = { user_id: 'admin' }
+    ctx = trusted_ctx 'admin'
     args = {
       input: {
         name: "test_view_agg"
@@ -102,7 +103,7 @@ R.describe "DataViews — system storage", ->
   -- Régression : le frontend stocke sourceSpace = id de l'espace (UUID),
   -- pas son nom. L'exécuteur doit résoudre l'espace par id comme par nom.
   R.it "execute view works when sourceSpace is the space id (frontend behaviour)", ->
-    ctx = { user_id: 'admin' }
+    ctx = trusted_ctx 'admin'
     args = {
       input: {
         name: "test_view_by_id"
@@ -121,7 +122,7 @@ R.describe "DataViews — system storage", ->
     R.eq #res, 3
 
   R.it "cleanup", ->
-    ctx = { user_id: 'admin' }
+    ctx = trusted_ctx 'admin'
     views = resolvers.Query.dataViews nil, nil, ctx
     for v in *views
       resolvers.Mutation.deleteDataView nil, { id: v.id }, ctx

@@ -28,20 +28,17 @@ require_admin = function(ctx)
   end
   return uid
 end
-local is_perm_subject
-is_perm_subject = function(ctx, uid)
-  if ctx.token then
-    return true
-  end
-  local ok, t = pcall(function()
-    return box.space._tdb_users:get(uid)
-  end)
-  return ok and t ~= nil
+local trusted_ctx
+trusted_ctx = function(user_id)
+  return {
+    user_id = user_id,
+    trusted = true
+  }
 end
 local perm_ok
 perm_ok = function(ctx, resource_type, resource_id, level)
   local uid = require_auth(ctx)
-  if not (is_perm_subject(ctx, uid)) then
+  if ctx.trusted then
     return true
   end
   if is_admin_user(uid) then
@@ -79,5 +76,6 @@ return {
   require_perm = require_perm,
   perm_ok = perm_ok,
   is_admin_user = is_admin_user,
-  fk_cache_for = fk_cache_for
+  fk_cache_for = fk_cache_for,
+  trusted_ctx = trusted_ctx
 }

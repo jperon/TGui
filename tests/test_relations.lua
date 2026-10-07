@@ -5,12 +5,12 @@ do
   local _obj_0 = require('resolvers.schema_resolvers')
   Query, Mutation = _obj_0.Query, _obj_0.Mutation
 end
+local trusted_ctx
+trusted_ctx = require('resolvers.utils').trusted_ctx
 local SUFFIX = tostring(math.random(100000, 999999))
 local SP_SRC = "rel_src_" .. tostring(SUFFIX)
 local SP_TGT = "rel_tgt_" .. tostring(SUFFIX)
-local CTX = {
-  user_id = 'test-user'
-}
+local CTX = trusted_ctx('test-user')
 local src_id, tgt_id, src_fk_field_id, tgt_seq_field_id, rel_id = nil, nil, nil, nil, nil
 do
   local src = spaces_mod.create_user_space(SP_SRC, 'Source space')

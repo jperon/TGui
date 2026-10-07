@@ -24,27 +24,24 @@ require_admin = (ctx) ->
   error "Forbidden" unless is_admin_user uid
   uid
 
--- True when the principal is one the permission model can evaluate: a stored
--- user record, or a context carrying a validated session token.
--- backend/http_server.moon:79-86 sets ctx.token together with ctx.user_id, so
--- every user-facing GraphQL request is covered; a deleted user with a live
--- session still carries its token and stays subject to the check.
--- The bare in-process contexts that reference no stored user — the bootstrap
--- fixtures (backend/fixtures.moon:13-14, { user_id: 1 }, no token) and the
--- test suite (tests/test_relations.moon:15, tests/test_data_filters.moon:21,
--- tests/test_data_views.moon:42) — are only checked by require_auth.
-is_perm_subject = (ctx, uid) ->
-  return true if ctx.token
-  ok, t = pcall -> box.space._tdb_users\get uid
-  ok and t != nil
+-- Builds an explicitly trusted in-process context. Such a context opts out of
+-- permission evaluation; the bootstrap fixtures (backend/fixtures.moon:13-14)
+-- and the test suite use it for code paths that run without a user-facing
+-- session. Only code that builds a context can set `trusted`: the user-facing
+-- context is built from scratch in backend/http_server.moon:96-116, which never
+-- copies a `trusted` field out of the request body, so a client cannot forge it.
+trusted_ctx = (user_id) ->
+  { user_id: user_id, trusted: true }
 
 -- True when the principal may perform `level` on (resource_type, resource_id).
--- Members of the 'admin' group always pass. A nil resource_id addresses the
--- type-level wildcard, exactly like perms_mod.grant (core/permissions.moon:80)
--- which stores it as WILDCARD_ID.
+-- A trusted in-process context always passes. Members of the 'admin' group
+-- always pass. Every other context is checked: a context without a stored user
+-- (or one whose user was deleted) has no grant and is refused. A nil
+-- resource_id addresses the type-level wildcard, exactly like perms_mod.grant
+-- (core/permissions.moon:80) which stores it as WILDCARD_ID.
 perm_ok = (ctx, resource_type, resource_id, level) ->
   uid = require_auth ctx
-  return true unless is_perm_subject ctx, uid
+  return true if ctx.trusted
   return true if is_admin_user uid
   perms_mod.can uid, resource_type, resource_id or perms_mod.WILDCARD_ID, level
 
@@ -82,4 +79,4 @@ fk_cache_for = (ctx) ->
   ctx._fk_cache = cache
   cache
 
-{ :require_auth, :require_admin, :require_perm, :perm_ok, :is_admin_user, :fk_cache_for }
+{ :require_auth, :require_admin, :require_perm, :perm_ok, :is_admin_user, :fk_cache_for, :trusted_ctx }

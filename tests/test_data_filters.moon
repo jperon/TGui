@@ -17,8 +17,9 @@ triggers   = require 'core.triggers'
 spaces_mod = require 'core.spaces'
 { Query: schema_Query, Mutation: schema_Mutation } = require 'resolvers.schema_resolvers'
 { Query: data_Query, Mutation: data_Mutation, matches_filter: real_matches_filter } = require 'resolvers.data_resolvers'
+{ :trusted_ctx } = require 'resolvers.utils'
 
-CTX_FK = { user_id: 'test-user' }
+CTX_FK = trusted_ctx 'test-user'
 
 -- Faithful re-implementation of matches_filter for unit tests.
 matches_filter = (parsed, flt) ->

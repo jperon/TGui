@@ -11,12 +11,12 @@ local execute
 execute = require('graphql.executor').execute
 local data_Mutation
 data_Mutation = require('resolvers.data_resolvers').Mutation
+local trusted_ctx
+trusted_ctx = require('resolvers.utils').trusted_ctx
 local SUFFIX = tostring(math.random(100000, 999999))
 local SP_SRC = "card_src_" .. tostring(SUFFIX)
 local SP_TGT = "card_tgt_" .. tostring(SUFFIX)
-local CTX = {
-  user_id = 'test-user'
-}
+local CTX = trusted_ctx('test-user')
 local src_id, tgt_id = nil, nil
 local tgt_seq_id, tgt_code_id = nil, nil
 local f_one, f_dup, f_many, f_legacy = nil, nil, nil, nil

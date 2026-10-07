@@ -9,11 +9,12 @@ json = require 'json'
 { :Query, :Mutation } = require 'resolvers.schema_resolvers'
 { :execute } = require 'graphql.executor'
 { Mutation: data_Mutation } = require 'resolvers.data_resolvers'
+{ :trusted_ctx } = require 'resolvers.utils'
 
 SUFFIX = tostring math.random 100000, 999999
 SP_SRC = "card_src_#{SUFFIX}"
 SP_TGT = "card_tgt_#{SUFFIX}"
-CTX = { user_id: 'test-user' }
+CTX = trusted_ctx 'test-user'
 
 src_id, tgt_id = nil, nil
 tgt_seq_id, tgt_code_id = nil, nil
