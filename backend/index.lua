@@ -734,17 +734,6 @@ _snapshotImportBox = function()
           H.span({
             ' Fusion (recommandé) — crée ce qui manque, ignore l\'existant'
           })
-        }),
-        H.label({
-          H.input({
-            id = 'snapshot-mode-replace',
-            type = 'radio',
-            name = 'snapshot-mode',
-            value = 'replace'
-          }),
-          H.span({
-            ' Remplacement — efface tout puis recrée'
-          })
         })
       }),
       H.p({

@@ -93,17 +93,14 @@
         // Read file as text (backend will handle decompression if needed)
         return reader.readAsText(file);
       });
-      return app.el.snapshotImportConfirmBtn().addEventListener('click', async function() {
-        var mode, ref;
+      return app.el.snapshotImportConfirmBtn().addEventListener('click', function() {
+        var mode;
         if (!app._snapshotYaml) {
           return;
         }
-        mode = ((ref = document.querySelector('input[name="snapshot-mode"]:checked')) != null ? ref.value : void 0) || 'merge';
-        if (mode === 'replace') {
-          if (!(await tdbConfirm(app._t('ui.confirms.replaceImport')))) {
-            return;
-          }
-        }
+        // Le mode *replace* destructif a été retiré de l'interface (spec §3) :
+        // l'import de snapshot ne propose plus que « fusionner ».
+        mode = 'merge';
         app.el.snapshotImportConfirmBtn().disabled = true;
         return GQL.mutate(`mutation($y: String!, $m: ImportMode!) {
   importSnapshot(yaml: $y, mode: $m) { ok created skipped errors }

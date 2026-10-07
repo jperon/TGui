@@ -29,7 +29,6 @@ CATALOGS =
         deletePage: 'Supprimer la page « {name} » ?'
         deleteSpace: "Supprimer l'espace « {name} » et toutes ses données ?"
         deleteField: 'Supprimer le champ « {name} » ?'
-        replaceImport: '⚠ Mode Remplacement : toutes les données existantes seront effacées. Continuer ?'
         appApply: 'Appliquer cette mise à jour ? Les données conservées localement ne seront pas touchées.'
       alerts:
         passwordChanged: 'Mot de passe changé.'
@@ -133,7 +132,6 @@ CATALOGS =
         deletePage: 'Delete page “{name}”?'
         deleteSpace: 'Delete space “{name}” and all its data?'
         deleteField: 'Delete field “{name}”?'
-        replaceImport: '⚠ Replace mode: all existing data will be erased. Continue?'
         appApply: 'Apply this update? Locally kept data will not be touched.'
       alerts:
         passwordChanged: 'Password changed.'

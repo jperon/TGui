@@ -287,10 +287,6 @@ _snapshotImportBox = ->
           H.input {id: 'snapshot-mode-merge', type: 'radio', name: 'snapshot-mode', value: 'merge', checked: true}
           H.span {' Fusion (recommandé) — crée ce qui manque, ignore l\'existant'}
         }
-        H.label {
-          H.input {id: 'snapshot-mode-replace', type: 'radio', name: 'snapshot-mode', value: 'replace'}
-          H.span {' Remplacement — efface tout puis recrée'}
-        }
       }
       H.p {id: 'snapshot-import-error', class: 'error hidden', ''}
       H.div {class: 'modal-actions',

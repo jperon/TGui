@@ -85,10 +85,9 @@ window.AppSnapshotHelpers =
 
     app.el.snapshotImportConfirmBtn().addEventListener 'click', ->
       return unless app._snapshotYaml
-      mode = document.querySelector('input[name="snapshot-mode"]:checked')?.value or 'merge'
-      if mode == 'replace'
-        unless await tdbConfirm app._t('ui.confirms.replaceImport')
-          return
+      # Le mode *replace* destructif a été retiré de l'interface (spec §3) :
+      # l'import de snapshot ne propose plus que « fusionner ».
+      mode = 'merge'
       app.el.snapshotImportConfirmBtn().disabled = true
       GQL.mutate("""
         mutation($y: String!, $m: ImportMode!) {
