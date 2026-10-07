@@ -314,7 +314,7 @@ Le fichier `AGENTS.md` est un guide développeur **exemplaire** : architecture, 
 |---|---|---|
 | **Langage de formules** | Peu documenté | Documenter les fonctions disponibles dans le sandbox, la syntaxe `@champ`, les FK |
 | **Widget plugins API** | Minimal | Documenter l'API `gql()`, `emitSelection()`, `onInputSelection()`, `render()`, `params` |
-| **YAML des vues custom** | `Views.md` existe | Vérifier qu'il couvre `depends_on`, `filter`, `computed`, plugins |
+| **YAML des vues custom** | `doc/views-yaml.md` existe | Vérifier qu'il couvre `depends_on`, `filter`, `computed`, plugins |
 | **Sécurité** | Non documenté | Ajouter une section sécurité (modèle d'authentification, permissions, sandbox) |
 | **Déploiement** | Basique (Docker) | Documenter les variables d'environnement, configuration réseau, TLS |
 

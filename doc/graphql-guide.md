@@ -563,7 +563,7 @@ mutation {
 
 ## Vues personnalisées (tableaux de bord YAML)
 
-Les **vues personnalisées** sont des mises en page YAML stockées côté serveur (voir [`Views.md`](Views.md)).
+Les **vues personnalisées** sont des mises en page YAML stockées côté serveur (voir [`views-yaml.md`](views-yaml.md)).
 
 ### `query customViews`
 ```graphql
