@@ -5,6 +5,55 @@ local VIEW_TYPES = {
   'form',
   'gallery'
 }
+local validate_view_yaml
+validate_view_yaml = function(yaml)
+  if not (yaml) then
+    error('YAML de vue absent')
+  end
+  if not (yaml.layout) then
+    error('Clé racine "layout" manquante')
+  end
+  local layout = yaml.layout
+  if not (layout.direction) then
+    error('Clé "direction" manquante dans layout')
+  end
+  if not (layout.children) then
+    error('Clé "children" manquante dans layout')
+  end
+  if not (type(layout.children) == 'table') then
+    error('children doit être une table')
+  end
+  local _list_0 = layout.children
+  for _index_0 = 1, #_list_0 do
+    local child = _list_0[_index_0]
+    if child.widget then
+      local w = child.widget
+      if not (w.space) then
+        error('Clé "space" manquante dans widget')
+      end
+      if w.depends_on then
+        local d = w.depends_on
+        if not (d.widget) then
+          error('Clé "widget" manquante dans depends_on')
+        end
+        if not (d.field) then
+          error('Clé "field" manquante dans depends_on')
+        end
+      end
+    else
+      if not (child.direction) then
+        error('Clé "direction" manquante dans zone imbriquée')
+      end
+      if not (child.children) then
+        error('Clé "children" manquante dans zone imbriquée')
+      end
+      if not (type(child.children) == 'table') then
+        error('children doit être une table (zone imbriquée)')
+      end
+    end
+  end
+  return true
+end
 local create_view
 create_view = function(space_id, name, view_type, config)
   validate_view_yaml(config)
@@ -39,11 +88,10 @@ update_view = function(view_id, patch)
   local now = os.time()
   local name = patch.name or t[3]
   local vtype = patch.viewType or t[4]
+  local config_str = t[5]
   if patch.config then
     validate_view_yaml(patch.config)
-    local config_str = json.encode(patch.config)
-  else
-    local config_str = t[5]
+    config_str = json.encode(patch.config)
   end
   return box.space._tdb_views:replace({
     view_id,
@@ -94,55 +142,6 @@ get_view = function(view_id)
     createdAt = t[6],
     updatedAt = t[7]
   }
-end
-local validate_view_yaml
-validate_view_yaml = function(yaml)
-  if not (yaml) then
-    error('YAML de vue absent')
-  end
-  if not (yaml.layout) then
-    error('Clé racine "layout" manquante')
-  end
-  local layout = yaml.layout
-  if not (layout.direction) then
-    error('Clé "direction" manquante dans layout')
-  end
-  if not (layout.children) then
-    error('Clé "children" manquante dans layout')
-  end
-  if not (type(layout.children) == 'table') then
-    error('children doit être une table')
-  end
-  local _list_0 = layout.children
-  for _index_0 = 1, #_list_0 do
-    local child = _list_0[_index_0]
-    if child.widget then
-      local w = child.widget
-      if not (w.space) then
-        error('Clé "space" manquante dans widget')
-      end
-      if w.depends_on then
-        local d = w.depends_on
-        if not (d.widget) then
-          error('Clé "widget" manquante dans depends_on')
-        end
-        if not (d.field) then
-          error('Clé "field" manquante dans depends_on')
-        end
-      end
-    else
-      if not (child.direction) then
-        error('Clé "direction" manquante dans zone imbriquée')
-      end
-      if not (child.children) then
-        error('Clé "children" manquante dans zone imbriquée')
-      end
-      if not (type(child.children) == 'table') then
-        error('children doit être une table (zone imbriquée)')
-      end
-    end
-  end
-  return true
 end
 return {
   create_view = create_view,
