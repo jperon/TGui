@@ -77,6 +77,20 @@ field_name_by_id = (fid) ->
 -- Build snapshot table (Lua) from current database state
 -- ────────────────────────────────────────────────────────────────────────────
 
+-- A user record is stored as { id, json.encode(data) }: slot 1 is the box id,
+-- slot 2 the whole row as a JSON blob (insertRecord, resolvers/data_resolvers.moon:100;
+-- do_import below re-inserts the same shape). Field values therefore come from
+-- decoding that blob — never from tuple[position + 1]. A blob that cannot be
+-- decoded yields an empty row instead of aborting the export.
+decode_record_data = (blob) ->
+  return blob if type(blob) == 'table'
+  return {} unless type(blob) == 'string'
+  ok, decoded = pcall json.decode, blob
+  if ok and type(decoded) == 'table'
+    decoded
+  else
+    {}
+
 build_snapshot = (include_data) ->
   snap = {
     version:     '1'
@@ -181,10 +195,7 @@ build_snapshot = (include_data) ->
       continue unless user_sp
       rows = {}
       for tuple in *user_sp\select {}
-        row = {}
-        for f in *spaces_mod.list_fields sp.id
-          row[f.name] = tuple[f.position + 1]  -- position 1-based, tuple[1] = box id
-        table.insert rows, row
+        table.insert rows, decode_record_data tuple[2]
       snap.data[sp.name] = rows
 
   snap

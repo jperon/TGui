@@ -73,6 +73,21 @@ field_name_by_id = function(fid)
   local t = box.space._tdb_fields:get(fid)
   return t and t[3] or nil
 end
+local decode_record_data
+decode_record_data = function(blob)
+  if type(blob) == 'table' then
+    return blob
+  end
+  if not (type(blob) == 'string') then
+    return { }
+  end
+  local ok, decoded = pcall(json.decode, blob)
+  if ok and type(decoded) == 'table' then
+    return decoded
+  else
+    return { }
+  end
+end
 local build_snapshot
 build_snapshot = function(include_data)
   local snap = {
@@ -263,13 +278,7 @@ build_snapshot = function(include_data)
         local _list_7 = user_sp:select({ })
         for _index_1 = 1, #_list_7 do
           local tuple = _list_7[_index_1]
-          local row = { }
-          local _list_8 = spaces_mod.list_fields(sp.id)
-          for _index_2 = 1, #_list_8 do
-            local f = _list_8[_index_2]
-            row[f.name] = tuple[f.position + 1]
-          end
-          table.insert(rows, row)
+          table.insert(rows, decode_record_data(tuple[2]))
         end
         snap.data[sp.name] = rows
         _continue_0 = true

@@ -2,7 +2,9 @@ local R = require('tests.runner')
 local auth = require('core.auth')
 local spaces = require('core.spaces')
 local export_r = require('resolvers.export_resolvers')
+local data_res = require('resolvers.data_resolvers')
 local yaml = require('yaml')
+local json = require('json')
 local SUFFIX = tostring(math.random(100000, 999999))
 local admin_user = auth.get_user_by_username('admin')
 local ADMIN_CTX = {
@@ -375,7 +377,7 @@ R.describe("importSnapshot — mode replace", function()
     return R.eq(found, false)
   end)
 end)
-return R.describe("importSnapshot — invalid YAML", function()
+R.describe("importSnapshot — invalid YAML", function()
   R.it("error on empty YAML", function()
     local ok, err = pcall(function()
       return export_r.Mutation.importSnapshot(nil, {
@@ -393,5 +395,178 @@ return R.describe("importSnapshot — invalid YAML", function()
       }, ADMIN_CTX)
     end)
     return R.eq(ok, false)
+  end)
+end)
+return R.describe("round trip export → import (includeData)", function()
+  local RT = "snap_rt_" .. tostring(SUFFIX)
+  local RT_FIELDS = {
+    {
+      name = 'titre',
+      fieldType = 'String',
+      notNull = true
+    },
+    {
+      name = 'valeur',
+      fieldType = 'Int',
+      notNull = false
+    },
+    {
+      name = 'prix',
+      fieldType = 'Float',
+      notNull = false
+    },
+    {
+      name = 'actif',
+      fieldType = 'Boolean',
+      notNull = false
+    }
+  }
+  local ORIG_ROWS = {
+    {
+      titre = 'Alpha',
+      valeur = 1,
+      prix = 1.5,
+      actif = true
+    },
+    {
+      titre = 'Beta',
+      valeur = 2,
+      prix = 2.25,
+      actif = false
+    },
+    {
+      titre = 'Gamma',
+      valeur = 3,
+      prix = 3,
+      actif = true
+    }
+  }
+  local rt_id = nil
+  local rt_yaml = nil
+  local read_rows
+  read_rows = function()
+    local user_sp = box.space["data_" .. tostring(RT)]
+    if not (user_sp) then
+      return { }
+    end
+    local rows = { }
+    local _list_0 = user_sp:select({ })
+    for _index_0 = 1, #_list_0 do
+      local t = _list_0[_index_0]
+      table.insert(rows, json.decode(t[2]))
+    end
+    return rows
+  end
+  local canonical_rows
+  canonical_rows = function(rows)
+    local parts = { }
+    for _index_0 = 1, #rows do
+      local r = rows[_index_0]
+      local keys
+      do
+        local _accum_0 = { }
+        local _len_0 = 1
+        for k, _ in pairs(r) do
+          _accum_0[_len_0] = k
+          _len_0 = _len_0 + 1
+        end
+        keys = _accum_0
+      end
+      table.sort(keys)
+      local kv = { }
+      for _index_1 = 1, #keys do
+        local k = keys[_index_1]
+        table.insert(kv, tostring(k) .. "=" .. tostring(json.encode(r[k])))
+      end
+      table.insert(parts, "{" .. tostring(table.concat(kv, ' ')) .. "}")
+    end
+    table.sort(parts)
+    return parts
+  end
+  local assert_same_rows
+  assert_same_rows = function(actual, expected, label)
+    local got = canonical_rows(actual)
+    local exp = canonical_rows(expected)
+    R.eq(#got, #exp, tostring(label) .. ": row count")
+    local n = math.min(#got, #exp)
+    for i = 1, n do
+      R.eq(got[i], exp[i], tostring(label) .. ": row " .. tostring(i))
+    end
+  end
+  R.it("creates the test space with several field types", function()
+    local ok, sp = pcall(spaces.create_user_space, RT, 'round trip space')
+    R.ok(ok, tostring(sp))
+    rt_id = sp.id
+    for _index_0 = 1, #RT_FIELDS do
+      local f = RT_FIELDS[_index_0]
+      local ok2, err2 = pcall(spaces.add_field, rt_id, f.name, f.fieldType, f.notNull)
+      R.ok(ok2, "add_field " .. tostring(f.name) .. ": " .. tostring(err2))
+    end
+    local fields = spaces.list_fields(rt_id)
+    return R.eq(#fields, #RT_FIELDS)
+  end)
+  R.it("inserts the original records", function()
+    for _index_0 = 1, #ORIG_ROWS do
+      local r = ORIG_ROWS[_index_0]
+      local rec = data_res.Mutation.insertRecord({ }, {
+        spaceId = rt_id,
+        data = r
+      }, ADMIN_CTX)
+      R.ok(rec, "insert " .. tostring(r.titre))
+    end
+    return R.eq(#read_rows(), #ORIG_ROWS)
+  end)
+  R.it("exports the space together with its data", function()
+    local yaml_str = export_r.Query.exportSnapshot(nil, {
+      includeData = true
+    }, ADMIN_CTX)
+    R.ok(yaml_str)
+    local snap = yaml.decode(yaml_str)
+    R.ok(snap)
+    R.ok(snap.data)
+    R.ok(snap.data[RT], "data section for " .. tostring(RT))
+    R.eq(#snap.data[RT], #ORIG_ROWS)
+    rt_yaml = yaml_str
+  end)
+  R.it("exported rows hold the decoded field values", function()
+    local snap = yaml.decode(rt_yaml)
+    return assert_same_rows(snap.data[RT] or { }, ORIG_ROWS, 'exported data')
+  end)
+  R.it("deletes the test space", function()
+    spaces.delete_user_space(RT)
+    R.eq(#read_rows(), 0)
+    local found = false
+    local _list_0 = spaces.list_spaces()
+    for _index_0 = 1, #_list_0 do
+      local s = _list_0[_index_0]
+      if s.name == RT then
+        found = true
+      end
+    end
+    return R.eq(found, false)
+  end)
+  R.it("reimports the snapshot in merge mode", function()
+    local result = export_r.Mutation.importSnapshot(nil, {
+      yaml = rt_yaml,
+      mode = 'merge'
+    }, ADMIN_CTX)
+    R.ok(result)
+    R.ok(result.ok, table.concat(result.errors or { }, ' | '))
+    return R.eq(#read_rows(), #ORIG_ROWS)
+  end)
+  R.it("reimported records match the originals", function()
+    return assert_same_rows(read_rows(), ORIG_ROWS, 'restored data')
+  end)
+  return R.it("deletes the reimported test space", function()
+    spaces.delete_user_space(RT)
+    local found = false
+    local _list_0 = spaces.list_spaces()
+    for _index_0 = 1, #_list_0 do
+      local s = _list_0[_index_0]
+      if s.name == RT then
+        found = true
+      end
+    end
+    return R.eq(found, false)
   end)
 end)
