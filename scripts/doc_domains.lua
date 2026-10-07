@@ -7,7 +7,7 @@ domain_for_operation = function(name)
   if name == 'exportSnapshot' or name == 'diffSnapshot' or name == 'importSnapshot' then
     return 'snapshot'
   end
-  if name == 'listApps' or name == 'exportApp' or name == 'previewAppUpdate' or name == 'previewAppPurge' or name == 'applyAppUpdate' or name == 'purgeAppObsolete' then
+  if name == 'listApps' or name == 'appItems' or name == 'exportApp' or name == 'previewAppUpdate' or name == 'previewAppPurge' or name == 'applyAppUpdate' or name == 'purgeAppObsolete' then
     return 'snapshot'
   end
   if name == 'login' or name == 'logout' or name == 'me' or name == 'changePassword' or name == 'adminSetPassword' then

@@ -386,6 +386,11 @@ R.describe("app_resolvers — permissions", function()
       return app_r.Query.listApps(nil, { }, ANON_CTX)
     end), 'Unauthorized')
     R.raises((function()
+      return app_r.Query.appItems(nil, {
+        appId = APP_ID
+      }, ANON_CTX)
+    end), 'Unauthorized')
+    R.raises((function()
       return app_r.Query.exportApp(nil, export_args(), ANON_CTX)
     end), 'Unauthorized')
     R.raises((function()
@@ -415,6 +420,11 @@ R.describe("app_resolvers — permissions", function()
   return R.it("every operation is Forbidden for an authenticated non-admin", function()
     R.raises((function()
       return app_r.Query.listApps(nil, { }, NONADMIN_CTX)
+    end), 'Forbidden')
+    R.raises((function()
+      return app_r.Query.appItems(nil, {
+        appId = APP_ID
+      }, NONADMIN_CTX)
     end), 'Forbidden')
     R.raises((function()
       return app_r.Query.exportApp(nil, export_args(), NONADMIN_CTX)
@@ -611,6 +621,66 @@ R.describe("app_resolvers — obsolete items and purge", function()
     })
     R.eq(note_tracking[6], 'obsolète')
     return R.ok((field_by_name(SP_NAME, 'note')), 'obsolete field is never deleted')
+  end)
+  R.it("appItems lists tracked items sorted by key with their states", function()
+    local items = app_r.Query.appItems(nil, {
+      appId = APP_ID
+    }, ADMIN_CTX)
+    R.ok(#items > 0, 'tracked items returned')
+    local note_found = nil
+    local prev_key = ''
+    for _index_0 = 1, #items do
+      local it = items[_index_0]
+      R.ok(it.key > prev_key, "sorted after " .. tostring(prev_key) .. ": " .. tostring(it.key))
+      prev_key = it.key
+      if it.key == FIELD_NOTE then
+        note_found = it
+      else
+        R.eq(it.state, 'actif', "state of " .. tostring(it.key))
+        R.eq(it.version, '1.0.0', "version of " .. tostring(it.key))
+      end
+    end
+    R.ok(note_found, 'obsolete note item listed')
+    R.eq(note_found.state, 'obsolète')
+    R.eq(note_found.type, 'field')
+    return R.eq(note_found.version, '1.0.0')
+  end)
+  R.it("appItems returns an empty list for an unknown appId", function()
+    local items = app_r.Query.appItems(nil, {
+      appId = "org.test.unknown_" .. tostring(SUFFIX)
+    }, ADMIN_CTX)
+    return R.eq(#items, 0)
+  end)
+  R.it("appItems is reachable through the real GraphQL schema", function()
+    require('resolvers.init').reinit()
+    local q = 'query($id: String!) { appItems(appId: $id) { key type state version } }'
+    local res = run_gql(q, {
+      id = APP_ID
+    }, ADMIN_CTX)
+    R.nok(res.errors, errs_json(res))
+    R.eq(type(res.data.appItems), 'table')
+    R.ok(#res.data.appItems > 0, 'items via GraphQL')
+    local note_found = nil
+    local _list_0 = res.data.appItems
+    for _index_0 = 1, #_list_0 do
+      local it = _list_0[_index_0]
+      if it.key == FIELD_NOTE then
+        note_found = it
+      end
+    end
+    R.ok(note_found, 'note item via GraphQL')
+    R.eq(note_found.state, 'obsolète')
+    R.eq(note_found.type, 'field')
+    local res2 = run_gql(q, {
+      id = "org.test.unknown_" .. tostring(SUFFIX)
+    }, ADMIN_CTX)
+    R.nok(res2.errors, errs_json(res2))
+    R.eq(#res2.data.appItems, 0)
+    local res3 = run_gql(q, {
+      id = APP_ID
+    }, ANON_CTX)
+    R.ok(res3.errors, 'anonymous refused via GraphQL')
+    return R.ok((errs_json(res3)):match('Unauthorized'))
   end)
   R.it("previewAppPurge reports the losses and writes nothing", function()
     local preview = app_r.Query.previewAppPurge(nil, {

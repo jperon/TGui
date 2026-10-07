@@ -200,6 +200,7 @@ R.describe "app_resolvers — permissions", ->
 
   R.it "every operation is Unauthorized for an anonymous context", ->
     R.raises (-> app_r.Query.listApps nil, {}, ANON_CTX), 'Unauthorized'
+    R.raises (-> app_r.Query.appItems nil, { appId: APP_ID }, ANON_CTX), 'Unauthorized'
     R.raises (-> app_r.Query.exportApp nil, export_args!, ANON_CTX), 'Unauthorized'
     R.raises (-> app_r.Query.previewAppUpdate nil, { yaml: 'a: 1' }, ANON_CTX), 'Unauthorized'
     R.raises (-> app_r.Query.previewAppPurge nil, { appId: APP_ID, keys: {} }, ANON_CTX), 'Unauthorized'
@@ -208,6 +209,7 @@ R.describe "app_resolvers — permissions", ->
 
   R.it "every operation is Forbidden for an authenticated non-admin", ->
     R.raises (-> app_r.Query.listApps nil, {}, NONADMIN_CTX), 'Forbidden'
+    R.raises (-> app_r.Query.appItems nil, { appId: APP_ID }, NONADMIN_CTX), 'Forbidden'
     R.raises (-> app_r.Query.exportApp nil, export_args!, NONADMIN_CTX), 'Forbidden'
     R.raises (-> app_r.Query.previewAppUpdate nil, { yaml: 'a: 1' }, NONADMIN_CTX), 'Forbidden'
     R.raises (-> app_r.Query.previewAppPurge nil, { appId: APP_ID, keys: {} }, NONADMIN_CTX), 'Forbidden'
@@ -324,6 +326,48 @@ R.describe "app_resolvers — obsolete items and purge", ->
     note_tracking = box.space._tdb_app_items\get { APP_ID, FIELD_NOTE }
     R.eq note_tracking[6], 'obsolète'
     R.ok (field_by_name SP_NAME, 'note'), 'obsolete field is never deleted'
+
+  R.it "appItems lists tracked items sorted by key with their states", ->
+    items = app_r.Query.appItems nil, { appId: APP_ID }, ADMIN_CTX
+    R.ok #items > 0, 'tracked items returned'
+    note_found = nil
+    prev_key = ''
+    for it in *items
+      R.ok it.key > prev_key, "sorted after #{prev_key}: #{it.key}"
+      prev_key = it.key
+      if it.key == FIELD_NOTE
+        note_found = it
+      else
+        R.eq it.state, 'actif', "state of #{it.key}"
+        R.eq it.version, '1.0.0', "version of #{it.key}"
+    R.ok note_found, 'obsolete note item listed'
+    R.eq note_found.state, 'obsolète'
+    R.eq note_found.type, 'field'
+    R.eq note_found.version, '1.0.0'
+
+  R.it "appItems returns an empty list for an unknown appId", ->
+    items = app_r.Query.appItems nil, { appId: "org.test.unknown_#{SUFFIX}" }, ADMIN_CTX
+    R.eq #items, 0
+
+  R.it "appItems is reachable through the real GraphQL schema", ->
+    require('resolvers.init').reinit!
+    q = 'query($id: String!) { appItems(appId: $id) { key type state version } }'
+    res = run_gql q, { id: APP_ID }, ADMIN_CTX
+    R.nok res.errors, errs_json res
+    R.eq type(res.data.appItems), 'table'
+    R.ok #res.data.appItems > 0, 'items via GraphQL'
+    note_found = nil
+    for it in *res.data.appItems
+      note_found = it if it.key == FIELD_NOTE
+    R.ok note_found, 'note item via GraphQL'
+    R.eq note_found.state, 'obsolète'
+    R.eq note_found.type, 'field'
+    res2 = run_gql q, { id: "org.test.unknown_#{SUFFIX}" }, ADMIN_CTX
+    R.nok res2.errors, errs_json res2
+    R.eq #res2.data.appItems, 0
+    res3 = run_gql q, { id: APP_ID }, ANON_CTX
+    R.ok res3.errors, 'anonymous refused via GraphQL'
+    R.ok (errs_json res3)\match 'Unauthorized'
 
   R.it "previewAppPurge reports the losses and writes nothing", ->
     preview = app_r.Query.previewAppPurge nil, { appId: APP_ID, keys: { FIELD_NOTE } }, ADMIN_CTX

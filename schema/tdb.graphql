@@ -62,6 +62,7 @@ type Query {
 
   # App versioning (admin only)
   listApps: [AppInfo!]!
+  appItems(appId: String!): [AppItem!]!
   exportApp(meta: AppMetaInput!, seed: [AppSeedInput!]): String!
   previewAppUpdate(yaml: String!, allowDowngrade: Boolean): AppPlan!
   previewAppPurge(appId: String!, keys: [String!]!): AppPurgePreview!
@@ -579,6 +580,13 @@ type AppInfo {
   source:        String!
   activeCount:   Int!
   obsoleteCount: Int!
+}
+
+type AppItem {
+  key:     String!
+  type:    String!
+  state:   String!
+  version: String
 }
 
 type AppPlanItem {
