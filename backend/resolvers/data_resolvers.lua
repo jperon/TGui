@@ -2,10 +2,10 @@ local json = require('json')
 local log = require('log')
 local uuid_mod = require('uuid')
 local spaces_mod = require('core.spaces')
-local require_auth, safe_call
+local require_auth, require_perm, safe_call
 do
   local _obj_0 = require('resolvers.utils')
-  require_auth, safe_call = _obj_0.require_auth, _obj_0.safe_call
+  require_auth, require_perm, safe_call = _obj_0.require_auth, _obj_0.require_perm, _obj_0.safe_call
 end
 local config_mod = require('core.config')
 local data_space
@@ -139,7 +139,7 @@ apply_filter = function(tuples, filter, fk_def_map, fk_cache, space_name)
 end
 local Mutation = {
   insertRecord = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, 'space', args.spaceId, 'write')
     local sp = data_space(args.spaceId)
     local id = tostring(uuid_mod.new())
     local data
@@ -165,7 +165,7 @@ local Mutation = {
     }
   end,
   updateRecord = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, 'space', args.spaceId, 'write')
     local sp = data_space(args.spaceId)
     local existing = sp:get(args.id)
     if not (existing) then
@@ -198,13 +198,13 @@ local Mutation = {
     }
   end,
   deleteRecord = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, 'space', args.spaceId, 'write')
     local sp = data_space(args.spaceId)
     sp:delete(args.id)
     return true
   end,
   deleteRecords = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, 'space', args.spaceId, 'write')
     local sp = data_space(args.spaceId)
     local results
     do
@@ -223,7 +223,7 @@ local Mutation = {
     return results
   end,
   insertRecords = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, 'space', args.spaceId, 'write')
     local sp, meta = data_space(args.spaceId)
     local seq_fields = sequence_fields(args.spaceId)
     local triggers_mod = require('core.triggers')
@@ -259,7 +259,7 @@ local Mutation = {
     return results
   end,
   updateRecords = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, 'space', args.spaceId, 'write')
     local sp, meta = data_space(args.spaceId)
     local seq_fields = sequence_fields(args.spaceId)
     local results = { }
@@ -312,7 +312,7 @@ local Mutation = {
     return results
   end,
   restoreRecords = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, 'space', args.spaceId, 'write')
     local sp = data_space(args.spaceId)
     local results = { }
     box.atomic(function()
@@ -346,7 +346,7 @@ local Mutation = {
 }
 local Query = {
   records = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, 'space', args.spaceId, 'read')
     local sp = data_space(args.spaceId)
     local limit = args.limit or 100
     local offset = args.offset or 0
@@ -458,7 +458,7 @@ local Query = {
     }
   end,
   record = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, 'space', args.spaceId, 'read')
     local sp = data_space(args.spaceId)
     local t = sp:get(args.id)
     if not (t) then

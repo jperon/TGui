@@ -8,7 +8,7 @@ executor    = require 'graphql.executor'
 json        = require 'json'
 local data_r
 data_r      = require 'resolvers.data_resolvers'
-{ :require_auth, :require_admin } = require 'resolvers.utils'
+{ :require_auth, :require_admin, :require_perm, :perm_ok } = require 'resolvers.utils'
 
 reinit_with_formula_cache_reset = ->
   executor.reinit_schema!
@@ -55,13 +55,26 @@ update_relation = (id, repr_formula) ->
 -- ────────────────────────────────────────────────────────────────────────────
 
 Query =
-  spaces:    (_, args, ctx) -> require_auth(ctx) and spaces_mod.list_spaces!
-  space:     (_, args, ctx) -> require_auth(ctx) and spaces_mod.get_space args.id
-  views:     (_, args, ctx) -> require_auth(ctx) and views_mod.list_views args.spaceId
-  view:      (_, args, ctx) -> require_auth(ctx) and views_mod.get_view args.id
-  relations: (_, args, ctx) -> require_auth(ctx) and list_relations args.spaceId
+  spaces:    (_, args, ctx) ->
+    require_auth ctx
+    [sp for sp in *spaces_mod.list_spaces! when perm_ok ctx, 'space', sp.id, 'read']
+  space:     (_, args, ctx) ->
+    require_perm ctx, 'space', args.id, 'read'
+    spaces_mod.get_space args.id
+  views:     (_, args, ctx) ->
+    require_auth ctx
+    return {} unless perm_ok ctx, 'space', args.spaceId, 'read'
+    views_mod.list_views args.spaceId
+  view:      (_, args, ctx) ->
+    v = views_mod.get_view args.id
+    return nil unless v
+    require_perm ctx, 'space', v.spaceId, 'read'
+    v
+  relations: (_, args, ctx) ->
+    require_perm ctx, 'space', args.spaceId, 'read'
+    list_relations args.spaceId
   gridColumnPrefs: (_, args, ctx) ->
-    uid = require_auth ctx
+    uid = require_perm ctx, 'space', args.spaceId, 'read'
     sp = box.space._tdb_ui_prefs
     return {} unless sp
 
@@ -79,7 +92,7 @@ Query =
 
 Mutation =
   createSpace: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, '*', nil, 'admin'
     i = args.input
     result = spaces_mod.create_user_space i.name, i.description
     spaces_mod.add_field result.id, 'id', 'Sequence', true, 'Identifiant auto-incrémenté'
@@ -87,7 +100,7 @@ Mutation =
     spaces_mod.get_space result.id
 
   updateSpace: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, '*', nil, 'admin'
     t = box.space._tdb_spaces\get args.id
     error "Space not found" unless t
     now  = os.time!
@@ -99,7 +112,7 @@ Mutation =
     result
 
   deleteSpace: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, '*', nil, 'admin'
     t = box.space._tdb_spaces\get args.id
     error "Space not found" unless t
     spaces_mod.delete_user_space t[2]
@@ -107,7 +120,7 @@ Mutation =
     true
 
   addField: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, '*', nil, 'admin'
     i = args.input
     result = spaces_mod.add_field args.spaceId, i.name, i.fieldType, i.notNull, i.description, i.formula, i.triggerFields, i.language, i.reprFormula
     reinit_with_formula_cache_reset!
@@ -116,7 +129,7 @@ Mutation =
     result
 
   addFields: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, '*', nil, 'admin'
     results = {}
     for input in *args.inputs
       result = spaces_mod.add_field args.spaceId, input.name, input.fieldType, input.notNull, input.description, input.formula, input.triggerFields, input.language, input.reprFormula
@@ -127,7 +140,7 @@ Mutation =
     results
 
   removeField: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, '*', nil, 'admin'
     -- capture space name before deletion (for trigger refresh)
     fld     = box.space._tdb_fields\get args.fieldId
     sp_meta = fld and box.space._tdb_spaces\get fld[2]
@@ -137,13 +150,13 @@ Mutation =
     true
 
   reorderFields: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, '*', nil, 'admin'
     result = spaces_mod.reorder_fields args.spaceId, args.fieldIds
     reinit_with_formula_cache_reset!
     result
 
   updateField: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, '*', nil, 'admin'
     i = args.input
     result = spaces_mod.update_field args.fieldId, {
       name:          i.name
@@ -160,7 +173,7 @@ Mutation =
     result
 
   changeFieldType: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, '*', nil, 'admin'
     i = args.input
     result = spaces_mod.change_field_type args.fieldId, i.fieldType, i.conversionFormula, i.language
     reinit_with_formula_cache_reset!
@@ -169,41 +182,41 @@ Mutation =
     result
 
   createView: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, 'view', nil, 'write'
     i = args.input
     views_mod.create_view args.spaceId, i.name, i.viewType, i.config
 
   updateView: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, 'view', args.id, 'write'
     views_mod.update_view args.id, args.input
     views_mod.get_view args.id
 
   deleteView: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, 'view', args.id, 'admin'
     views_mod.delete_view args.id
     true
 
   createRelation: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, '*', nil, 'admin'
     i = args.input
     result = create_relation i.name, i.fromSpaceId, i.fromFieldId, i.toSpaceId, i.toFieldId, i.reprFormula
     reinit_with_formula_cache_reset!
     result
 
   deleteRelation: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, '*', nil, 'admin'
     result = delete_relation args.id
     reinit_with_formula_cache_reset!
     result
 
   updateRelation: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, '*', nil, 'admin'
     result = update_relation args.id, args.input.reprFormula
     reinit_with_formula_cache_reset!
     result
 
   saveGridColumnPrefs: (_, args, ctx) ->
-    uid = require_auth ctx
+    uid = require_perm ctx, 'space', args.spaceId, 'write'
     owner_key = uid
     if args.asDefault
       require_admin ctx
@@ -218,8 +231,12 @@ Mutation =
 
 -- Field-level resolvers for nested objects
 Space =
-  fields:   (obj, args, ctx) -> spaces_mod.list_fields obj.id
-  views:    (obj, args, ctx) -> views_mod.list_views obj.id
+  fields:   (obj, args, ctx) ->
+    require_perm ctx, 'space', obj.id, 'read'
+    spaces_mod.list_fields obj.id
+  views:    (obj, args, ctx) ->
+    require_perm ctx, 'space', obj.id, 'read'
+    views_mod.list_views obj.id
   records:  (obj, args, ctx) -> data_r.Query.records(nil, { spaceId: obj.id, limit: args.limit, offset: args.offset, filter: args.filter, reprFormula: args.reprFormula, reprLanguage: args.reprLanguage }, ctx)
 
 { :Query, :Mutation, :Space }

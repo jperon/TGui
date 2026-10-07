@@ -10,7 +10,7 @@ uuid_mod    = require 'uuid'
 yaml        = require 'yaml'
 json        = require 'json'
 clock       = require 'clock'
-{ :require_auth, :require_admin } = require 'resolvers.utils'
+{ :require_auth, :require_admin, :require_perm } = require 'resolvers.utils'
 
 -- Import ZSTD compression wrapper
 ZstdWrapper = require 'zstd_wrapper'
@@ -528,7 +528,7 @@ Query =
     compress_yaml_if_needed yaml_str, args.compress or false
 
   diffSnapshot: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, '*', nil, 'read'
     -- Decompress YAML if needed before parsing
     yaml_str = decompress_yaml_if_needed args.yaml
     ok, snap = pcall -> yaml.decode yaml_str

@@ -1,7 +1,10 @@
 local uuid_mod = require('uuid')
 local clock = require('clock')
-local require_auth
-require_auth = require('resolvers.utils').require_auth
+local require_auth, require_perm
+do
+  local _obj_0 = require('resolvers.utils')
+  require_auth, require_perm = _obj_0.require_auth, _obj_0.require_perm
+end
 local VALID_SCRIPT_LANGS = {
   coffeescript = true,
   javascript = true
@@ -222,11 +225,11 @@ delete_widget_plugin = function(id)
 end
 local Query = {
   widgetPlugins = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, '*', nil, 'read')
     return list_widget_plugins()
   end,
   widgetPlugin = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, '*', nil, 'read')
     if not args.id and not args.name then
       error('widgetPlugin requires id or name')
     end
@@ -235,15 +238,15 @@ local Query = {
 }
 local Mutation = {
   createWidgetPlugin = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, '*', nil, 'write')
     return create_widget_plugin(args.input or { })
   end,
   updateWidgetPlugin = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, '*', nil, 'write')
     return update_widget_plugin(args.id, args.input or { })
   end,
   deleteWidgetPlugin = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, '*', nil, 'admin')
     return delete_widget_plugin(args.id)
   end
 }

@@ -3,7 +3,7 @@
 
 uuid_mod = require 'uuid'
 clock = require 'clock'
-{ :require_auth } = require 'resolvers.utils'
+{ :require_auth, :require_perm } = require 'resolvers.utils'
 
 VALID_SCRIPT_LANGS = {
   coffeescript: true
@@ -134,26 +134,26 @@ delete_widget_plugin = (id) ->
 
 Query =
   widgetPlugins: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, '*', nil, 'read'
     list_widget_plugins!
 
   widgetPlugin: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, '*', nil, 'read'
     if not args.id and not args.name
       error 'widgetPlugin requires id or name'
     get_widget_plugin args.id, args.name
 
 Mutation =
   createWidgetPlugin: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, '*', nil, 'write'
     create_widget_plugin args.input or {}
 
   updateWidgetPlugin: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, '*', nil, 'write'
     update_widget_plugin args.id, args.input or {}
 
   deleteWidgetPlugin: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, '*', nil, 'admin'
     delete_widget_plugin args.id
 
 { :Query, :Mutation }

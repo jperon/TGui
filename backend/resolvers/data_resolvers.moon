@@ -5,7 +5,7 @@ json      = require 'json'
 log       = require 'log'
 uuid_mod  = require 'uuid'
 spaces_mod = require 'core.spaces'
-{ :require_auth, :safe_call } = require 'resolvers.utils'
+{ :require_auth, :require_perm, :safe_call } = require 'resolvers.utils'
 config_mod = require 'core.config'
 
 -- Retrieve the Tarantool space for user data
@@ -89,7 +89,7 @@ apply_filter = (tuples, filter, fk_def_map, fk_cache, space_name) ->
 
 Mutation =
   insertRecord: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, 'space', args.spaceId, 'write'
     sp = data_space args.spaceId
     id   = tostring uuid_mod.new!
     data = if type(args.data) == 'string' then json.decode(args.data) else args.data
@@ -101,7 +101,7 @@ Mutation =
     { id: id, spaceId: args.spaceId, data: json.encode(data) }
 
   updateRecord: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, 'space', args.spaceId, 'write'
     sp = data_space args.spaceId
     existing = sp\get args.id
     error "Record not found: #{args.id}" unless existing
@@ -116,13 +116,13 @@ Mutation =
     { id: args.id, spaceId: args.spaceId, data: json.encode(old_data) }
 
   deleteRecord: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, 'space', args.spaceId, 'write'
     sp = data_space args.spaceId
     sp\delete args.id
     true
 
   deleteRecords: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, 'space', args.spaceId, 'write'
     sp = data_space args.spaceId
     results = for id in *args.ids
       sp\delete id
@@ -130,7 +130,7 @@ Mutation =
     results
 
   insertRecords: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, 'space', args.spaceId, 'write'
     sp, meta = data_space args.spaceId
     seq_fields = sequence_fields args.spaceId
     triggers_mod = require 'core.triggers'
@@ -149,7 +149,7 @@ Mutation =
     results
 
   updateRecords: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, 'space', args.spaceId, 'write'
     sp, meta = data_space args.spaceId
     seq_fields = sequence_fields args.spaceId
 
@@ -177,7 +177,7 @@ Mutation =
     results
 
   restoreRecords: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, 'space', args.spaceId, 'write'
     sp = data_space args.spaceId
     results = {}
     box.atomic ->
@@ -192,7 +192,7 @@ Mutation =
 
 Query =
   records: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, 'space', args.spaceId, 'read'
     sp = data_space args.spaceId
     limit  = args.limit  or 100
     offset = args.offset or 0
@@ -286,7 +286,7 @@ Query =
     { items: items, total: total, offset: offset, limit: limit }
 
   record: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, 'space', args.spaceId, 'read'
     sp = data_space args.spaceId
     t = sp\get args.id
     return nil unless t

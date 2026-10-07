@@ -2,7 +2,7 @@
 -- Aggregation query: GROUP BY via Lua iteration over tuples.
 -- (Tarantool SQL engine requires a named format, which user spaces don't have.)
 
-{ :require_auth } = require 'resolvers.utils'
+{ :require_auth, :require_perm } = require 'resolvers.utils'
 json = require 'json'
 
 -- Whitelist of allowed aggregate functions
@@ -31,6 +31,8 @@ Query =
 
     sp = box.space["data_#{space_name}"]
     error "Espace introuvable: #{space_name}" unless sp
+    meta = box.space._tdb_spaces.index.by_name\get space_name
+    require_perm ctx, 'space', meta and meta[1], 'read'
 
     -- Full scan: group tuples by key
     groups     = {}  -- key -> { _vals, _d }

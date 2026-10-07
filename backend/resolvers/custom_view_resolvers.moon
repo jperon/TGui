@@ -4,7 +4,7 @@
 yaml = require 'yaml'
 uuid_mod = require 'uuid'
 json = require 'json'
-{ :require_auth } = require 'resolvers.utils'
+{ :require_auth, :require_perm, :perm_ok } = require 'resolvers.utils'
 
 -- Forward declarations for functions used before definition
 local add_data_view_to_page
@@ -344,35 +344,38 @@ import_layout = (page_id, yaml) ->
 Query =
   customViews: (_, args, ctx) ->
     require_auth ctx
-    list_custom_views!
+    out = {}
+    for cv in *list_custom_views!
+      table.insert out, cv if perm_ok ctx, 'view', cv.id, 'read'
+    out
   customView:  (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, 'view', args.id, 'read'
     get_custom_view args.id
   exportLayout: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, 'view', args.pageId, 'read'
     export_layout args.pageId
   listLayoutSnapshots: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, 'view', args.pageId, 'read'
     list_layout_snapshots args.pageId
 
 Mutation =
   createCustomView: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, 'view', nil, 'write'
     i = args.input or args  -- accepter les deux formats
     error "name is required" unless i.name
     create_custom_view i.name, i.description, i.yaml
   updateCustomView: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, 'view', args.id, 'write'
     i = args.input
     update_custom_view args.id, i.name, i.description, i.yaml
   deleteCustomView: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, 'view', args.id, 'admin'
     delete_custom_view args.id
   addWidgetToView: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, 'view', args.viewId, 'write'
     add_widget_to_view args.viewId, args.widget
   reorderWidgets: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, 'view', args.pageId, 'write'
     
     -- Validation des arguments
     pageId = args.pageId
@@ -391,7 +394,7 @@ Mutation =
     reorder_widgets pageId, widgetPositions
   
   createZone: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, 'view', args.pageId, 'write'
     pageId = args.pageId
     zoneData = args.zoneData or {}
     
@@ -400,7 +403,7 @@ Mutation =
     create_zone pageId, zoneData
   
   resizeZone: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, 'view', args.pageId, 'write'
     pageId = args.pageId
     zoneId = args.zoneId
     factor = args.factor
@@ -416,19 +419,20 @@ Mutation =
     resize_zone pageId, zoneId, factor
   
   addDataViewToPage: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, 'view', args.pageId, 'write'
     add_data_view_to_page args.pageId, args.dataViewId
 
   importLayout: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, 'view', args.pageId, 'write'
     import_layout args.pageId, args.yaml
 
   createLayoutSnapshot: (_, args, ctx) ->
-    require_auth ctx
+    require_perm ctx, 'view', args.pageId, 'write'
     create_layout_snapshot args.pageId, args.yaml, args.description
 
   restoreLayoutSnapshot: (_, args, ctx) ->
-    require_auth ctx
+    snap = box.space._tdb_layout_snapshots\get args.snapshotId
+    require_perm ctx, 'view', snap and snap[2], 'write'
     restore_layout_snapshot args.snapshotId
 
  -- Créer une nouvelle zone dans une vue
