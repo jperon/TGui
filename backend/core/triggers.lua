@@ -8,31 +8,74 @@ do
 end
 local DEBUG_FK_PROXY = false
 local active_triggers = { }
-local FORMULA_ENV = {
-  math = math,
-  string = string,
-  table = table,
-  type = type,
-  tostring = tostring,
-  tonumber = tonumber,
-  pairs = pairs,
-  ipairs = ipairs,
-  next = next,
-  select = select,
-  unpack = rawget(_G, 'unpack') or table.unpack,
-  pcall = pcall,
-  error = error,
-  assert = assert,
-  rawget = rawget,
-  rawset = rawset,
-  rawequal = rawequal,
-  os = {
-    time = os.time,
-    clock = os.clock,
-    date = os.date
+local MAX_STRING_REP_BYTES = 10 * 1024 * 1024
+local real_string_rep = string.rep
+local rep_guarded
+rep_guarded = function(s, n, sep)
+  local len = 0
+  if type(s) == 'string' then
+    len = #s
+  end
+  local sep_len = 0
+  if type(sep) == 'string' then
+    sep_len = #sep
+  end
+  local n_num = tonumber(n)
+  if n_num and n_num > 0 and len + sep_len > 0 and n_num * (len + sep_len) > MAX_STRING_REP_BYTES then
+    error("string.rep result exceeds limit " .. tostring(MAX_STRING_REP_BYTES) .. " bytes", 0)
+  end
+  if sep ~= nil then
+    return real_string_rep(s, n, sep)
+  end
+  return real_string_rep(s, n)
+end
+local shallow_copy
+shallow_copy = function(t)
+  local c = { }
+  for k, v in pairs(t) do
+    c[k] = v
+  end
+  return c
+end
+local make_string_copy
+make_string_copy = function()
+  local c = shallow_copy(string)
+  c.rep = rep_guarded
+  return c
+end
+local string_mt = getmetatable("")
+if string_mt and type(string_mt) == 'table' then
+  string_mt.__index = make_string_copy()
+end
+local build_formula_env
+build_formula_env = function()
+  local env = {
+    math = shallow_copy(math),
+    string = make_string_copy(),
+    table = shallow_copy(table),
+    type = type,
+    tostring = tostring,
+    tonumber = tonumber,
+    pairs = pairs,
+    ipairs = ipairs,
+    next = next,
+    select = select,
+    unpack = rawget(_G, 'unpack') or table.unpack,
+    pcall = pcall,
+    error = error,
+    assert = assert,
+    rawget = rawget,
+    rawset = rawset,
+    rawequal = rawequal,
+    os = {
+      time = os.time,
+      clock = os.clock,
+      date = os.date
+    }
   }
-}
-FORMULA_ENV._ENV = FORMULA_ENV
+  env._ENV = env
+  return env
+end
 local compile_formula
 compile_formula = function(formula, field_name, language)
   local lua_chunk
@@ -60,7 +103,7 @@ compile_formula = function(formula, field_name, language)
     log.error("tdb triggers: parse error for field '" .. tostring(field_name) .. "': " .. tostring(load_err))
     return nil
   end
-  local ok_env, _ = pcall(setfenv, chunk_fn, FORMULA_ENV)
+  local ok_env, _ = pcall(setfenv, chunk_fn, build_formula_env())
   if not (ok_env) then
     log.error("tdb triggers: setfenv not available, refusing to run formula '" .. tostring(field_name) .. "' unsandboxed")
     return nil
@@ -69,6 +112,9 @@ compile_formula = function(formula, field_name, language)
   if not ok2 or type(fn) ~= 'function' then
     log.error("tdb triggers: init error for field '" .. tostring(field_name) .. "': " .. tostring(fn))
     return nil
+  end
+  if jit and jit.off then
+    pcall(jit.off, fn, true)
   end
   return fn
 end
@@ -124,12 +170,13 @@ build_fk_def_map = function(space_id)
 end
 local format_formula_error
 format_formula_error = function(err)
+  local s
   if type(err) == 'string' then
-    local s = err
+    s = err
   elseif type(err) == 'table' and err.message then
-    local s = err.message
+    s = err.message
   else
-    local s = tostring(err)
+    s = tostring(err)
   end
   if s:find("attempt to concatenate") then
     local short = "Invalid concatenation"
@@ -401,16 +448,18 @@ make_self_proxy = function(record, fk_def_map, fk_cache, space_name)
         local fns = ensure_formulas(space_name)
         if fns[k] then
           fk_cache.space_helper = fk_cache.space_helper or make_space_helper()
-          local r_ok, val = pcall(fns[k], t, fk_cache.space_helper)
-          if r_ok and val ~= nil and val ~= '' then
+          local val, err = safe_formula_call(fns[k], "formula " .. tostring(space_name) .. "." .. tostring(k), nil, nil, {
+            t,
+            fk_cache.space_helper
+          })
+          if err ~= nil then
+            local err_msg = format_formula_error(err)
+            log.error("tdb proxy: error evaluating formula for '" .. tostring(space_name) .. "." .. tostring(k) .. "': " .. tostring(err))
+            return err_msg
+          end
+          if val ~= nil and val ~= '' then
             v = val
             rawset(t, k, v)
-          else
-            if not r_ok then
-              local err_msg = format_formula_error(val)
-              log.error("tdb proxy: error evaluating formula for '" .. tostring(space_name) .. "." .. tostring(k) .. "': " .. tostring(val))
-              return err_msg
-            end
           end
         end
       end
@@ -589,16 +638,18 @@ make_self_proxy_extended = function(record, single_fk_map, multiple_fk_map, fk_c
         local fns = ensure_formulas(space_name)
         if fns[k] then
           fk_cache.space_helper = fk_cache.space_helper or make_space_helper()
-          local r_ok, val = pcall(fns[k], t, fk_cache.space_helper)
-          if r_ok and val ~= nil and val ~= '' then
+          local val, err = safe_formula_call(fns[k], "formula " .. tostring(space_name) .. "." .. tostring(k), nil, nil, {
+            t,
+            fk_cache.space_helper
+          })
+          if err ~= nil then
+            local err_msg = format_formula_error(err)
+            log.error("tdb proxy: error evaluating formula for '" .. tostring(space_name) .. "." .. tostring(k) .. "': " .. tostring(err))
+            return err_msg
+          end
+          if val ~= nil and val ~= '' then
             v = val
             rawset(t, k, v)
-          else
-            if not r_ok then
-              local err_msg = format_formula_error(val)
-              log.error("tdb proxy: error evaluating formula for '" .. tostring(space_name) .. "." .. tostring(k) .. "': " .. tostring(val))
-              return err_msg
-            end
           end
         end
       end
@@ -691,12 +742,15 @@ make_trigger_fn = function(trigger_defs, space_name)
       local def = trigger_defs[_index_0]
       if should_run(is_insert, def.trigger_fields_list, old_data, new_data) then
         local proxy = make_self_proxy(new_data, def.fk_def_map, nil, space_name)
-        local r_ok, val = pcall(def.fn, proxy, space_helper)
-        if r_ok then
+        local val, err = safe_formula_call(def.fn, "trigger " .. tostring(space_name) .. "." .. tostring(def.field_name), nil, nil, {
+          proxy,
+          space_helper
+        })
+        if err ~= nil then
+          log.error("tdb trigger: error evaluating formula for '" .. tostring(def.field_name) .. "': " .. tostring(err))
+        else
           new_data[def.field_name] = val
           modified = true
-        else
-          log.error("tdb trigger: error evaluating formula for '" .. tostring(def.field_name) .. "': " .. tostring(val))
         end
       end
     end
@@ -816,5 +870,6 @@ return {
   deregister_space_trigger = deregister_space_trigger,
   init_all_triggers = init_all_triggers,
   format_formula_error = format_formula_error,
-  invalidate_formula_cache = invalidate_formula_cache
+  invalidate_formula_cache = invalidate_formula_cache,
+  MAX_STRING_REP_BYTES = MAX_STRING_REP_BYTES
 }

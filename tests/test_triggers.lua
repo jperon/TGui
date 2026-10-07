@@ -2,9 +2,11 @@ local R = require('tests.runner')
 local json = require('json')
 local spaces_mod = require('core.spaces')
 local triggers = require('core.triggers')
+local config_mod = require('core.config')
 local SUFFIX = tostring(math.random(100000, 999999))
 local SP_NAME = "test_triggers_" .. tostring(SUFFIX)
 local MS_SP = "trig_moon_" .. tostring(SUFFIX)
+local SB_SP = "trig_sb_" .. tostring(SUFFIX)
 local space_id, data_space
 local insert_raw
 insert_raw = function(data)
@@ -25,6 +27,51 @@ read_data = function(id)
     return nil
   end
   return json.decode(t[2])
+end
+local WATCHDOG_INTERVAL = 10000
+local WATCHDOG_INSTRUCTIONS = 20 * 1000 * 1000
+local watchdog_on
+watchdog_on = function()
+  local calls = 0
+  local hook
+  hook = function()
+    calls = calls + 1
+    if calls * WATCHDOG_INTERVAL > WATCHDOG_INSTRUCTIONS then
+      debug.sethook()
+      return error("watchdog: formula exceeded " .. tostring(WATCHDOG_INSTRUCTIONS) .. " instructions", 0)
+    end
+  end
+  return debug.sethook(hook, 'count', WATCHDOG_INTERVAL)
+end
+local watchdog_off
+watchdog_off = function()
+  return debug.sethook()
+end
+local check_lib_isolated
+check_lib_isolated = function(lib_name, key, use_src, expected)
+  local real_lib = _G[lib_name]
+  local orig = real_lib[key]
+  local exists = (orig ~= nil)
+  local mutate_src = "(function() " .. tostring(lib_name) .. "." .. tostring(key) .. " = nil return 1 end)()"
+  local fn_mutate = triggers.compile_formula(mutate_src, "sandbox_mutate_" .. tostring(lib_name), 'lua')
+  local ok_m, val_m = false, 'formula not compiled'
+  if fn_mutate then
+    ok_m, val_m = pcall(fn_mutate, { }, nil)
+  end
+  local survived = (real_lib[key] == orig)
+  local fn_use = triggers.compile_formula(use_src, "sandbox_use_" .. tostring(lib_name), 'lua')
+  local ok_u, val_u = false, 'formula not compiled'
+  if fn_use then
+    ok_u, val_u = pcall(fn_use, { }, nil)
+  end
+  real_lib[key] = orig
+  R.ok(exists, tostring(lib_name) .. "." .. tostring(key) .. " must exist before the test")
+  R.ok(fn_mutate ~= nil, "mutating formula for " .. tostring(lib_name) .. " must compile")
+  R.ok(ok_m, "mutating formula must run: " .. tostring(tostring(val_m)))
+  R.ok(survived, "real " .. tostring(lib_name) .. "." .. tostring(key) .. " must survive a formula mutation")
+  R.ok(fn_use ~= nil, "formula using " .. tostring(lib_name) .. " must compile")
+  R.ok(ok_u, "formula using " .. tostring(lib_name) .. "." .. tostring(key) .. " must still run: " .. tostring(tostring(val_u)))
+  return R.eq(val_u, expected, "formula using " .. tostring(lib_name) .. "." .. tostring(key) .. " must return " .. tostring(expected))
 end
 R.describe("Triggers — setup", function()
   R.it("create test space", function()
@@ -251,5 +298,96 @@ R.describe("Triggers — init_all_triggers", function()
     return R.ok(ok, "init_all_triggers: " .. tostring(tostring(err)))
   end)
 end)
+R.describe("Triggers — sandbox: library isolation", function()
+  R.it("string.format = nil in a formula does not affect another formula", function()
+    return check_lib_isolated('string', 'format', 'string.format("%d-%s", 42, "x")', '42-x')
+  end)
+  R.it("table.insert = nil in a formula does not affect another formula", function()
+    return check_lib_isolated('table', 'insert', 'table.concat({"a", "b"}, "-")', 'a-b')
+  end)
+  R.it("math.floor = nil in a formula does not affect another formula", function()
+    return check_lib_isolated('math', 'floor', 'math.floor(2.9)', 2)
+  end)
+  return R.it("os.time = nil in a formula does not affect another formula", function()
+    return check_lib_isolated('os', 'time', 'type(os.time())', 'number')
+  end)
+end)
+R.describe("Triggers — sandbox: instruction limit", function()
+  R.it("infinite loop formula returns a bounded formula error", function()
+    local fn = triggers.compile_formula('(function() while true do end end)()', 'sandbox_loop', 'lua')
+    R.ok(fn ~= nil, 'infinite loop formula must compile')
+    watchdog_on()
+    local t0 = os.clock()
+    local val, err = config_mod.safe_formula_call(fn, 'infinite loop formula')
+    watchdog_off()
+    local elapsed = os.clock() - t0
+    R.ok(err ~= nil, "the infinite loop must be stopped with an error (took " .. tostring(elapsed) .. "s)")
+    R.matches(tostring(err), 'instruction limit', "bounded formula error, got " .. tostring(tostring(err)))
+    return R.ok(elapsed < 10, "must return in bounded time (took " .. tostring(elapsed) .. "s)")
+  end)
+  return R.it("infinite loop formula column -> bounded [ERROR|...] through the proxy", function()
+    local sp = spaces_mod.create_user_space(SB_SP)
+    local sb_data = box.space["data_" .. tostring(SB_SP)]
+    spaces_mod.add_field(sp.id, 'valeur', 'String')
+    spaces_mod.add_field(sp.id, 'boucle', 'String', false, '', '(function() while true do end end)()')
+    sb_data:insert({
+      'sb_1',
+      json.encode({
+        valeur = 'x'
+      })
+    })
+    local proxy = triggers.make_self_proxy({
+      valeur = 'x',
+      _id = 'sb_1'
+    }, nil, nil, SB_SP)
+    watchdog_on()
+    local t0 = os.clock()
+    local ok_p, v = pcall(function()
+      return proxy.boucle
+    end)
+    watchdog_off()
+    local elapsed = os.clock() - t0
+    spaces_mod.delete_user_space(SB_SP)
+    R.ok(ok_p, "proxy read must not raise: " .. tostring(tostring(v)))
+    R.ok(elapsed < 10, "proxy read must be bounded (took " .. tostring(elapsed) .. "s)")
+    return R.matches(tostring(v), 'instruction limit', "proxy must surface the formula error, got " .. tostring(tostring(v)))
+  end)
+end)
+R.describe("Triggers — sandbox: string.rep limit", function()
+  R.it("small rep still works through both paths", function()
+    local fn_method = triggers.compile_formula('("ab"):rep(3)', 'rep_small_method', 'lua')
+    R.ok(fn_method ~= nil, 'method rep formula must compile')
+    local ok_m, val_m = pcall(fn_method, { }, nil)
+    R.ok(ok_m, "method rep must run: " .. tostring(tostring(val_m)))
+    R.eq(val_m, 'ababab')
+    local fn_explicit = triggers.compile_formula('string.rep("ab", 3)', 'rep_small_explicit', 'lua')
+    R.ok(fn_explicit ~= nil, 'explicit rep formula must compile')
+    local ok_e, val_e = pcall(fn_explicit, { }, nil)
+    R.ok(ok_e, "explicit rep must run: " .. tostring(tostring(val_e)))
+    return R.eq(val_e, 'ababab')
+  end)
+  return R.it('("x"):rep(1e9) returns a bounded error', function()
+    R.ok(triggers.MAX_STRING_REP_BYTES ~= nil, 'triggers.MAX_STRING_REP_BYTES must be defined')
+    local str_idx = rawget(getmetatable(""), '__index')
+    R.nok(str_idx == string, 'string metatable __index must be rebound to the protected copy')
+    if not (triggers.MAX_STRING_REP_BYTES ~= nil and str_idx ~= string) then
+      return 
+    end
+    local fn_method = triggers.compile_formula('(("x"):rep(1e9))', 'rep_huge_method', 'lua')
+    R.ok(fn_method ~= nil, 'huge method rep formula must compile')
+    local t0 = os.clock()
+    local ok_m, err_m = pcall(fn_method, { }, nil)
+    local elapsed_m = os.clock() - t0
+    R.nok(ok_m, '("x"):rep(1e9) must raise an error')
+    R.matches(tostring(err_m), 'string.rep result exceeds limit', "bounded rep error, got " .. tostring(tostring(err_m)))
+    R.ok(elapsed_m < 5, "must fail fast (took " .. tostring(elapsed_m) .. "s)")
+    local fn_explicit = triggers.compile_formula('string.rep("x", 1e9)', 'rep_huge_explicit', 'lua')
+    R.ok(fn_explicit ~= nil, 'huge explicit rep formula must compile')
+    local ok_e, err_e = pcall(fn_explicit, { }, nil)
+    R.nok(ok_e, 'string.rep("x", 1e9) must raise an error')
+    return R.matches(tostring(err_e), 'string.rep result exceeds limit', "bounded rep error, got " .. tostring(tostring(err_e)))
+  end)
+end)
 spaces_mod.delete_user_space(SP_NAME)
-return spaces_mod.delete_user_space(MS_SP)
+spaces_mod.delete_user_space(MS_SP)
+return spaces_mod.delete_user_space(SB_SP)
