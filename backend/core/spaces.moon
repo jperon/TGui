@@ -141,6 +141,7 @@ SYSTEM_SPACES =
       { name: 'to_field_id',    type: 'string'   }
       { name: 'name',           type: 'string' }
       { name: 'repr_formula',   type: 'string', is_nullable: true }
+      { name: 'cardinality',    type: 'string', is_nullable: true }
     }
     indexes:
       primary:  { parts: {'id'},            unique: true,  type: 'HASH' }
@@ -309,6 +310,22 @@ bootstrap = ->
       }
       sp\format new_fmt
       log.info 'tdb_v2: added repr_formula to _tdb_relations'
+
+  box.once 'tdb_v3', ->
+    sp = box.space._tdb_relations
+    if sp
+      new_fmt = {
+        { name: 'id',           type: 'string' }
+        { name: 'from_space_id',type: 'string' }
+        { name: 'from_field_id',type: 'string' }
+        { name: 'to_space_id',  type: 'string' }
+        { name: 'to_field_id',  type: 'string' }
+        { name: 'name',         type: 'string' }
+        { name: 'repr_formula', type: 'string', is_nullable: true }
+        { name: 'cardinality',  type: 'string', is_nullable: true }
+      }
+      sp\format new_fmt
+      log.info "tdb_v3: added cardinality to _tdb_relations — relations existantes : cardinalité 'one' par défaut"
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- Runtime space management

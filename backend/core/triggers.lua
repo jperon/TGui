@@ -228,59 +228,16 @@ build_relation_map = function(space_id)
       local sp = space_by_id[t[4]]
       local tf = box.space._tdb_fields:get(t[5])
       if fld and sp and tf then
-        local is_multiple = is_multiple_relation(space_id, sp.name, tf[3])
+        local cardinality = t[8] or 'one'
         relations[fld[3]] = {
           toSpaceName = sp.name,
           toFieldName = tf[3],
-          isMultiple = is_multiple
+          isMultiple = cardinality == 'many'
         }
       end
     end
   end
   return relations
-end
-local is_multiple_relation
-is_multiple_relation = function(from_space_id, to_space_name, to_field_name)
-  local to_space_meta = box.space._tdb_spaces.index.by_name:get({
-    to_space_name
-  })
-  if not (to_space_meta) then
-    return false
-  end
-  local to_space = box.space["data_" .. tostring(to_space_name)]
-  if not (to_space) then
-    return false
-  end
-  local ref_counts = { }
-  local total_refs = 0
-  local _list_0 = to_space:select({ })
-  for _index_0 = 1, #_list_0 do
-    local t = _list_0[_index_0]
-    local data
-    if type(t[2]) == 'string' then
-      data = json.decode(t[2])
-    else
-      data = t[2]
-    end
-    if data[to_field_name] then
-      local source_id = tostring(data[to_field_name])
-      ref_counts[source_id] = (ref_counts[source_id] or 0) + 1
-      total_refs = total_refs + 1
-    end
-  end
-  if total_refs == 0 then
-    return false
-  end
-  local unique_sources = 0
-  for _, count in pairs(ref_counts) do
-    unique_sources = unique_sources + 1
-  end
-  local avg_refs = total_refs / unique_sources
-  local max_refs = 0
-  for _, count in pairs(ref_counts) do
-    max_refs = math.max(max_refs, count)
-  end
-  return (avg_refs > 1.5) and (total_refs > 10) and (max_refs > 2)
 end
 local build_single_and_multiple_maps
 build_single_and_multiple_maps = function(space_id)
@@ -864,7 +821,6 @@ return {
   make_self_proxy_extended = make_self_proxy_extended,
   build_fk_def_map = build_fk_def_map,
   build_relation_map = build_relation_map,
-  is_multiple_relation = is_multiple_relation,
   build_single_and_multiple_maps = build_single_and_multiple_maps,
   register_space_trigger = register_space_trigger,
   deregister_space_trigger = deregister_space_trigger,

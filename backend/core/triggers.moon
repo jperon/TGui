@@ -198,10 +198,11 @@ format_formula_error = (err) ->
   -- Expected frontend format: [ERROR|Short type|Full message]
   "[ERROR|#{short}|#{clean_msg}]"
 
--- ── Multiple Relations Detection ─────────────────────────────────────────────────
+-- ── Multiple Relations (declared cardinality) ───────────────────────────────────
 
 -- Build { field_name => { toSpaceName, toFieldName, isMultiple } } for a space's FK fields.
--- Detects if a relation is 1-to-N by analyzing the target space data.
+-- isMultiple comes from the declared cardinality of the relation (column 8 of
+-- _tdb_relations): 'many' => true, anything else (missing column included) => false.
 build_relation_map = (space_id) ->
   relations = {}
   space_by_id = {}
@@ -223,56 +224,14 @@ build_relation_map = (space_id) ->
       tf = box.space._tdb_fields\get t[5]  -- toFieldId
 
       if fld and sp and tf
-        is_multiple = is_multiple_relation space_id, sp.name, tf[3]
+        cardinality = t[8] or 'one'
         relations[fld[3]] = {
           toSpaceName: sp.name
           toFieldName: tf[3]
-          isMultiple: is_multiple
+          isMultiple: cardinality == 'many'
         }
 
   relations
-
--- Detect if a relation is multiple (1-to-N) by analyzing the target space data.
--- Returns true if multiple records in the target space reference the same source record.
-is_multiple_relation = (from_space_id, to_space_name, to_field_name) ->
-  -- Get target space metadata
-  to_space_meta = box.space._tdb_spaces.index.by_name\get { to_space_name }
-  return false unless to_space_meta
-
-  -- Check target space data
-  to_space = box.space["data_#{to_space_name}"]
-  return false unless to_space
-
-  -- Count references to each source record
-  ref_counts = {}
-  total_refs = 0
-
-  for t in *to_space\select {}
-    data = if type(t[2]) == 'string' then json.decode(t[2]) else t[2]
-    if data[to_field_name]
-      source_id = tostring data[to_field_name]
-      ref_counts[source_id] = (ref_counts[source_id] or 0) + 1
-      total_refs += 1
-
-  -- If there are no references, it's not a multiple relation
-  return false if total_refs == 0
-
-  -- Calculate average references per source record
-  unique_sources = 0
-  for _, count in pairs ref_counts
-    unique_sources += 1
-
-  avg_refs = total_refs / unique_sources
-
-  -- Consider it multiple if:
-  -- 1. Average > 1.5 (some sources have multiple references)
-  -- 2. Total references > 10 (significant amount of data)
-  -- 3. At least one source has > 2 references
-  max_refs = 0
-  for _, count in pairs ref_counts
-    max_refs = math.max(max_refs, count)
-
-  return (avg_refs > 1.5) and (total_refs > 10) and (max_refs > 2)
 
 -- Build separate maps for single and multiple relations
 build_single_and_multiple_maps = (space_id) ->
@@ -682,4 +641,4 @@ deregister_space_trigger = (space_name) ->
     pcall -> data_sp\before_replace nil, old_fn
   active_triggers[space_name] = nil
 
-{ :compile_formula, :make_self_proxy, :make_self_proxy_extended, :build_fk_def_map, :build_relation_map, :is_multiple_relation, :build_single_and_multiple_maps, :register_space_trigger, :deregister_space_trigger, :init_all_triggers, :format_formula_error, :invalidate_formula_cache, :MAX_STRING_REP_BYTES }
+{ :compile_formula, :make_self_proxy, :make_self_proxy_extended, :build_fk_def_map, :build_relation_map, :build_single_and_multiple_maps, :register_space_trigger, :deregister_space_trigger, :init_all_triggers, :format_formula_error, :invalidate_formula_cache, :MAX_STRING_REP_BYTES }

@@ -64,19 +64,36 @@ R.describe "Multiple Relations Detection", ->
     assert next(single_map) == nil
     assert next(multiple_map) == nil
 
-  R.it "is_multiple_relation should return false for non-existent space", ->
-    is_multiple = triggers.is_multiple_relation "999999", "NonExistent", "id"
+  R.it "a relation without declared cardinality is classified as single", ->
+    -- Legacy row: 7 columns, no cardinality => must be read as 'one'
+    tgt = spaces_mod.create_user_space 'TestTarget'
+    src_meta = box.space._tdb_spaces.index.by_name\get { 'TestSource' }
+    source_id = src_meta[1]
+    fk  = spaces_mod.add_field source_id, 'legacy_target_id', 'Int'
+    key = spaces_mod.add_field tgt.id, 'legacy_code', 'Int'
+    box.space._tdb_relations\insert { 'rel_card_one', source_id, fk.id, tgt.id, key.id, 'src_legacy', '' }
 
-    assert is_multiple == false
+    single_map, multiple_map = triggers.build_single_and_multiple_maps source_id
 
-  R.it "is_multiple_relation should return false for non-existent target space", ->
-    is_multiple = triggers.is_multiple_relation "999999", "NonExistent", "id"
+    assert single_map['legacy_target_id'] != nil
+    assert multiple_map['legacy_target_id'] == nil
 
-    assert is_multiple == false
+  R.it "a relation declared 'many' is classified as multiple", ->
+    tgt = box.space._tdb_spaces.index.by_name\get { 'TestTarget' }
+    src_meta = box.space._tdb_spaces.index.by_name\get { 'TestSource' }
+    source_id = src_meta[1]
+    fk  = spaces_mod.add_field source_id, 'multi_target_id', 'Int'
+    key = spaces_mod.add_field tgt[1], 'multi_code', 'Int'
+    box.space._tdb_relations\insert { 'rel_card_many', source_id, fk.id, tgt[1], key.id, 'src_multi', '', 'many' }
+
+    single_map, multiple_map = triggers.build_single_and_multiple_maps source_id
+
+    assert single_map['multi_target_id'] == nil
+    assert multiple_map['multi_target_id'] != nil
+    assert multiple_map['multi_target_id'].toSpaceName == 'TestTarget'
 
   R.it "functions should be exported from triggers module", ->
     assert type(triggers.build_relation_map) == 'function'
-    assert type(triggers.is_multiple_relation) == 'function'
     assert type(triggers.build_single_and_multiple_maps) == 'function'
 
   R.it "build_fk_def_map should still work (backward compatibility)", ->
@@ -85,5 +102,8 @@ R.describe "Multiple Relations Detection", ->
     assert type(fk_map) == 'table'
     assert next(fk_map) == nil  -- Should be empty for non-existent space
 
--- Cleanup: delete spaces created for these tests
+-- Cleanup: delete relations and spaces created for these tests
+for rid in *{'rel_card_one', 'rel_card_many'}
+  box.space._tdb_relations\delete { rid } if box.space._tdb_relations\get { rid }
 spaces_mod.delete_user_space 'TestSource'
+spaces_mod.delete_user_space 'TestTarget'
