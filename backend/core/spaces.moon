@@ -509,27 +509,23 @@ update_field = (field_id, opts) ->
   name     = opts.name     or t[3]
   not_null = if opts.notNull != nil then opts.notNull else t[5]
   desc     = opts.description or t[7]
-  formula  = opts.formula
-  trigger_fields = opts.triggerFields
   language = opts.language or t[10] or 'lua'
+  -- Preserve the columns the caller does not mention: an absent formula keeps
+  -- the existing formula and triggers, `formula = ''` clears them explicitly,
+  -- an absent reprFormula keeps the existing representation formula.
+  formula = if opts.formula != nil then opts.formula else (t[8] or '')
   repr_formula = if opts.reprFormula != nil then opts.reprFormula else (t[11] or '')
+  triggers_enc = if opts.formula != nil
+    json.encode opts.triggerFields
+  else
+    t[9] or json.encode(nil)
   -- Preserve immutable columns: id, spaceId, fieldType, position
   tuple = { t[1], t[2], name, t[4], not_null, t[6], desc }
-  if (formula and formula != '') or (repr_formula and repr_formula != '')
-    actual_formula = if formula != nil then formula else (t[8] or '')
-    actual_trigger = if opts.formula != nil then trigger_fields else
-      -- preserve existing trigger_fields
-      do
-        raw = t[9]
-        if raw and raw != 'null' then json.decode(raw) else nil
-    table.insert tuple, actual_formula
-    table.insert tuple, json.encode(actual_trigger)
-    table.insert tuple, language
-    table.insert tuple, repr_formula
-  elseif formula == ''
-    -- Formula explicitly cleared; also clear reprFormula unless it was provided
-    table.insert tuple, ''
-    table.insert tuple, json.encode(nil)
+  -- Rewrite columns 8..11 only when the field already carries them or the
+  -- update touches the formula/representation; a plain field stays 7 columns.
+  if t[8] != nil or formula != '' or repr_formula != ''
+    table.insert tuple, formula
+    table.insert tuple, triggers_enc
     table.insert tuple, language
     table.insert tuple, repr_formula
   box.space._tdb_fields\replace tuple

@@ -1181,14 +1181,24 @@ update_field = function(field_id, opts)
     not_null = t[5]
   end
   local desc = opts.description or t[7]
-  local formula = opts.formula
-  local trigger_fields = opts.triggerFields
   local language = opts.language or t[10] or 'lua'
+  local formula
+  if opts.formula ~= nil then
+    formula = opts.formula
+  else
+    formula = (t[8] or '')
+  end
   local repr_formula
   if opts.reprFormula ~= nil then
     repr_formula = opts.reprFormula
   else
     repr_formula = (t[11] or '')
+  end
+  local triggers_enc
+  if opts.formula ~= nil then
+    triggers_enc = json.encode(opts.triggerFields)
+  else
+    triggers_enc = t[9] or json.encode(nil)
   end
   local tuple = {
     t[1],
@@ -1199,33 +1209,9 @@ update_field = function(field_id, opts)
     t[6],
     desc
   }
-  if (formula and formula ~= '') or (repr_formula and repr_formula ~= '') then
-    local actual_formula
-    if formula ~= nil then
-      actual_formula = formula
-    else
-      actual_formula = (t[8] or '')
-    end
-    local actual_trigger
-    if opts.formula ~= nil then
-      actual_trigger = trigger_fields
-    else
-      do
-        local raw = t[9]
-        if raw and raw ~= 'null' then
-          actual_trigger = json.decode(raw)
-        else
-          actual_trigger = nil
-        end
-      end
-    end
-    table.insert(tuple, actual_formula)
-    table.insert(tuple, json.encode(actual_trigger))
-    table.insert(tuple, language)
-    table.insert(tuple, repr_formula)
-  elseif formula == '' then
-    table.insert(tuple, '')
-    table.insert(tuple, json.encode(nil))
+  if t[8] ~= nil or formula ~= '' or repr_formula ~= '' then
+    table.insert(tuple, formula)
+    table.insert(tuple, triggers_enc)
     table.insert(tuple, language)
     table.insert(tuple, repr_formula)
   end

@@ -330,7 +330,7 @@ R.describe("Spaces — reprFormula and conversion", function()
   end)
 end)
 spaces_mod.delete_user_space(SP_NAME)
-return R.describe("Spaces — Int to Sequence conversion", function()
+R.describe("Spaces — Int to Sequence conversion", function()
   R.it("Int to Sequence conversion preserves existing IDs", function()
     local sp = spaces_mod.create_user_space('test_seq_conv', 'Test sequence conversion')
     local id_field = spaces_mod.add_field(sp.id, 'id', 'Int', false, 'ID existant')
@@ -390,5 +390,78 @@ return R.describe("Spaces — Int to Sequence conversion", function()
       error("Value should be a number")
     end
     return spaces_mod.delete_user_space('test_seq_empty')
+  end)
+end)
+return R.describe("Spaces — update_field preserves untouched columns", function()
+  local json = require('json')
+  local UF_SP = "test_uf_" .. tostring(SUFFIX)
+  R.it("description only on a simple field writes only the description", function()
+    local sp = spaces_mod.create_user_space(UF_SP, 'update_field tests')
+    local f = spaces_mod.add_field(sp.id, 'plain', 'String', false, 'orig desc')
+    spaces_mod.update_field(f.id, {
+      description = 'new desc'
+    })
+    local t = box.space._tdb_fields:get(f.id)
+    R.eq(t[7], 'new desc')
+    R.eq(t[3], 'plain')
+    R.eq(t[4], 'String')
+    return R.eq(t[5], false)
+  end)
+  R.it("description only keeps formula, triggers, language and repr", function()
+    local sp = spaces_mod.get_space_by_name(UF_SP)
+    local f = spaces_mod.add_field(sp.id, 'calc', 'String', false, '', 'self.plain or ""', {
+      'plain'
+    }, 'lua')
+    spaces_mod.update_field(f.id, {
+      description = 'calc desc'
+    })
+    local t = box.space._tdb_fields:get(f.id)
+    R.eq(t[7], 'calc desc')
+    R.eq(t[8], 'self.plain or ""')
+    local tf = json.decode(t[9])
+    R.eq(tf[1], 'plain')
+    return R.eq(t[10], 'lua')
+  end)
+  R.it("formula = '' clears explicitly; an absent formula preserves", function()
+    local sp = spaces_mod.get_space_by_name(UF_SP)
+    local f = spaces_mod.add_field(sp.id, 'clr', 'String', false, '', 'self.plain', {
+      'plain'
+    }, 'lua')
+    spaces_mod.update_field(f.id, {
+      formula = ''
+    })
+    local t = box.space._tdb_fields:get(f.id)
+    R.eq((t[8] or ''), '')
+    R.ok((not t[9] or t[9] == 'null'))
+    spaces_mod.update_field(f.id, {
+      formula = 'self.plain',
+      triggerFields = { }
+    })
+    t = box.space._tdb_fields:get(f.id)
+    R.eq(t[8], 'self.plain')
+    spaces_mod.update_field(f.id, {
+      notNull = true
+    })
+    t = box.space._tdb_fields:get(f.id)
+    R.eq(t[8], 'self.plain', 'formula preserved when not mentioned')
+    return R.eq(t[5], true)
+  end)
+  R.it("changing only reprFormula keeps the formula and triggers", function()
+    local sp = spaces_mod.get_space_by_name(UF_SP)
+    local f = spaces_mod.add_field(sp.id, 'rep', 'String', false, '', 'self.plain', {
+      'plain'
+    }, 'lua', "return self.plain")
+    spaces_mod.update_field(f.id, {
+      reprFormula = "return string.upper(self.plain or '')"
+    })
+    local t = box.space._tdb_fields:get(f.id)
+    R.eq(t[8], 'self.plain')
+    R.eq(t[11], "return string.upper(self.plain or '')")
+    local tf = json.decode(t[9])
+    return R.eq(tf[1], 'plain')
+  end)
+  return R.it("removes the update_field fixture", function()
+    spaces_mod.delete_user_space(UF_SP)
+    return R.is_nil(spaces_mod.get_space_by_name(UF_SP))
   end)
 end)
