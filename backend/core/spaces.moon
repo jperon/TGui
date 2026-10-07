@@ -214,6 +214,33 @@ SYSTEM_SPACES =
       primary:  { parts: {'token'},   unique: true, type: 'HASH' }
       by_user:  { parts: {'user_id'}, unique: false, type: 'TREE' }
 
+  -- Installed applications (app packages, versioning)
+  _tdb_apps:
+    format: {
+      { name: 'app_id',       type: 'string' }
+      { name: 'name',         type: 'string' }
+      { name: 'version',      type: 'string' }
+      { name: 'installed_at', type: 'number' }
+      { name: 'source',       type: 'string' }
+    }
+    indexes:
+      primary: { parts: {'app_id'}, unique: true, type: 'HASH' }
+
+  -- Items delivered by an installed application
+  _tdb_app_items:
+    format: {
+      { name: 'app_id',      type: 'string' }
+      { name: 'key',         type: 'string' }
+      { name: 'type',        type: 'string' }
+      { name: 'local_id',    type: 'string' }
+      { name: 'fingerprint', type: 'string' }
+      { name: 'state',       type: 'string' }
+      { name: 'version',     type: 'string' }
+    }
+    indexes:
+      primary: { parts: {'app_id', 'key'}, unique: true, type: 'HASH' }
+      by_app:  { parts: {'app_id'},        unique: false, type: 'TREE' }
+
 -- ────────────────────────────────────────────────────────────────────────────
 -- Bootstrap
 -- ────────────────────────────────────────────────────────────────────────────
