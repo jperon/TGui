@@ -44,14 +44,22 @@ do
 -- Excludes files containing "_disabled" in their name
 math.randomseed os.time!
 
+fio = require 'fio'
+
 test_files = {}
-handle = io.popen 'ls /app/tests/test_*.moon 2>/dev/null || ls tests/test_*.moon 2>/dev/null'
-for line in handle\lines!
-  filename = line\match '([^/]+)%.moon$'
+paths = {}
+-- Mirrors the former `ls /app/tests/... || ls tests/...` fallback: prefer the
+-- container path, otherwise the repository-relative one.
+for pattern in *{'/app/tests/test_*.moon', 'tests/test_*.moon'}
+  paths = fio.glob pattern
+  break if paths and #paths > 0
+paths = {} unless paths
+
+for path in *paths
+  filename = path\match '([^/]+)%.moon$'
   if filename and not filename\match '_disabled'
     modname = filename\gsub '%.moon$', ''
     table.insert test_files, modname
-handle\close!
 
 table.sort test_files
 
@@ -65,5 +73,18 @@ exit_code = R.summary!
 
 -- Restore production schema (test_executor replaced it with a test schema)
 require('resolvers.init').reinit!
+
+-- Assert the production schema is usable again after the last test suite.
+executor = require 'graphql.executor'
+res = executor.execute { query: '{ __type(name: "Query") { fields { name } } }' }
+spaces_ok = false
+if res and type(res.data) == 'table' and res.data['__type'] and res.data['__type'].fields
+  for f in *res.data['__type'].fields
+    spaces_ok = true if f.name == 'spaces'
+unless spaces_ok
+  print '   [FAIL] production schema not restored: Query.spaces is missing'
+  exit_code = 1
+else
+  print '   [ok] production schema restored (Query.spaces present)'
 
 exit_code
