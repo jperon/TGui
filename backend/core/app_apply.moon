@@ -577,6 +577,16 @@ _do_unchanged = (ctx) ->
     _record ctx.pkg.app.id, ctx.pkg.app.version, item.type, key, local_id, item.fingerprint, 'actif'
     table.insert ctx.report.unchanged, key
 
+-- PARTIE 1 (V3b) : un élément installé absent du nouveau paquet passe à
+-- state = 'obsolète'. L'élément local n'est ni supprimé ni modifié : seule sa
+-- ligne de suivi change, avec ses valeurs installées conservées.
+_do_obsolete = (ctx) ->
+  for key in *ctx.plan.obsolete
+    old = ctx.installed[key]
+    continue unless old
+    _record ctx.pkg.app.id, (old.version or ctx.pkg.app.version), old.type, key,
+      old.local_id, old.fingerprint, 'obsolète'
+
 _write_app = (app, opts) ->
   existing = box.space._tdb_apps\get app.id
   source = opts.source or (existing and existing[5]) or 'package'
@@ -591,6 +601,7 @@ _transaction = (ctx) ->
   _do_conflicts ctx
   _do_keep_local ctx
   _do_unchanged ctx
+  _do_obsolete ctx
   _write_app ctx.pkg.app, ctx.opts
   box.commit!
 

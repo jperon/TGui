@@ -1054,6 +1054,26 @@ _do_unchanged = function(ctx)
     end
   end
 end
+local _do_obsolete
+_do_obsolete = function(ctx)
+  local _list_0 = ctx.plan.obsolete
+  for _index_0 = 1, #_list_0 do
+    local _continue_0 = false
+    repeat
+      local key = _list_0[_index_0]
+      local old = ctx.installed[key]
+      if not (old) then
+        _continue_0 = true
+        break
+      end
+      _record(ctx.pkg.app.id, (old.version or ctx.pkg.app.version), old.type, key, old.local_id, old.fingerprint, 'obsolète')
+      _continue_0 = true
+    until true
+    if not _continue_0 then
+      break
+    end
+  end
+end
 local _write_app
 _write_app = function(app, opts)
   local existing = box.space._tdb_apps:get(app.id)
@@ -1076,6 +1096,7 @@ _transaction = function(ctx)
   _do_conflicts(ctx)
   _do_keep_local(ctx)
   _do_unchanged(ctx)
+  _do_obsolete(ctx)
   _write_app(ctx.pkg.app, ctx.opts)
   return box.commit()
 end
