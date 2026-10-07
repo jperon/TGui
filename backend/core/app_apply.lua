@@ -275,13 +275,6 @@ _order_conflicts = function(conflicts)
 end
 local _skip
 _skip = function(entry, report)
-  if entry.type == 'seed' then
-    table.insert(report.skipped, {
-      key = entry.key,
-      reason = 'seed (V3b)'
-    })
-    return true
-  end
   if entry.renamed_from then
     table.insert(report.skipped, {
       key = entry.key,
@@ -920,6 +913,10 @@ _do_creates = function(ctx)
         _continue_0 = true
         break
       end
+      if entry.type == 'seed' then
+        _continue_0 = true
+        break
+      end
       local ex = EXECUTORS[entry.type]
       if not (ex and ex.create) then
         error("unsupported type '" .. tostring(entry.type) .. "'")
@@ -945,6 +942,10 @@ _do_updates = function(ctx)
     repeat
       local entry = _list_0[_index_0]
       if _skip(entry, ctx.report) then
+        _continue_0 = true
+        break
+      end
+      if entry.type == 'seed' then
         _continue_0 = true
         break
       end
@@ -978,6 +979,10 @@ _do_conflicts = function(ctx)
       local c = _list_0[_index_0]
       local entry = c[1]
       if _skip(entry, ctx.report) then
+        _continue_0 = true
+        break
+      end
+      if entry.type == 'seed' then
         _continue_0 = true
         break
       end
@@ -1018,6 +1023,10 @@ _do_keep_local = function(ctx)
         _continue_0 = true
         break
       end
+      if entry.type == 'seed' then
+        _continue_0 = true
+        break
+      end
       _record_kept(ctx, entry, ctx.installed[entry.key], entry.fingerprint)
       table.insert(ctx.report.kept, entry.key)
       _continue_0 = true
@@ -1051,6 +1060,139 @@ _do_unchanged = function(ctx)
     until true
     if not _continue_0 then
       break
+    end
+  end
+end
+local _decode
+_decode = function(blob)
+  if type(blob) == 'table' then
+    return blob
+  end
+  if not (type(blob) == 'string') then
+    return { }
+  end
+  local ok, d = pcall(json.decode, blob)
+  return (ok and type(d) == 'table') and d or { }
+end
+local _effective_old
+_effective_old = function(ctx, entry)
+  return ctx.installed[entry.key] or (entry.renamed_from and ctx.installed[entry.renamed_from])
+end
+local _find_seed_id
+_find_seed_id = function(ctx, entry)
+  local c = entry.content
+  local key_field = ctx.pkg.seed_keys[c.space]
+  local sp = box.space["data_" .. tostring(c.space)]
+  if not (sp and key_field) then
+    return nil
+  end
+  local _list_0 = sp:select({ })
+  for _index_0 = 1, #_list_0 do
+    local t = _list_0[_index_0]
+    local v = _decode(t[2])[key_field]
+    if v ~= nil and tostring(v) == tostring(c.key) then
+      return t[1]
+    end
+  end
+  return nil
+end
+local _seed_local_id
+_seed_local_id = function(ctx, entry, old)
+  if old and old.local_id and old.local_id ~= '' then
+    local sp = box.space["data_" .. tostring(entry.content.space)]
+    if sp and sp:get(old.local_id) then
+      return old.local_id
+    end
+  end
+  return _find_seed_id(ctx, entry)
+end
+local _seed_create
+_seed_create = function(ctx, entry)
+  local c = entry.content
+  local sp = box.space["data_" .. tostring(c.space)]
+  if not (sp) then
+    error("unknown seed space '" .. tostring(c.space) .. "'")
+  end
+  local id = tostring(uuid_mod.new())
+  sp:insert({
+    id,
+    json.encode(c.data)
+  })
+  _record(ctx.pkg.app.id, ctx.pkg.app.version, 'seed', entry.key, id, entry.fingerprint, 'actif')
+  return table.insert(ctx.report.created, entry.key)
+end
+local _seed_update
+_seed_update = function(ctx, entry, old)
+  local c = entry.content
+  local sp = box.space["data_" .. tostring(c.space)]
+  if not (sp) then
+    error("unknown seed space '" .. tostring(c.space) .. "'")
+  end
+  local id = _seed_local_id(ctx, entry, old)
+  if id then
+    sp:replace({
+      id,
+      json.encode(c.data)
+    })
+  else
+    id = tostring(uuid_mod.new())
+    sp:insert({
+      id,
+      json.encode(c.data)
+    })
+  end
+  _record(ctx.pkg.app.id, ctx.pkg.app.version, 'seed', entry.key, id, entry.fingerprint, 'actif')
+  return table.insert(ctx.report.updated, entry.key)
+end
+local _seed_keep
+_seed_keep = function(ctx, entry, old)
+  local id = _seed_local_id(ctx, entry, old)
+  _record(ctx.pkg.app.id, ctx.pkg.app.version, 'seed', entry.key, id or '', entry.fingerprint, 'actif')
+  return table.insert(ctx.report.kept, entry.key)
+end
+local _seed_unchanged
+_seed_unchanged = function(ctx, entry)
+  local old = _effective_old(ctx, entry)
+  local id = (old and old.local_id) or _find_seed_id(ctx, entry)
+  _record(ctx.pkg.app.id, ctx.pkg.app.version, 'seed', entry.key, id or '', entry.fingerprint, 'actif')
+  return table.insert(ctx.report.unchanged, entry.key)
+end
+local _do_seeds
+_do_seeds = function(ctx)
+  local _list_0 = _order(ctx.plan.create)
+  for _index_0 = 1, #_list_0 do
+    local entry = _list_0[_index_0]
+    if entry.type == 'seed' then
+      _seed_create(ctx, entry)
+    end
+  end
+  local _list_1 = _order(ctx.plan.update)
+  for _index_0 = 1, #_list_1 do
+    local entry = _list_1[_index_0]
+    if entry.type == 'seed' then
+      _seed_update(ctx, entry, _effective_old(ctx, entry))
+    end
+  end
+  local _list_2 = _order_conflicts(ctx.plan.conflict)
+  for _index_0 = 1, #_list_2 do
+    local c = _list_2[_index_0]
+    if c[1].type == 'seed' then
+      _seed_keep(ctx, c[1], _effective_old(ctx, c[1]))
+    end
+  end
+  local _list_3 = _order(ctx.plan.keep_local)
+  for _index_0 = 1, #_list_3 do
+    local entry = _list_3[_index_0]
+    if entry.type == 'seed' then
+      _seed_keep(ctx, entry, _effective_old(ctx, entry))
+    end
+  end
+  local _list_4 = ctx.plan.unchanged
+  for _index_0 = 1, #_list_4 do
+    local key = _list_4[_index_0]
+    local item = ctx.pkg_map[key]
+    if item and item.type == 'seed' then
+      _seed_unchanged(ctx, item)
     end
   end
 end
@@ -1096,6 +1238,7 @@ _transaction = function(ctx)
   _do_conflicts(ctx)
   _do_keep_local(ctx)
   _do_unchanged(ctx)
+  _do_seeds(ctx)
   _do_obsolete(ctx)
   _write_app(ctx.pkg.app, ctx.opts)
   return box.commit()

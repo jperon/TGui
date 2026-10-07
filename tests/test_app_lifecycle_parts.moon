@@ -121,6 +121,39 @@ field_by_name = (space_id, name) ->
     return f if f.name == name
   nil
 
+find_record = (space_name, key_field, key_val) ->
+  sp = box.space["data_#{space_name}"]
+  return nil unless sp
+  for t in *sp\select {}
+    d = if type(t[2]) == 'string' then json.decode(t[2]) else t[2]
+    return { id: t[1], data: d } if d[key_field] != nil and tostring(d[key_field]) == tostring(key_val)
+  nil
+
+non_seed_rows = (space_name, key_field) ->
+  n = 0
+  for d in *local_rows space_name
+    n += 1 if d[key_field] == nil
+  n
+
+set_seed = (package, space, key, data) ->
+  items = {}
+  found = false
+  for it in *package.items
+    if it.type == 'seed' and it.content.space == space and tostring(it.content.key) == tostring(key)
+      table.insert items, { type: 'seed', key: it.key, content: { space: space, key: key, data: data } }
+      found = true
+    else
+      table.insert items, it
+  unless found
+    table.insert items, { type: 'seed', key: "seed:#{space}|#{key}",
+                          content: { space: space, key: key, data: data } }
+  { app: package.app, items: items, seed_keys: package.seed_keys }
+
+in_list = (list, key) ->
+  for k in *list
+    return true if k == key
+  false
+
 -- ── Fixture : construire tous les éléments localement, puis le paquet ────────
 R.describe "v3b — fixture", ->
 
@@ -129,7 +162,7 @@ R.describe "v3b — fixture", ->
     authors = spaces.create_user_space SP_A, 'v3b authors'
     FIX.books_id = books.id
     FIX.authors_id = authors.id
-    spaces.add_field books.id, 'code', 'String', true, 'natural key'
+    spaces.add_field books.id, 'code', 'String', false, 'natural key'
     spaces.add_field books.id, 'title', 'String', false, ''
     spaces.add_field books.id, 'qty', 'Int', false, ''
     fk = spaces.add_field books.id, 'author_id', 'Int', false, ''
@@ -196,7 +229,8 @@ R.describe "v3b — installation", ->
     report = apply.apply_update FIX.PKG, {}, {}
     R.ok report.ok, report.error
     R.eq box.space._tdb_apps\get(APP_ID)[3], '1.0.0', 'installed version'
-    R.eq count_items(APP_ID), #non_seed(FIX.PKG), 'all non-seed items tracked'
+    R.eq count_items(APP_ID), #FIX.PKG.items, 'all items tracked'
+    R.eq count_rows(SP_B), seed_count(FIX.PKG), 'seed rows inserted on first install'
 
 -- ── PARTIE 1 : obsolètes ─────────────────────────────────────────────────────
 R.describe "v3b partie 1 — obsolètes", ->
@@ -215,6 +249,39 @@ R.describe "v3b partie 1 — obsolètes", ->
     report = apply.apply_update PKG3, {}, {}
     R.ok report.ok, report.error
     R.eq item_state(APP_ID, KEY_PAGE), 'actif', 'page active again'
+
+-- ── PARTIE 2 : lignes seed ───────────────────────────────────────────────────
+R.describe "v3b partie 2 — lignes seed", ->
+
+  R.it "prepares: one non-seed local record and one locally modified seed", ->
+    sid = spaces.get_space_by_name(SP_B).id
+    data_r.Mutation.insertRecord {}, { spaceId: sid, data: { title: 'hors seed', qty: 9 } }, CTX
+    rec = find_record SP_B, 'code', 'V3B-2'
+    R.ok rec, 'seed V3B-2 exists'
+    rec.data.title = 'Local second'
+    box.space["data_#{SP_B}"]\replace { rec.id, json.encode rec.data }
+    FIX.non_seed_before = non_seed_rows SP_B, 'code'
+    FIX.rows_before = count_rows SP_B
+    R.eq FIX.non_seed_before, 1, 'one non-seed record'
+
+  R.it "adds new seed lines, updates unchanged ones and keeps locally modified ones", ->
+    PKG_A = reversion FIX.PKG, '1.3.0'
+    PKG_A = set_seed PKG_A, SP_B, 'V3B-1', { code: 'V3B-1', title: 'Delivered premier', qty: 2 }
+    PKG_A = set_seed PKG_A, SP_B, 'V3B-2', { code: 'V3B-2', title: 'Delivered second', qty: 5 }
+    PKG_A = set_seed PKG_A, SP_B, 'V3B-3', { code: 'V3B-3', title: 'Nouveau', qty: 7 }
+    report = apply.apply_update PKG_A, {}, {}
+    R.ok report.ok, report.error
+    R.ok in_list(report.created, "seed:#{SP_B}|V3B-3"), 'new seed created'
+    R.ok in_list(report.updated, "seed:#{SP_B}|V3B-1"), 'unchanged seed updated'
+    R.ok in_list(report.kept, "seed:#{SP_B}|V3B-2"), 'locally modified seed kept'
+    R.eq item_state(APP_ID, "seed:#{SP_B}|V3B-1"), 'actif'
+
+  R.it "propagates the delivered data and preserves local and non-seed records", ->
+    R.eq (find_record SP_B, 'code', 'V3B-1').data.title, 'Delivered premier'
+    R.eq (find_record SP_B, 'code', 'V3B-2').data.title, 'Local second', 'local kept'
+    R.eq (find_record SP_B, 'code', 'V3B-3').data.title, 'Nouveau'
+    R.eq non_seed_rows(SP_B, 'code'), FIX.non_seed_before, 'non-seed record count unchanged'
+    R.eq count_rows(SP_B), FIX.rows_before + 1, 'exactly one seed line added, none removed'
 
 -- ── Nettoyage ────────────────────────────────────────────────────────────────
 R.describe "v3b — cleanup", ->

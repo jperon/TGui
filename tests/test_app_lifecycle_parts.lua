@@ -221,13 +221,98 @@ field_by_name = function(space_id, name)
   end
   return nil
 end
+local find_record
+find_record = function(space_name, key_field, key_val)
+  local sp = box.space["data_" .. tostring(space_name)]
+  if not (sp) then
+    return nil
+  end
+  local _list_0 = sp:select({ })
+  for _index_0 = 1, #_list_0 do
+    local t = _list_0[_index_0]
+    local d
+    if type(t[2]) == 'string' then
+      d = json.decode(t[2])
+    else
+      d = t[2]
+    end
+    if d[key_field] ~= nil and tostring(d[key_field]) == tostring(key_val) then
+      return {
+        id = t[1],
+        data = d
+      }
+    end
+  end
+  return nil
+end
+local non_seed_rows
+non_seed_rows = function(space_name, key_field)
+  local n = 0
+  local _list_0 = local_rows(space_name)
+  for _index_0 = 1, #_list_0 do
+    local d = _list_0[_index_0]
+    if d[key_field] == nil then
+      n = n + 1
+    end
+  end
+  return n
+end
+local set_seed
+set_seed = function(package, space, key, data)
+  local items = { }
+  local found = false
+  local _list_0 = package.items
+  for _index_0 = 1, #_list_0 do
+    local it = _list_0[_index_0]
+    if it.type == 'seed' and it.content.space == space and tostring(it.content.key) == tostring(key) then
+      table.insert(items, {
+        type = 'seed',
+        key = it.key,
+        content = {
+          space = space,
+          key = key,
+          data = data
+        }
+      })
+      found = true
+    else
+      table.insert(items, it)
+    end
+  end
+  if not (found) then
+    table.insert(items, {
+      type = 'seed',
+      key = "seed:" .. tostring(space) .. "|" .. tostring(key),
+      content = {
+        space = space,
+        key = key,
+        data = data
+      }
+    })
+  end
+  return {
+    app = package.app,
+    items = items,
+    seed_keys = package.seed_keys
+  }
+end
+local in_list
+in_list = function(list, key)
+  for _index_0 = 1, #list do
+    local k = list[_index_0]
+    if k == key then
+      return true
+    end
+  end
+  return false
+end
 R.describe("v3b — fixture", function()
   R.it("creates spaces, fields, relation and data", function()
     local books = spaces.create_user_space(SP_B, 'v3b books')
     local authors = spaces.create_user_space(SP_A, 'v3b authors')
     FIX.books_id = books.id
     FIX.authors_id = authors.id
-    spaces.add_field(books.id, 'code', 'String', true, 'natural key')
+    spaces.add_field(books.id, 'code', 'String', false, 'natural key')
     spaces.add_field(books.id, 'title', 'String', false, '')
     spaces.add_field(books.id, 'qty', 'Int', false, '')
     local fk = spaces.add_field(books.id, 'author_id', 'Int', false, '')
@@ -355,7 +440,8 @@ R.describe("v3b — installation", function()
     local report = apply.apply_update(FIX.PKG, { }, { })
     R.ok(report.ok, report.error)
     R.eq(box.space._tdb_apps:get(APP_ID)[3], '1.0.0', 'installed version')
-    return R.eq(count_items(APP_ID), #non_seed(FIX.PKG), 'all non-seed items tracked')
+    R.eq(count_items(APP_ID), #FIX.PKG.items, 'all items tracked')
+    return R.eq(count_rows(SP_B), seed_count(FIX.PKG), 'seed rows inserted on first install')
   end)
 end)
 R.describe("v3b partie 1 — obsolètes", function()
@@ -373,6 +459,59 @@ R.describe("v3b partie 1 — obsolètes", function()
     local report = apply.apply_update(PKG3, { }, { })
     R.ok(report.ok, report.error)
     return R.eq(item_state(APP_ID, KEY_PAGE), 'actif', 'page active again')
+  end)
+end)
+R.describe("v3b partie 2 — lignes seed", function()
+  R.it("prepares: one non-seed local record and one locally modified seed", function()
+    local sid = spaces.get_space_by_name(SP_B).id
+    data_r.Mutation.insertRecord({ }, {
+      spaceId = sid,
+      data = {
+        title = 'hors seed',
+        qty = 9
+      }
+    }, CTX)
+    local rec = find_record(SP_B, 'code', 'V3B-2')
+    R.ok(rec, 'seed V3B-2 exists')
+    rec.data.title = 'Local second'
+    box.space["data_" .. tostring(SP_B)]:replace({
+      rec.id,
+      json.encode(rec.data)
+    })
+    FIX.non_seed_before = non_seed_rows(SP_B, 'code')
+    FIX.rows_before = count_rows(SP_B)
+    return R.eq(FIX.non_seed_before, 1, 'one non-seed record')
+  end)
+  R.it("adds new seed lines, updates unchanged ones and keeps locally modified ones", function()
+    local PKG_A = reversion(FIX.PKG, '1.3.0')
+    PKG_A = set_seed(PKG_A, SP_B, 'V3B-1', {
+      code = 'V3B-1',
+      title = 'Delivered premier',
+      qty = 2
+    })
+    PKG_A = set_seed(PKG_A, SP_B, 'V3B-2', {
+      code = 'V3B-2',
+      title = 'Delivered second',
+      qty = 5
+    })
+    PKG_A = set_seed(PKG_A, SP_B, 'V3B-3', {
+      code = 'V3B-3',
+      title = 'Nouveau',
+      qty = 7
+    })
+    local report = apply.apply_update(PKG_A, { }, { })
+    R.ok(report.ok, report.error)
+    R.ok(in_list(report.created, "seed:" .. tostring(SP_B) .. "|V3B-3"), 'new seed created')
+    R.ok(in_list(report.updated, "seed:" .. tostring(SP_B) .. "|V3B-1"), 'unchanged seed updated')
+    R.ok(in_list(report.kept, "seed:" .. tostring(SP_B) .. "|V3B-2"), 'locally modified seed kept')
+    return R.eq(item_state(APP_ID, "seed:" .. tostring(SP_B) .. "|V3B-1"), 'actif')
+  end)
+  return R.it("propagates the delivered data and preserves local and non-seed records", function()
+    R.eq((find_record(SP_B, 'code', 'V3B-1')).data.title, 'Delivered premier')
+    R.eq((find_record(SP_B, 'code', 'V3B-2')).data.title, 'Local second', 'local kept')
+    R.eq((find_record(SP_B, 'code', 'V3B-3')).data.title, 'Nouveau')
+    R.eq(non_seed_rows(SP_B, 'code'), FIX.non_seed_before, 'non-seed record count unchanged')
+    return R.eq(count_rows(SP_B), FIX.rows_before + 1, 'exactly one seed line added, none removed')
   end)
 end)
 R.describe("v3b — cleanup", function()

@@ -199,9 +199,6 @@ _order_conflicts = (conflicts) ->
   copy
 
 _skip = (entry, report) ->
-  if entry.type == 'seed'
-    table.insert report.skipped, { key: entry.key, reason: 'seed (V3b)' }
-    return true
   if entry.renamed_from
     table.insert report.skipped, { key: entry.key, reason: 'rename (V3b)' }
     return true
@@ -526,6 +523,7 @@ _record_kept = (ctx, entry, old, fingerprint) ->
 _do_creates = (ctx) ->
   for entry in *_order ctx.plan.create
     continue if _skip entry, ctx.report
+    continue if entry.type == 'seed'
     ex = EXECUTORS[entry.type]
     error "unsupported type '#{entry.type}'" unless ex and ex.create
     result = ex.create entry
@@ -536,6 +534,7 @@ _do_creates = (ctx) ->
 _do_updates = (ctx) ->
   for entry in *_order ctx.plan.update
     continue if _skip entry, ctx.report
+    continue if entry.type == 'seed'
     old = ctx.installed[entry.key]
     error "cannot update unknown item '#{entry.key}'" unless old
     ex = EXECUTORS[entry.type]
@@ -549,6 +548,7 @@ _do_conflicts = (ctx) ->
   for c in *_order_conflicts ctx.plan.conflict
     entry = c[1]
     continue if _skip entry, ctx.report
+    continue if entry.type == 'seed'
     old = ctx.installed[entry.key]
     resolution = ctx.decisions[entry.key]
     if resolution == 'delivered'
@@ -564,6 +564,7 @@ _do_conflicts = (ctx) ->
 _do_keep_local = (ctx) ->
   for entry in *_order ctx.plan.keep_local
     continue if _skip entry, ctx.report
+    continue if entry.type == 'seed'
     _record_kept ctx, entry, ctx.installed[entry.key], entry.fingerprint
     table.insert ctx.report.kept, entry.key
 
@@ -576,6 +577,89 @@ _do_unchanged = (ctx) ->
     local_id = old and old.local_id or _resolve_local_id(item.type, key)
     _record ctx.pkg.app.id, ctx.pkg.app.version, item.type, key, local_id, item.fingerprint, 'actif'
     table.insert ctx.report.unchanged, key
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- PARTIE 2 (V3b) : lignes seed
+-- Un item seed a pour clé `seed:<espace>|<valeur>` et content {space, key, data}
+-- (app_package.seed_content). Jamais de suppression d'enregistrement :
+--   create    → insère { id_uuid, json.encode(data) } (comme insertRecord,
+--               resolvers/data_resolvers.moon:100-112), valeurs livrées ;
+--   update    → remplace l'enregistrement local par les données livrées ;
+--   keep_local/conflits → l'enregistrement local est conservé tel quel.
+-- L'enregistrement local est retrouvé par local_id de _tdb_app_items, sinon par
+-- la valeur de clé naturelle dans le champ désigné par pkg.seed_keys.
+-- ────────────────────────────────────────────────────────────────────────────
+
+_decode = (blob) ->
+  return blob if type(blob) == 'table'
+  return {} unless type(blob) == 'string'
+  ok, d = pcall json.decode, blob
+  (ok and type(d) == 'table') and d or {}
+
+_effective_old = (ctx, entry) ->
+  ctx.installed[entry.key] or (entry.renamed_from and ctx.installed[entry.renamed_from])
+
+_find_seed_id = (ctx, entry) ->
+  c = entry.content
+  key_field = ctx.pkg.seed_keys[c.space]
+  sp = box.space["data_#{c.space}"]
+  return nil unless sp and key_field
+  for t in *sp\select {}
+    v = _decode(t[2])[key_field]
+    return t[1] if v != nil and tostring(v) == tostring(c.key)
+  nil
+
+_seed_local_id = (ctx, entry, old) ->
+  if old and old.local_id and old.local_id != ''
+    sp = box.space["data_#{entry.content.space}"]
+    return old.local_id if sp and sp\get old.local_id
+  _find_seed_id ctx, entry
+
+_seed_create = (ctx, entry) ->
+  c = entry.content
+  sp = box.space["data_#{c.space}"]
+  error "unknown seed space '#{c.space}'" unless sp
+  id = tostring uuid_mod.new!
+  sp\insert { id, json.encode c.data }
+  _record ctx.pkg.app.id, ctx.pkg.app.version, 'seed', entry.key, id, entry.fingerprint, 'actif'
+  table.insert ctx.report.created, entry.key
+
+_seed_update = (ctx, entry, old) ->
+  c = entry.content
+  sp = box.space["data_#{c.space}"]
+  error "unknown seed space '#{c.space}'" unless sp
+  id = _seed_local_id ctx, entry, old
+  if id
+    sp\replace { id, json.encode c.data }
+  else
+    id = tostring uuid_mod.new!
+    sp\insert { id, json.encode c.data }
+  _record ctx.pkg.app.id, ctx.pkg.app.version, 'seed', entry.key, id, entry.fingerprint, 'actif'
+  table.insert ctx.report.updated, entry.key
+
+_seed_keep = (ctx, entry, old) ->
+  id = _seed_local_id ctx, entry, old
+  _record ctx.pkg.app.id, ctx.pkg.app.version, 'seed', entry.key, id or '', entry.fingerprint, 'actif'
+  table.insert ctx.report.kept, entry.key
+
+_seed_unchanged = (ctx, entry) ->
+  old = _effective_old ctx, entry
+  id = (old and old.local_id) or _find_seed_id(ctx, entry)
+  _record ctx.pkg.app.id, ctx.pkg.app.version, 'seed', entry.key, id or '', entry.fingerprint, 'actif'
+  table.insert ctx.report.unchanged, entry.key
+
+_do_seeds = (ctx) ->
+  for entry in *_order ctx.plan.create
+    _seed_create ctx, entry if entry.type == 'seed'
+  for entry in *_order ctx.plan.update
+    _seed_update ctx, entry, _effective_old(ctx, entry) if entry.type == 'seed'
+  for c in *_order_conflicts ctx.plan.conflict
+    _seed_keep ctx, c[1], _effective_old(ctx, c[1]) if c[1].type == 'seed'
+  for entry in *_order ctx.plan.keep_local
+    _seed_keep ctx, entry, _effective_old(ctx, entry) if entry.type == 'seed'
+  for key in *ctx.plan.unchanged
+    item = ctx.pkg_map[key]
+    _seed_unchanged ctx, item if item and item.type == 'seed'
 
 -- PARTIE 1 (V3b) : un élément installé absent du nouveau paquet passe à
 -- state = 'obsolète'. L'élément local n'est ni supprimé ni modifié : seule sa
@@ -601,6 +685,7 @@ _transaction = (ctx) ->
   _do_conflicts ctx
   _do_keep_local ctx
   _do_unchanged ctx
+  _do_seeds ctx
   _do_obsolete ctx
   _write_app ctx.pkg.app, ctx.opts
   box.commit!
