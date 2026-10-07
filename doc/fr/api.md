@@ -2,7 +2,7 @@
 
 > Auto-generated file. Do not edit manually.
 >
-> Generated at: 2026-06-13 10:32:02 UTC
+> Generated at: 2026-10-07 22:01:05 UTC
 >
 > Source: `schema/tdb.graphql`
 
@@ -90,6 +90,11 @@
 |---|---|---|---|
 | `exportSnapshot` | `includeData: Boolean!, compress: Boolean` | `String!` | Export, diff and import configuration snapshots. |
 | `diffSnapshot` | `yaml: String!` | `SnapshotDiff!` | Export, diff and import configuration snapshots. |
+| `listApps` | `-` | `[AppInfo!]!` | Export, diff and import configuration snapshots. |
+| `appItems` | `appId: String!` | `[AppItem!]!` | Export, diff and import configuration snapshots. |
+| `exportApp` | `meta: AppMetaInput!, seed: [AppSeedInput!]` | `String!` | Export, diff and import configuration snapshots. |
+| `previewAppUpdate` | `yaml: String!, allowDowngrade: Boolean` | `AppPlan!` | Export, diff and import configuration snapshots. |
+| `previewAppPurge` | `appId: String!, keys: [String!]!` | `AppPurgePreview!` | Export, diff and import configuration snapshots. |
 
 ## Mutations
 
@@ -198,6 +203,8 @@
 | Operation | Arguments | Return | Description |
 |---|---|---|---|
 | `importSnapshot` | `yaml: String!, mode: ImportMode!` | `ImportResult!` | Export, diff and import configuration snapshots. |
+| `applyAppUpdate` | `yaml: String!, decisions: [AppDecisionInput!], allowDowngrade: Boolean` | `AppApplyReport!` | Export, diff and import configuration snapshots. |
+| `purgeAppObsolete` | `appId: String!, keys: [String!]!, confirmed: Boolean!` | `AppPurgeReport!` | Export, diff and import configuration snapshots. |
 
 ## Usage Examples
 
@@ -262,6 +269,9 @@ mutation AddField($spaceId: ID!, $input: FieldInput!) {
 - `CreateGroupInput`
 - `PermissionInput`
 - `AggregateInput`
+- `AppMetaInput`
+- `AppSeedInput`
+- `AppDecisionInput`
 - `WidgetPosition`
 - `ZoneInput`
 

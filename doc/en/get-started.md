@@ -1,7 +1,5 @@
 # Quick Start — TGui
 
-**TGui** is inspired by [Grist](https://www.getgrist.com) — for any serious or production use, users are encouraged to consider Grist as a priority.
-
 **TGui** is a graphical interface for [Tarantool](https://www.tarantool.io/) that lets you create and manage data spaces (tables), link them, define computed columns or triggers, and compose declarative custom views (YAML).
 
 This guide walks you step by step from zero to a fully functional **school library management** application: book catalog, physical copies, borrowers, and loans.
@@ -452,6 +450,55 @@ The **Export / Import** section allows saving and restoring a TGui application.
    - **Merge**: create missing elements, leave existing ones untouched.
    - **Replace**: delete everything and recreate from the snapshot (warning: data loss).
 4. Click **Confirm import**.
+
+### Applications (packaging and updates)
+
+The **Applications** panel lets an administrator distribute a whole TGui application as a package and receive later versions without rebuilding it from scratch.
+
+#### Package format
+
+A package is a `.tdbapp.yaml` file. Its header is `app: {id, name, version, description}`: `id` is a stable, globally unique identifier (for example `org.exemple.biblio`), `name` is a display name, and `version` follows `x.y.z` (semver). The body contains spaces (with their fields and relations), data views, pages, YAML widget plugins, groups with their default permissions, and seed rows for the spaces you list. Every element is identified by a stable key (its name inside its scope), never by a local UUID; a rename is declared with `renamed_from`.
+
+#### Export an application
+
+1. Open **Administration > Applications**, then the **Export an application** box.
+2. Fill in the **Identifier** (for example `org.exemple.biblio`), the **Name**, the **Version (x.y.z)** and an optional **Description**.
+3. In **Seed lines (one per line, space:keyField)**, add one line per space whose rows must travel with the package, in the form `space:keyField` (for example `livres:isbn`). The space and the key field must already exist, and the key value must be unique on every row: a missing value on a required key field, or two rows sharing the same key value, refuses the export. Rows that leave an optional key field empty are considered local and left out.
+4. Click **Export package**. The browser downloads `<id>-<version>.tdbapp.yaml`.
+
+#### Install or update
+
+1. In **Install or update**, click **Choose file** and select a `.tdbapp.yaml` package.
+2. A **Change preview** is shown before anything is written:
+   - **Created**: elements that do not exist locally.
+   - **Updated**: elements you have not modified but the author changed.
+   - **Kept (locally modified)**: elements you modified and the author kept as they were.
+   - **Renamed**: elements renamed by the author, matched through `renamed_from`; their data is kept.
+   - **Obsolete**: elements the new version no longer contains; they are not deleted.
+   - **Conflicts**: elements modified both locally and by the author.
+3. Code delivered by a third party (plugins, pages, data views, formula fields) is marked **Third-party code** with the warning **Code delivered by a third party: review it before applying**; open **View delivered content** to inspect it.
+4. For each **Conflict**, choose **Keep mine** (the default) or **Take delivered version**.
+5. To install a version lower than the one already installed, tick **Allow an older version**; otherwise the update is refused.
+6. Click **Apply** and confirm.
+
+#### What an update guarantees
+
+- No record is ever deleted.
+- Elements created locally on the instance (absent from the application tracking) are never touched.
+- Elements the author removed become **obsolete** but stay in place.
+- Groups are created only when missing; local members and permissions are preserved.
+- Seed rows: new ones are added, rows not modified locally are updated, locally modified rows are kept, none are deleted.
+- The whole update is atomic: on error, the previous state is restored.
+
+#### Purge obsolete elements
+
+1. In **Installed applications**, click **Obsolete items…** (enabled as soon as an application has obsolete elements).
+2. Select the elements to purge, then click **Preview losses**. A red warning (**Permanent deletion — the data of these items will be lost.**) lists, per element, the number of records, fields, relations and views that will be lost.
+3. Type exactly the requested value: the item name (the part after the last `:`) when a single element is selected, or the application identifier when several are selected. Then click **Purge permanently**. The purge is definitive.
+
+Only obsolete elements tracked for an application can be purged; an active or purely local element can never be purged.
+
+> **Known limitation:** when an element is renamed, formulas that reference its old name as plain text are not rewritten.
 
 ---
 

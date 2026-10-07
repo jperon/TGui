@@ -69,6 +69,13 @@ Revue générale du 2026-10-07 (voir `docs/superpowers/specs/2026-10-07-app-vers
   dans `backend/` ; `trusted_ctx` (`backend/resolvers/utils.moon:33`) ne peut pas être forgé
   par un client (le contexte HTTP est construit de zéro et ne recopie pas `trusted`) ; tests
   `tests/test_permissions.moon` (« trusted cannot be forged by a request »).
+- **Code frontend mort `graphql_builder` supprimé** : `frontend/src/graphql_builder.coffee`
+  et ses tests orphelins `tests/test_graphql_builder_*.coffee` n'existent plus (commit
+  `b91194a`), vérifié par `ls frontend/src/graphql_builder* tests/test_graphql_builder*`.
+- **Références obsolètes au module supprimé `core/fk_proxy.moon` résolues** : les modules
+  sont désormais listés depuis le code par `make doc-gen`, `backend/core/fk_proxy.moon` n'est
+  plus présent dans `doc/en/dev/runtime.md` ni `doc/fr/dev/runtime.md` (vérifié :
+  `grep -rn fk_proxy doc/ po/` ne renvoie plus que cette entrée d'audit).
 
 ### Points encore ouverts
 
@@ -96,13 +103,6 @@ Revue générale du 2026-10-07 (voir `docs/superpowers/specs/2026-10-07-app-vers
 - **Formules citant un ancien nom en clair non réécrites au renommage d'app** :
   `_rename_field` (`backend/core/app_apply.moon:785`) renomme le champ mais ne réécrit ni
   `formula` ni `reprFormula`.
-- **Code frontend mort** : `frontend/src/graphql_builder.coffee` n'est référencé nulle part ;
-  ses trois tests `tests/test_graphql_builder_basic.coffee`, `_minimal.coffee` et
-  `_simple.coffee` ne sont découverts ni par `tests/run.moon` (motif `test_*.moon`) ni par
-  `tests/js/run.coffee`.
-- **Références obsolètes au module supprimé `core/fk_proxy.moon`** : `doc/en/dev/runtime.md:18`
-  et `doc/fr/dev/runtime.md:15` le listent alors que `backend/core/fk_proxy.moon` n'existe
-  pas dans le dépôt.
 
 ## Mise à jour juin 2026 — bugs trouvés par tests d'usage réel
 
