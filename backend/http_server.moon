@@ -105,6 +105,10 @@ handle_graphql = (req) ->
 
   -- Build context with authenticated user (if any)
   ctx = {}
+  -- Expose the client address for login rate-limiting. http.server sets
+  -- req.peer = { host, port, ... }; it may be absent in direct unit calls.
+  if req.peer and req.peer.host
+    ctx.client_addr = req.peer.host
   token = extract_token req
   if token
     session = auth_mod.validate_session token

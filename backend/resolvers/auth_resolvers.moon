@@ -31,7 +31,7 @@ Query =
 
 Mutation =
   login: (_, args, ctx) ->
-    session, err = auth_mod.login args.username, args.password
+    session, err = auth_mod.login args.username, args.password, (ctx and ctx.client_addr)
     unless session
       error err or 'Login failed'
     user = auth_mod.get_user_by_id session.user_id

@@ -4,7 +4,10 @@
 digest   = require 'digest'
 uuid_mod = require 'uuid'
 log      = require 'log'
-{ :SESSION_TTL, :TOKEN_LENGTH } = require 'core.config'
+{ :SESSION_TTL, :TOKEN_LENGTH,
+  :LOGIN_MAX_ATTEMPTS, :LOGIN_IP_MAX_ATTEMPTS, :LOGIN_ATTEMPT_WINDOW,
+  :LOGIN_LOCKOUT_BASE_SECONDS, :LOGIN_LOCKOUT_MAX_SECONDS,
+  :LOGIN_ATTEMPTS_TTL } = require 'core.config'
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- Password hashing (PBKDF2-HMAC-SHA256, 100 000 iterations)
@@ -94,72 +97,136 @@ purge_expired_sessions = ->
   #expired
 
 -- ────────────────────────────────────────────────────────────────────────────
--- Login rate-limiting (in-memory, per username)
+-- Login rate-limiting (persistent, per username and per client address)
+-- State lives in the _tdb_login_attempts system space (memtx, so it is WAL/
+-- snapshot persisted) instead of an in-memory table: a restart no longer
+-- forgives accumulated failures.
 -- ────────────────────────────────────────────────────────────────────────────
 
-_login_attempts  = {}
-MAX_ATTEMPTS     = 5    -- allowed failures within the window
-LOCKOUT_SECONDS  = 60   -- cooldown after exceeding MAX_ATTEMPTS
-ATTEMPT_WINDOW   = 300  -- sliding window in seconds (5 min)
+LOGIN_USER_PREFIX = 'user:'
+LOGIN_IP_PREFIX   = 'ip:'
 
-record_failed_attempt = (username) ->
-  now = os.time!
-  _login_attempts[username] or= { attempts: {}, locked_until: 0 }
-  entry = _login_attempts[username]
-  table.insert entry.attempts, now
-  entry.attempts = [t for t in *entry.attempts when now - t < ATTEMPT_WINDOW]
-  if #entry.attempts >= MAX_ATTEMPTS
-    entry.locked_until = now + LOCKOUT_SECONDS
+-- Normalize the username so that case variations share one counter. The
+-- lookup of the actual user still uses the exact username (get_user_by_username).
+login_key = (username) ->
+  LOGIN_USER_PREFIX .. tostring(username or '')\lower!
 
-clear_failed_attempts = (username) ->
-  _login_attempts[username] = nil
+login_ip_key = (client_addr) ->
+  LOGIN_IP_PREFIX .. tostring client_addr
 
-is_locked_out = (username) ->
-  entry = _login_attempts[username]
-  return false unless entry
-  now = os.time!
-  if entry.locked_until > now
-    return true
-  if entry.locked_until > 0 and entry.locked_until <= now
-    _login_attempts[username] = nil
-  false
+-- Keys whose counters must be consulted/updated for one login attempt. The
+-- address is optional (nil when http.server does not expose it).
+login_keys = (username, client_addr) ->
+  keys = { login_key username }
+  table.insert keys, login_ip_key client_addr if client_addr
+  keys
 
+-- An account and an address do NOT share the same threshold. A few wrong
+-- passwords on one account must not lock every user that appears to come from
+-- the same address: behind NAT or a reverse proxy `req.peer` is the relay's
+-- address, and the project's own Playwright suite logs in as `admin` from the
+-- same local relay while also sending a few invalid credentials. The address
+-- threshold is therefore far higher (LOGIN_IP_MAX_ATTEMPTS); the lockout delay
+-- itself stays identical (same base, same cap).
+key_max_attempts = (key) ->
+  if key and key\sub(1, #LOGIN_IP_PREFIX) == LOGIN_IP_PREFIX
+    return LOGIN_IP_MAX_ATTEMPTS
+  LOGIN_MAX_ATTEMPTS
+
+read_attempt = (key) ->
+  t = box.space._tdb_login_attempts\get key
+  return nil unless t
+  { key: t[1], failures: t[2], last_failure_at: t[3], locked_until: t[4], lock_count: t[5] }
+
+new_attempt = (key) ->
+  { key: key, failures: 0, last_failure_at: 0, locked_until: 0, lock_count: 0 }
+
+write_attempt = (entry) ->
+  box.space._tdb_login_attempts\replace {
+    entry.key, entry.failures, entry.last_failure_at, entry.locked_until, entry.lock_count
+  }
+
+-- Forget the counters once a quiet period elapsed since the last activity
+-- (a failure or the end of a lockout). Reset only happens when not currently
+-- locked, so a long lockout does not erase its own escalation level.
+reset_after_quiet = (entry, now) ->
+  return if entry.locked_until > now
+  quiet_since = math.max entry.last_failure_at, entry.locked_until
+  if quiet_since > 0 and now - quiet_since > LOGIN_ATTEMPT_WINDOW
+    entry.failures = 0
+    entry.lock_count = 0
+  entry
+
+lockout_delay = (lock_count) ->
+  delay = LOGIN_LOCKOUT_BASE_SECONDS * (2 ^ (lock_count - 1))
+  if delay > LOGIN_LOCKOUT_MAX_SECONDS
+    return LOGIN_LOCKOUT_MAX_SECONDS
+  delay
+
+-- Opportunistic bounded purge, run on every failure (no periodic fiber).
 purge_login_attempts = ->
   now = os.time!
   stale = {}
-  for username, entry in pairs _login_attempts
-    latest = entry.attempts[#entry.attempts]
-    if not latest or (latest + ATTEMPT_WINDOW < now)
-      table.insert stale, username
-  for username in *stale
-    _login_attempts[username] = nil
+  for t in *box.space._tdb_login_attempts\select {}
+    quiet_since = math.max t[3], t[4]
+    if quiet_since > 0 and now - quiet_since > LOGIN_ATTEMPTS_TTL and t[4] < now
+      table.insert stale, t[1]
+  for key in *stale
+    box.space._tdb_login_attempts\delete key
   #stale
+
+record_failed_attempt = (key) ->
+  now   = os.time!
+  entry = read_attempt(key) or new_attempt key
+  reset_after_quiet entry, now
+  entry.failures += 1
+  entry.last_failure_at = now
+  if entry.failures >= key_max_attempts key
+    entry.lock_count += 1
+    entry.locked_until = now + lockout_delay entry.lock_count
+    entry.failures = 0
+  write_attempt entry
+  purge_login_attempts!
+  entry.locked_until
+
+clear_failed_attempts = (key) ->
+  box.space._tdb_login_attempts\delete key
+  true
+
+is_locked_out = (key) ->
+  entry = read_attempt key
+  return false unless entry
+  entry.locked_until > os.time!
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- Login
 -- ────────────────────────────────────────────────────────────────────────────
 
-login = (username, password) ->
-  if is_locked_out username
-    return nil, 'Too many failed attempts, please try again later'
+-- client_addr is optional; when provided (from http_server) the attempt also
+-- updates a per-address counter. A wrong password and an unknown username take
+-- exactly the same path, so nothing observable distinguishes them.
+login = (username, password, client_addr) ->
+  keys = login_keys username, client_addr
+  for key in *keys
+    if is_locked_out key
+      return nil, 'Too many failed attempts, please try again later'
   user = get_user_by_username username
-  unless user
-    record_failed_attempt username
-    return nil, 'Invalid username or password'
-  unless verify_password password, user.salt, user.password_hash
-    record_failed_attempt username
-    return nil, 'Invalid username or password'
-  -- Transparent upgrade: re-hash legacy SHA-256 passwords with PBKDF2
-  if user.password_hash and user.password_hash\sub(1, 7) != 'pbkdf2:'
-    new_salt = gen_salt!
-    new_hash = hash_password password, new_salt
-    now = os.time!
-    t = box.space._tdb_users\get user.id
-    if t
-      box.space._tdb_users\replace { t[1], t[2], t[3], new_hash, new_salt, t[6], now }
-      log.info "tdb auth: upgraded password hash for user '#{username}' to PBKDF2"
-  clear_failed_attempts username
-  create_session user.id
+  if user and verify_password password, user.salt, user.password_hash
+    for key in *keys
+      clear_failed_attempts key
+    -- Transparent upgrade: re-hash legacy SHA-256 passwords with PBKDF2
+    if user.password_hash and user.password_hash\sub(1, 7) != 'pbkdf2:'
+      new_salt = gen_salt!
+      new_hash = hash_password password, new_salt
+      now = os.time!
+      t = box.space._tdb_users\get user.id
+      if t
+        box.space._tdb_users\replace { t[1], t[2], t[3], new_hash, new_salt, t[6], now }
+        log.info "tdb auth: upgraded password hash for user '#{username}' to PBKDF2"
+    return create_session user.id
+  for key in *keys
+    record_failed_attempt key
+  nil, 'Invalid username or password'
 
 change_password = (user_id, current_password, new_password) ->
   check_password_length new_password
@@ -186,4 +253,4 @@ admin_set_password = (user_id, new_password) ->
 { :create_user, :get_user_by_username, :get_user_by_id,
   :create_session, :validate_session, :delete_session, :purge_expired_sessions,
   :login, :hash_password, :gen_salt, :change_password, :admin_set_password,
-  :purge_login_attempts, :MIN_PASSWORD_LEN }
+  :purge_login_attempts, :login_key, :login_ip_key, :MIN_PASSWORD_LEN }

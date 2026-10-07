@@ -1,10 +1,10 @@
 local digest = require('digest')
 local uuid_mod = require('uuid')
 local log = require('log')
-local SESSION_TTL, TOKEN_LENGTH
+local SESSION_TTL, TOKEN_LENGTH, LOGIN_MAX_ATTEMPTS, LOGIN_IP_MAX_ATTEMPTS, LOGIN_ATTEMPT_WINDOW, LOGIN_LOCKOUT_BASE_SECONDS, LOGIN_LOCKOUT_MAX_SECONDS, LOGIN_ATTEMPTS_TTL
 do
   local _obj_0 = require('core.config')
-  SESSION_TTL, TOKEN_LENGTH = _obj_0.SESSION_TTL, _obj_0.TOKEN_LENGTH
+  SESSION_TTL, TOKEN_LENGTH, LOGIN_MAX_ATTEMPTS, LOGIN_IP_MAX_ATTEMPTS, LOGIN_ATTEMPT_WINDOW, LOGIN_LOCKOUT_BASE_SECONDS, LOGIN_LOCKOUT_MAX_SECONDS, LOGIN_ATTEMPTS_TTL = _obj_0.SESSION_TTL, _obj_0.TOKEN_LENGTH, _obj_0.LOGIN_MAX_ATTEMPTS, _obj_0.LOGIN_IP_MAX_ATTEMPTS, _obj_0.LOGIN_ATTEMPT_WINDOW, _obj_0.LOGIN_LOCKOUT_BASE_SECONDS, _obj_0.LOGIN_LOCKOUT_MAX_SECONDS, _obj_0.LOGIN_ATTEMPTS_TTL
 end
 local PBKDF2_ITERATIONS = 100000
 local PBKDF2_KEY_LEN = 32
@@ -153,106 +153,174 @@ purge_expired_sessions = function()
   end
   return #expired
 end
-local _login_attempts = { }
-local MAX_ATTEMPTS = 5
-local LOCKOUT_SECONDS = 60
-local ATTEMPT_WINDOW = 300
-local record_failed_attempt
-record_failed_attempt = function(username)
-  local now = os.time()
-  local _update_0 = username
-  _login_attempts[_update_0] = _login_attempts[_update_0] or {
-    attempts = { },
-    locked_until = 0
+local LOGIN_USER_PREFIX = 'user:'
+local LOGIN_IP_PREFIX = 'ip:'
+local login_key
+login_key = function(username)
+  return LOGIN_USER_PREFIX .. tostring(username or ''):lower()
+end
+local login_ip_key
+login_ip_key = function(client_addr)
+  return LOGIN_IP_PREFIX .. tostring(client_addr)
+end
+local login_keys
+login_keys = function(username, client_addr)
+  local keys = {
+    login_key(username)
   }
-  local entry = _login_attempts[username]
-  table.insert(entry.attempts, now)
-  do
-    local _accum_0 = { }
-    local _len_0 = 1
-    local _list_0 = entry.attempts
-    for _index_0 = 1, #_list_0 do
-      local t = _list_0[_index_0]
-      if now - t < ATTEMPT_WINDOW then
-        _accum_0[_len_0] = t
-        _len_0 = _len_0 + 1
-      end
-    end
-    entry.attempts = _accum_0
+  if client_addr then
+    table.insert(keys, login_ip_key(client_addr))
   end
-  if #entry.attempts >= MAX_ATTEMPTS then
-    entry.locked_until = now + LOCKOUT_SECONDS
-  end
+  return keys
 end
-local clear_failed_attempts
-clear_failed_attempts = function(username)
-  _login_attempts[username] = nil
-end
-local is_locked_out
-is_locked_out = function(username)
-  local entry = _login_attempts[username]
-  if not (entry) then
-    return false
+local key_max_attempts
+key_max_attempts = function(key)
+  if key and key:sub(1, #LOGIN_IP_PREFIX) == LOGIN_IP_PREFIX then
+    return LOGIN_IP_MAX_ATTEMPTS
   end
-  local now = os.time()
+  return LOGIN_MAX_ATTEMPTS
+end
+local read_attempt
+read_attempt = function(key)
+  local t = box.space._tdb_login_attempts:get(key)
+  if not (t) then
+    return nil
+  end
+  return {
+    key = t[1],
+    failures = t[2],
+    last_failure_at = t[3],
+    locked_until = t[4],
+    lock_count = t[5]
+  }
+end
+local new_attempt
+new_attempt = function(key)
+  return {
+    key = key,
+    failures = 0,
+    last_failure_at = 0,
+    locked_until = 0,
+    lock_count = 0
+  }
+end
+local write_attempt
+write_attempt = function(entry)
+  return box.space._tdb_login_attempts:replace({
+    entry.key,
+    entry.failures,
+    entry.last_failure_at,
+    entry.locked_until,
+    entry.lock_count
+  })
+end
+local reset_after_quiet
+reset_after_quiet = function(entry, now)
   if entry.locked_until > now then
-    return true
+    return 
   end
-  if entry.locked_until > 0 and entry.locked_until <= now then
-    _login_attempts[username] = nil
+  local quiet_since = math.max(entry.last_failure_at, entry.locked_until)
+  if quiet_since > 0 and now - quiet_since > LOGIN_ATTEMPT_WINDOW then
+    entry.failures = 0
+    entry.lock_count = 0
   end
-  return false
+  return entry
+end
+local lockout_delay
+lockout_delay = function(lock_count)
+  local delay = LOGIN_LOCKOUT_BASE_SECONDS * (2 ^ (lock_count - 1))
+  if delay > LOGIN_LOCKOUT_MAX_SECONDS then
+    return LOGIN_LOCKOUT_MAX_SECONDS
+  end
+  return delay
 end
 local purge_login_attempts
 purge_login_attempts = function()
   local now = os.time()
   local stale = { }
-  for username, entry in pairs(_login_attempts) do
-    local latest = entry.attempts[#entry.attempts]
-    if not latest or (latest + ATTEMPT_WINDOW < now) then
-      table.insert(stale, username)
+  local _list_0 = box.space._tdb_login_attempts:select({ })
+  for _index_0 = 1, #_list_0 do
+    local t = _list_0[_index_0]
+    local quiet_since = math.max(t[3], t[4])
+    if quiet_since > 0 and now - quiet_since > LOGIN_ATTEMPTS_TTL and t[4] < now then
+      table.insert(stale, t[1])
     end
   end
   for _index_0 = 1, #stale do
-    local username = stale[_index_0]
-    _login_attempts[username] = nil
+    local key = stale[_index_0]
+    box.space._tdb_login_attempts:delete(key)
   end
   return #stale
 end
+local record_failed_attempt
+record_failed_attempt = function(key)
+  local now = os.time()
+  local entry = read_attempt(key) or new_attempt(key)
+  reset_after_quiet(entry, now)
+  entry.failures = entry.failures + 1
+  entry.last_failure_at = now
+  if entry.failures >= key_max_attempts(key) then
+    entry.lock_count = entry.lock_count + 1
+    entry.locked_until = now + lockout_delay(entry.lock_count)
+    entry.failures = 0
+  end
+  write_attempt(entry)
+  purge_login_attempts()
+  return entry.locked_until
+end
+local clear_failed_attempts
+clear_failed_attempts = function(key)
+  box.space._tdb_login_attempts:delete(key)
+  return true
+end
+local is_locked_out
+is_locked_out = function(key)
+  local entry = read_attempt(key)
+  if not (entry) then
+    return false
+  end
+  return entry.locked_until > os.time()
+end
 local login
-login = function(username, password)
-  if is_locked_out(username) then
-    return nil, 'Too many failed attempts, please try again later'
-  end
-  local user = get_user_by_username(username)
-  if not (user) then
-    record_failed_attempt(username)
-    return nil, 'Invalid username or password'
-  end
-  if not (verify_password(password, user.salt, user.password_hash)) then
-    record_failed_attempt(username)
-    return nil, 'Invalid username or password'
-  end
-  if user.password_hash and user.password_hash:sub(1, 7) ~= 'pbkdf2:' then
-    local new_salt = gen_salt()
-    local new_hash = hash_password(password, new_salt)
-    local now = os.time()
-    local t = box.space._tdb_users:get(user.id)
-    if t then
-      box.space._tdb_users:replace({
-        t[1],
-        t[2],
-        t[3],
-        new_hash,
-        new_salt,
-        t[6],
-        now
-      })
-      log.info("tdb auth: upgraded password hash for user '" .. tostring(username) .. "' to PBKDF2")
+login = function(username, password, client_addr)
+  local keys = login_keys(username, client_addr)
+  for _index_0 = 1, #keys do
+    local key = keys[_index_0]
+    if is_locked_out(key) then
+      return nil, 'Too many failed attempts, please try again later'
     end
   end
-  clear_failed_attempts(username)
-  return create_session(user.id)
+  local user = get_user_by_username(username)
+  if user and verify_password(password, user.salt, user.password_hash) then
+    for _index_0 = 1, #keys do
+      local key = keys[_index_0]
+      clear_failed_attempts(key)
+    end
+    if user.password_hash and user.password_hash:sub(1, 7) ~= 'pbkdf2:' then
+      local new_salt = gen_salt()
+      local new_hash = hash_password(password, new_salt)
+      local now = os.time()
+      local t = box.space._tdb_users:get(user.id)
+      if t then
+        box.space._tdb_users:replace({
+          t[1],
+          t[2],
+          t[3],
+          new_hash,
+          new_salt,
+          t[6],
+          now
+        })
+        log.info("tdb auth: upgraded password hash for user '" .. tostring(username) .. "' to PBKDF2")
+      end
+    end
+    return create_session(user.id)
+  end
+  for _index_0 = 1, #keys do
+    local key = keys[_index_0]
+    record_failed_attempt(key)
+  end
+  return nil, 'Invalid username or password'
 end
 local change_password
 change_password = function(user_id, current_password, new_password)
@@ -313,5 +381,7 @@ return {
   change_password = change_password,
   admin_set_password = admin_set_password,
   purge_login_attempts = purge_login_attempts,
+  login_key = login_key,
+  login_ip_key = login_ip_key,
   MIN_PASSWORD_LEN = MIN_PASSWORD_LEN
 }

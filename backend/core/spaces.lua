@@ -684,6 +684,39 @@ local SYSTEM_SPACES = {
       }
     }
   },
+  _tdb_login_attempts = {
+    format = {
+      {
+        name = 'key',
+        type = 'string'
+      },
+      {
+        name = 'failures',
+        type = 'number'
+      },
+      {
+        name = 'last_failure_at',
+        type = 'number'
+      },
+      {
+        name = 'locked_until',
+        type = 'number'
+      },
+      {
+        name = 'lock_count',
+        type = 'number'
+      }
+    },
+    indexes = {
+      primary = {
+        parts = {
+          'key'
+        },
+        unique = true,
+        type = 'HASH'
+      }
+    }
+  },
   _tdb_apps = {
     format = {
       {

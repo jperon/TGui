@@ -142,6 +142,9 @@ handle_graphql = function(req)
     op_name = nil
   end
   local ctx = { }
+  if req.peer and req.peer.host then
+    ctx.client_addr = req.peer.host
+  end
   local token = extract_token(req)
   if token then
     local session = auth_mod.validate_session(token)
