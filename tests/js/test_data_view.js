@@ -68,6 +68,8 @@
     }
   };
 
+  require('../../frontend/src/views/fk_search_editor');
+
   require('../../frontend/src/views/data_view');
 
   DV = global.window.DataView;
