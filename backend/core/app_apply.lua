@@ -34,7 +34,7 @@ _scope_name = function(rest)
   if not (scope and name and scope ~= '') then
     return nil
   end
-  return scope, name
+  return app_package.unkey_part(scope), app_package.unkey_part(name)
 end
 local _after
 _after = function(key, prefix)
@@ -51,6 +51,20 @@ _split_scope = function(key, prefix)
     return nil
   end
   return _scope_name(rest)
+end
+local _normalize_field_content
+_normalize_field_content = function(item_type, content)
+  if not (item_type == 'field') then
+    return content
+  end
+  return {
+    fieldType = content.fieldType,
+    notNull = content.notNull == true,
+    description = content.description or '',
+    formula = content.formula or '',
+    triggerFields = content.triggerFields or { },
+    language = content.language or 'lua'
+  }
 end
 local _normalize_item
 _normalize_item = function(entry, errors)
@@ -70,11 +84,12 @@ _normalize_item = function(entry, errors)
     table.insert(errors, "package item " .. tostring(entry.key) .. " is missing content")
     return nil
   end
+  local content = _normalize_field_content(entry.type, entry.content)
   local item = {
     type = entry.type,
     key = entry.key,
-    content = entry.content,
-    fingerprint = app_package.fingerprint(entry.content)
+    content = content,
+    fingerprint = app_package.fingerprint(content)
   }
   if entry.renamed_from then
     item.renamed_from = entry.renamed_from
@@ -194,6 +209,12 @@ _space_renames = function(package, installed)
       end
       local new_name = _after(it.key, 'space:')
       local old_name = _after(it.renamed_from, 'space:')
+      if new_name then
+        new_name = app_package.unkey_part(new_name)
+      end
+      if old_name then
+        old_name = app_package.unkey_part(old_name)
+      end
       if new_name and old_name then
         map[new_name] = old_name
       end
@@ -217,16 +238,16 @@ _child_old_key = function(key, space_renames)
     local scope, name = _split_scope(key, prefix)
     local old_scope = scope and space_renames[scope]
     if old_scope and name then
-      return tostring(prefix) .. tostring(old_scope) .. "." .. tostring(name)
+      return tostring(prefix) .. tostring(app_package.key_part(old_scope)) .. "." .. tostring(app_package.key_part(name))
     end
   end
   local rest = _after(key, 'seed:')
   if rest then
     local sep = rest:find('|')
     if sep then
-      local scope = rest:sub(1, sep - 1)
+      local scope = app_package.unkey_part(rest:sub(1, sep - 1))
       if space_renames[scope] then
-        return "seed:" .. tostring(space_renames[scope]) .. tostring(rest:sub(sep))
+        return "seed:" .. tostring(app_package.key_part(space_renames[scope])) .. tostring(rest:sub(sep))
       end
     end
   end
@@ -558,15 +579,19 @@ _resolve_perm_id = function(key)
   if not (#parts == 4) then
     return nil
   end
-  local group = _find_group_by_name(parts[1])
+  local group_name = app_package.unkey_part(parts[1])
+  local rtype = app_package.unkey_part(parts[2])
+  local res = app_package.unkey_part(parts[3])
+  local lvl = app_package.unkey_part(parts[4])
+  local group = _find_group_by_name(group_name)
   if not (group) then
     return nil
   end
   local _list_0 = perms_mod.list_permissions(group.id)
   for _index_0 = 1, #_list_0 do
     local p = _list_0[_index_0]
-    local match = p.resourceType == parts[2] and p.level == parts[4]
-    if match and _resource_name(p.resourceId) == parts[3] then
+    local match = p.resourceType == rtype and p.level == lvl
+    if match and _resource_name(p.resourceId) == res then
       return p.id
     end
   end
@@ -586,25 +611,25 @@ end
 local _resolve_page_id
 _resolve_page_id = function(key)
   local name = _after(key, 'page:')
-  local row = name and _page_by_name(name)
+  local row = name and _page_by_name(app_package.unkey_part(name))
   return row and row[1]
 end
 local _resolve_dataview_id
 _resolve_dataview_id = function(key)
   local name = _after(key, 'dataview:')
-  local v = name and data_views.get_view_by_name(name)
+  local v = name and data_views.get_view_by_name(app_package.unkey_part(name))
   return v and v.id
 end
 local _resolve_plugin_id
 _resolve_plugin_id = function(key)
   local name = _after(key, 'plugin:')
-  local row = name and box.space._tdb_widget_plugins.index.by_name:get(name)
+  local row = name and box.space._tdb_widget_plugins.index.by_name:get(app_package.unkey_part(name))
   return row and row[1]
 end
 local _resolve_group_id
 _resolve_group_id = function(key)
   local name = _after(key, 'group:')
-  local g = name and _find_group_by_name(name)
+  local g = name and _find_group_by_name(app_package.unkey_part(name))
   return g and g.id
 end
 local _resolve_local_id
@@ -614,7 +639,7 @@ _resolve_local_id = function(item_type, key)
   end
   if item_type == 'space' then
     local name = _after(key, 'space:')
-    local sp = name and spaces_mod.get_space_by_name(name)
+    local sp = name and spaces_mod.get_space_by_name(app_package.unkey_part(name))
     return sp and sp.id
   end
   if item_type == 'field' then
@@ -645,7 +670,7 @@ _resolve_local_id = function(item_type, key)
 end
 local _create_space
 _create_space = function(entry)
-  local name = _after(entry.key, 'space:')
+  local name = app_package.unkey_part(_after(entry.key, 'space:'))
   local sp = spaces_mod.create_user_space(name, entry.content.description or '')
   return {
     id = sp.id,
@@ -701,8 +726,8 @@ _update_field = function(entry, old)
   spaces_mod.update_field(fid, {
     notNull = c.notNull,
     description = c.description,
-    formula = c.formula,
-    triggerFields = c.triggerFields,
+    formula = c.formula or '',
+    triggerFields = c.triggerFields or { },
     language = c.language
   })
   return {
@@ -1335,14 +1360,14 @@ _remap_child_key = function(key, old_name, new_name)
   }
   for _index_0 = 1, #_list_0 do
     local prefix = _list_0[_index_0]
-    local rest = _after(key, tostring(prefix) .. tostring(old_name) .. ".")
+    local rest = _after(key, tostring(prefix) .. tostring(app_package.key_part(old_name)) .. ".")
     if rest then
-      return tostring(prefix) .. tostring(new_name) .. "." .. tostring(rest)
+      return tostring(prefix) .. tostring(app_package.key_part(new_name)) .. "." .. tostring(rest)
     end
   end
-  local rest = _after(key, "seed:" .. tostring(old_name) .. "|")
+  local rest = _after(key, "seed:" .. tostring(app_package.key_part(old_name)) .. "|")
   if rest then
-    return "seed:" .. tostring(new_name) .. "|" .. tostring(rest)
+    return "seed:" .. tostring(app_package.key_part(new_name)) .. "|" .. tostring(rest)
   end
   return nil
 end
@@ -1394,6 +1419,8 @@ _rename_space = function(ctx, from_key, to_key)
   if not (old_name and new_name) then
     return 
   end
+  old_name = app_package.unkey_part(old_name)
+  new_name = app_package.unkey_part(new_name)
   local data_sp = box.space["data_" .. tostring(old_name)]
   if data_sp then
     data_sp:rename("data_" .. tostring(new_name))
@@ -1476,28 +1503,28 @@ _rename_view = function(ctx, from_key, to_key)
 end
 local _rename_page
 _rename_page = function(ctx, from_key, to_key)
-  local name = _after(to_key, 'page:')
+  local name = app_package.unkey_part(_after(to_key, 'page:'))
   local old = ctx.installed[from_key]
   _rename_row_name('_tdb_custom_views', old and old.local_id, 2, name)
   return _delete_tracking(ctx.pkg.app.id, from_key)
 end
 local _rename_dataview
 _rename_dataview = function(ctx, from_key, to_key)
-  local name = _after(to_key, 'dataview:')
+  local name = app_package.unkey_part(_after(to_key, 'dataview:'))
   local old = ctx.installed[from_key]
   _rename_row_name('_tdb_data_views', old and old.local_id, 2, name)
   return _delete_tracking(ctx.pkg.app.id, from_key)
 end
 local _rename_plugin
 _rename_plugin = function(ctx, from_key, to_key)
-  local name = _after(to_key, 'plugin:')
+  local name = app_package.unkey_part(_after(to_key, 'plugin:'))
   local old = ctx.installed[from_key]
   _rename_row_name('_tdb_widget_plugins', old and old.local_id, 2, name)
   return _delete_tracking(ctx.pkg.app.id, from_key)
 end
 local _rename_group
 _rename_group = function(ctx, from_key, to_key)
-  local name = _after(to_key, 'group:')
+  local name = app_package.unkey_part(_after(to_key, 'group:'))
   local old = ctx.installed[from_key]
   _rename_row_name('_tdb_groups', old and old.local_id, 2, name)
   return _delete_tracking(ctx.pkg.app.id, from_key)
@@ -1782,7 +1809,7 @@ _loss_for = function(row)
   if row.type == 'field' then
     loss.records = _field_value_count(row.key)
   elseif row.type == 'space' then
-    local name = _after(row.key, 'space:')
+    local name = app_package.unkey_part(_after(row.key, 'space:'))
     local sp = name and spaces_mod.get_space_by_name(name)
     if sp then
       local data_sp = box.space["data_" .. tostring(name)]
@@ -1827,11 +1854,11 @@ _is_child_of_space = function(key, name)
   }
   for _index_0 = 1, #_list_0 do
     local prefix = _list_0[_index_0]
-    if _after(key, tostring(prefix) .. tostring(name) .. ".") then
+    if _after(key, tostring(prefix) .. tostring(app_package.key_part(name)) .. ".") then
       return true
     end
   end
-  return _after(key, "seed:" .. tostring(name) .. "|") ~= nil
+  return _after(key, "seed:" .. tostring(app_package.key_part(name)) .. "|") ~= nil
 end
 local _delete_space_children
 _delete_space_children = function(app_id, name)
@@ -1876,7 +1903,7 @@ _purge_field = function(row)
 end
 local _purge_space
 _purge_space = function(ctx, row)
-  local name = _after(row.key, 'space:')
+  local name = app_package.unkey_part(_after(row.key, 'space:'))
   if name then
     spaces_mod.delete_user_space(name)
   end
@@ -1894,7 +1921,7 @@ _purge_seed = function(row)
   if not (sep) then
     return 
   end
-  local sp = box.space["data_" .. tostring(rest:sub(1, sep - 1))]
+  local sp = box.space["data_" .. tostring(app_package.unkey_part(rest:sub(1, sep - 1)))]
   if sp and row.local_id and row.local_id ~= '' then
     return sp:delete(row.local_id)
   end

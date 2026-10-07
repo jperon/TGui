@@ -325,3 +325,63 @@ R.describe "Spaces — Int to Sequence conversion", ->
     error "Value should be a number" unless type(parsed.test_id) == 'number'
 
     spaces_mod.delete_user_space 'test_seq_empty'
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- DÉFAUT 2 : update_field préserve les colonnes non modifiées (formule,
+-- déclencheurs, langage, repr) au lieu de les tronquer.
+R.describe "Spaces — update_field preserves untouched columns", ->
+  json = require 'json'
+  UF_SP = "test_uf_#{SUFFIX}"
+
+  R.it "description only on a simple field writes only the description", ->
+    sp = spaces_mod.create_user_space UF_SP, 'update_field tests'
+    f = spaces_mod.add_field sp.id, 'plain', 'String', false, 'orig desc'
+    spaces_mod.update_field f.id, { description: 'new desc' }
+    t = box.space._tdb_fields\get f.id
+    R.eq t[7], 'new desc'
+    R.eq t[3], 'plain'
+    R.eq t[4], 'String'
+    R.eq t[5], false
+
+  R.it "description only keeps formula, triggers, language and repr", ->
+    sp = spaces_mod.get_space_by_name UF_SP
+    f = spaces_mod.add_field sp.id, 'calc', 'String', false, '',
+      'self.plain or ""', { 'plain' }, 'lua'
+    spaces_mod.update_field f.id, { description: 'calc desc' }
+    t = box.space._tdb_fields\get f.id
+    R.eq t[7], 'calc desc'
+    R.eq t[8], 'self.plain or ""'
+    tf = json.decode t[9]
+    R.eq tf[1], 'plain'
+    R.eq t[10], 'lua'
+
+  R.it "formula = '' clears explicitly; an absent formula preserves", ->
+    sp = spaces_mod.get_space_by_name UF_SP
+    f = spaces_mod.add_field sp.id, 'clr', 'String', false, '',
+      'self.plain', { 'plain' }, 'lua'
+    spaces_mod.update_field f.id, { formula: '' }
+    t = box.space._tdb_fields\get f.id
+    R.eq (t[8] or ''), ''
+    R.ok (not t[9] or t[9] == 'null')
+    spaces_mod.update_field f.id, { formula: 'self.plain', triggerFields: {} }
+    t = box.space._tdb_fields\get f.id
+    R.eq t[8], 'self.plain'
+    spaces_mod.update_field f.id, { notNull: true }
+    t = box.space._tdb_fields\get f.id
+    R.eq t[8], 'self.plain', 'formula preserved when not mentioned'
+    R.eq t[5], true
+
+  R.it "changing only reprFormula keeps the formula and triggers", ->
+    sp = spaces_mod.get_space_by_name UF_SP
+    f = spaces_mod.add_field sp.id, 'rep', 'String', false, '',
+      'self.plain', { 'plain' }, 'lua', "return self.plain"
+    spaces_mod.update_field f.id, { reprFormula: "return string.upper(self.plain or '')" }
+    t = box.space._tdb_fields\get f.id
+    R.eq t[8], 'self.plain'
+    R.eq t[11], "return string.upper(self.plain or '')"
+    tf = json.decode t[9]
+    R.eq tf[1], 'plain'
+
+  R.it "removes the update_field fixture", ->
+    spaces_mod.delete_user_space UF_SP
+    R.is_nil spaces_mod.get_space_by_name UF_SP

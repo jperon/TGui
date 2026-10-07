@@ -44,10 +44,12 @@ TYPE_RANK = { t, i for i, t in ipairs TYPE_ORDER }
 -- ────────────────────────────────────────────────────────────────────────────
 
 -- '<scope>.<name>' coupé sur le dernier point ; miroir de app_package.split_scope_name.
+-- Les deux composantes sont décodées (app_package.unkey_part) : tous les points
+-- d'un nom sont échappés par app_package.key_part.
 _scope_name = (rest) ->
   scope, name = rest\match '^(.*)%.([^%.]+)$'
   return nil unless scope and name and scope != ''
-  scope, name
+  app_package.unkey_part(scope), app_package.unkey_part(name)
 
 _after = (key, prefix) ->
   return nil unless type(key) == 'string' and key\sub(1, #prefix) == prefix
@@ -58,6 +60,21 @@ _split_scope = (key, prefix) ->
   rest = _after key, prefix
   return nil unless rest
   _scope_name rest
+
+-- Un parseur YAML standard lit `formula: null` comme une clé absente ; on
+-- normalise la forme d'un contenu de champ (mêmes clés et mêmes valeurs que
+-- app_package.field_content) pour que l'empreinte du paquet corresponde à
+-- l'état local et que formula/triggerFields ne soient jamais nil à l'écriture.
+_normalize_field_content = (item_type, content) ->
+  return content unless item_type == 'field'
+  {
+    fieldType: content.fieldType
+    notNull: content.notNull == true
+    description: content.description or ''
+    formula: content.formula or ''
+    triggerFields: content.triggerFields or {}
+    language: content.language or 'lua'
+  }
 
 _normalize_item = (entry, errors) ->
   unless type(entry) == 'table'
@@ -72,11 +89,12 @@ _normalize_item = (entry, errors) ->
   unless type(entry.content) == 'table'
     table.insert errors, "package item #{entry.key} is missing content"
     return nil
+  content = _normalize_field_content entry.type, entry.content
   item = {
     type: entry.type
     key: entry.key
-    content: entry.content
-    fingerprint: app_package.fingerprint entry.content
+    content: content
+    fingerprint: app_package.fingerprint content
   }
   item.renamed_from = entry.renamed_from if entry.renamed_from
   item
@@ -153,6 +171,8 @@ _space_renames = (package, installed) ->
     continue unless installed[it.renamed_from]
     new_name = _after it.key, 'space:'
     old_name = _after it.renamed_from, 'space:'
+    new_name = app_package.unkey_part new_name if new_name
+    old_name = app_package.unkey_part old_name if old_name
     map[new_name] = old_name if new_name and old_name
   map
 
@@ -160,13 +180,14 @@ _child_old_key = (key, space_renames) ->
   for prefix in *{ 'field:', 'relation:', 'view:' }
     scope, name = _split_scope key, prefix
     old_scope = scope and space_renames[scope]
-    return "#{prefix}#{old_scope}.#{name}" if old_scope and name
+    return "#{prefix}#{app_package.key_part old_scope}.#{app_package.key_part name}" if old_scope and name
   rest = _after key, 'seed:'
   if rest
     sep = rest\find '|'
     if sep
-      scope = rest\sub 1, sep - 1
-      return "seed:#{space_renames[scope]}#{rest\sub sep}" if space_renames[scope]
+      scope = app_package.unkey_part rest\sub(1, sep - 1)
+      if space_renames[scope]
+        return "seed:#{app_package.key_part(space_renames[scope])}#{rest\sub sep}"
   nil
 
 _expand_renames = (package, installed) ->
@@ -348,11 +369,15 @@ _resolve_perm_id = (key) ->
   return nil unless rest
   parts = [p for p in rest\gmatch '[^|]+']
   return nil unless #parts == 4
-  group = _find_group_by_name parts[1]
+  group_name = app_package.unkey_part parts[1]
+  rtype = app_package.unkey_part parts[2]
+  res = app_package.unkey_part parts[3]
+  lvl = app_package.unkey_part parts[4]
+  group = _find_group_by_name group_name
   return nil unless group
   for p in *perms_mod.list_permissions group.id
-    match = p.resourceType == parts[2] and p.level == parts[4]
-    return p.id if match and _resource_name(p.resourceId) == parts[3]
+    match = p.resourceType == rtype and p.level == lvl
+    return p.id if match and _resource_name(p.resourceId) == res
   nil
 
 _page_by_name = (name) ->
@@ -362,22 +387,22 @@ _page_by_name = (name) ->
 
 _resolve_page_id = (key) ->
   name = _after key, 'page:'
-  row = name and _page_by_name name
+  row = name and _page_by_name(app_package.unkey_part name)
   row and row[1]
 
 _resolve_dataview_id = (key) ->
   name = _after key, 'dataview:'
-  v = name and data_views.get_view_by_name name
+  v = name and data_views.get_view_by_name(app_package.unkey_part name)
   v and v.id
 
 _resolve_plugin_id = (key) ->
   name = _after key, 'plugin:'
-  row = name and box.space._tdb_widget_plugins.index.by_name\get name
+  row = name and box.space._tdb_widget_plugins.index.by_name\get app_package.unkey_part name
   row and row[1]
 
 _resolve_group_id = (key) ->
   name = _after key, 'group:'
-  g = name and _find_group_by_name name
+  g = name and _find_group_by_name(app_package.unkey_part name)
   g and g.id
 
 -- Dispatch défini après tous les résolveurs de type (en Lua, un upvalue
@@ -386,7 +411,7 @@ _resolve_local_id = (item_type, key) ->
   return nil unless key
   if item_type == 'space'
     name = _after key, 'space:'
-    sp = name and spaces_mod.get_space_by_name name
+    sp = name and spaces_mod.get_space_by_name(app_package.unkey_part name)
     return sp and sp.id
   return _resolve_field_id key if item_type == 'field'
   return _resolve_relation_id key if item_type == 'relation'
@@ -403,7 +428,7 @@ _resolve_local_id = (item_type, key) ->
 -- ────────────────────────────────────────────────────────────────────────────
 
 _create_space = (entry) ->
-  name = _after entry.key, 'space:'
+  name = app_package.unkey_part _after entry.key, 'space:'
   sp = spaces_mod.create_user_space name, entry.content.description or ''
   { id: sp.id, space: name }
 
@@ -435,8 +460,8 @@ _update_field = (entry, old) ->
   spaces_mod.update_field fid, {
     notNull: c.notNull
     description: c.description
-    formula: c.formula
-    triggerFields: c.triggerFields
+    formula: c.formula or ''
+    triggerFields: c.triggerFields or {}
     language: c.language
   }
   { id: fid, space: sp_name }
@@ -746,10 +771,10 @@ _do_seeds = (ctx) ->
 
 _remap_child_key = (key, old_name, new_name) ->
   for prefix in *{ 'field:', 'relation:', 'view:' }
-    rest = _after key, "#{prefix}#{old_name}."
-    return "#{prefix}#{new_name}.#{rest}" if rest
-  rest = _after key, "seed:#{old_name}|"
-  return "seed:#{new_name}|#{rest}" if rest
+    rest = _after key, "#{prefix}#{app_package.key_part old_name}."
+    return "#{prefix}#{app_package.key_part new_name}.#{rest}" if rest
+  rest = _after key, "seed:#{app_package.key_part old_name}|"
+  return "seed:#{app_package.key_part new_name}|#{rest}" if rest
   nil
 
 _remap_child_tracking = (app_id, old_name, new_name) ->
@@ -767,6 +792,8 @@ _rename_space = (ctx, from_key, to_key) ->
   old_name = _after from_key, 'space:'
   new_name = _after to_key, 'space:'
   return unless old_name and new_name
+  old_name = app_package.unkey_part old_name
+  new_name = app_package.unkey_part new_name
   data_sp = box.space["data_#{old_name}"]
   data_sp\rename "data_#{new_name}" if data_sp
   meta = spaces_mod.get_space_by_name old_name
@@ -807,25 +834,25 @@ _rename_view = (ctx, from_key, to_key) ->
   _delete_tracking ctx.pkg.app.id, from_key
 
 _rename_page = (ctx, from_key, to_key) ->
-  name = _after to_key, 'page:'
+  name = app_package.unkey_part _after to_key, 'page:'
   old = ctx.installed[from_key]
   _rename_row_name '_tdb_custom_views', old and old.local_id, 2, name
   _delete_tracking ctx.pkg.app.id, from_key
 
 _rename_dataview = (ctx, from_key, to_key) ->
-  name = _after to_key, 'dataview:'
+  name = app_package.unkey_part _after to_key, 'dataview:'
   old = ctx.installed[from_key]
   _rename_row_name '_tdb_data_views', old and old.local_id, 2, name
   _delete_tracking ctx.pkg.app.id, from_key
 
 _rename_plugin = (ctx, from_key, to_key) ->
-  name = _after to_key, 'plugin:'
+  name = app_package.unkey_part _after to_key, 'plugin:'
   old = ctx.installed[from_key]
   _rename_row_name '_tdb_widget_plugins', old and old.local_id, 2, name
   _delete_tracking ctx.pkg.app.id, from_key
 
 _rename_group = (ctx, from_key, to_key) ->
-  name = _after to_key, 'group:'
+  name = app_package.unkey_part _after to_key, 'group:'
   old = ctx.installed[from_key]
   _rename_row_name '_tdb_groups', old and old.local_id, 2, name
   _delete_tracking ctx.pkg.app.id, from_key
@@ -976,7 +1003,7 @@ _loss_for = (row) ->
   if row.type == 'field'
     loss.records = _field_value_count row.key
   elseif row.type == 'space'
-    name = _after row.key, 'space:'
+    name = app_package.unkey_part _after row.key, 'space:'
     sp = name and spaces_mod.get_space_by_name name
     if sp
       data_sp = box.space["data_#{name}"]
@@ -999,8 +1026,8 @@ preview_purge = (app_id, keys) ->
 
 _is_child_of_space = (key, name) ->
   for prefix in *{ 'field:', 'relation:', 'view:' }
-    return true if _after key, "#{prefix}#{name}."
-  _after(key, "seed:#{name}|") != nil
+    return true if _after key, "#{prefix}#{app_package.key_part name}."
+  _after(key, "seed:#{app_package.key_part name}|") != nil
 
 _delete_space_children = (app_id, name) ->
   rows = box.space._tdb_app_items.index.by_app\select { app_id }
@@ -1022,7 +1049,7 @@ _purge_field = (row) ->
   _remove_record_key sp, name if sp and name
 
 _purge_space = (ctx, row) ->
-  name = _after row.key, 'space:'
+  name = app_package.unkey_part _after row.key, 'space:'
   spaces_mod.delete_user_space name if name
   _delete_space_children ctx.app_id, name if name
 
@@ -1031,7 +1058,7 @@ _purge_seed = (row) ->
   return unless rest
   sep = rest\find '|'
   return unless sep
-  sp = box.space["data_#{rest\sub(1, sep - 1)}"]
+  sp = box.space["data_#{app_package.unkey_part rest\sub(1, sep - 1)}"]
   sp\delete row.local_id if sp and row.local_id and row.local_id != ''
 
 _purge_one = (ctx, row) ->
