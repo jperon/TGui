@@ -4,6 +4,9 @@
 require './dom_stub'
 { describe, it, eq, deepEq, assert, summary } = require './runner'
 
+# TdbHtml.escape is required by data_view._escapeHtml / _formatFormulaError
+require '../../frontend/src/html_escape'
+
 # Stubs required by data_view.js
 global.GQL =
   query:  -> Promise.resolve {}

@@ -135,6 +135,20 @@ window.CustomView = class CustomView
       , 300
     , 3000
 
+  # Rend un message simple dans un conteneur (textContent, jamais innerHTML).
+  _setMessage: (container, text, style = 'color:#888;padding:.5rem') ->
+    container.innerHTML = ''
+    # Le stub DOM des tests ne vide pas _children via innerHTML : on vide aussi
+    # les tableaux quand ils existent (HTMLCollection en navigateur → ignoré).
+    if Array.isArray container._children
+      container._children.length = 0
+    if Array.isArray container.children
+      container.children.length = 0
+    p = document.createElement 'p'
+    p.style.cssText = style
+    p.textContent = String(text ? '')
+    container.appendChild p
+
   mount: ->
     @container.innerHTML = ''
     @_widgets     = []
@@ -153,7 +167,7 @@ window.CustomView = class CustomView
     try
       parsed = jsyaml.load @yamlText
     catch e
-      @container.innerHTML = "<p style='color:red;padding:1rem'>YAML invalide : #{e.message}</p>"
+      @_setMessage @container, "YAML invalide : #{e.message}", 'color:red;padding:1rem'
       return
 
     root = parsed?.layout
@@ -304,7 +318,7 @@ window.CustomView = class CustomView
     delBtn.textContent = '🗑'
 
     unless sp
-      body.innerHTML = "<p style='color:#aaa;padding:.5rem'>Espace « #{wNode.space} » introuvable.</p>"
+      @_setMessage body, "Espace « #{wNode.space} » introuvable.", 'color:#aaa;padding:.5rem'
       entry = { dataView: null, node: wNode, el: wrapper }
       @_widgets.push entry
       @_widgetsById[wNode.id] = entry if wNode.id
@@ -437,7 +451,7 @@ window.CustomView = class CustomView
       tbl.appendChild tbody
       container.appendChild tbl
     .catch (err) =>
-      container.innerHTML = "<p style='color:#c55;padding:.5rem'>Erreur : #{err.message or err}</p>"
+      @_setMessage container, "Erreur : #{err.message or err}", 'color:#c55;padding:.5rem'
 
   _wireDepends: ->
     for entry in @_widgets
@@ -507,15 +521,15 @@ window.CustomView = class CustomView
     unless pluginName
       container.innerHTML = "<p style='color:#c55;padding:.5rem'>Plugin manquant (<code>type</code>).</p>"
       return
-    container.innerHTML = "<p style='color:#888;padding:.5rem'>Chargement du plugin #{pluginName}…</p>"
+    @_setMessage container, "Chargement du plugin #{pluginName}…", 'color:#888;padding:.5rem'
     WidgetPlugins.getByName(pluginName).then (plugin) =>
       unless plugin
-        container.innerHTML = "<p style='color:#c55;padding:.5rem'>Plugin introuvable : #{pluginName}</p>"
+        @_setMessage container, "Plugin introuvable : #{pluginName}", 'color:#c55;padding:.5rem'
         return
       widgetId = runtimeWidgetId or wNode.id or "plugin_#{Math.random().toString(36).slice(2)}"
       @_mountPluginIframe container, widgetId, plugin, pluginParams
     .catch (err) =>
-      container.innerHTML = "<p style='color:#c55;padding:.5rem'>Erreur plugin : #{err.message or err}</p>"
+      @_setMessage container, "Erreur plugin : #{err.message or err}", 'color:#c55;padding:.5rem'
 
   _mountPluginIframe: (container, widgetId, plugin, pluginParams) ->
     compiled = @_compilePlugin plugin, pluginParams

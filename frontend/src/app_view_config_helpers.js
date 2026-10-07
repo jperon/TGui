@@ -311,7 +311,7 @@
       });
     },
     toggleFieldSelection: function(app, fieldInfo) {
-      var existingField, fieldItem, removeBtn, selectedContainer;
+      var existingField, fieldItem, info, ref, ref1, ref2, removeBtn, selectedContainer, small, strong;
       selectedContainer = document.getElementById('dv-selected-fields');
       if (!selectedContainer) {
         return;
@@ -330,17 +330,25 @@
         fieldItem.dataset.spaceId = fieldInfo.spaceId;
         fieldItem.dataset.fieldName = fieldInfo.name;
         fieldItem.dataset.fieldType = fieldInfo.type;
-        fieldItem.innerHTML = `<div class="field-info">
-  <strong>${fieldInfo.spaceName}</strong>.${fieldInfo.name}
-  <br>
-  <small>Type: ${fieldInfo.type}</small>
-</div>
-<button class="remove-field-btn" data-field-id="${fieldInfo.id}">✕</button>`;
-        // Add remove functionality
-        removeBtn = fieldItem.querySelector('.remove-field-btn');
+        info = document.createElement('div');
+        info.className = 'field-info';
+        strong = document.createElement('strong');
+        strong.textContent = String((ref = fieldInfo.spaceName) != null ? ref : '');
+        info.appendChild(strong);
+        info.appendChild(document.createTextNode(`.${(ref1 = fieldInfo.name) != null ? ref1 : ''}`));
+        info.appendChild(document.createElement('br'));
+        small = document.createElement('small');
+        small.textContent = `Type: ${(ref2 = fieldInfo.type) != null ? ref2 : ''}`;
+        info.appendChild(small);
+        fieldItem.appendChild(info);
+        removeBtn = document.createElement('button');
+        removeBtn.className = 'remove-field-btn';
+        removeBtn.setAttribute('data-field-id', fieldInfo.id);
+        removeBtn.textContent = '✕';
         removeBtn.addEventListener('click', () => {
           return this.toggleFieldSelection(app, fieldInfo);
         });
+        fieldItem.appendChild(removeBtn);
         selectedContainer.appendChild(fieldItem);
         return console.log('Field added to selection:', fieldInfo.name);
       }
@@ -477,7 +485,7 @@
       });
     },
     toggleFieldSelection: function(app, fieldData) {
-      var existingItem, fieldItem, selectedContainer;
+      var existingItem, fieldItem, info, ref, ref1, ref2, ref3, removeBtn, selectedContainer, small, strong;
       selectedContainer = document.getElementById('dv-selected-fields');
       if (!selectedContainer) {
         return;
@@ -496,11 +504,22 @@
         fieldItem.dataset.spaceId = fieldData.spaceId;
         fieldItem.dataset.spaceName = fieldData.spaceName;
         fieldItem.dataset.fieldType = fieldData.type;
-        fieldItem.innerHTML = `<div class="field-info">
-  <strong>${fieldData.name}</strong>
-  <small>${fieldData.spaceName}.${fieldData.name} (${fieldData.type})</small>
-</div>
-<button class="remove-field-btn" onclick="window.AppViewConfigHelpers.removeField(this)">✕</button>`;
+        info = document.createElement('div');
+        info.className = 'field-info';
+        strong = document.createElement('strong');
+        strong.textContent = String((ref = fieldData.name) != null ? ref : '');
+        info.appendChild(strong);
+        small = document.createElement('small');
+        small.textContent = `${(ref1 = fieldData.spaceName) != null ? ref1 : ''}.${(ref2 = fieldData.name) != null ? ref2 : ''} (${(ref3 = fieldData.type) != null ? ref3 : ''})`;
+        info.appendChild(small);
+        fieldItem.appendChild(info);
+        removeBtn = document.createElement('button');
+        removeBtn.className = 'remove-field-btn';
+        removeBtn.textContent = '✕';
+        removeBtn.onclick = function() {
+          return window.AppViewConfigHelpers.removeField(this);
+        };
+        fieldItem.appendChild(removeBtn);
         selectedContainer.appendChild(fieldItem);
       }
       // Update YAML editor

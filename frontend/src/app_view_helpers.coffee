@@ -66,7 +66,11 @@ window.AppViewHelpers =
 
     catch e
       console.error 'CustomView error:', e
-      container.innerHTML = "<div class='error-message'>Erreur YAML : #{e.message}</div>"
+      container.innerHTML = ''
+      errDiv = document.createElement 'div'
+      errDiv.className = 'error-message'
+      errDiv.textContent = "Erreur YAML : #{e.message}"
+      container.appendChild errDiv
 
   handleWidgetReorder: (app, positions) ->
     return unless app._currentCustomView?.id

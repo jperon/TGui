@@ -1,6 +1,24 @@
 (function() {
   // app_view_helpers_zones.coffee — zone management helpers extracted from app_view_helpers.coffee
   Object.assign(window.AppViewHelpers, {
+    _renderZoneItem: function(zone) {
+      var infoSpan, input, item, ref, ref1, ref2, titleSpan;
+      item = document.createElement('label');
+      item.className = 'zone-item';
+      input = document.createElement('input');
+      input.type = 'checkbox';
+      input.value = String((ref = zone.id) != null ? ref : '');
+      titleSpan = document.createElement('span');
+      titleSpan.className = 'zone-title';
+      titleSpan.textContent = String((ref1 = zone.title) != null ? ref1 : '');
+      infoSpan = document.createElement('span');
+      infoSpan.className = 'zone-info';
+      infoSpan.textContent = `(${(ref2 = zone.widgetCount) != null ? ref2 : 0} widgets)`;
+      item.appendChild(input);
+      item.appendChild(titleSpan);
+      item.appendChild(infoSpan);
+      return item;
+    },
     _bindZoneEvents: function(app) {
       var createBtn, manageBtn;
       // Bouton créer une zone
@@ -293,7 +311,7 @@
       return window.GQL.query(query, {
         viewId: cv.id
       }).then(function(data) {
-        var cancelBtn, cb, checkboxes, closeBtn, directionSelect, freshCv, i, item, j, len, len1, mergeBtn, modal, splitBtn, updateZoneManagementButtons, yamlText, zone, zoneListEl, zones;
+        var cancelBtn, cb, checkboxes, closeBtn, directionSelect, freshCv, i, j, len, len1, mergeBtn, modal, splitBtn, updateZoneManagementButtons, yamlText, zone, zoneListEl, zones;
         if (!data.customView) {
           tdbAlert('Impossible de charger la vue', 'error');
           return;
@@ -344,12 +362,7 @@
         zoneListEl.innerHTML = '';
         for (i = 0, len = zones.length; i < len; i++) {
           zone = zones[i];
-          item = document.createElement('label');
-          item.className = 'zone-item';
-          item.innerHTML = `<input type="checkbox" value="` + zone.id + `">
-<span class="zone-title">` + zone.title + `</span>
-<span class="zone-info">(` + zone.widgetCount + ` widgets)</span>`;
-          zoneListEl.appendChild(item);
+          zoneListEl.appendChild(window.AppViewHelpers._renderZoneItem(zone));
         }
         
         // Get elements

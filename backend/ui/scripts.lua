@@ -6,6 +6,7 @@ local SCRIPT_SRCS = {
   '/vendor/sortablejs.bundle.js',
   '/vendor/plugin-runtime.bundle.js',
   '/src/i18n.js',
+  '/src/html_escape.js',
   '/src/modal.js',
   '/src/graphql_client.js',
   '/src/auth.js',

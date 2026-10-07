@@ -1,5 +1,22 @@
 # app_view_helpers_zones.coffee — zone management helpers extracted from app_view_helpers.coffee
 Object.assign window.AppViewHelpers,
+  _renderZoneItem: (zone) ->
+    item = document.createElement 'label'
+    item.className = 'zone-item'
+    input = document.createElement 'input'
+    input.type = 'checkbox'
+    input.value = String(zone.id ? '')
+    titleSpan = document.createElement 'span'
+    titleSpan.className = 'zone-title'
+    titleSpan.textContent = String(zone.title ? '')
+    infoSpan = document.createElement 'span'
+    infoSpan.className = 'zone-info'
+    infoSpan.textContent = "(#{zone.widgetCount ? 0} widgets)"
+    item.appendChild input
+    item.appendChild titleSpan
+    item.appendChild infoSpan
+    item
+
   _bindZoneEvents: (app) ->
     # Bouton créer une zone
     createBtn = document.getElementById 'create-zone-btn'
@@ -304,16 +321,9 @@ Object.assign window.AppViewHelpers,
       # Populate zone list
       zoneListEl = modal.querySelector('#zone-items-list')
       zoneListEl.innerHTML = ''
-    
+
       for zone in zones
-        item = document.createElement 'label'
-        item.className = 'zone-item'
-        item.innerHTML = '''
-          <input type="checkbox" value="''' + zone.id + '''">
-          <span class="zone-title">''' + zone.title + '''</span>
-          <span class="zone-info">(''' + zone.widgetCount + ''' widgets)</span>
-        '''
-        zoneListEl.appendChild item
+        zoneListEl.appendChild window.AppViewHelpers._renderZoneItem zone
     
       # Get elements
       mergeBtn = modal.querySelector('#merge-zones-btn')

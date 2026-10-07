@@ -100,13 +100,18 @@ window.AppSnapshotHelpers =
         app.el.snapshotDiffBox().classList.add 'hidden'
         res = app.el.snapshotImportResult()
         res.classList.remove 'hidden'
+        res.innerHTML = ''
         if r.ok
           res.className = 'snapshot-import-result snapshot-result-ok'
-          res.innerHTML = app._t('ui.snapshot.importOk', { created: r.created, skipped: r.skipped })
+          res.textContent = app._t('ui.snapshot.importOk', { created: r.created, skipped: r.skipped })
         else
           res.className = 'snapshot-import-result snapshot-result-err'
-          res.innerHTML = app._t('ui.snapshot.importErr', { created: r.created, skipped: r.skipped }) + '<br>' +
-            r.errors.map((e) -> "<code>#{e}</code>").join('<br>')
+          res.textContent = app._t('ui.snapshot.importErr', { created: r.created, skipped: r.skipped })
+          for e in (r.errors or [])
+            res.appendChild document.createElement 'br'
+            codeEl = document.createElement 'code'
+            codeEl.textContent = String(e ? '')
+            res.appendChild codeEl
         app._loadAll() if r.ok or r.created > 0
       .catch (err) ->
         app.el.snapshotImportConfirmBtn().disabled = false
@@ -116,7 +121,7 @@ window.AppSnapshotHelpers =
   renderSnapshotDiff: (app, diff) ->
     c = app.el.snapshotDiffContent()
     c.innerHTML = ''
-    esc = (s) -> String(s ? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    esc = (s) -> window.TdbHtml.escape s
     section = (title, items, cls) ->
       return unless items and items.length > 0
       h = document.createElement 'h5'
