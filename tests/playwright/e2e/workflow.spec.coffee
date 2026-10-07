@@ -4,6 +4,19 @@
 { test, expect } = require '@playwright/test'
 { performLogin, generateUniqueName } = require '../config/parallel-helper'
 
+# Expand the "Vues" (data views) sidebar list if it is collapsed.
+# Do NOT use locator.isHidden() here: an empty <ul> has zero height, so
+# Playwright reports it as hidden even when the section is expanded. The old
+# code therefore clicked the toggle on the first run (empty list) and collapsed
+# the section, making the post-creation visibility assertion fail. Check the
+# actual 'hidden' class instead. (T19)
+ensureDataViewsExpanded = (page) ->
+  dataViewsList = page.locator '#data-view-list'
+  isCollapsed = await dataViewsList.evaluate (el) -> el.classList.contains 'hidden'
+  if isCollapsed
+    await page.click '#data-views-toggle-btn'
+    await expect(dataViewsList).not.toHaveClass /hidden/
+
 test.describe('Complete Workflow', ->
   test.beforeEach(({ page }) ->
     await performLogin page
@@ -69,6 +82,9 @@ test.describe('Complete Workflow', ->
   )
 
   test('should create a data view from that space', ({ page }) ->
+    # Measured ~19-23s for this test under normal load, too close to the 30s
+    # config limit (first run timed out at exactly 30.0s). Allow headroom.
+    test.setTimeout 60000
     spaceName = generateUniqueName 'DVSourceSpace'
     dataViewName = generateUniqueName 'TestDataView'
     fieldName = 'dv_field'
@@ -84,7 +100,6 @@ test.describe('Complete Workflow', ->
     await page.waitForSelector '.tdb-modal-input'
     await page.fill '.tdb-modal-input', spaceName
     await page.click '.tdb-modal-actions .btn-primary'
-    await page.waitForTimeout 2000
     
     createdSpace = page.locator('#space-list').locator('li', { hasText: spaceName })
     await expect(createdSpace).toBeVisible()
@@ -95,7 +110,7 @@ test.describe('Complete Workflow', ->
     await page.waitForTimeout 1000
     
     await page.click '#fields-btn'
-    await page.waitForTimeout 500
+    await page.waitForSelector '#field-name', { state: 'visible' }
     
     await page.fill '#field-name', fieldName
     await page.selectOption '#field-type', 'String'
@@ -110,15 +125,12 @@ test.describe('Complete Workflow', ->
     
     await page.waitForTimeout 2000
     
-    dataViewsToggle = page.locator('#data-views-toggle-btn')
     dataViewsList = page.locator('#data-view-list')
     
-    if await dataViewsList.isHidden()
-      await dataViewsToggle.click()
-      await page.waitForTimeout 500
+    await ensureDataViewsExpanded page
     
     await page.click '#new-data-view-btn'
-    await page.waitForTimeout 2000
+    await page.waitForSelector '#dv-name', { state: 'visible' }
     
     await page.fill '#dv-name', dataViewName
     
@@ -127,22 +139,26 @@ test.describe('Complete Workflow', ->
     
     sourceSelect = page.locator('#dv-source')
     await sourceSelect.selectOption { label: spaceName }
-    await page.waitForTimeout 1500
+    await page.waitForTimeout 500
     
     # Debug: print what's selected
     selectedValue = await sourceSelect.inputValue()
     console.log 'Selected value:', selectedValue
     
-    await page.waitForTimeout 500
-    
     await page.click '#data-view-save-btn'
-    await page.waitForTimeout 5000
     
     createdDV = dataViewsList.locator('li', { hasText: dataViewName })
+    await createdDV.waitFor { state: 'attached', timeout: 10000 }
+    # The section may have been collapsed while the list was empty; make sure it
+    # is expanded before asserting visibility.
+    await ensureDataViewsExpanded page
     await expect(createdDV).toBeVisible()
   )
 
   test('should create a page with a widget using that data view', ({ page }) ->
+    # Measured ~23.6s for this test under normal load; keep headroom over the
+    # 30s config limit.
+    test.setTimeout 60000
     spaceName = generateUniqueName 'WidgetSpace'
     dataViewName = generateUniqueName 'WidgetDV'
     pageName = generateUniqueName 'WidgetPage'
@@ -159,7 +175,6 @@ test.describe('Complete Workflow', ->
     await page.waitForSelector '.tdb-modal-input'
     await page.fill '.tdb-modal-input', spaceName
     await page.click '.tdb-modal-actions .btn-primary'
-    await page.waitForTimeout 2000
     
     createdSpace = page.locator('#space-list').locator('li', { hasText: spaceName })
     await expect(createdSpace).toBeVisible()
@@ -170,7 +185,7 @@ test.describe('Complete Workflow', ->
     await page.waitForTimeout 1000
     
     await page.click '#fields-btn'
-    await page.waitForTimeout 500
+    await page.waitForSelector '#field-name', { state: 'visible' }
     
     await page.fill '#field-name', fieldName
     await page.selectOption '#field-type', 'String'
@@ -185,25 +200,25 @@ test.describe('Complete Workflow', ->
     
     await page.waitForTimeout 2000
     
-    dataViewsToggle = page.locator('#data-views-toggle-btn')
     dataViewsList = page.locator('#data-view-list')
     
-    if await dataViewsList.isHidden()
-      await dataViewsToggle.click()
-      await page.waitForTimeout 500
+    await ensureDataViewsExpanded page
     
     await page.click '#new-data-view-btn'
-    await page.waitForTimeout 2000
+    await page.waitForSelector '#dv-name', { state: 'visible' }
     
     await page.fill '#dv-name', dataViewName
     sourceSelect = page.locator('#dv-source')
     await sourceSelect.selectOption { label: spaceName }
-    await page.waitForTimeout 1500
+    await page.waitForTimeout 500
     
     await page.click '#data-view-save-btn'
-    await page.waitForTimeout 2000
     
     createdDV = dataViewsList.locator('li', { hasText: dataViewName })
+    await createdDV.waitFor { state: 'attached', timeout: 10000 }
+    # The section may have been collapsed while the list was empty; make sure it
+    # is expanded before asserting visibility.
+    await ensureDataViewsExpanded page
     await expect(createdDV).toBeVisible()
     
     await page.goto '/#!pages'
@@ -241,6 +256,9 @@ test.describe('Complete Workflow', ->
   )
 
   test('should verify the page displays the widget with data', ({ page }) ->
+    # Measured ~27.6s for this test under normal load; keep headroom over the
+    # 30s config limit.
+    test.setTimeout 60000
     spaceName = generateUniqueName 'VerifySpace'
     dataViewName = generateUniqueName 'VerifyDV'
     pageName = generateUniqueName 'VerifyPage'
@@ -257,7 +275,6 @@ test.describe('Complete Workflow', ->
     await page.waitForSelector '.tdb-modal-input'
     await page.fill '.tdb-modal-input', spaceName
     await page.click '.tdb-modal-actions .btn-primary'
-    await page.waitForTimeout 2000
     
     createdSpace = page.locator('#space-list').locator('li', { hasText: spaceName })
     await expect(createdSpace).toBeVisible()
@@ -268,7 +285,7 @@ test.describe('Complete Workflow', ->
     await page.waitForTimeout 1000
     
     await page.click '#fields-btn'
-    await page.waitForTimeout 500
+    await page.waitForSelector '#field-name', { state: 'visible' }
     
     await page.fill '#field-name', fieldName
     await page.selectOption '#field-type', 'String'
@@ -283,23 +300,20 @@ test.describe('Complete Workflow', ->
     
     await page.waitForTimeout 2000
     
-    dataViewsToggle = page.locator('#data-views-toggle-btn')
     dataViewsList = page.locator('#data-view-list')
     
-    if await dataViewsList.isHidden()
-      await dataViewsToggle.click()
-      await page.waitForTimeout 500
+    await ensureDataViewsExpanded page
     
     await page.click '#new-data-view-btn'
-    await page.waitForTimeout 2000
+    await page.waitForSelector '#dv-name', { state: 'visible' }
     
     await page.fill '#dv-name', dataViewName
     sourceSelect = page.locator('#dv-source')
     await sourceSelect.selectOption { label: spaceName }
-    await page.waitForTimeout 1500
+    await page.waitForTimeout 500
     
     await page.click '#data-view-save-btn'
-    await page.waitForTimeout 2000
+    await expect(dataViewsList.locator('li', { hasText: dataViewName })).toBeAttached { timeout: 10000 }
     
     await page.goto '/#!pages'
     await page.waitForTimeout 2000
