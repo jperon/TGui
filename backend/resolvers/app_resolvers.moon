@@ -171,6 +171,20 @@ list_apps = ->
     }
   result
 
+-- Tracked items of one installed app, sorted by key. Unknown appId → {}.
+-- Tuple: app_id(1) key(2) type(3) local_id(4) fingerprint(5) state(6) version(7)
+app_items = (app_id) ->
+  result = {}
+  for row in *box.space._tdb_app_items.index.by_app\select { app_id }
+    table.insert result, {
+      key: row[2]
+      type: row[3]
+      state: row[6] or 'actif'
+      version: row[7]
+    }
+  table.sort result, (a, b) -> a.key < b.key
+  result
+
 -- ────────────────────────────────────────────────────────────────────────────
 -- Resolvers
 -- ────────────────────────────────────────────────────────────────────────────
@@ -179,6 +193,10 @@ Query =
   listApps: (_, _, ctx) ->
     require_admin ctx
     list_apps!
+
+  appItems: (_, args, ctx) ->
+    require_admin ctx
+    app_items args.appId
 
   exportApp: (_, args, ctx) ->
     require_admin ctx

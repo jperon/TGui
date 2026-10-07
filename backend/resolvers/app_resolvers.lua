@@ -255,10 +255,34 @@ list_apps = function()
   end
   return result
 end
+local app_items
+app_items = function(app_id)
+  local result = { }
+  local _list_0 = box.space._tdb_app_items.index.by_app:select({
+    app_id
+  })
+  for _index_0 = 1, #_list_0 do
+    local row = _list_0[_index_0]
+    table.insert(result, {
+      key = row[2],
+      type = row[3],
+      state = row[6] or 'actif',
+      version = row[7]
+    })
+  end
+  table.sort(result, function(a, b)
+    return a.key < b.key
+  end)
+  return result
+end
 local Query = {
   listApps = function(_, _, ctx)
     require_admin(ctx)
     return list_apps()
+  end,
+  appItems = function(_, args, ctx)
+    require_admin(ctx)
+    return app_items(args.appId)
   end,
   exportApp = function(_, args, ctx)
     require_admin(ctx)

@@ -2,7 +2,7 @@
 
 > Auto-generated file. Do not edit manually.
 >
-> Generated at: 2026-10-07 19:36:41 UTC
+> Generated at: 2026-10-07 19:50:07 UTC
 
 Backend/frontend test panorama and per-file intent.
 
@@ -26,6 +26,7 @@ Backend/frontend test panorama and per-file intent.
 | `tests/test_executor.moon` | Tests GraphQL executor behavior (graphql/executor.moon). |
 | `tests/test_extended_proxy.moon` | Tests for extended proxy with list support |
 | `tests/test_formula_guard.moon` | Every formula call site must run through core.config.safe_formula_call |
+| `tests/test_formula_read_perms.moon` | Formula columns and FK traversal must not read a space the requesting user |
 | `tests/test_graphql_flattener.moon` | Tests for GraphQL Flattener with list support |
 | `tests/test_graphql_integration_working.moon` | Working integration tests for GraphQL Builder system |
 | `tests/test_http_static.moon` | Task 3 — fichiers statiques : garde-fous anti-traversal de chemin. |
