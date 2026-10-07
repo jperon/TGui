@@ -30,6 +30,8 @@
 }`;
 
   window.WidgetPlugins = {
+    // Exposed so app.coffee can reuse the single canonical query text (T13).
+    LIST_QUERY: LIST_WIDGET_PLUGINS,
     list: function() {
       return GQL.query(LIST_WIDGET_PLUGINS).then(function(d) {
         return d.widgetPlugins || [];

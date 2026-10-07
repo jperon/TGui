@@ -32,6 +32,9 @@ GET_WIDGET_PLUGIN = """
 """
 
 window.WidgetPlugins =
+  # Exposed so app.coffee can reuse the single canonical query text (T13).
+  LIST_QUERY: LIST_WIDGET_PLUGINS
+
   list: ->
     GQL.query(LIST_WIDGET_PLUGINS).then (d) -> d.widgetPlugins or []
 

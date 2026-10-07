@@ -30,21 +30,6 @@ DELETE_CUSTOM_VIEW = """
   mutation DeleteCustomView($id: ID!) { deleteCustomView(id: $id) }
 """
 
-LIST_WIDGET_PLUGINS = """
-  query {
-    widgetPlugins {
-      id
-      name
-      description
-      scriptLanguage
-      templateLanguage
-      scriptCode
-      templateCode
-      updatedAt
-    }
-  }
-"""
-
 CREATE_WIDGET_PLUGIN = """
   mutation CreateWidgetPlugin($input: CreateWidgetPluginInput!) {
     createWidgetPlugin(input: $input) {
@@ -93,7 +78,7 @@ window.App =
   _listCustomViewsQuery: LIST_CUSTOM_VIEWS
   _updateCustomViewMutation: UPDATE_CUSTOM_VIEW
   _deleteCustomViewMutation: DELETE_CUSTOM_VIEW
-  _listWidgetPluginsQuery: LIST_WIDGET_PLUGINS
+  _listWidgetPluginsQuery: window.WidgetPlugins.LIST_QUERY
   _createWidgetPluginMutation: CREATE_WIDGET_PLUGIN
   _updateWidgetPluginMutation: UPDATE_WIDGET_PLUGIN
   _deleteWidgetPluginMutation: DELETE_WIDGET_PLUGIN
