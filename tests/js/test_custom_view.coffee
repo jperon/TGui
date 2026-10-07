@@ -258,7 +258,9 @@ describe 'CustomView — plugin widgets', ->
     try
       cv.mount()
       body = cv._widgets[0].el._children[1]
-      assert body.innerHTML.includes('Erreur plugin'), 'fallback error should be rendered'
+      p = body._children[0]
+      assert p?, 'fallback error element missing'
+      assert p.textContent.includes('Erreur plugin'), 'fallback error should be rendered'
     catch e
       global.document.createElement = oldCreate
       throw e

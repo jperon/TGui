@@ -5,7 +5,7 @@
   // via Object.assign. Active versions only: dead overwritten definitions removed.
   window.AppViewHelpers = {
     renderCustomViewPreview: function(app, yamlText) {
-      var container, cv, e, ref, ref1, ref2, ref3, widgetsContainer, zoneToolbar;
+      var container, cv, e, errDiv, ref, ref1, ref2, ref3, widgetsContainer, zoneToolbar;
       container = app.el.customViewContainer();
       container.classList.remove('hidden'); // le conteneur d'aperçu est masqué par défaut
       if ((ref = app._activeCustomView) != null) {
@@ -74,7 +74,11 @@
       } catch (error1) {
         e = error1;
         console.error('CustomView error:', e);
-        return container.innerHTML = `<div class='error-message'>Erreur YAML : ${e.message}</div>`;
+        container.innerHTML = '';
+        errDiv = document.createElement('div');
+        errDiv.className = 'error-message';
+        errDiv.textContent = `Erreur YAML : ${e.message}`;
+        return container.appendChild(errDiv);
       }
     },
     handleWidgetReorder: function(app, positions) {

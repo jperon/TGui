@@ -108,26 +108,33 @@
           y: app._snapshotYaml,
           m: mode
         }).then(function(data) {
-          var r, res;
+          var codeEl, e, i, len, r, ref, res;
           r = data.importSnapshot;
           app.el.snapshotImportConfirmBtn().disabled = false;
           app.el.snapshotDiffBox().classList.add('hidden');
           res = app.el.snapshotImportResult();
           res.classList.remove('hidden');
+          res.innerHTML = '';
           if (r.ok) {
             res.className = 'snapshot-import-result snapshot-result-ok';
-            res.innerHTML = app._t('ui.snapshot.importOk', {
+            res.textContent = app._t('ui.snapshot.importOk', {
               created: r.created,
               skipped: r.skipped
             });
           } else {
             res.className = 'snapshot-import-result snapshot-result-err';
-            res.innerHTML = app._t('ui.snapshot.importErr', {
+            res.textContent = app._t('ui.snapshot.importErr', {
               created: r.created,
               skipped: r.skipped
-            }) + '<br>' + r.errors.map(function(e) {
-              return `<code>${e}</code>`;
-            }).join('<br>');
+            });
+            ref = r.errors || [];
+            for (i = 0, len = ref.length; i < len; i++) {
+              e = ref[i];
+              res.appendChild(document.createElement('br'));
+              codeEl = document.createElement('code');
+              codeEl.textContent = String(e != null ? e : '');
+              res.appendChild(codeEl);
+            }
           }
           if (r.ok || r.created > 0) {
             return app._loadAll();
@@ -144,7 +151,7 @@
       c = app.el.snapshotDiffContent();
       c.innerHTML = '';
       esc = function(s) {
-        return String(s != null ? s : '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        return window.TdbHtml.escape(s);
       };
       section = function(title, items, cls) {
         var h, i, item, len, li, safe, ul;

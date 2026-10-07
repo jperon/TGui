@@ -296,19 +296,25 @@ window.AppViewConfigHelpers =
       fieldItem.dataset.fieldName = fieldInfo.name
       fieldItem.dataset.fieldType = fieldInfo.type
 
-      fieldItem.innerHTML = """
-        <div class="field-info">
-          <strong>#{fieldInfo.spaceName}</strong>.#{fieldInfo.name}
-          <br>
-          <small>Type: #{fieldInfo.type}</small>
-        </div>
-        <button class="remove-field-btn" data-field-id="#{fieldInfo.id}">✕</button>
-      """
+      info = document.createElement 'div'
+      info.className = 'field-info'
+      strong = document.createElement 'strong'
+      strong.textContent = String(fieldInfo.spaceName ? '')
+      info.appendChild strong
+      info.appendChild document.createTextNode(".#{fieldInfo.name ? ''}")
+      info.appendChild document.createElement 'br'
+      small = document.createElement 'small'
+      small.textContent = "Type: #{fieldInfo.type ? ''}"
+      info.appendChild small
+      fieldItem.appendChild info
 
-      # Add remove functionality
-      removeBtn = fieldItem.querySelector '.remove-field-btn'
+      removeBtn = document.createElement 'button'
+      removeBtn.className = 'remove-field-btn'
+      removeBtn.setAttribute 'data-field-id', fieldInfo.id
+      removeBtn.textContent = '✕'
       removeBtn.addEventListener 'click', =>
         @toggleFieldSelection app, fieldInfo
+      fieldItem.appendChild removeBtn
 
       selectedContainer.appendChild fieldItem
       console.log 'Field added to selection:', fieldInfo.name
@@ -439,13 +445,21 @@ window.AppViewConfigHelpers =
       fieldItem.dataset.spaceName = fieldData.spaceName
       fieldItem.dataset.fieldType = fieldData.type
 
-      fieldItem.innerHTML = """
-        <div class="field-info">
-          <strong>#{fieldData.name}</strong>
-          <small>#{fieldData.spaceName}.#{fieldData.name} (#{fieldData.type})</small>
-        </div>
-        <button class="remove-field-btn" onclick="window.AppViewConfigHelpers.removeField(this)">✕</button>
-      """
+      info = document.createElement 'div'
+      info.className = 'field-info'
+      strong = document.createElement 'strong'
+      strong.textContent = String(fieldData.name ? '')
+      info.appendChild strong
+      small = document.createElement 'small'
+      small.textContent = "#{fieldData.spaceName ? ''}.#{fieldData.name ? ''} (#{fieldData.type ? ''})"
+      info.appendChild small
+      fieldItem.appendChild info
+
+      removeBtn = document.createElement 'button'
+      removeBtn.className = 'remove-field-btn'
+      removeBtn.textContent = '✕'
+      removeBtn.onclick = -> window.AppViewConfigHelpers.removeField @
+      fieldItem.appendChild removeBtn
 
       selectedContainer.appendChild fieldItem
 

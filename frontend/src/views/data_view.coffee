@@ -853,21 +853,17 @@ window.DataView = class DataView
     if typeof val == 'string'
       m = val.match /^\[ERROR\|(.*?)\|(.*)\]$/
       if m
-        safeShort = m[1].replace(/"/g, '&quot;').replace(/</g, '&lt;')
-        safeFull = m[2].replace(/"/g, '&quot;').replace(/</g, '&lt;')
+        safeShort = window.TdbHtml.escape m[1]
+        safeFull = window.TdbHtml.escape m[2]
         isInternal = safeShort.indexOf('inconnue') > -1
         cls = if isInternal then 'formula-error internal-error' else 'formula-error'
         return "<span class=\"#{cls}\" title=\"#{safeFull}\">⚠ #{safeShort}</span>"
       else if val.indexOf('[Erreur de formule:') == 0
-        return "<span class=\"formula-error\" title=\"#{val.replace(/"/g, '&quot;')}\">⚠ Erreur</span>"
+        return "<span class=\"formula-error\" title=\"#{window.TdbHtml.escape val}\">⚠ Erreur</span>"
     null
 
   _escapeHtml: (s) ->
-    String(s ? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
+    window.TdbHtml.escape s
 
   getFocusedColumnName: ->
     @_focusedColumnName

@@ -149,6 +149,24 @@ transition: all 0.3s ease;`;
       }, 3000);
     }
 
+    // Rend un message simple dans un conteneur (textContent, jamais innerHTML).
+    _setMessage(container, text, style = 'color:#888;padding:.5rem') {
+      var p;
+      container.innerHTML = '';
+      // Le stub DOM des tests ne vide pas _children via innerHTML : on vide aussi
+      // les tableaux quand ils existent (HTMLCollection en navigateur → ignoré).
+      if (Array.isArray(container._children)) {
+        container._children.length = 0;
+      }
+      if (Array.isArray(container.children)) {
+        container.children.length = 0;
+      }
+      p = document.createElement('p');
+      p.style.cssText = style;
+      p.textContent = String(text != null ? text : '');
+      return container.appendChild(p);
+    }
+
     mount() {
       var e, el, parsed, ref, root;
       this.container.innerHTML = '';
@@ -167,7 +185,7 @@ transition: all 0.3s ease;`;
         parsed = jsyaml.load(this.yamlText);
       } catch (error1) {
         e = error1;
-        this.container.innerHTML = `<p style='color:red;padding:1rem'>YAML invalide : ${e.message}</p>`;
+        this._setMessage(this.container, `YAML invalide : ${e.message}`, 'color:red;padding:1rem');
         return;
       }
       root = parsed != null ? parsed.layout : void 0;
@@ -350,7 +368,7 @@ transition: all 0.3s ease;`;
       delBtn.title = 'Supprimer les enregistrements sélectionnés';
       delBtn.textContent = '🗑';
       if (!sp) {
-        body.innerHTML = `<p style='color:#aaa;padding:.5rem'>Espace « ${wNode.space} » introuvable.</p>`;
+        this._setMessage(body, `Espace « ${wNode.space} » introuvable.`, 'color:#aaa;padding:.5rem');
         entry = {
           dataView: null,
           node: wNode,
@@ -473,7 +491,7 @@ transition: all 0.3s ease;`;
         return results;
       })();
       return Spaces.aggregateSpace(spaceName, groupBy, aggInput).then((rows) => {
-        var c, col, computed, computedFns, errDiv, formulaErrors, i, j, k, keys, l, len, len1, len2, len3, len4, len5, len6, len7, m, n, o, p, r, ref, ref1, row, tbl, tbody, td, th, thead, tr, v;
+        var c, col, computed, computedFns, errDiv, formulaErrors, i, j, k, keys, l, len, len1, len2, len3, len4, len5, len6, len7, m, n, o, r, ref, ref1, row, t, tbl, tbody, td, th, thead, tr, v;
         container.innerHTML = '';
         if (!(rows && rows.length > 0)) {
           container.innerHTML = "<p style='color:#aaa;padding:.5rem'>Aucun résultat.</p>";
@@ -548,11 +566,11 @@ transition: all 0.3s ease;`;
         thead.appendChild(tr);
         tbl.appendChild(thead);
         tbody = document.createElement('tbody');
-        for (p = 0, len6 = rows.length; p < len6; p++) {
-          row = rows[p];
+        for (r = 0, len6 = rows.length; r < len6; r++) {
+          row = rows[r];
           tr = document.createElement('tr');
-          for (r = 0, len7 = keys.length; r < len7; r++) {
-            k = keys[r];
+          for (t = 0, len7 = keys.length; t < len7; t++) {
+            k = keys[t];
             td = document.createElement('td');
             v = row[k];
             td.textContent = v != null ? String(v) : '';
@@ -563,7 +581,7 @@ transition: all 0.3s ease;`;
         tbl.appendChild(tbody);
         return container.appendChild(tbl);
       }).catch((err) => {
-        return container.innerHTML = `<p style='color:#c55;padding:.5rem'>Erreur : ${err.message || err}</p>`;
+        return this._setMessage(container, `Erreur : ${err.message || err}`, 'color:#c55;padding:.5rem');
       });
     }
 
@@ -689,17 +707,17 @@ transition: all 0.3s ease;`;
         container.innerHTML = "<p style='color:#c55;padding:.5rem'>Plugin manquant (<code>type</code>).</p>";
         return;
       }
-      container.innerHTML = `<p style='color:#888;padding:.5rem'>Chargement du plugin ${pluginName}…</p>`;
+      this._setMessage(container, `Chargement du plugin ${pluginName}…`, 'color:#888;padding:.5rem');
       return WidgetPlugins.getByName(pluginName).then((plugin) => {
         var widgetId;
         if (!plugin) {
-          container.innerHTML = `<p style='color:#c55;padding:.5rem'>Plugin introuvable : ${pluginName}</p>`;
+          this._setMessage(container, `Plugin introuvable : ${pluginName}`, 'color:#c55;padding:.5rem');
           return;
         }
         widgetId = runtimeWidgetId || wNode.id || `plugin_${Math.random().toString(36).slice(2)}`;
         return this._mountPluginIframe(container, widgetId, plugin, pluginParams);
       }).catch((err) => {
-        return container.innerHTML = `<p style='color:#c55;padding:.5rem'>Erreur plugin : ${err.message || err}</p>`;
+        return this._setMessage(container, `Erreur plugin : ${err.message || err}`, 'color:#c55;padding:.5rem');
       });
     }
 
