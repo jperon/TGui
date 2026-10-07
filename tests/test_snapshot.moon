@@ -6,7 +6,9 @@ R      = require 'tests.runner'
 auth   = require 'core.auth'
 spaces = require 'core.spaces'
 export_r = require 'resolvers.export_resolvers'
+data_res = require 'resolvers.data_resolvers'
 yaml   = require 'yaml'
+json   = require 'json'
 
 SUFFIX = tostring math.random 100000, 999999
 
@@ -270,3 +272,110 @@ R.describe "importSnapshot — invalid YAML", ->
     ok, err = pcall ->
       export_r.Mutation.importSnapshot nil, { yaml: '42', mode: 'merge' }, ADMIN_CTX
     R.eq ok, false
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- Round trip: export with data → delete space → import (merge) → compare.
+-- A record is stored as { id, json.encode(data) } (data_resolvers.moon:100),
+-- and do_import re-inserts it the same way (export_resolvers.moon, data section).
+-- ────────────────────────────────────────────────────────────────────────────
+R.describe "round trip export → import (includeData)", ->
+  RT = "snap_rt_#{SUFFIX}"
+  RT_FIELDS = {
+    { name: 'titre',   fieldType: 'String',  notNull: true }
+    { name: 'valeur',  fieldType: 'Int',     notNull: false }
+    { name: 'prix',    fieldType: 'Float',   notNull: false }
+    { name: 'actif',   fieldType: 'Boolean', notNull: false }
+  }
+  ORIG_ROWS = {
+    { titre: 'Alpha', valeur: 1, prix: 1.5,  actif: true }
+    { titre: 'Beta',  valeur: 2, prix: 2.25, actif: false }
+    { titre: 'Gamma', valeur: 3, prix: 3,    actif: true }
+  }
+  rt_id = nil
+  rt_yaml = nil
+
+  -- Every stored record of the test space, decoded from its JSON blob.
+  read_rows = ->
+    user_sp = box.space["data_#{RT}"]
+    return {} unless user_sp
+    rows = {}
+    for t in *user_sp\select {}
+      table.insert rows, json.decode t[2]
+    rows
+
+  -- Canonical, order-independent form of a row set: one string per row, keys
+  -- sorted, values typed via json.encode — two sets compare with R.eq.
+  canonical_rows = (rows) ->
+    parts = {}
+    for r in *rows
+      keys = [k for k, _ in pairs r]
+      table.sort keys
+      kv = {}
+      for k in *keys
+        table.insert kv, "#{k}=#{json.encode r[k]}"
+      table.insert parts, "{#{table.concat kv, ' '}}"
+    table.sort parts
+    parts
+
+  assert_same_rows = (actual, expected, label) ->
+    got = canonical_rows actual
+    exp = canonical_rows expected
+    R.eq #got, #exp, "#{label}: row count"
+    n = math.min #got, #exp
+    for i = 1, n
+      R.eq got[i], exp[i], "#{label}: row #{i}"
+
+  R.it "creates the test space with several field types", ->
+    ok, sp = pcall spaces.create_user_space, RT, 'round trip space'
+    R.ok ok, tostring(sp)
+    rt_id = sp.id
+    for f in *RT_FIELDS
+      ok2, err2 = pcall spaces.add_field, rt_id, f.name, f.fieldType, f.notNull
+      R.ok ok2, "add_field #{f.name}: #{err2}"
+    fields = spaces.list_fields rt_id
+    R.eq #fields, #RT_FIELDS
+
+  R.it "inserts the original records", ->
+    for r in *ORIG_ROWS
+      rec = data_res.Mutation.insertRecord {}, { spaceId: rt_id, data: r }, ADMIN_CTX
+      R.ok rec, "insert #{r.titre}"
+    R.eq #read_rows!, #ORIG_ROWS
+
+  R.it "exports the space together with its data", ->
+    yaml_str = export_r.Query.exportSnapshot nil, { includeData: true }, ADMIN_CTX
+    R.ok yaml_str
+    snap = yaml.decode yaml_str
+    R.ok snap
+    R.ok snap.data
+    R.ok snap.data[RT], "data section for #{RT}"
+    R.eq #snap.data[RT], #ORIG_ROWS
+    rt_yaml = yaml_str
+
+  R.it "exported rows hold the decoded field values", ->
+    snap = yaml.decode rt_yaml
+    assert_same_rows(snap.data[RT] or {}, ORIG_ROWS, 'exported data')
+
+  R.it "deletes the test space", ->
+    spaces.delete_user_space RT
+    R.eq #read_rows!, 0
+    found = false
+    for s in *spaces.list_spaces!
+      found = true if s.name == RT
+    R.eq found, false
+
+  R.it "reimports the snapshot in merge mode", ->
+    result = export_r.Mutation.importSnapshot nil, { yaml: rt_yaml, mode: 'merge' }, ADMIN_CTX
+    R.ok result
+    R.ok result.ok, table.concat(result.errors or {}, ' | ')
+    R.eq #read_rows!, #ORIG_ROWS
+
+  R.it "reimported records match the originals", ->
+    assert_same_rows(read_rows!, ORIG_ROWS, 'restored data')
+
+  -- Cleanup
+  R.it "deletes the reimported test space", ->
+    spaces.delete_user_space RT
+    found = false
+    for s in *spaces.list_spaces!
+      found = true if s.name == RT
+    R.eq found, false
