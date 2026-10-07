@@ -306,6 +306,131 @@ in_list = function(list, key)
   end
   return false
 end
+local build_current
+build_current = function(version)
+  local meta = {
+    id = APP_ID,
+    name = 'V3b fixture',
+    version = version,
+    description = 'v3b'
+  }
+  return subset(pkg.build_package(meta, {
+    seed = seed_opts
+  }))
+end
+local rename_item
+rename_item = function(package, old_key, new_key)
+  local items = { }
+  local _list_0 = package.items
+  for _index_0 = 1, #_list_0 do
+    local it = _list_0[_index_0]
+    if it.key == old_key then
+      table.insert(items, {
+        type = it.type,
+        key = new_key,
+        content = it.content,
+        renamed_from = old_key
+      })
+    else
+      table.insert(items, it)
+    end
+  end
+  return {
+    app = package.app,
+    items = items,
+    seed_keys = package.seed_keys
+  }
+end
+local str_after
+str_after = function(key, prefix)
+  if not (key:sub(1, #prefix) == prefix) then
+    return nil
+  end
+  local rest = key:sub(#prefix + 1)
+  return rest ~= '' and rest or nil
+end
+local retarget_key
+retarget_key = function(key, old_space, new_space)
+  local _list_0 = {
+    'field:',
+    'relation:',
+    'view:'
+  }
+  for _index_0 = 1, #_list_0 do
+    local prefix = _list_0[_index_0]
+    local rest = str_after(key, tostring(prefix) .. tostring(old_space) .. ".")
+    if rest then
+      return tostring(prefix) .. tostring(new_space) .. "." .. tostring(rest)
+    end
+  end
+  local rest = str_after(key, "seed:" .. tostring(old_space) .. "|")
+  if rest then
+    return "seed:" .. tostring(new_space) .. "|" .. tostring(rest)
+  end
+  return key
+end
+local rename_space_pkg
+rename_space_pkg = function(package, old_space, new_space)
+  local items = { }
+  local _list_0 = package.items
+  for _index_0 = 1, #_list_0 do
+    local _continue_0 = false
+    repeat
+      local it = _list_0[_index_0]
+      if it.type == 'space' and it.key == "space:" .. tostring(old_space) then
+        table.insert(items, {
+          type = 'space',
+          key = "space:" .. tostring(new_space),
+          content = it.content,
+          renamed_from = it.key
+        })
+        _continue_0 = true
+        break
+      end
+      local new_key = retarget_key(it.key, old_space, new_space)
+      local content = it.content
+      if it.type == 'relation' and content.toSpace == old_space then
+        content = {
+          fromSpace = content.fromSpace,
+          fromField = content.fromField,
+          toSpace = new_space,
+          toField = content.toField
+        }
+      end
+      if it.type == 'dataview' and content.sourceSpace == old_space then
+        content = {
+          name = content.name,
+          description = content.description,
+          sourceSpace = new_space,
+          config = content.config
+        }
+      end
+      local renamed = new_key ~= it.key
+      if renamed or content ~= it.content then
+        local entry = {
+          type = it.type,
+          key = new_key,
+          content = content
+        }
+        if renamed then
+          entry.renamed_from = it.key
+        end
+        table.insert(items, entry)
+      else
+        table.insert(items, it)
+      end
+      _continue_0 = true
+    until true
+    if not _continue_0 then
+      break
+    end
+  end
+  return {
+    app = package.app,
+    items = items,
+    seed_keys = package.seed_keys
+  }
+end
 R.describe("v3b — fixture", function()
   R.it("creates spaces, fields, relation and data", function()
     local books = spaces.create_user_space(SP_B, 'v3b books')
@@ -514,6 +639,82 @@ R.describe("v3b partie 2 — lignes seed", function()
     return R.eq(count_rows(SP_B), FIX.rows_before + 1, 'exactly one seed line added, none removed')
   end)
 end)
+local SP_A2 = tostring(SP_A) .. "_ren"
+local PAGE_N2 = tostring(PAGE_N) .. "2"
+local PLUG_N2 = tostring(PLUG_N) .. "2"
+R.describe("v3b partie 3 — renommages", function()
+  R.it("renames a field in place and keeps values under the new name", function()
+    local sid = spaces.get_space_by_name(SP_A).id
+    data_r.Mutation.insertRecord({ }, {
+      spaceId = sid,
+      data = {
+        name = 'Alice'
+      }
+    }, CTX)
+    R.ok((find_record(SP_A, 'name', 'Alice')), 'author record inserted')
+    local base = build_current('1.4.0')
+    local PKG_F = reversion((rename_item(base, "field:" .. tostring(SP_A) .. ".name", "field:" .. tostring(SP_A) .. ".nom")), '1.4.0')
+    local report = apply.apply_update(PKG_F, { }, { })
+    R.ok(report.ok, report.error)
+    R.ok(pkg.describe_local('field', "field:" .. tostring(SP_A) .. ".nom"), 'new field present')
+    R.is_nil(pkg.describe_local('field', "field:" .. tostring(SP_A) .. ".name"), 'old field gone')
+    local rec = find_record(SP_A, 'nom', 'Alice')
+    R.ok(rec, 'value preserved under the new key')
+    R.is_nil(rec.data.name, 'old JSON key removed')
+    R.eq(item_state(APP_ID, "field:" .. tostring(SP_A) .. ".nom"), 'actif')
+    return R.is_nil(item_row(APP_ID, "field:" .. tostring(SP_A) .. ".name"))
+  end)
+  R.it("renames a page and a plugin in place", function()
+    local base = build_current('1.5.0')
+    local PKG_P = rename_item(base, "page:" .. tostring(PAGE_N), "page:" .. tostring(PAGE_N2))
+    PKG_P = rename_item(PKG_P, "plugin:" .. tostring(PLUG_N), "plugin:" .. tostring(PLUG_N2))
+    local report = apply.apply_update(PKG_P, { }, { })
+    R.ok(report.ok, report.error)
+    R.ok(pkg.describe_local('page', "page:" .. tostring(PAGE_N2)), 'page renamed')
+    R.is_nil(pkg.describe_local('page', "page:" .. tostring(PAGE_N)), 'old page gone')
+    R.ok(pkg.describe_local('plugin', "plugin:" .. tostring(PLUG_N2)), 'plugin renamed')
+    return R.is_nil(pkg.describe_local('plugin', "plugin:" .. tostring(PLUG_N)), 'old plugin gone')
+  end)
+  R.it("renames a space in place, remapping child keys and preserving records", function()
+    local before = local_rows(SP_A)
+    local PKG_S = reversion((rename_space_pkg((build_current('1.6.0')), SP_A, SP_A2)), '2.0.0')
+    FIX.pkg_s = PKG_S
+    local dbg = apply.preview_update(PKG_S)
+    R.eq(#dbg.create, 0, 'rename is previewed as a rename, not a creation')
+    R.eq(#dbg.rename, 3, 'space plus two child fields renamed')
+    R.is_nil(box.space._tdb_spaces.index.by_name:get(SP_A2), 'SP_A2 absent before apply')
+    local report = apply.apply_update(PKG_S, { }, { })
+    R.ok(report.ok, report.error)
+    R.ok(spaces.get_space_by_name(SP_A2), 'new space exists')
+    R.is_nil(spaces.get_space_by_name(SP_A), 'old space gone')
+    R.ok(box.space["data_" .. tostring(SP_A2)], 'new data space exists')
+    R.is_nil(box.space["data_" .. tostring(SP_A)], 'old data space gone')
+    R.eq(#local_rows(SP_A2), #before, 'records preserved')
+    R.ok((find_record(SP_A2, 'nom', 'Alice')), 'author record preserved')
+    R.ok(pkg.describe_local('field', "field:" .. tostring(SP_A2) .. ".nom"), 'child field remapped')
+    R.is_nil(item_row(APP_ID, "field:" .. tostring(SP_A) .. ".nom"), 'old child key untracked')
+    return R.eq(item_state(APP_ID, "space:" .. tostring(SP_A2)), 'actif')
+  end)
+  R.it("a further update with the same package recreates nothing", function()
+    local report = apply.apply_update(FIX.pkg_s, { }, { })
+    R.ok(report.ok, report.error)
+    R.eq(#report.created, 0, 'nothing recreated')
+    return R.eq(item_state(APP_ID, "space:" .. tostring(SP_A2)), 'actif')
+  end)
+  return R.it("refuses a rename whose target already exists locally", function()
+    cvr.Mutation.createCustomView({ }, {
+      name = tostring(PAGE_N2) .. "_tgt",
+      description = 'taken',
+      yaml = ''
+    }, CTX)
+    local before_version = box.space._tdb_apps:get(APP_ID)[3]
+    local PKG_C = reversion((rename_item((build_current('2.1.0')), "page:" .. tostring(PAGE_N2), "page:" .. tostring(PAGE_N2) .. "_tgt")), '2.1.0')
+    local report = apply.apply_update(PKG_C, { }, { })
+    R.nok(report.ok)
+    R.matches(report.error, 'already exists locally')
+    return R.eq(box.space._tdb_apps:get(APP_ID)[3], before_version, 'no write')
+  end)
+end)
 R.describe("v3b — cleanup", function()
   return R.it("removes the fixture elements and tracking rows", function()
     local sid = spaces.get_space_by_name(SP_B)
@@ -536,28 +737,28 @@ R.describe("v3b — cleanup", function()
     local _list_0 = box.space._tdb_views:select({ })
     for _index_0 = 1, #_list_0 do
       local v = _list_0[_index_0]
-      if v[3] == VIEW_N then
+      if v[3]:find(VIEW_N, 1, true) then
         views.delete_view(v[1])
       end
     end
     local _list_1 = box.space._tdb_data_views:select({ })
     for _index_0 = 1, #_list_1 do
       local dv = _list_1[_index_0]
-      if dv[2] == DV_N then
+      if dv[2]:find(DV_N, 1, true) then
         data_views.delete_view(dv[1])
       end
     end
     local _list_2 = box.space._tdb_custom_views:select({ })
     for _index_0 = 1, #_list_2 do
       local cv = _list_2[_index_0]
-      if cv[2] == PAGE_N then
+      if cv[2]:find(PAGE_N, 1, true) then
         box.space._tdb_custom_views:delete(cv[1])
       end
     end
     local _list_3 = box.space._tdb_widget_plugins:select({ })
     for _index_0 = 1, #_list_3 do
       local wp = _list_3[_index_0]
-      if wp[2] == PLUG_N then
+      if wp[2]:find(PLUG_N, 1, true) then
         box.space._tdb_widget_plugins:delete(wp[1])
       end
     end
@@ -571,7 +772,9 @@ R.describe("v3b — cleanup", function()
     clean_app()
     spaces.delete_user_space(SP_B)
     spaces.delete_user_space(SP_A)
-    return R.is_nil(spaces.get_space_by_name(SP_B))
+    spaces.delete_user_space(SP_A2)
+    R.is_nil(spaces.get_space_by_name(SP_B))
+    return R.is_nil(spaces.get_space_by_name(SP_A2))
   end)
 end)
 return {

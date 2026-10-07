@@ -44,6 +44,14 @@ _after = function(key, prefix)
   local rest = key:sub(#prefix + 1)
   return rest ~= '' and rest or nil
 end
+local _split_scope
+_split_scope = function(key, prefix)
+  local rest = _after(key, prefix)
+  if not (rest) then
+    return nil
+  end
+  return _scope_name(rest)
+end
 local _normalize_item
 _normalize_item = function(entry, errors)
   if not (type(entry) == 'table') then
@@ -168,6 +176,110 @@ _local_state = function(item_type, key)
     content = content
   }
 end
+local _space_renames
+_space_renames = function(package, installed)
+  local map = { }
+  local _list_0 = package.items
+  for _index_0 = 1, #_list_0 do
+    local _continue_0 = false
+    repeat
+      local it = _list_0[_index_0]
+      if not (it.type == 'space' and it.renamed_from) then
+        _continue_0 = true
+        break
+      end
+      if not (installed[it.renamed_from]) then
+        _continue_0 = true
+        break
+      end
+      local new_name = _after(it.key, 'space:')
+      local old_name = _after(it.renamed_from, 'space:')
+      if new_name and old_name then
+        map[new_name] = old_name
+      end
+      _continue_0 = true
+    until true
+    if not _continue_0 then
+      break
+    end
+  end
+  return map
+end
+local _child_old_key
+_child_old_key = function(key, space_renames)
+  local _list_0 = {
+    'field:',
+    'relation:',
+    'view:'
+  }
+  for _index_0 = 1, #_list_0 do
+    local prefix = _list_0[_index_0]
+    local scope, name = _split_scope(key, prefix)
+    local old_scope = scope and space_renames[scope]
+    if old_scope and name then
+      return tostring(prefix) .. tostring(old_scope) .. "." .. tostring(name)
+    end
+  end
+  local rest = _after(key, 'seed:')
+  if rest then
+    local sep = rest:find('|')
+    if sep then
+      local scope = rest:sub(1, sep - 1)
+      if space_renames[scope] then
+        return "seed:" .. tostring(space_renames[scope]) .. tostring(rest:sub(sep))
+      end
+    end
+  end
+  return nil
+end
+local _expand_renames
+_expand_renames = function(package, installed)
+  local space_renames = _space_renames(package, installed)
+  local items = { }
+  local _list_0 = package.items
+  for _index_0 = 1, #_list_0 do
+    local _continue_0 = false
+    repeat
+      local it = _list_0[_index_0]
+      if it.renamed_from and not installed[it.renamed_from] and installed[it.key] then
+        table.insert(items, {
+          type = it.type,
+          key = it.key,
+          content = it.content,
+          fingerprint = it.fingerprint
+        })
+        _continue_0 = true
+        break
+      end
+      if it.renamed_from or it.type == 'space' then
+        table.insert(items, it)
+        _continue_0 = true
+        break
+      end
+      local old_key = _child_old_key(it.key, space_renames)
+      if old_key and installed[old_key] then
+        table.insert(items, {
+          type = it.type,
+          key = it.key,
+          content = it.content,
+          fingerprint = it.fingerprint,
+          renamed_from = old_key
+        })
+      else
+        table.insert(items, it)
+      end
+      _continue_0 = true
+    until true
+    if not _continue_0 then
+      break
+    end
+  end
+  return {
+    app = package.app,
+    items = items,
+    seed_keys = package.seed_keys
+  }
+end
 local _build_local_states
 _build_local_states = function(package, installed)
   local types = { }
@@ -222,6 +334,7 @@ preview_update = function(package, opts)
   end
   local pkg = normalized.package
   local installed = _read_installed(pkg.app.id)
+  pkg = _expand_renames(pkg, installed)
   local local_states = _build_local_states(pkg, installed)
   return plan_update(installed, pkg, local_states, _effective_opts(pkg.app.id, opts))
 end
@@ -273,15 +386,12 @@ _order_conflicts = function(conflicts)
   end)
   return copy
 end
+local _effective_old
+_effective_old = function(ctx, entry)
+  return ctx.installed[entry.key] or (entry.renamed_from and ctx.installed[entry.renamed_from])
+end
 local _skip
 _skip = function(entry, report)
-  if entry.renamed_from then
-    table.insert(report.skipped, {
-      key = entry.key,
-      reason = 'rename (V3b)'
-    })
-    return true
-  end
   return false
 end
 local _check_decisions
@@ -291,7 +401,7 @@ _check_decisions = function(conflicts, decisions)
     repeat
       local c = conflicts[_index_0]
       local entry = c[1]
-      if entry.type == 'seed' or entry.renamed_from then
+      if entry.type == 'seed' then
         _continue_0 = true
         break
       end
@@ -949,7 +1059,7 @@ _do_updates = function(ctx)
         _continue_0 = true
         break
       end
-      local old = ctx.installed[entry.key]
+      local old = _effective_old(ctx, entry)
       if not (old) then
         error("cannot update unknown item '" .. tostring(entry.key) .. "'")
       end
@@ -986,7 +1096,7 @@ _do_conflicts = function(ctx)
         _continue_0 = true
         break
       end
-      local old = ctx.installed[entry.key]
+      local old = _effective_old(ctx, entry)
       local resolution = ctx.decisions[entry.key]
       if resolution == 'delivered' then
         local ex = EXECUTORS[entry.type]
@@ -1027,7 +1137,7 @@ _do_keep_local = function(ctx)
         _continue_0 = true
         break
       end
-      _record_kept(ctx, entry, ctx.installed[entry.key], entry.fingerprint)
+      _record_kept(ctx, entry, _effective_old(ctx, entry), entry.fingerprint)
       table.insert(ctx.report.kept, entry.key)
       _continue_0 = true
     until true
@@ -1052,7 +1162,7 @@ _do_unchanged = function(ctx)
         _continue_0 = true
         break
       end
-      local old = ctx.installed[key]
+      local old = _effective_old(ctx, item)
       local local_id = old and old.local_id or _resolve_local_id(item.type, key)
       _record(ctx.pkg.app.id, ctx.pkg.app.version, item.type, key, local_id, item.fingerprint, 'actif')
       table.insert(ctx.report.unchanged, key)
@@ -1073,10 +1183,6 @@ _decode = function(blob)
   end
   local ok, d = pcall(json.decode, blob)
   return (ok and type(d) == 'table') and d or { }
-end
-local _effective_old
-_effective_old = function(ctx, entry)
-  return ctx.installed[entry.key] or (entry.renamed_from and ctx.installed[entry.renamed_from])
 end
 local _find_seed_id
 _find_seed_id = function(ctx, entry)
@@ -1196,6 +1302,262 @@ _do_seeds = function(ctx)
     end
   end
 end
+local _remap_child_key
+_remap_child_key = function(key, old_name, new_name)
+  local _list_0 = {
+    'field:',
+    'relation:',
+    'view:'
+  }
+  for _index_0 = 1, #_list_0 do
+    local prefix = _list_0[_index_0]
+    local rest = _after(key, tostring(prefix) .. tostring(old_name) .. ".")
+    if rest then
+      return tostring(prefix) .. tostring(new_name) .. "." .. tostring(rest)
+    end
+  end
+  local rest = _after(key, "seed:" .. tostring(old_name) .. "|")
+  if rest then
+    return "seed:" .. tostring(new_name) .. "|" .. tostring(rest)
+  end
+  return nil
+end
+local _remap_child_tracking
+_remap_child_tracking = function(app_id, old_name, new_name)
+  local rows = box.space._tdb_app_items.index.by_app:select({
+    app_id
+  })
+  for _index_0 = 1, #rows do
+    local _continue_0 = false
+    repeat
+      local t = rows[_index_0]
+      local new_key = _remap_child_key(t[2], old_name, new_name)
+      if not (new_key) then
+        _continue_0 = true
+        break
+      end
+      box.space._tdb_app_items:delete({
+        t[1],
+        t[2]
+      })
+      box.space._tdb_app_items:replace({
+        t[1],
+        new_key,
+        t[3],
+        t[4],
+        t[5],
+        t[6],
+        t[7]
+      })
+      _continue_0 = true
+    until true
+    if not _continue_0 then
+      break
+    end
+  end
+end
+local _delete_tracking
+_delete_tracking = function(app_id, key)
+  return box.space._tdb_app_items:delete({
+    app_id,
+    key
+  })
+end
+local _rename_space
+_rename_space = function(ctx, from_key, to_key)
+  local old_name = _after(from_key, 'space:')
+  local new_name = _after(to_key, 'space:')
+  if not (old_name and new_name) then
+    return 
+  end
+  local data_sp = box.space["data_" .. tostring(old_name)]
+  if data_sp then
+    data_sp:rename("data_" .. tostring(new_name))
+  end
+  local meta = spaces_mod.get_space_by_name(old_name)
+  if meta then
+    box.space._tdb_spaces:update(meta.id, {
+      {
+        '=',
+        2,
+        new_name
+      },
+      {
+        '=',
+        5,
+        os.time()
+      }
+    })
+  end
+  _remap_child_tracking(ctx.pkg.app.id, old_name, new_name)
+  return _delete_tracking(ctx.pkg.app.id, from_key)
+end
+local _rename_record_key
+_rename_record_key = function(sp, old_key, new_key)
+  local _list_0 = sp:select({ })
+  for _index_0 = 1, #_list_0 do
+    local row = _list_0[_index_0]
+    local d = _decode(row[2])
+    if d[old_key] ~= nil then
+      d[new_key] = d[old_key]
+      d[old_key] = nil
+      sp:replace({
+        row[1],
+        json.encode(d)
+      })
+    end
+  end
+end
+local _rename_field
+_rename_field = function(ctx, from_key, to_key)
+  local f_scope, f_name = _split_scope(from_key, 'field:')
+  local t_scope, t_name = _split_scope(to_key, 'field:')
+  if f_scope == t_scope and f_name ~= t_name then
+    local old = ctx.installed[from_key]
+    local fid = old and old.local_id
+    if fid and box.space._tdb_fields:get(fid) then
+      spaces_mod.update_field(fid, {
+        name = t_name
+      })
+      local sp = box.space["data_" .. tostring(f_scope)]
+      if sp then
+        _rename_record_key(sp, f_name, t_name)
+      end
+    end
+  end
+  return _delete_tracking(ctx.pkg.app.id, from_key)
+end
+local _rename_row_name
+_rename_row_name = function(space_name, id, name_col, new_name)
+  local t = id and box.space[space_name]:get(id)
+  if t then
+    return box.space[space_name]:update(id, {
+      {
+        '=',
+        name_col,
+        new_name
+      }
+    })
+  end
+end
+local _rename_view
+_rename_view = function(ctx, from_key, to_key)
+  local f_scope, f_name = _split_scope(from_key, 'view:')
+  local t_scope, t_name = _split_scope(to_key, 'view:')
+  local old = ctx.installed[from_key]
+  if old and f_scope == t_scope and f_name ~= t_name then
+    _rename_row_name('_tdb_views', old.local_id, 3, t_name)
+  end
+  return _delete_tracking(ctx.pkg.app.id, from_key)
+end
+local _rename_page
+_rename_page = function(ctx, from_key, to_key)
+  local name = _after(to_key, 'page:')
+  local old = ctx.installed[from_key]
+  _rename_row_name('_tdb_custom_views', old and old.local_id, 2, name)
+  return _delete_tracking(ctx.pkg.app.id, from_key)
+end
+local _rename_dataview
+_rename_dataview = function(ctx, from_key, to_key)
+  local name = _after(to_key, 'dataview:')
+  local old = ctx.installed[from_key]
+  _rename_row_name('_tdb_data_views', old and old.local_id, 2, name)
+  return _delete_tracking(ctx.pkg.app.id, from_key)
+end
+local _rename_plugin
+_rename_plugin = function(ctx, from_key, to_key)
+  local name = _after(to_key, 'plugin:')
+  local old = ctx.installed[from_key]
+  _rename_row_name('_tdb_widget_plugins', old and old.local_id, 2, name)
+  return _delete_tracking(ctx.pkg.app.id, from_key)
+end
+local _rename_group
+_rename_group = function(ctx, from_key, to_key)
+  local name = _after(to_key, 'group:')
+  local old = ctx.installed[from_key]
+  _rename_row_name('_tdb_groups', old and old.local_id, 2, name)
+  return _delete_tracking(ctx.pkg.app.id, from_key)
+end
+local _do_rename
+_do_rename = function(ctx, from_key, to_key)
+  local old = ctx.installed[from_key]
+  if not (old) then
+    return 
+  end
+  local _exp_0 = old.type
+  if 'space' == _exp_0 then
+    return _rename_space(ctx, from_key, to_key)
+  elseif 'field' == _exp_0 then
+    return _rename_field(ctx, from_key, to_key)
+  elseif 'view' == _exp_0 then
+    return _rename_view(ctx, from_key, to_key)
+  elseif 'page' == _exp_0 then
+    return _rename_page(ctx, from_key, to_key)
+  elseif 'dataview' == _exp_0 then
+    return _rename_dataview(ctx, from_key, to_key)
+  elseif 'plugin' == _exp_0 then
+    return _rename_plugin(ctx, from_key, to_key)
+  elseif 'group' == _exp_0 then
+    return _rename_group(ctx, from_key, to_key)
+  else
+    return _delete_tracking(ctx.pkg.app.id, from_key)
+  end
+end
+local _do_renames
+_do_renames = function(ctx)
+  local renames
+  do
+    local _accum_0 = { }
+    local _len_0 = 1
+    local _list_0 = ctx.plan.rename
+    for _index_0 = 1, #_list_0 do
+      local p = _list_0[_index_0]
+      _accum_0[_len_0] = p
+      _len_0 = _len_0 + 1
+    end
+    renames = _accum_0
+  end
+  table.sort(renames, function(a, b)
+    local ta = ctx.installed[a[1]] and ctx.installed[a[1]].type
+    local tb = ctx.installed[b[1]] and ctx.installed[b[1]].type
+    local ra = TYPE_RANK[ta] or 99
+    local rb = TYPE_RANK[tb] or 99
+    if ra ~= rb then
+      return ra < rb
+    else
+      return a[1] < b[1]
+    end
+  end)
+  for _index_0 = 1, #renames do
+    local pair = renames[_index_0]
+    _do_rename(ctx, pair[1], pair[2])
+  end
+end
+local _check_renames
+_check_renames = function(plan, pkg_map)
+  local _list_0 = plan.rename
+  for _index_0 = 1, #_list_0 do
+    local _continue_0 = false
+    repeat
+      local pair = _list_0[_index_0]
+      local target = pair[2]
+      local item = pkg_map[target]
+      local itype = item and item.type
+      if not (itype) then
+        _continue_0 = true
+        break
+      end
+      if app_package.describe_local(itype, target) then
+        return "rename target '" .. tostring(target) .. "' already exists locally"
+      end
+      _continue_0 = true
+    until true
+    if not _continue_0 then
+      break
+    end
+  end
+  return nil
+end
 local _do_obsolete
 _do_obsolete = function(ctx)
   local _list_0 = ctx.plan.obsolete
@@ -1233,6 +1595,7 @@ end
 local _transaction
 _transaction = function(ctx)
   box.begin()
+  _do_renames(ctx)
   _do_creates(ctx)
   _do_updates(ctx)
   _do_conflicts(ctx)
@@ -1292,17 +1655,24 @@ apply_update = function(package, decisions, opts)
     return _abort(report, normalized.errors)
   end
   local pkg = normalized.package
+  local installed = _read_installed(pkg.app.id)
+  pkg = _expand_renames(pkg, installed)
   local pkg_map = { }
   local _list_0 = pkg.items
   for _index_0 = 1, #_list_0 do
     local it = _list_0[_index_0]
     pkg_map[it.key] = it
   end
-  local installed = _read_installed(pkg.app.id)
   local local_states = _build_local_states(pkg, installed)
   local plan = plan_update(installed, pkg, local_states, _effective_opts(pkg.app.id, opts))
   if #plan.errors > 0 then
     return _abort(report, plan.errors)
+  end
+  local rename_error = _check_renames(plan, pkg_map)
+  if rename_error then
+    return _abort(report, {
+      rename_error
+    })
   end
   local conflict_error = _check_decisions(plan.conflict, decisions)
   if conflict_error then

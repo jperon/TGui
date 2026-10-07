@@ -54,6 +54,11 @@ _after = (key, prefix) ->
   rest = key\sub #prefix + 1
   rest != '' and rest or nil
 
+_split_scope = (key, prefix) ->
+  rest = _after key, prefix
+  return nil unless rest
+  _scope_name rest
+
 _normalize_item = (entry, errors) ->
   unless type(entry) == 'table'
     table.insert errors, 'package item must be a table'
@@ -132,6 +137,60 @@ _local_state = (item_type, key) ->
   return nil unless content
   { fingerprint: app_package.fingerprint(content), content: content }
 
+-- ────────────────────────────────────────────────────────────────────────────
+-- PARTIE 3 (V3b) : expansion des renommages d'espace
+-- Un item `space:<nouveau>` portant renamed_from = `space:<ancien>` fait de
+-- chaque enfant `field|relation|view:<nouveau>.x` (et `seed:<nouveau>|x`) un
+-- renommage implicite depuis `<ancien>` si l'ancienne clé est installée : sans
+-- cela les enfants seraient vus comme de nouveaux éléments. Les formules qui
+-- citent l'ancien nom en clair ne sont pas réécrites (limitation documentée).
+-- ────────────────────────────────────────────────────────────────────────────
+
+_space_renames = (package, installed) ->
+  map = {}
+  for it in *package.items
+    continue unless it.type == 'space' and it.renamed_from
+    continue unless installed[it.renamed_from]
+    new_name = _after it.key, 'space:'
+    old_name = _after it.renamed_from, 'space:'
+    map[new_name] = old_name if new_name and old_name
+  map
+
+_child_old_key = (key, space_renames) ->
+  for prefix in *{ 'field:', 'relation:', 'view:' }
+    scope, name = _split_scope key, prefix
+    old_scope = scope and space_renames[scope]
+    return "#{prefix}#{old_scope}.#{name}" if old_scope and name
+  rest = _after key, 'seed:'
+  if rest
+    sep = rest\find '|'
+    if sep
+      scope = rest\sub 1, sep - 1
+      return "seed:#{space_renames[scope]}#{rest\sub sep}" if space_renames[scope]
+  nil
+
+_expand_renames = (package, installed) ->
+  space_renames = _space_renames package, installed
+  items = {}
+  for it in *package.items
+    -- Renommage déjà appliqué lors d'une mise à jour précédente : l'ancienne
+    -- clé n'est plus suivie mais la nouvelle clé l'est. On l'établit comme un
+    -- élément installé ordinaire pour qu'il ne soit jamais recréé.
+    if it.renamed_from and not installed[it.renamed_from] and installed[it.key]
+      table.insert items, { type: it.type, key: it.key, content: it.content,
+                            fingerprint: it.fingerprint }
+      continue
+    if it.renamed_from or it.type == 'space'
+      table.insert items, it
+      continue
+    old_key = _child_old_key it.key, space_renames
+    if old_key and installed[old_key]
+      table.insert items, { type: it.type, key: it.key, content: it.content,
+                            fingerprint: it.fingerprint, renamed_from: old_key }
+    else
+      table.insert items, it
+  { app: package.app, items: items, seed_keys: package.seed_keys }
+
 -- local_states pour toutes les clés concernées : clés du paquet, clés
 -- installées, et clés d'où l'on renomme.
 _build_local_states = (package, installed) ->
@@ -169,6 +228,7 @@ preview_update = (package, opts) ->
   return _error_plan(normalized.errors) if #normalized.errors > 0
   pkg = normalized.package
   installed = _read_installed pkg.app.id
+  pkg = _expand_renames pkg, installed
   local_states = _build_local_states pkg, installed
   plan_update installed, pkg, local_states, _effective_opts(pkg.app.id, opts)
 
@@ -198,16 +258,19 @@ _order_conflicts = (conflicts) ->
       a[1].key < b[1].key
   copy
 
+-- Un élément renommé est classé sous sa nouvelle clé par plan_update, mais son
+-- ancien état installé est indexé sous renamed_from : les anciennes clés restent
+-- la source de vérité pour local_id et empreinte.
+_effective_old = (ctx, entry) ->
+  ctx.installed[entry.key] or (entry.renamed_from and ctx.installed[entry.renamed_from])
+
 _skip = (entry, report) ->
-  if entry.renamed_from
-    table.insert report.skipped, { key: entry.key, reason: 'rename (V3b)' }
-    return true
   false
 
 _check_decisions = (conflicts, decisions) ->
   for c in *conflicts
     entry = c[1]
-    continue if entry.type == 'seed' or entry.renamed_from
+    continue if entry.type == 'seed'
     d = decisions[entry.key]
     unless d == 'local' or d == 'delivered'
       return "conflict on '#{entry.key}' requires a decision ('local' or 'delivered')"
@@ -535,7 +598,7 @@ _do_updates = (ctx) ->
   for entry in *_order ctx.plan.update
     continue if _skip entry, ctx.report
     continue if entry.type == 'seed'
-    old = ctx.installed[entry.key]
+    old = _effective_old ctx, entry
     error "cannot update unknown item '#{entry.key}'" unless old
     ex = EXECUTORS[entry.type]
     error "unsupported type '#{entry.type}'" unless ex and ex.update
@@ -549,7 +612,7 @@ _do_conflicts = (ctx) ->
     entry = c[1]
     continue if _skip entry, ctx.report
     continue if entry.type == 'seed'
-    old = ctx.installed[entry.key]
+    old = _effective_old ctx, entry
     resolution = ctx.decisions[entry.key]
     if resolution == 'delivered'
       ex = EXECUTORS[entry.type]
@@ -565,7 +628,7 @@ _do_keep_local = (ctx) ->
   for entry in *_order ctx.plan.keep_local
     continue if _skip entry, ctx.report
     continue if entry.type == 'seed'
-    _record_kept ctx, entry, ctx.installed[entry.key], entry.fingerprint
+    _record_kept ctx, entry, _effective_old(ctx, entry), entry.fingerprint
     table.insert ctx.report.kept, entry.key
 
 _do_unchanged = (ctx) ->
@@ -573,7 +636,7 @@ _do_unchanged = (ctx) ->
     item = ctx.pkg_map[key]
     continue unless item
     continue if item.type == 'seed'
-    old = ctx.installed[key]
+    old = _effective_old ctx, item
     local_id = old and old.local_id or _resolve_local_id(item.type, key)
     _record ctx.pkg.app.id, ctx.pkg.app.version, item.type, key, local_id, item.fingerprint, 'actif'
     table.insert ctx.report.unchanged, key
@@ -595,9 +658,6 @@ _decode = (blob) ->
   return {} unless type(blob) == 'string'
   ok, d = pcall json.decode, blob
   (ok and type(d) == 'table') and d or {}
-
-_effective_old = (ctx, entry) ->
-  ctx.installed[entry.key] or (entry.renamed_from and ctx.installed[entry.renamed_from])
 
 _find_seed_id = (ctx, entry) ->
   c = entry.content
@@ -661,6 +721,138 @@ _do_seeds = (ctx) ->
     item = ctx.pkg_map[key]
     _seed_unchanged ctx, item if item and item.type == 'seed'
 
+-- ────────────────────────────────────────────────────────────────────────────
+-- PARTIE 3 (V3b) : renommages sur place
+-- Exécutés dans la transaction AVANT les autres opérations pour que les
+-- données soient conservées. La ligne de suivi de l'ancienne clé est supprimée
+-- (les enfants d'un espace renommé sont remappés par _rename_space).
+-- ────────────────────────────────────────────────────────────────────────────
+
+_remap_child_key = (key, old_name, new_name) ->
+  for prefix in *{ 'field:', 'relation:', 'view:' }
+    rest = _after key, "#{prefix}#{old_name}."
+    return "#{prefix}#{new_name}.#{rest}" if rest
+  rest = _after key, "seed:#{old_name}|"
+  return "seed:#{new_name}|#{rest}" if rest
+  nil
+
+_remap_child_tracking = (app_id, old_name, new_name) ->
+  rows = box.space._tdb_app_items.index.by_app\select { app_id }
+  for t in *rows
+    new_key = _remap_child_key t[2], old_name, new_name
+    continue unless new_key
+    box.space._tdb_app_items\delete { t[1], t[2] }
+    box.space._tdb_app_items\replace { t[1], new_key, t[3], t[4], t[5], t[6], t[7] }
+
+_delete_tracking = (app_id, key) ->
+  box.space._tdb_app_items\delete { app_id, key }
+
+_rename_space = (ctx, from_key, to_key) ->
+  old_name = _after from_key, 'space:'
+  new_name = _after to_key, 'space:'
+  return unless old_name and new_name
+  data_sp = box.space["data_#{old_name}"]
+  data_sp\rename "data_#{new_name}" if data_sp
+  meta = spaces_mod.get_space_by_name old_name
+  box.space._tdb_spaces\update meta.id, { { '=', 2, new_name }, { '=', 5, os.time! } } if meta
+  _remap_child_tracking ctx.pkg.app.id, old_name, new_name
+  _delete_tracking ctx.pkg.app.id, from_key
+
+_rename_record_key = (sp, old_key, new_key) ->
+  for row in *sp\select {}
+    d = _decode row[2]
+    if d[old_key] != nil
+      d[new_key] = d[old_key]
+      d[old_key] = nil
+      sp\replace { row[1], json.encode d }
+
+_rename_field = (ctx, from_key, to_key) ->
+  f_scope, f_name = _split_scope from_key, 'field:'
+  t_scope, t_name = _split_scope to_key, 'field:'
+  if f_scope == t_scope and f_name != t_name
+    old = ctx.installed[from_key]
+    fid = old and old.local_id
+    if fid and box.space._tdb_fields\get fid
+      spaces_mod.update_field fid, { name: t_name }
+      sp = box.space["data_#{f_scope}"]
+      _rename_record_key sp, f_name, t_name if sp
+  _delete_tracking ctx.pkg.app.id, from_key
+
+_rename_row_name = (space_name, id, name_col, new_name) ->
+  t = id and box.space[space_name]\get id
+  box.space[space_name]\update(id, { { '=', name_col, new_name } }) if t
+
+_rename_view = (ctx, from_key, to_key) ->
+  f_scope, f_name = _split_scope from_key, 'view:'
+  t_scope, t_name = _split_scope to_key, 'view:'
+  old = ctx.installed[from_key]
+  if old and f_scope == t_scope and f_name != t_name
+    _rename_row_name '_tdb_views', old.local_id, 3, t_name
+  _delete_tracking ctx.pkg.app.id, from_key
+
+_rename_page = (ctx, from_key, to_key) ->
+  name = _after to_key, 'page:'
+  old = ctx.installed[from_key]
+  _rename_row_name '_tdb_custom_views', old and old.local_id, 2, name
+  _delete_tracking ctx.pkg.app.id, from_key
+
+_rename_dataview = (ctx, from_key, to_key) ->
+  name = _after to_key, 'dataview:'
+  old = ctx.installed[from_key]
+  _rename_row_name '_tdb_data_views', old and old.local_id, 2, name
+  _delete_tracking ctx.pkg.app.id, from_key
+
+_rename_plugin = (ctx, from_key, to_key) ->
+  name = _after to_key, 'plugin:'
+  old = ctx.installed[from_key]
+  _rename_row_name '_tdb_widget_plugins', old and old.local_id, 2, name
+  _delete_tracking ctx.pkg.app.id, from_key
+
+_rename_group = (ctx, from_key, to_key) ->
+  name = _after to_key, 'group:'
+  old = ctx.installed[from_key]
+  _rename_row_name '_tdb_groups', old and old.local_id, 2, name
+  _delete_tracking ctx.pkg.app.id, from_key
+
+_do_rename = (ctx, from_key, to_key) ->
+  old = ctx.installed[from_key]
+  return unless old
+  switch old.type
+    when 'space' then _rename_space ctx, from_key, to_key
+    when 'field' then _rename_field ctx, from_key, to_key
+    when 'view' then _rename_view ctx, from_key, to_key
+    when 'page' then _rename_page ctx, from_key, to_key
+    when 'dataview' then _rename_dataview ctx, from_key, to_key
+    when 'plugin' then _rename_plugin ctx, from_key, to_key
+    when 'group' then _rename_group ctx, from_key, to_key
+    else _delete_tracking ctx.pkg.app.id, from_key
+
+_do_renames = (ctx) ->
+  renames = [p for p in *ctx.plan.rename]
+  table.sort renames, (a, b) ->
+    ta = ctx.installed[a[1]] and ctx.installed[a[1]].type
+    tb = ctx.installed[b[1]] and ctx.installed[b[1]].type
+    ra = TYPE_RANK[ta] or 99
+    rb = TYPE_RANK[tb] or 99
+    if ra != rb
+      ra < rb
+    else
+      a[1] < b[1]
+  for pair in *renames
+    _do_rename ctx, pair[1], pair[2]
+
+-- Refuse tout renommage dont la cible existe déjà localement : ce serait un
+-- écrasement silencieux. Abort avant toute écriture.
+_check_renames = (plan, pkg_map) ->
+  for pair in *plan.rename
+    target = pair[2]
+    item = pkg_map[target]
+    itype = item and item.type
+    continue unless itype
+    if app_package.describe_local itype, target
+      return "rename target '#{target}' already exists locally"
+  nil
+
 -- PARTIE 1 (V3b) : un élément installé absent du nouveau paquet passe à
 -- state = 'obsolète'. L'élément local n'est ni supprimé ni modifié : seule sa
 -- ligne de suivi change, avec ses valeurs installées conservées.
@@ -680,6 +872,7 @@ _write_app = (app, opts) ->
 
 _transaction = (ctx) ->
   box.begin!
+  _do_renames ctx
   _do_creates ctx
   _do_updates ctx
   _do_conflicts ctx
@@ -719,13 +912,16 @@ apply_update = (package, decisions, opts) ->
   normalized = _normalize package
   return _abort report, normalized.errors if #normalized.errors > 0
   pkg = normalized.package
+  installed = _read_installed pkg.app.id
+  pkg = _expand_renames pkg, installed
   pkg_map = {}
   for it in *pkg.items
     pkg_map[it.key] = it
-  installed = _read_installed pkg.app.id
   local_states = _build_local_states pkg, installed
   plan = plan_update installed, pkg, local_states, _effective_opts(pkg.app.id, opts)
   return _abort report, plan.errors if #plan.errors > 0
+  rename_error = _check_renames plan, pkg_map
+  return _abort report, { rename_error } if rename_error
   conflict_error = _check_decisions plan.conflict, decisions
   return _abort report, { conflict_error } if conflict_error
   for key in *plan.obsolete

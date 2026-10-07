@@ -154,6 +154,56 @@ in_list = (list, key) ->
     return true if k == key
   false
 
+build_current = (version) ->
+  meta = { id: APP_ID, name: 'V3b fixture', version: version, description: 'v3b' }
+  subset pkg.build_package meta, { seed: seed_opts }
+
+rename_item = (package, old_key, new_key) ->
+  items = {}
+  for it in *package.items
+    if it.key == old_key
+      table.insert items, { type: it.type, key: new_key, content: it.content, renamed_from: old_key }
+    else
+      table.insert items, it
+  { app: package.app, items: items, seed_keys: package.seed_keys }
+
+str_after = (key, prefix) ->
+  return nil unless key\sub(1, #prefix) == prefix
+  rest = key\sub #prefix + 1
+  rest != '' and rest or nil
+
+retarget_key = (key, old_space, new_space) ->
+  for prefix in *{ 'field:', 'relation:', 'view:' }
+    rest = str_after key, "#{prefix}#{old_space}."
+    return "#{prefix}#{new_space}.#{rest}" if rest
+  rest = str_after key, "seed:#{old_space}|"
+  return "seed:#{new_space}|#{rest}" if rest
+  key
+
+rename_space_pkg = (package, old_space, new_space) ->
+  items = {}
+  for it in *package.items
+    if it.type == 'space' and it.key == "space:#{old_space}"
+      table.insert items, { type: 'space', key: "space:#{new_space}",
+                            content: it.content, renamed_from: it.key }
+      continue
+    new_key = retarget_key it.key, old_space, new_space
+    content = it.content
+    if it.type == 'relation' and content.toSpace == old_space
+      content = { fromSpace: content.fromSpace, fromField: content.fromField,
+                  toSpace: new_space, toField: content.toField }
+    if it.type == 'dataview' and content.sourceSpace == old_space
+      content = { name: content.name, description: content.description,
+                  sourceSpace: new_space, config: content.config }
+    renamed = new_key != it.key
+    if renamed or content != it.content
+      entry = { type: it.type, key: new_key, content: content }
+      entry.renamed_from = it.key if renamed
+      table.insert items, entry
+    else
+      table.insert items, it
+  { app: package.app, items: items, seed_keys: package.seed_keys }
+
 -- ── Fixture : construire tous les éléments localement, puis le paquet ────────
 R.describe "v3b — fixture", ->
 
@@ -283,6 +333,75 @@ R.describe "v3b partie 2 — lignes seed", ->
     R.eq non_seed_rows(SP_B, 'code'), FIX.non_seed_before, 'non-seed record count unchanged'
     R.eq count_rows(SP_B), FIX.rows_before + 1, 'exactly one seed line added, none removed'
 
+-- ── PARTIE 3 : renommages (renamed_from) ─────────────────────────────────────
+SP_A2   = "#{SP_A}_ren"
+PAGE_N2 = "#{PAGE_N}2"
+PLUG_N2 = "#{PLUG_N}2"
+
+R.describe "v3b partie 3 — renommages", ->
+
+  R.it "renames a field in place and keeps values under the new name", ->
+    sid = spaces.get_space_by_name(SP_A).id
+    data_r.Mutation.insertRecord {}, { spaceId: sid, data: { name: 'Alice' } }, CTX
+    R.ok (find_record SP_A, 'name', 'Alice'), 'author record inserted'
+    base = build_current '1.4.0'
+    PKG_F = reversion (rename_item base, "field:#{SP_A}.name", "field:#{SP_A}.nom"), '1.4.0'
+    report = apply.apply_update PKG_F, {}, {}
+    R.ok report.ok, report.error
+    R.ok pkg.describe_local('field', "field:#{SP_A}.nom"), 'new field present'
+    R.is_nil pkg.describe_local('field', "field:#{SP_A}.name"), 'old field gone'
+    rec = find_record SP_A, 'nom', 'Alice'
+    R.ok rec, 'value preserved under the new key'
+    R.is_nil rec.data.name, 'old JSON key removed'
+    R.eq item_state(APP_ID, "field:#{SP_A}.nom"), 'actif'
+    R.is_nil item_row(APP_ID, "field:#{SP_A}.name")
+
+  R.it "renames a page and a plugin in place", ->
+    base = build_current '1.5.0'
+    PKG_P = rename_item base, "page:#{PAGE_N}", "page:#{PAGE_N2}"
+    PKG_P = rename_item PKG_P, "plugin:#{PLUG_N}", "plugin:#{PLUG_N2}"
+    report = apply.apply_update PKG_P, {}, {}
+    R.ok report.ok, report.error
+    R.ok pkg.describe_local('page', "page:#{PAGE_N2}"), 'page renamed'
+    R.is_nil pkg.describe_local('page', "page:#{PAGE_N}"), 'old page gone'
+    R.ok pkg.describe_local('plugin', "plugin:#{PLUG_N2}"), 'plugin renamed'
+    R.is_nil pkg.describe_local('plugin', "plugin:#{PLUG_N}"), 'old plugin gone'
+
+  R.it "renames a space in place, remapping child keys and preserving records", ->
+    before = local_rows SP_A
+    PKG_S = reversion (rename_space_pkg (build_current '1.6.0'), SP_A, SP_A2), '2.0.0'
+    FIX.pkg_s = PKG_S
+    dbg = apply.preview_update PKG_S
+    R.eq #dbg.create, 0, 'rename is previewed as a rename, not a creation'
+    R.eq #dbg.rename, 3, 'space plus two child fields renamed'
+    R.is_nil box.space._tdb_spaces.index.by_name\get(SP_A2), 'SP_A2 absent before apply'
+    report = apply.apply_update PKG_S, {}, {}
+    R.ok report.ok, report.error
+    R.ok spaces.get_space_by_name(SP_A2), 'new space exists'
+    R.is_nil spaces.get_space_by_name(SP_A), 'old space gone'
+    R.ok box.space["data_#{SP_A2}"], 'new data space exists'
+    R.is_nil box.space["data_#{SP_A}"], 'old data space gone'
+    R.eq #local_rows(SP_A2), #before, 'records preserved'
+    R.ok (find_record SP_A2, 'nom', 'Alice'), 'author record preserved'
+    R.ok pkg.describe_local('field', "field:#{SP_A2}.nom"), 'child field remapped'
+    R.is_nil item_row(APP_ID, "field:#{SP_A}.nom"), 'old child key untracked'
+    R.eq item_state(APP_ID, "space:#{SP_A2}"), 'actif'
+
+  R.it "a further update with the same package recreates nothing", ->
+    report = apply.apply_update FIX.pkg_s, {}, {}
+    R.ok report.ok, report.error
+    R.eq #report.created, 0, 'nothing recreated'
+    R.eq item_state(APP_ID, "space:#{SP_A2}"), 'actif'
+
+  R.it "refuses a rename whose target already exists locally", ->
+    cvr.Mutation.createCustomView {}, { name: "#{PAGE_N2}_tgt", description: 'taken', yaml: '' }, CTX
+    before_version = box.space._tdb_apps\get(APP_ID)[3]
+    PKG_C = reversion (rename_item (build_current '2.1.0'), "page:#{PAGE_N2}", "page:#{PAGE_N2}_tgt"), '2.1.0'
+    report = apply.apply_update PKG_C, {}, {}
+    R.nok report.ok
+    R.matches report.error, 'already exists locally'
+    R.eq box.space._tdb_apps\get(APP_ID)[3], before_version, 'no write'
+
 -- ── Nettoyage ────────────────────────────────────────────────────────────────
 R.describe "v3b — cleanup", ->
 
@@ -294,19 +413,21 @@ R.describe "v3b — cleanup", ->
       for t in *box.space._tdb_relations.index.by_to\select { sid.id }
         box.space._tdb_relations\delete t[1]
     for v in *box.space._tdb_views\select {}
-      views.delete_view v[1] if v[3] == VIEW_N
+      views.delete_view v[1] if v[3]\find(VIEW_N, 1, true)
     for dv in *box.space._tdb_data_views\select {}
-      data_views.delete_view dv[1] if dv[2] == DV_N
+      data_views.delete_view dv[1] if dv[2]\find(DV_N, 1, true)
     for cv in *box.space._tdb_custom_views\select {}
-      box.space._tdb_custom_views\delete cv[1] if cv[2] == PAGE_N
+      box.space._tdb_custom_views\delete cv[1] if cv[2]\find(PAGE_N, 1, true)
     for wp in *box.space._tdb_widget_plugins\select {}
-      box.space._tdb_widget_plugins\delete wp[1] if wp[2] == PLUG_N
+      box.space._tdb_widget_plugins\delete wp[1] if wp[2]\find(PLUG_N, 1, true)
     for g in *perms.list_groups!
       perms.delete_group g.id if g.name == GROUP_N
     clean_app!
     spaces.delete_user_space SP_B
     spaces.delete_user_space SP_A
+    spaces.delete_user_space SP_A2
     R.is_nil spaces.get_space_by_name SP_B
+    R.is_nil spaces.get_space_by_name SP_A2
 
 { :FIX, :APP_ID, :SP_B, :SP_A, :KEY_CODE, :KEY_TITLE, :KEY_QTY, :KEY_NOTE,
   :KEY_PAGE, :VIEW_N, :PAGE_N, :DV_N, :PLUG_N, :GROUP_N, :REL_N, :CTX,
