@@ -29,7 +29,9 @@ global.tui =
     getFocusedCell: -> null
     getCheckedRowKeys: -> []
 
+require '../../frontend/src/views/fk_search_editor'
 require '../../frontend/src/views/data_view'
+require '../../frontend/src/views/data_view_helpers'
 DV = global.window.DataView
 
 makeSpace = (overrides = {}) ->
@@ -296,5 +298,20 @@ describe 'DataView.unmount', ->
     assert not dv._mounted, '_mounted must be false'
     eq dv._rows.length, 0
     eq dv._currentData.length, 0
+
+# Freeze the public prototype surface so the data_view / data_view_helpers split
+# cannot silently drop or rename a method.
+describe 'DataView prototype surface (frozen)', ->
+  it 'exposes exactly the expected set of methods', ->
+    expected = [
+      '_actionContext', '_applyData', '_buildFkMaps', '_clearError',
+      '_cloneJson', '_coerceCellValue', '_columnWidth', '_defaultCellValue',
+      '_escapeHtml', '_extractInsertedRecords', '_formatFormulaError',
+      '_loadColWidths', '_lsKey', '_saveColWidths', '_sentinel',
+      '_serializeRowForMutation', '_showError', '_toBoolean', 'constructor',
+      'deleteSelected', 'getFocusedColumnName', 'insertBlank', 'load', 'mount',
+      'setDefaultValues', 'setFilter', 'setFormulaFilter', 'unmount'
+    ]
+    deepEq Object.getOwnPropertyNames(DV.prototype).sort(), expected
 
 summary()

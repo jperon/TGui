@@ -27,7 +27,9 @@ local SCRIPT_SRCS = {
   '/src/app_view_config_helpers.js',
   '/src/app_snapshot_helpers.js',
   '/src/app_apps_helpers.js',
+  '/src/views/fk_search_editor.js',
   '/src/views/data_view.js',
+  '/src/views/data_view_helpers.js',
   '/src/views/custom_view.js',
   '/src/yaml_builder.js',
   '/src/app.js'
