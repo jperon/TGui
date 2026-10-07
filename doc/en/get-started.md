@@ -1,7 +1,5 @@
 # Quick Start — TGui
 
-**TGui** is inspired by [Grist](https://www.getgrist.com) — for any serious or production use, users are encouraged to consider Grist as a priority.
-
 **TGui** is a graphical interface for [Tarantool](https://www.tarantool.io/) that lets you create and manage data spaces (tables), link them, define computed columns or triggers, and compose declarative custom views (YAML).
 
 This guide walks you step by step from zero to a fully functional **school library management** application: book catalog, physical copies, borrowers, and loans.

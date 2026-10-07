@@ -12,7 +12,7 @@ msgstr ""
 msgid "| Document | Description |"
 msgstr ""
 
-#: doc/en/README.md:4 doc/en/reference.md:1088
+#: doc/en/README.md:4 doc/en/reference.md:1086
 msgid "|----------|-------------|"
 msgstr ""
 
@@ -40,1195 +40,1191 @@ msgstr ""
 msgid "# Quick Start — TGui"
 msgstr ""
 
-#: doc/en/get-started.md:3 doc/en/reference.md:3
-msgid "**TGui** is inspired by [Grist](https://www.getgrist.com) — for any serious or production use, users are encouraged to consider Grist as a priority."
-msgstr ""
-
-#: doc/en/get-started.md:5
+#: doc/en/get-started.md:3
 msgid "**TGui** is a graphical interface for [Tarantool](https://www.tarantool.io/) that lets you create and manage data spaces (tables), link them, define computed columns or triggers, and compose declarative custom views (YAML)."
 msgstr ""
 
-#: doc/en/get-started.md:7
+#: doc/en/get-started.md:5
 msgid "This guide walks you step by step from zero to a fully functional **school library management** application: book catalog, physical copies, borrowers, and loans."
 msgstr ""
 
-#: doc/en/get-started.md:9 doc/en/get-started.md:16 doc/en/get-started.md:28 doc/en/get-started.md:34 doc/en/get-started.md:47 doc/en/get-started.md:93 doc/en/get-started.md:174 doc/en/get-started.md:185 doc/en/get-started.md:242 doc/en/get-started.md:416 doc/en/get-started.md:456 doc/en/get-started.md:470 doc/en/get-started.md:479 doc/en/reference.md:7 doc/en/reference.md:24 doc/en/reference.md:72 doc/en/reference.md:113 doc/en/reference.md:289 doc/en/reference.md:365 doc/en/reference.md:498 doc/en/reference.md:524 doc/en/reference.md:694 doc/en/reference.md:787 doc/en/reference.md:830 doc/en/reference.md:884 doc/en/reference.md:910 doc/en/reference.md:1059
+#: doc/en/get-started.md:7 doc/en/get-started.md:14 doc/en/get-started.md:26 doc/en/get-started.md:32 doc/en/get-started.md:45 doc/en/get-started.md:91 doc/en/get-started.md:172 doc/en/get-started.md:183 doc/en/get-started.md:240 doc/en/get-started.md:414 doc/en/get-started.md:454 doc/en/get-started.md:468 doc/en/get-started.md:477 doc/en/reference.md:5 doc/en/reference.md:22 doc/en/reference.md:70 doc/en/reference.md:111 doc/en/reference.md:287 doc/en/reference.md:363 doc/en/reference.md:496 doc/en/reference.md:522 doc/en/reference.md:692 doc/en/reference.md:785 doc/en/reference.md:828 doc/en/reference.md:882 doc/en/reference.md:908 doc/en/reference.md:1057
 msgid "---"
 msgstr ""
 
-#: doc/en/get-started.md:11
+#: doc/en/get-started.md:9
 msgid "## Prerequisites"
 msgstr ""
 
-#: doc/en/get-started.md:13
+#: doc/en/get-started.md:11
 msgid "- [Docker](https://www.docker.com/) (or Tarantool 3.x installed locally)"
 msgstr ""
 
-#: doc/en/get-started.md:14
+#: doc/en/get-started.md:12
 msgid "- `make`, `moonc` (MoonScript compiler), `coffee` (CoffeeScript) — only needed to modify sources"
 msgstr ""
 
-#: doc/en/get-started.md:18
+#: doc/en/get-started.md:16
 msgid "## Launch"
 msgstr ""
 
-#: doc/en/get-started.md:20
+#: doc/en/get-started.md:18
 msgid "```bash"
 msgstr ""
 
-#: doc/en/get-started.md:21
+#: doc/en/get-started.md:19
 msgid "git clone <repo>"
 msgstr ""
 
-#: doc/en/get-started.md:22
+#: doc/en/get-started.md:20
 msgid "cd tgui"
 msgstr ""
 
-#: doc/en/get-started.md:23
+#: doc/en/get-started.md:21
 msgid "docker compose up"
 msgstr ""
 
-#: doc/en/get-started.md:24 doc/en/get-started.md:142 doc/en/get-started.md:152 doc/en/get-started.md:166 doc/en/get-started.md:234 doc/en/get-started.md:236 doc/en/get-started.md:327 doc/en/get-started.md:347 doc/en/get-started.md:377 doc/en/get-started.md:396 doc/en/get-started.md:408 doc/en/reference.md:70 doc/en/reference.md:94 doc/en/reference.md:111 doc/en/reference.md:149 doc/en/reference.md:162 doc/en/reference.md:183 doc/en/reference.md:204 doc/en/reference.md:209 doc/en/reference.md:226 doc/en/reference.md:287 doc/en/reference.md:351 doc/en/reference.md:397 doc/en/reference.md:436 doc/en/reference.md:446 doc/en/reference.md:496 doc/en/reference.md:522 doc/en/reference.md:548 doc/en/reference.md:563 doc/en/reference.md:577 doc/en/reference.md:617 doc/en/reference.md:632 doc/en/reference.md:654 doc/en/reference.md:692 doc/en/reference.md:770 doc/en/reference.md:785 doc/en/reference.md:802 doc/en/reference.md:806 doc/en/reference.md:808 doc/en/reference.md:814 doc/en/reference.md:820 doc/en/reference.md:828 doc/en/reference.md:855 doc/en/reference.md:882 doc/en/reference.md:908 doc/en/reference.md:1008 doc/en/reference.md:1057 doc/en/api.md:210 doc/en/api.md:214 doc/en/api.md:225 doc/en/api.md:233 doc/en/api.md:239
+#: doc/en/get-started.md:22 doc/en/get-started.md:140 doc/en/get-started.md:150 doc/en/get-started.md:164 doc/en/get-started.md:232 doc/en/get-started.md:234 doc/en/get-started.md:325 doc/en/get-started.md:345 doc/en/get-started.md:375 doc/en/get-started.md:394 doc/en/get-started.md:406 doc/en/reference.md:68 doc/en/reference.md:92 doc/en/reference.md:109 doc/en/reference.md:147 doc/en/reference.md:160 doc/en/reference.md:181 doc/en/reference.md:202 doc/en/reference.md:207 doc/en/reference.md:224 doc/en/reference.md:285 doc/en/reference.md:349 doc/en/reference.md:395 doc/en/reference.md:434 doc/en/reference.md:444 doc/en/reference.md:494 doc/en/reference.md:520 doc/en/reference.md:546 doc/en/reference.md:561 doc/en/reference.md:575 doc/en/reference.md:615 doc/en/reference.md:630 doc/en/reference.md:652 doc/en/reference.md:690 doc/en/reference.md:768 doc/en/reference.md:783 doc/en/reference.md:800 doc/en/reference.md:804 doc/en/reference.md:806 doc/en/reference.md:812 doc/en/reference.md:818 doc/en/reference.md:826 doc/en/reference.md:853 doc/en/reference.md:880 doc/en/reference.md:906 doc/en/reference.md:1006 doc/en/reference.md:1055 doc/en/api.md:217 doc/en/api.md:221 doc/en/api.md:232 doc/en/api.md:240 doc/en/api.md:246
 msgid "```"
 msgstr ""
 
-#: doc/en/get-started.md:26
+#: doc/en/get-started.md:24
 msgid "The interface is available at **http://localhost:8080**."
 msgstr ""
 
-#: doc/en/get-started.md:30
+#: doc/en/get-started.md:28
 msgid "## Login"
 msgstr ""
 
-#: doc/en/get-started.md:32
+#: doc/en/get-started.md:30
 msgid "![Login screen](../img/login-screen.png)"
 msgstr ""
 
-#: doc/en/get-started.md:36
+#: doc/en/get-started.md:34
 msgid "## Overview of the interface"
 msgstr ""
 
-#: doc/en/get-started.md:38
+#: doc/en/get-started.md:36
 msgid "![Main interface](../img/main.png)"
 msgstr ""
 
-#: doc/en/get-started.md:40
+#: doc/en/get-started.md:38
 msgid "The interface is divided into two areas:"
 msgstr ""
 
-#: doc/en/get-started.md:42
+#: doc/en/get-started.md:40
 msgid "| Area | Role |"
 msgstr ""
 
-#: doc/en/get-started.md:43
+#: doc/en/get-started.md:41
 msgid "|------|------|"
 msgstr ""
 
-#: doc/en/get-started.md:44
+#: doc/en/get-started.md:42
 msgid "| **Sidebar** (left) | Navigation between Views, Data and Administration |"
 msgstr ""
 
-#: doc/en/get-started.md:45
+#: doc/en/get-started.md:43
 msgid "| **Content** (right) | Data grid, view editor or administration panel |"
 msgstr ""
 
-#: doc/en/get-started.md:49
+#: doc/en/get-started.md:47
 msgid "## Create the spaces (tables)"
 msgstr ""
 
-#: doc/en/get-started.md:51
+#: doc/en/get-started.md:49
 msgid "The library is built on 12 tables. Create them in the following order to make relations easier to define: first the reference tables, then the main tables, then the join tables, and finally the transaction table."
 msgstr ""
 
-#: doc/en/get-started.md:53
+#: doc/en/get-started.md:51
 msgid "### 1 — Reference tables"
 msgstr ""
 
-#: doc/en/get-started.md:55
+#: doc/en/get-started.md:53
 msgid "These tables have no dependency on other tables."
 msgstr ""
 
-#: doc/en/get-started.md:57
+#: doc/en/get-started.md:55
 msgid "1. In the **Data** section of the sidebar, click **+**."
 msgstr ""
 
-#: doc/en/get-started.md:58
+#: doc/en/get-started.md:56
 msgid "2. Enter the space name and confirm."
 msgstr ""
 
-#: doc/en/get-started.md:59
+#: doc/en/get-started.md:57
 msgid "3. Repeat for each table."
 msgstr ""
 
-#: doc/en/get-started.md:61 doc/en/get-started.md:73 doc/en/get-started.md:82 doc/en/get-started.md:89
+#: doc/en/get-started.md:59 doc/en/get-started.md:71 doc/en/get-started.md:80 doc/en/get-started.md:87
 msgid "| Space | Role |"
 msgstr ""
 
-#: doc/en/get-started.md:62 doc/en/get-started.md:74 doc/en/get-started.md:83 doc/en/get-started.md:90
+#: doc/en/get-started.md:60 doc/en/get-started.md:72 doc/en/get-started.md:81 doc/en/get-started.md:88
 msgid "|--------|------|"
 msgstr ""
 
-#: doc/en/get-started.md:63
+#: doc/en/get-started.md:61
 msgid "| `genres` | Literary genres (novel, comic, non-fiction, …) |"
 msgstr ""
 
-#: doc/en/get-started.md:64
+#: doc/en/get-started.md:62
 msgid "| `auteurs` | Book authors |"
 msgstr ""
 
-#: doc/en/get-started.md:65
+#: doc/en/get-started.md:63
 msgid "| `classes` | School classes |"
 msgstr ""
 
-#: doc/en/get-started.md:66
+#: doc/en/get-started.md:64
 msgid "| `motscles` | Thematic keywords |"
 msgstr ""
 
-#: doc/en/get-started.md:67
+#: doc/en/get-started.md:65
 msgid "| `etiquettes` | Classification labels (prize, favorites, …) |"
 msgstr ""
 
-#: doc/en/get-started.md:69
+#: doc/en/get-started.md:67
 msgid "![Data space with grid](../img/space-data.png)"
 msgstr ""
 
-#: doc/en/get-started.md:71
+#: doc/en/get-started.md:69
 msgid "### 2 — Main tables"
 msgstr ""
 
-#: doc/en/get-started.md:75
+#: doc/en/get-started.md:73
 msgid "| `livres` | Catalog of titles (bibliographic references) |"
 msgstr ""
 
-#: doc/en/get-started.md:76
+#: doc/en/get-started.md:74
 msgid "| `personnes` | Students and staff who can borrow |"
 msgstr ""
 
-#: doc/en/get-started.md:77
+#: doc/en/get-started.md:75
 msgid "| `exemplaires` | Physical copies of each title |"
 msgstr ""
 
-#: doc/en/get-started.md:78
+#: doc/en/get-started.md:76
 msgid "| `coordonnees` | Contact details for people |"
 msgstr ""
 
-#: doc/en/get-started.md:80
+#: doc/en/get-started.md:78
 msgid "### 3 — Many-to-many join tables"
 msgstr ""
 
-#: doc/en/get-started.md:84
+#: doc/en/get-started.md:82
 msgid "| `livres_motscles` | Book ↔ keyword association |"
 msgstr ""
 
-#: doc/en/get-started.md:85
+#: doc/en/get-started.md:83
 msgid "| `livres_etiquettes` | Book ↔ label association |"
 msgstr ""
 
-#: doc/en/get-started.md:87
+#: doc/en/get-started.md:85
 msgid "### 4 — Transaction table"
 msgstr ""
 
-#: doc/en/get-started.md:91
+#: doc/en/get-started.md:89
 msgid "| `emprunts` | Records of loans (copy + borrower + dates) |"
 msgstr ""
 
-#: doc/en/get-started.md:95
+#: doc/en/get-started.md:93
 msgid "## Add and manage fields"
 msgstr ""
 
-#: doc/en/get-started.md:97
+#: doc/en/get-started.md:95
 msgid "Click **[#] Fields** in the toolbar to open the side panel."
 msgstr ""
 
-#: doc/en/get-started.md:99
+#: doc/en/get-started.md:97
 msgid "![Fields panel](../img/fields-panel.png)"
 msgstr ""
 
-#: doc/en/get-started.md:101
+#: doc/en/get-started.md:99
 msgid "### Create a simple field"
 msgstr ""
 
-#: doc/en/get-started.md:103
+#: doc/en/get-started.md:101
 msgid "1. Enter the **name** of the field."
 msgstr ""
 
-#: doc/en/get-started.md:104
+#: doc/en/get-started.md:102
 msgid "2. Choose the **type**: `String`, `Int`, `Float`, `Boolean`, `UUID`, `Sequence`, `Any`, `Map`, `Array`, or `Relation`."
 msgstr ""
 
-#: doc/en/get-started.md:105
+#: doc/en/get-started.md:103
 msgid "3. Check **Required** if the value cannot be null."
 msgstr ""
 
-#: doc/en/get-started.md:106
+#: doc/en/get-started.md:104
 msgid "4. Click **Add**."
 msgstr ""
 
-#: doc/en/get-started.md:108
+#: doc/en/get-started.md:106
 msgid "### Example: fields of the `auteurs` space"
 msgstr ""
 
-#: doc/en/get-started.md:110
+#: doc/en/get-started.md:108
 msgid "| Field | Type | Required |"
 msgstr ""
 
-#: doc/en/get-started.md:111
+#: doc/en/get-started.md:109
 msgid "|-------|------|--------|"
 msgstr ""
 
-#: doc/en/get-started.md:112
+#: doc/en/get-started.md:110
 msgid "| `id` | Sequence | — |"
 msgstr ""
 
-#: doc/en/get-started.md:113
+#: doc/en/get-started.md:111
 msgid "| `particule` | String | no |"
 msgstr ""
 
-#: doc/en/get-started.md:114
+#: doc/en/get-started.md:112
 msgid "| `nom` | String | **yes** |"
 msgstr ""
 
-#: doc/en/get-started.md:115
+#: doc/en/get-started.md:113
 msgid "| `prenom` | String | no |"
 msgstr ""
 
-#: doc/en/get-started.md:117
+#: doc/en/get-started.md:115
 msgid "### Example: fields of the `livres` space"
 msgstr ""
 
-#: doc/en/get-started.md:119
+#: doc/en/get-started.md:117
 msgid "| Field | Type | Required | Note |"
 msgstr ""
 
-#: doc/en/get-started.md:120
+#: doc/en/get-started.md:118
 msgid "|-------|------|--------|----------|"
 msgstr ""
 
-#: doc/en/get-started.md:121
+#: doc/en/get-started.md:119
 msgid "| `id` | Sequence | — | |"
 msgstr ""
 
-#: doc/en/get-started.md:122
+#: doc/en/get-started.md:120
 msgid "| `titre` | String | **yes** | |"
 msgstr ""
 
-#: doc/en/get-started.md:123
+#: doc/en/get-started.md:121
 msgid "| `auteur_id` | Relation | no | → `auteurs` |"
 msgstr ""
 
-#: doc/en/get-started.md:124
+#: doc/en/get-started.md:122
 msgid "| `genre_id` | Relation | no | → `genres` |"
 msgstr ""
 
-#: doc/en/get-started.md:125
+#: doc/en/get-started.md:123
 msgid "| `cote` | String | no | Shelf mark |"
 msgstr ""
 
-#: doc/en/get-started.md:126
+#: doc/en/get-started.md:124
 msgid "| `isbn` | String | no | Nullable |"
 msgstr ""
 
-#: doc/en/get-started.md:127
+#: doc/en/get-started.md:125
 msgid "| `annee` | Int | no | Publication year, nullable |"
 msgstr ""
 
-#: doc/en/get-started.md:129
+#: doc/en/get-started.md:127
 msgid "### Computed column (λ)"
 msgstr ""
 
-#: doc/en/get-started.md:131
+#: doc/en/get-started.md:129
 msgid "Select **Computed column** and enter a MoonScript or Lua expression."
 msgstr ""
 
-#: doc/en/get-started.md:132
+#: doc/en/get-started.md:130
 msgid "The formula is the body of a function `(self, space) -> <expression>`; in MoonScript `@field` accesses `self.field`. The value is recomputed on each read and is not stored."
 msgstr ""
 
-#: doc/en/get-started.md:134
+#: doc/en/get-started.md:132
 msgid "**Example: `nom_complet` in `auteurs`** — combine first name, particle and last name while handling nulls:"
 msgstr ""
 
-#: doc/en/get-started.md:136 doc/en/get-started.md:146 doc/en/get-started.md:161 doc/en/reference.md:143 doc/en/reference.md:157 doc/en/reference.md:175 doc/en/reference.md:201
+#: doc/en/get-started.md:134 doc/en/get-started.md:144 doc/en/get-started.md:159 doc/en/reference.md:141 doc/en/reference.md:155 doc/en/reference.md:173 doc/en/reference.md:199
 msgid "```moonscript"
 msgstr ""
 
-#: doc/en/get-started.md:137 doc/en/reference.md:144
+#: doc/en/get-started.md:135 doc/en/reference.md:142
 msgid "parts = {}"
 msgstr ""
 
-#: doc/en/get-started.md:138 doc/en/reference.md:145
+#: doc/en/get-started.md:136 doc/en/reference.md:143
 msgid "table.insert(parts, @prenom) if @prenom and @prenom != \"\""
 msgstr ""
 
-#: doc/en/get-started.md:139 doc/en/reference.md:146
+#: doc/en/get-started.md:137 doc/en/reference.md:144
 msgid "table.insert(parts, @particule) if @particule and @particule != \"\""
 msgstr ""
 
-#: doc/en/get-started.md:140 doc/en/reference.md:147
+#: doc/en/get-started.md:138 doc/en/reference.md:145
 msgid "table.insert(parts, @nom) if @nom and @nom != \"\""
 msgstr ""
 
-#: doc/en/get-started.md:141 doc/en/reference.md:148
+#: doc/en/get-started.md:139 doc/en/reference.md:146
 msgid "table.concat(parts, \" \")"
 msgstr ""
 
-#: doc/en/get-started.md:144
+#: doc/en/get-started.md:142
 msgid "The `space` parameter gives access to records of another space (full scan):"
 msgstr ""
 
-#: doc/en/get-started.md:147 doc/en/reference.md:176
+#: doc/en/get-started.md:145 doc/en/reference.md:174
 msgid "-- Count available copies for this book"
 msgstr ""
 
-#: doc/en/get-started.md:148 doc/en/reference.md:177
+#: doc/en/get-started.md:146 doc/en/reference.md:175
 msgid "n = 0"
 msgstr ""
 
-#: doc/en/get-started.md:149 doc/en/reference.md:178
+#: doc/en/get-started.md:147 doc/en/reference.md:176
 msgid "for e in *space(\"exemplaires\")"
 msgstr ""
 
-#: doc/en/get-started.md:150 doc/en/reference.md:179
+#: doc/en/get-started.md:148 doc/en/reference.md:177
 msgid "  n += 1 if e.livre_id == @id and e.disponible"
 msgstr ""
 
-#: doc/en/get-started.md:151 doc/en/reference.md:180
+#: doc/en/get-started.md:149 doc/en/reference.md:178
 msgid "n"
 msgstr ""
 
-#: doc/en/get-started.md:154
+#: doc/en/get-started.md:152
 msgid "### Trigger formula ((trigger))"
 msgstr ""
 
-#: doc/en/get-started.md:156
+#: doc/en/get-started.md:154
 msgid "Select **Trigger formula** and optionally list the trigger fields."
 msgstr ""
 
-#: doc/en/get-started.md:157
+#: doc/en/get-started.md:155
 msgid "The formula is executed and the result **stored** on each creation or modification of the listed fields."
 msgstr ""
 
-#: doc/en/get-started.md:159
+#: doc/en/get-started.md:157
 msgid "**Example: `cote_auto` in `livres`** — generate an automatic shelf mark from the first three letters of the title and the year (triggered on `titre` and `annee`):"
 msgstr ""
 
-#: doc/en/get-started.md:162 doc/en/reference.md:158
+#: doc/en/get-started.md:160 doc/en/reference.md:156
 msgid "-- triggerFields: [\"titre\", \"annee\"]"
 msgstr ""
 
-#: doc/en/get-started.md:163 doc/en/reference.md:159
+#: doc/en/get-started.md:161 doc/en/reference.md:157
 msgid "prefix = (@titre or \"\")\\upper!\\sub(1, 3)\\gsub(\"[^%A]\", \"\")"
 msgstr ""
 
-#: doc/en/get-started.md:164 doc/en/reference.md:160
+#: doc/en/get-started.md:162 doc/en/reference.md:158
 msgid "annee  = if @annee then tostring(@annee) else \"????\""
 msgstr ""
 
-#: doc/en/get-started.md:165 doc/en/reference.md:161
+#: doc/en/get-started.md:163 doc/en/reference.md:159
 msgid "\"#{prefix}-#{annee}\""
 msgstr ""
 
-#: doc/en/get-started.md:168
+#: doc/en/get-started.md:166
 msgid "### Edit an existing field"
 msgstr ""
 
-#: doc/en/get-started.md:170
+#: doc/en/get-started.md:168
 msgid "Click the **(pencil)** icon next to a field to edit its name, type, formula or trigger."
 msgstr ""
 
-#: doc/en/get-started.md:172
+#: doc/en/get-started.md:170
 msgid "![Edit field](../img/field-edit.png)"
 msgstr ""
 
-#: doc/en/get-started.md:176
+#: doc/en/get-started.md:174
 msgid "## Entering and editing data"
 msgstr ""
 
-#: doc/en/get-started.md:178
+#: doc/en/get-started.md:176
 msgid "- Click a cell to edit it directly in the grid."
 msgstr ""
 
-#: doc/en/get-started.md:179
+#: doc/en/get-started.md:177
 msgid "- Press **Enter** or Tab to move to the next cell."
 msgstr ""
 
-#: doc/en/get-started.md:180
+#: doc/en/get-started.md:178
 msgid "- To **add a row**, click in the empty area below the last row."
 msgstr ""
 
-#: doc/en/get-started.md:181
+#: doc/en/get-started.md:179
 msgid "- To **delete rows**, select them (checkboxes) then click the [del] “Delete selected rows” button."
 msgstr ""
 
-#: doc/en/get-started.md:183
+#: doc/en/get-started.md:181
 msgid "Start by entering data in the reference tables (`genres`, `auteurs`, `classes`) before filling `livres`, `personnes` and `exemplaires`."
 msgstr ""
 
-#: doc/en/get-started.md:187
+#: doc/en/get-started.md:185
 msgid "## Relations between spaces"
 msgstr ""
 
-#: doc/en/get-started.md:189
+#: doc/en/get-started.md:187
 msgid "In the **Fields** panel choose the **Relation** type for `_id` fields:"
 msgstr ""
 
-#: doc/en/get-started.md:191
+#: doc/en/get-started.md:189
 msgid "1. Select the **target** space from the dropdown."
 msgstr ""
 
-#: doc/en/get-started.md:192
+#: doc/en/get-started.md:190
 msgid "2. The field will store the identifier of the linked record."
 msgstr ""
 
-#: doc/en/get-started.md:194
+#: doc/en/get-started.md:192
 msgid "Here are the relations to create for the library:"
 msgstr ""
 
-#: doc/en/get-started.md:196
+#: doc/en/get-started.md:194
 msgid "| Source field (space) | Target space |"
 msgstr ""
 
-#: doc/en/get-started.md:197
+#: doc/en/get-started.md:195
 msgid "|-----------------------|-------------|"
 msgstr ""
 
-#: doc/en/get-started.md:198
+#: doc/en/get-started.md:196
 msgid "| `livres.auteur_id` | `auteurs` |"
 msgstr ""
 
-#: doc/en/get-started.md:199
+#: doc/en/get-started.md:197
 msgid "| `livres.genre_id` | `genres` |"
 msgstr ""
 
-#: doc/en/get-started.md:200
+#: doc/en/get-started.md:198
 msgid "| `exemplaires.livre_id` | `livres` |"
 msgstr ""
 
-#: doc/en/get-started.md:201
+#: doc/en/get-started.md:199
 msgid "| `emprunts.exemplaire_id` | `exemplaires` |"
 msgstr ""
 
-#: doc/en/get-started.md:202
+#: doc/en/get-started.md:200
 msgid "| `emprunts.personne_id` | `personnes` |"
 msgstr ""
 
-#: doc/en/get-started.md:203
+#: doc/en/get-started.md:201
 msgid "| `personnes.classe_id` | `classes` |"
 msgstr ""
 
-#: doc/en/get-started.md:204
+#: doc/en/get-started.md:202
 msgid "| `coordonnees.personne_id` | `personnes` |"
 msgstr ""
 
-#: doc/en/get-started.md:205
+#: doc/en/get-started.md:203
 msgid "| `livres_motscles.livre_id` | `livres` |"
 msgstr ""
 
-#: doc/en/get-started.md:206
+#: doc/en/get-started.md:204
 msgid "| `livres_motscles.motcle_id` | `motscles` |"
 msgstr ""
 
-#: doc/en/get-started.md:207
+#: doc/en/get-started.md:205
 msgid "| `livres_etiquettes.livre_id` | `livres` |"
 msgstr ""
 
-#: doc/en/get-started.md:208
+#: doc/en/get-started.md:206
 msgid "| `livres_etiquettes.etiquette_id` | `etiquettes` |"
 msgstr ""
 
-#: doc/en/get-started.md:210
+#: doc/en/get-started.md:208
 msgid "Relations can then be used to build custom views with automatic filtering (inter-widget dependencies)."
 msgstr ""
 
-#: doc/en/get-started.md:212
+#: doc/en/get-started.md:210
 msgid "### Representation formula (reprFormula)"
 msgstr ""
 
-#: doc/en/get-started.md:214
+#: doc/en/get-started.md:212
 msgid "By default, a Relation column displays the raw identifier of the linked record. You can define a **representation formula** in MoonScript to show a human-friendly label instead."
 msgstr ""
 
-#: doc/en/get-started.md:216
+#: doc/en/get-started.md:214
 msgid "- The syntax `@field` accesses fields of the linked record."
 msgstr ""
 
-#: doc/en/get-started.md:217
+#: doc/en/get-started.md:215
 msgid "- FK fields are resolved automatically: `@genre_id.libelle` follows the `genre_id` relation in the linked space and returns its `libelle`."
 msgstr ""
 
-#: doc/en/get-started.md:218
+#: doc/en/get-started.md:216
 msgid "- Multi-level chaining is supported: `@livre_id.genre_id.libelle` (copy → book → genre)."
 msgstr ""
 
-#: doc/en/get-started.md:219
+#: doc/en/get-started.md:217
 msgid "- If no formula is defined, the column uses the `_repr` field of the target space (if present), otherwise the raw id."
 msgstr ""
 
-#: doc/en/get-started.md:221
+#: doc/en/get-started.md:219
 msgid "**Examples:**"
 msgstr ""
 
-#: doc/en/get-started.md:223
+#: doc/en/get-started.md:221
 msgid "| Formula | Effect |"
 msgstr ""
 
-#: doc/en/get-started.md:224
+#: doc/en/get-started.md:222
 msgid "|---------|-------|"
 msgstr ""
 
-#: doc/en/get-started.md:225
+#: doc/en/get-started.md:223
 msgid "| `@nom` | Shows the `nom` field of the linked record |"
 msgstr ""
 
-#: doc/en/get-started.md:226
+#: doc/en/get-started.md:224
 msgid "| `@nom .. ' ' .. @prenom` | Concatenates last name and first name |"
 msgstr ""
 
-#: doc/en/get-started.md:227
+#: doc/en/get-started.md:225
 msgid "| `@genre_id.libelle` | Follows the FK `genre_id` and displays the genre label |"
 msgstr ""
 
-#: doc/en/get-started.md:228
+#: doc/en/get-started.md:226
 msgid "| `@livre_id.genre_id.libelle` | Chains two FKs (copy → book → genre) |"
 msgstr ""
 
-#: doc/en/get-started.md:230
+#: doc/en/get-started.md:228
 msgid "**Concrete example — loans:**"
 msgstr ""
 
-#: doc/en/get-started.md:232
+#: doc/en/get-started.md:230
 msgid "In the `emprunts` space, the `exemplaire_id` column can display the title of the corresponding book by chaining FKs:"
 msgstr ""
 
-#: doc/en/get-started.md:235
+#: doc/en/get-started.md:233
 msgid "reprFormula : @livre_id.titre"
 msgstr ""
 
-#: doc/en/get-started.md:238
+#: doc/en/get-started.md:236
 msgid "(To show the book title for this copy.)"
 msgstr ""
 
-#: doc/en/get-started.md:240
+#: doc/en/get-started.md:238
 msgid "To set the formula, click the **(pencil)** next to the Relation field in the Fields panel and enter the representation formula in the **Representation formula** field."
 msgstr ""
 
-#: doc/en/get-started.md:244
+#: doc/en/get-started.md:242
 msgid "## Custom views (YAML)"
 msgstr ""
 
-#: doc/en/get-started.md:246
+#: doc/en/get-started.md:244
 msgid "Views let you compose multi-space dashboards."
 msgstr ""
 
-#: doc/en/get-started.md:248
+#: doc/en/get-started.md:246
 msgid "![Custom view](../img/custom-view.png)"
 msgstr ""
 
-#: doc/en/get-started.md:250
+#: doc/en/get-started.md:248
 msgid "### Create a view"
 msgstr ""
 
-#: doc/en/get-started.md:252
+#: doc/en/get-started.md:250
 msgid "1. In the **Views** section click **+**."
 msgstr ""
 
-#: doc/en/get-started.md:253
+#: doc/en/get-started.md:251
 msgid "2. Give the view a name (e.g. `Loans management`)."
 msgstr ""
 
-#: doc/en/get-started.md:254
+#: doc/en/get-started.md:252
 msgid "3. The YAML editor opens automatically."
 msgstr ""
 
-#: doc/en/get-started.md:256
+#: doc/en/get-started.md:254
 msgid "### YAML editor with ERD schema"
 msgstr ""
 
-#: doc/en/get-started.md:258
+#: doc/en/get-started.md:256
 msgid "Clicking **Edit** opens a fullscreen modal with two panels:"
 msgstr ""
 
-#: doc/en/get-started.md:260
+#: doc/en/get-started.md:258
 msgid "- **Left**: CodeMirror editor (YAML syntax highlighting, monokai theme)."
 msgstr ""
 
-#: doc/en/get-started.md:261
+#: doc/en/get-started.md:259
 msgid "- **Right**: interactive ERD diagram showing all spaces and their relations."
 msgstr ""
 
-#: doc/en/get-started.md:263
+#: doc/en/get-started.md:261
 msgid "![YAML editor modal and ERD diagram](../img/erd-modal-overview.png)"
 msgstr ""
 
-#: doc/en/get-started.md:265
+#: doc/en/get-started.md:263
 msgid "**Use the ERD diagram to build the YAML:**"
 msgstr ""
 
-#: doc/en/get-started.md:267
+#: doc/en/get-started.md:265
 msgid "Each box represents a space. For each field (row):"
 msgstr ""
 
-#: doc/en/get-started.md:269
+#: doc/en/get-started.md:267
 msgid "- Click **`*`** (first row, italic) to add the space **without column restrictions**. The box lights up with the `* ✓` badge."
 msgstr ""
 
-#: doc/en/get-started.md:271
+#: doc/en/get-started.md:269
 msgid "![Select with pseudo-field *](../img/erd-star-field.png)"
 msgstr ""
 
-#: doc/en/get-started.md:273
+#: doc/en/get-started.md:271
 msgid "- Click a **named field** to add it to the widget's `columns` list. If the space is not yet in the YAML it is created. If that space has a foreign key to an already-present space in the YAML, a `depends_on` is generated automatically."
 msgstr ""
 
-#: doc/en/get-started.md:275
+#: doc/en/get-started.md:273
 msgid "![Auto-detection of depends_on](../img/erd-depends-on.png)"
 msgstr ""
 
-#: doc/en/get-started.md:277
+#: doc/en/get-started.md:275
 msgid "- Clicking a selected field again removes it. Removing all fields deletes the widget."
 msgstr ""
 
-#: doc/en/get-started.md:278
+#: doc/en/get-started.md:276
 msgid "- The **Clear** button resets the selection."
 msgstr ""
 
-#: doc/en/get-started.md:279
+#: doc/en/get-started.md:277
 msgid "- **Arrows** indicate foreign keys; **self-relations** (e.g. `parent_id → id`) are drawn as a loop on the right side of the box."
 msgstr ""
 
-#: doc/en/get-started.md:281
+#: doc/en/get-started.md:279
 msgid "**Bidirectional sync:** the ERD initializes from the existing YAML when opening the modal — spaces and fields already defined are highlighted. Editing the YAML manually in CodeMirror updates the diagram in real time. Fields not managed by the builder (like `title`, `aggregate`, `computed`) are **preserved** when editing via the diagram."
 msgstr ""
 
-#: doc/en/get-started.md:283
+#: doc/en/get-started.md:281
 msgid "**Modal buttons:**"
 msgstr ""
 
-#: doc/en/get-started.md:285
+#: doc/en/get-started.md:283
 msgid "| Button | Action |"
 msgstr ""
 
-#: doc/en/get-started.md:286 doc/en/get-started.md:484
+#: doc/en/get-started.md:284 doc/en/get-started.md:482
 msgid "|--------|--------|"
 msgstr ""
 
-#: doc/en/get-started.md:287
+#: doc/en/get-started.md:285
 msgid "| **↓ Save** | Save the YAML |"
 msgstr ""
 
-#: doc/en/get-started.md:288
+#: doc/en/get-started.md:286
 msgid "| **▶ Preview** | Show the rendered view |"
 msgstr ""
 
-#: doc/en/get-started.md:289
+#: doc/en/get-started.md:287
 msgid "| **×** | Close the modal without saving |"
 msgstr ""
 
-#: doc/en/get-started.md:291
+#: doc/en/get-started.md:289
 msgid "### View “Loans management”"
 msgstr ""
 
-#: doc/en/get-started.md:293
+#: doc/en/get-started.md:291
 msgid "The main library view shows books, their copies and current loans, with a summary by genre."
 msgstr ""
 
-#: doc/en/get-started.md:295 doc/en/get-started.md:333 doc/en/get-started.md:389 doc/en/get-started.md:400 doc/en/reference.md:542 doc/en/reference.md:552 doc/en/reference.md:575 doc/en/reference.md:585 doc/en/reference.md:623 doc/en/reference.md:640 doc/en/reference.md:778 doc/en/reference.md:925
+#: doc/en/get-started.md:293 doc/en/get-started.md:331 doc/en/get-started.md:387 doc/en/get-started.md:398 doc/en/reference.md:540 doc/en/reference.md:550 doc/en/reference.md:573 doc/en/reference.md:583 doc/en/reference.md:621 doc/en/reference.md:638 doc/en/reference.md:776 doc/en/reference.md:923
 msgid "```yaml"
 msgstr ""
 
-#: doc/en/get-started.md:296 doc/en/reference.md:543 doc/en/reference.md:586
+#: doc/en/get-started.md:294 doc/en/reference.md:541 doc/en/reference.md:584
 msgid "layout:"
 msgstr ""
 
-#: doc/en/get-started.md:297 doc/en/reference.md:587
+#: doc/en/get-started.md:295 doc/en/reference.md:585
 msgid "  direction: vertical"
 msgstr ""
 
-#: doc/en/get-started.md:298 doc/en/reference.md:545 doc/en/reference.md:588
+#: doc/en/get-started.md:296 doc/en/reference.md:543 doc/en/reference.md:586
 msgid "  children:"
 msgstr ""
 
-#: doc/en/get-started.md:299 doc/en/reference.md:589
+#: doc/en/get-started.md:297 doc/en/reference.md:587
 msgid "    - widget:"
 msgstr ""
 
-#: doc/en/get-started.md:300 doc/en/reference.md:590
+#: doc/en/get-started.md:298 doc/en/reference.md:588
 msgid "        id: livres"
 msgstr ""
 
-#: doc/en/get-started.md:301
+#: doc/en/get-started.md:299
 msgid "        title: Catalogue des livres"
 msgstr ""
 
-#: doc/en/get-started.md:302 doc/en/reference.md:592
+#: doc/en/get-started.md:300 doc/en/reference.md:590
 msgid "        space: livres"
 msgstr ""
 
-#: doc/en/get-started.md:303 doc/en/reference.md:593
+#: doc/en/get-started.md:301 doc/en/reference.md:591
 msgid "        columns: [titre, cote_auto, auteur_id, genre_id, isbn, annee]"
 msgstr ""
 
-#: doc/en/get-started.md:304 doc/en/reference.md:594
+#: doc/en/get-started.md:302 doc/en/reference.md:592
 msgid "    - layout:"
 msgstr ""
 
-#: doc/en/get-started.md:305 doc/en/reference.md:595
+#: doc/en/get-started.md:303 doc/en/reference.md:593
 msgid "        direction: horizontal"
 msgstr ""
 
-#: doc/en/get-started.md:306 doc/en/reference.md:596
+#: doc/en/get-started.md:304 doc/en/reference.md:594
 msgid "        children:"
 msgstr ""
 
-#: doc/en/get-started.md:307 doc/en/get-started.md:317 doc/en/reference.md:597 doc/en/reference.md:607
+#: doc/en/get-started.md:305 doc/en/get-started.md:315 doc/en/reference.md:595 doc/en/reference.md:605
 msgid "          - widget:"
 msgstr ""
 
-#: doc/en/get-started.md:308 doc/en/reference.md:598
+#: doc/en/get-started.md:306 doc/en/reference.md:596
 msgid "              id: exemplaires"
 msgstr ""
 
-#: doc/en/get-started.md:309
+#: doc/en/get-started.md:307
 msgid "              title: Exemplaires"
 msgstr ""
 
-#: doc/en/get-started.md:310 doc/en/reference.md:600
+#: doc/en/get-started.md:308 doc/en/reference.md:598
 msgid "              space: exemplaires"
 msgstr ""
 
-#: doc/en/get-started.md:311 doc/en/get-started.md:321 doc/en/reference.md:601 doc/en/reference.md:611
+#: doc/en/get-started.md:309 doc/en/get-started.md:319 doc/en/reference.md:599 doc/en/reference.md:609
 msgid "              depends_on:"
 msgstr ""
 
-#: doc/en/get-started.md:312 doc/en/reference.md:602
+#: doc/en/get-started.md:310 doc/en/reference.md:600
 msgid "                widget: livres"
 msgstr ""
 
-#: doc/en/get-started.md:313 doc/en/reference.md:603
+#: doc/en/get-started.md:311 doc/en/reference.md:601
 msgid "                field: livre_id"
 msgstr ""
 
-#: doc/en/get-started.md:314 doc/en/get-started.md:324 doc/en/reference.md:604 doc/en/reference.md:614
+#: doc/en/get-started.md:312 doc/en/get-started.md:322 doc/en/reference.md:602 doc/en/reference.md:612
 msgid "                from_field: id"
 msgstr ""
 
-#: doc/en/get-started.md:315 doc/en/reference.md:605
+#: doc/en/get-started.md:313 doc/en/reference.md:603
 msgid "              columns: [etat, disponible]"
 msgstr ""
 
-#: doc/en/get-started.md:316 doc/en/reference.md:606
+#: doc/en/get-started.md:314 doc/en/reference.md:604
 msgid "              factor: 2"
 msgstr ""
 
-#: doc/en/get-started.md:318
+#: doc/en/get-started.md:316
 msgid "              id: emprunts_en_cours"
 msgstr ""
 
-#: doc/en/get-started.md:319
+#: doc/en/get-started.md:317
 msgid "              title: Emprunts en cours"
 msgstr ""
 
-#: doc/en/get-started.md:320 doc/en/reference.md:610
+#: doc/en/get-started.md:318 doc/en/reference.md:608
 msgid "              space: emprunts"
 msgstr ""
 
-#: doc/en/get-started.md:322 doc/en/reference.md:612
+#: doc/en/get-started.md:320 doc/en/reference.md:610
 msgid "                widget: exemplaires"
 msgstr ""
 
-#: doc/en/get-started.md:323 doc/en/reference.md:613
+#: doc/en/get-started.md:321 doc/en/reference.md:611
 msgid "                field: exemplaire_id"
 msgstr ""
 
-#: doc/en/get-started.md:325 doc/en/reference.md:615
+#: doc/en/get-started.md:323 doc/en/reference.md:613
 msgid "              columns: [personne_id, date_emprunt, date_retour]"
 msgstr ""
 
-#: doc/en/get-started.md:326 doc/en/reference.md:616
+#: doc/en/get-started.md:324 doc/en/reference.md:614
 msgid "              factor: 3"
 msgstr ""
 
-#: doc/en/get-started.md:329
+#: doc/en/get-started.md:327
 msgid "### Aggregate widget — Loans by genre"
 msgstr ""
 
-#: doc/en/get-started.md:331
+#: doc/en/get-started.md:329
 msgid "An `aggregate` widget shows a read-only summary table — the equivalent of an SQL `GROUP BY`, computed in Lua on the server side."
 msgstr ""
 
-#: doc/en/get-started.md:334 doc/en/get-started.md:390 doc/en/get-started.md:401 doc/en/reference.md:780
+#: doc/en/get-started.md:332 doc/en/get-started.md:388 doc/en/get-started.md:399 doc/en/reference.md:778
 msgid "- widget:"
 msgstr ""
 
-#: doc/en/get-started.md:335
+#: doc/en/get-started.md:333
 msgid "    type: aggregate"
 msgstr ""
 
-#: doc/en/get-started.md:336
+#: doc/en/get-started.md:334
 msgid "    title: Emprunts par genre"
 msgstr ""
 
-#: doc/en/get-started.md:337
+#: doc/en/get-started.md:335
 msgid "    space: emprunts"
 msgstr ""
 
-#: doc/en/get-started.md:338
+#: doc/en/get-started.md:336
 msgid "    groupBy: [genre_id]"
 msgstr ""
 
-#: doc/en/get-started.md:339
+#: doc/en/get-started.md:337
 msgid "    aggregate:"
 msgstr ""
 
-#: doc/en/get-started.md:340
+#: doc/en/get-started.md:338
 msgid "      - fn: count"
 msgstr ""
 
-#: doc/en/get-started.md:341
+#: doc/en/get-started.md:339
 msgid "        as: nb_emprunts"
 msgstr ""
 
-#: doc/en/get-started.md:342
+#: doc/en/get-started.md:340
 msgid "    computed:"
 msgstr ""
 
-#: doc/en/get-started.md:343
+#: doc/en/get-started.md:341
 msgid "      - as: label"
 msgstr ""
 
-#: doc/en/get-started.md:344
+#: doc/en/get-started.md:342
 msgid "        expr: \"row.genre_id + ' (' + row.nb_emprunts + ')'\""
 msgstr ""
 
-#: doc/en/get-started.md:345
+#: doc/en/get-started.md:343
 msgid "      - as: statut"
 msgstr ""
 
-#: doc/en/get-started.md:346
+#: doc/en/get-started.md:344
 msgid "        expr: \"row.nb_emprunts > 10 ? 'Actif' : 'Peu emprunté'\""
 msgstr ""
 
-#: doc/en/get-started.md:349
+#: doc/en/get-started.md:347
 msgid "Available functions are `sum`, `count`, `avg`, `min`, `max`. The `as` alias is optional (default name: `fn_field`, e.g. `count`)."
 msgstr ""
 
-#: doc/en/get-started.md:351
+#: doc/en/get-started.md:349
 msgid "![Aggregate widget example](../img/aggregate-widget.png)"
 msgstr ""
 
-#: doc/en/get-started.md:353
+#: doc/en/get-started.md:351
 msgid "### Custom widget plugins"
 msgstr ""
 
-#: doc/en/get-started.md:355
+#: doc/en/get-started.md:353
 msgid "You can add custom widgets to a YAML view with a plugin (`CoffeeScript` or `JavaScript` for logic, `Pug` or `HTML` for template)."
 msgstr ""
 
-#: doc/en/get-started.md:357
+#: doc/en/get-started.md:355
 msgid "#### Create a plugin"
 msgstr ""
 
-#: doc/en/get-started.md:359
+#: doc/en/get-started.md:357
 msgid "1. Open a custom view."
 msgstr ""
 
-#: doc/en/get-started.md:360
+#: doc/en/get-started.md:358
 msgid "2. Click **🧩 Plugins** in the view toolbar."
 msgstr ""
 
-#: doc/en/get-started.md:361
+#: doc/en/get-started.md:359
 msgid "3. Click **+ New**."
 msgstr ""
 
-#: doc/en/get-started.md:362
+#: doc/en/get-started.md:360
 msgid "4. Fill:"
 msgstr ""
 
-#: doc/en/get-started.md:363
+#: doc/en/get-started.md:361
 msgid "   - `name` (used as widget `type` in YAML)"
 msgstr ""
 
-#: doc/en/get-started.md:364
+#: doc/en/get-started.md:362
 msgid "   - `description` (optional)"
 msgstr ""
 
-#: doc/en/get-started.md:365
+#: doc/en/get-started.md:363
 msgid "   - script language + code"
 msgstr ""
 
-#: doc/en/get-started.md:366
+#: doc/en/get-started.md:364
 msgid "   - template language + code"
 msgstr ""
 
-#: doc/en/get-started.md:367
+#: doc/en/get-started.md:365
 msgid "5. Click **💾 Save**."
 msgstr ""
 
-#: doc/en/get-started.md:368
+#: doc/en/get-started.md:366
 msgid "6. Close the modal (`✕`) to refresh views using modified plugins."
 msgstr ""
 
-#: doc/en/get-started.md:370
+#: doc/en/get-started.md:368
 msgid "#### Plugin script contract"
 msgstr ""
 
-#: doc/en/get-started.md:372
+#: doc/en/get-started.md:370
 msgid "Your script must export a function:"
 msgstr ""
 
-#: doc/en/get-started.md:374
+#: doc/en/get-started.md:372
 msgid "```coffeescript"
 msgstr ""
 
-#: doc/en/get-started.md:375
+#: doc/en/get-started.md:373
 msgid "module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->"
 msgstr ""
 
-#: doc/en/get-started.md:376
+#: doc/en/get-started.md:374
 msgid "  render \"<div>Ready</div>\""
 msgstr ""
 
-#: doc/en/get-started.md:379
+#: doc/en/get-started.md:377
 msgid "- `render(html)`: updates widget HTML inside the sandboxed iframe."
 msgstr ""
 
-#: doc/en/get-started.md:380
+#: doc/en/get-started.md:378
 msgid "- `params`: widget params from YAML (`widget.params`)."
 msgstr ""
 
-#: doc/en/get-started.md:381
+#: doc/en/get-started.md:379
 msgid "- `gql(query, variables)`: runs GraphQL requests through the parent app."
 msgstr ""
 
-#: doc/en/get-started.md:382
+#: doc/en/get-started.md:380
 msgid "- `emitSelection({ rows, byField })`: emits selection for dependent widgets."
 msgstr ""
 
-#: doc/en/get-started.md:383
+#: doc/en/get-started.md:381
 msgid "- `onInputSelection(cb)`: receives selection from `depends_on` upstream widgets."
 msgstr ""
 
-#: doc/en/get-started.md:385
+#: doc/en/get-started.md:383
 msgid "#### Use plugin in YAML"
 msgstr ""
 
-#: doc/en/get-started.md:387
+#: doc/en/get-started.md:385
 msgid "Set the widget `type` to the plugin name:"
 msgstr ""
 
-#: doc/en/get-started.md:391 doc/en/get-started.md:402
+#: doc/en/get-started.md:389 doc/en/get-started.md:400
 msgid "    id: books_plugin"
 msgstr ""
 
-#: doc/en/get-started.md:392 doc/en/get-started.md:403
+#: doc/en/get-started.md:390 doc/en/get-started.md:401
 msgid "    type: test"
 msgstr ""
 
-#: doc/en/get-started.md:393
+#: doc/en/get-started.md:391
 msgid "    title: Books plugin"
 msgstr ""
 
-#: doc/en/get-started.md:394
+#: doc/en/get-started.md:392
 msgid "    params:"
 msgstr ""
 
-#: doc/en/get-started.md:395
+#: doc/en/get-started.md:393
 msgid "      title: \"Books\""
 msgstr ""
 
-#: doc/en/get-started.md:398
+#: doc/en/get-started.md:396
 msgid "`depends_on` works with plugin widgets the same way as for space widgets:"
 msgstr ""
 
-#: doc/en/get-started.md:404
+#: doc/en/get-started.md:402
 msgid "    depends_on:"
 msgstr ""
 
-#: doc/en/get-started.md:405
+#: doc/en/get-started.md:403
 msgid "      widget: livres"
 msgstr ""
 
-#: doc/en/get-started.md:406
+#: doc/en/get-started.md:404
 msgid "      field: livre_id"
 msgstr ""
 
-#: doc/en/get-started.md:407
+#: doc/en/get-started.md:405
 msgid "      from_field: id"
 msgstr ""
 
-#: doc/en/get-started.md:410
+#: doc/en/get-started.md:408
 msgid "#### Troubleshooting"
 msgstr ""
 
-#: doc/en/get-started.md:412
+#: doc/en/get-started.md:410
 msgid "- If script/template compilation fails, TGui shows a detailed message with plugin name, source (`script` or `template`), language, and line/column when available."
 msgstr ""
 
-#: doc/en/get-started.md:413
+#: doc/en/get-started.md:411
 msgid "- If runtime execution fails inside the iframe, TGui shows `Plugin <name> — exécution JavaScript invalide ...` with the error details."
 msgstr ""
 
-#: doc/en/get-started.md:414
+#: doc/en/get-started.md:412
 msgid "- Runtime availability errors (`runtime CoffeeScript indisponible`, `runtime Pug indisponible`) indicate a missing or broken frontend vendor bundle."
 msgstr ""
 
-#: doc/en/get-started.md:418
+#: doc/en/get-started.md:416
 msgid "## User and rights management (admin)"
 msgstr ""
 
-#: doc/en/get-started.md:420
+#: doc/en/get-started.md:418
 msgid "The **Administration** section is visible only to members of the `admin` group."
 msgstr ""
 
-#: doc/en/get-started.md:422 doc/en/reference.md:836
+#: doc/en/get-started.md:420 doc/en/reference.md:834
 msgid "### Users"
 msgstr ""
 
-#: doc/en/get-started.md:424
+#: doc/en/get-started.md:422
 msgid "![Users panel](../img/admin-users.png)"
 msgstr ""
 
-#: doc/en/get-started.md:426
+#: doc/en/get-started.md:424
 msgid "- **+ Create**: opens a form (username, optional email, password)."
 msgstr ""
 
-#: doc/en/get-started.md:427
+#: doc/en/get-started.md:425
 msgid "- **[key]** on each row: allows the admin to force a password change for a user without knowing their current password."
 msgstr ""
 
-#: doc/en/get-started.md:429 doc/en/reference.md:857
+#: doc/en/get-started.md:427 doc/en/reference.md:855
 msgid "### Groups"
 msgstr ""
 
-#: doc/en/get-started.md:431
+#: doc/en/get-started.md:429
 msgid "![Groups panel](../img/admin-groups.png)"
 msgstr ""
 
-#: doc/en/get-started.md:433
+#: doc/en/get-started.md:431
 msgid "- **+ Create**: creates a new group."
 msgstr ""
 
-#: doc/en/get-started.md:434
+#: doc/en/get-started.md:432
 msgid "- **[del]**: deletes the group (except the protected `admin` group)."
 msgstr ""
 
-#: doc/en/get-started.md:436
+#: doc/en/get-started.md:434
 msgid "> Rights (`grant` / `revoke`) are currently manageable via the GraphQL API."
 msgstr ""
 
-#: doc/en/get-started.md:438
+#: doc/en/get-started.md:436
 msgid "### Export and import snapshots"
 msgstr ""
 
-#: doc/en/get-started.md:440
+#: doc/en/get-started.md:438
 msgid "The **Export / Import** section allows saving and restoring a TGui application."
 msgstr ""
 
-#: doc/en/get-started.md:442
+#: doc/en/get-started.md:440
 msgid "**Export:**"
 msgstr ""
 
-#: doc/en/get-started.md:444
+#: doc/en/get-started.md:442
 msgid "- **Structure only**: downloads a `.tdb.yaml` file containing the full schema (spaces, fields, relations, views, groups, permissions) without data."
 msgstr ""
 
-#: doc/en/get-started.md:445
+#: doc/en/get-started.md:443
 msgid "- **Structure + data**: includes all rows of each space."
 msgstr ""
 
-#: doc/en/get-started.md:447
+#: doc/en/get-started.md:445
 msgid "**Import:**"
 msgstr ""
 
-#: doc/en/get-started.md:449 doc/en/reference.md:1014
+#: doc/en/get-started.md:447 doc/en/reference.md:1012
 msgid "1. Click **Choose file** and select a `.tdb.yaml` file."
 msgstr ""
 
-#: doc/en/get-started.md:450
+#: doc/en/get-started.md:448
 msgid "2. A **diff** is shown (green = create, red = delete, orange = modify)."
 msgstr ""
 
-#: doc/en/get-started.md:451
+#: doc/en/get-started.md:449
 msgid "3. Choose mode:"
 msgstr ""
 
-#: doc/en/get-started.md:452
+#: doc/en/get-started.md:450
 msgid "   - **Merge**: create missing elements, leave existing ones untouched."
 msgstr ""
 
-#: doc/en/get-started.md:453
+#: doc/en/get-started.md:451
 msgid "   - **Replace**: delete everything and recreate from the snapshot (warning: data loss)."
 msgstr ""
 
-#: doc/en/get-started.md:454
+#: doc/en/get-started.md:452
 msgid "4. Click **Confirm import**."
 msgstr ""
 
-#: doc/en/get-started.md:458
+#: doc/en/get-started.md:456
 msgid "## User profile"
 msgstr ""
 
-#: doc/en/get-started.md:460
+#: doc/en/get-started.md:458
 msgid "Click your **username** (bottom left) to open the menu:"
 msgstr ""
 
-#: doc/en/get-started.md:462
+#: doc/en/get-started.md:460
 msgid "![Profile menu](../img/user-menu.png)"
 msgstr ""
 
-#: doc/en/get-started.md:464
+#: doc/en/get-started.md:462
 msgid "- **Change password**: enter the old and the new password."
 msgstr ""
 
-#: doc/en/get-started.md:465
+#: doc/en/get-started.md:463
 msgid "- **Logout**: invalidates the session on the server and returns to the login screen."
 msgstr ""
 
-#: doc/en/get-started.md:466
+#: doc/en/get-started.md:464
 msgid "- **FR / EN**: changes the interface language (preference is stored locally in the browser)."
 msgstr ""
 
-#: doc/en/get-started.md:468
+#: doc/en/get-started.md:466
 msgid "![Change password dialog](../img/change-password.png)"
 msgstr ""
 
-#: doc/en/get-started.md:472
+#: doc/en/get-started.md:470
 msgid "## Rename or delete a space"
 msgstr ""
 
-#: doc/en/get-started.md:474
+#: doc/en/get-started.md:472
 msgid "In the space toolbar:"
 msgstr ""
 
-#: doc/en/get-started.md:476
+#: doc/en/get-started.md:474
 msgid "- **(pencil)** (pencil icon): rename the space."
 msgstr ""
 
-#: doc/en/get-started.md:477
+#: doc/en/get-started.md:475
 msgid "- **[del]** (trash icon next to the title): delete the space and all its data."
 msgstr ""
 
-#: doc/en/get-started.md:481
+#: doc/en/get-started.md:479
 msgid "## Keyboard shortcuts"
 msgstr ""
 
-#: doc/en/get-started.md:483
+#: doc/en/get-started.md:481
 msgid "| Key | Action |"
 msgstr ""
 
-#: doc/en/get-started.md:485
+#: doc/en/get-started.md:483
 msgid "| **Enter** | Confirm cell edit |"
 msgstr ""
 
-#: doc/en/get-started.md:486
+#: doc/en/get-started.md:484
 msgid "| **Escape** | Cancel current edit |"
 msgstr ""
 
-#: doc/en/get-started.md:487
+#: doc/en/get-started.md:485
 msgid "| **Tab** | Move to the next cell |"
 msgstr ""
 
-#: doc/en/get-started.md:488
+#: doc/en/get-started.md:486
 msgid "| **Enter** on the login screen | Log in |"
 msgstr ""
 
@@ -1236,2187 +1232,2187 @@ msgstr ""
 msgid "# Feature Reference — TGui"
 msgstr ""
 
-#: doc/en/reference.md:5
+#: doc/en/reference.md:3
 msgid "TGui exposes all its features via a **GraphQL API** at `http://localhost:8080/graphql`. The web interface is a client of this same API; anything possible in the UI can also be done directly via GraphQL queries."
 msgstr ""
 
-#: doc/en/reference.md:9
+#: doc/en/reference.md:7
 msgid "## Table of Contents"
 msgstr ""
 
-#: doc/en/reference.md:11
+#: doc/en/reference.md:9
 msgid "1. [Spaces (tables)](#1-spaces-tables)"
 msgstr ""
 
-#: doc/en/reference.md:12
+#: doc/en/reference.md:10
 msgid "2. [Fields](#2-fields)"
 msgstr ""
 
-#: doc/en/reference.md:13
+#: doc/en/reference.md:11
 msgid "3. [Relations](#3-relations)"
 msgstr ""
 
-#: doc/en/reference.md:14
+#: doc/en/reference.md:12
 msgid "4. [Data (records)](#4-data-records)"
 msgstr ""
 
-#: doc/en/reference.md:15
+#: doc/en/reference.md:13
 msgid "5. [Classic Views](#5-classic-views)"
 msgstr ""
 
-#: doc/en/reference.md:16
+#: doc/en/reference.md:14
 msgid "6. [Custom Views (YAML)](#6-custom-views-yaml)"
 msgstr ""
 
-#: doc/en/reference.md:17
+#: doc/en/reference.md:15
 msgid "7. [Data Views (Saved Queries)](#7-data-views-saved-queries)"
 msgstr ""
 
-#: doc/en/reference.md:18
+#: doc/en/reference.md:16
 msgid "8. [Authentication](#8-authentication)"
 msgstr ""
 
-#: doc/en/reference.md:19
+#: doc/en/reference.md:17
 msgid "9. [Users and Groups](#9-users-and-groups)"
 msgstr ""
 
-#: doc/en/reference.md:20
+#: doc/en/reference.md:18
 msgid "10. [Permissions](#10-permissions)"
 msgstr ""
 
-#: doc/en/reference.md:21
+#: doc/en/reference.md:19
 msgid "11. [Export and Import Snapshots](#11-export-and-import-snapshots)"
 msgstr ""
 
-#: doc/en/reference.md:22
+#: doc/en/reference.md:20
 msgid "12. [Full GraphQL API](#12-full-graphql-api)"
 msgstr ""
 
-#: doc/en/reference.md:26
+#: doc/en/reference.md:24
 msgid "## 1. Spaces (tables)"
 msgstr ""
 
-#: doc/en/reference.md:28
+#: doc/en/reference.md:26
 msgid "A **space** is a user-defined data table. It contains **fields** (columns) and **records** (rows)."
 msgstr ""
 
-#: doc/en/reference.md:30
+#: doc/en/reference.md:28
 msgid "### UI Operations"
 msgstr ""
 
-#: doc/en/reference.md:32
+#: doc/en/reference.md:30
 msgid "| Action    | How |"
 msgstr ""
 
-#: doc/en/reference.md:33
+#: doc/en/reference.md:31
 msgid "|-----------|-----|"
 msgstr ""
 
-#: doc/en/reference.md:34
+#: doc/en/reference.md:32
 msgid "| Create    | Click **+** in the Data section |"
 msgstr ""
 
-#: doc/en/reference.md:35
+#: doc/en/reference.md:33
 msgid "| Rename    | **(pencil)** button in the space toolbar |"
 msgstr ""
 
-#: doc/en/reference.md:36
+#: doc/en/reference.md:34
 msgid "| Delete    | **[del]** (trash can next to the title) |"
 msgstr ""
 
-#: doc/en/reference.md:37
+#: doc/en/reference.md:35
 msgid "| Navigate  | Click the name in the sidebar |"
 msgstr ""
 
-#: doc/en/reference.md:39 doc/en/reference.md:231 doc/en/reference.md:297 doc/en/reference.md:450 doc/en/reference.md:504 doc/en/reference.md:660 doc/en/reference.md:708
+#: doc/en/reference.md:37 doc/en/reference.md:229 doc/en/reference.md:295 doc/en/reference.md:448 doc/en/reference.md:502 doc/en/reference.md:658 doc/en/reference.md:706
 msgid "### GraphQL API"
 msgstr ""
 
-#: doc/en/reference.md:41 doc/en/reference.md:82 doc/en/reference.md:100 doc/en/reference.md:218 doc/en/reference.md:233 doc/en/reference.md:299 doc/en/reference.md:380 doc/en/reference.md:414 doc/en/reference.md:440 doc/en/reference.md:452 doc/en/reference.md:506 doc/en/reference.md:662 doc/en/reference.md:710 doc/en/reference.md:795 doc/en/reference.md:812 doc/en/reference.md:818 doc/en/reference.md:824 doc/en/reference.md:838 doc/en/reference.md:859 doc/en/reference.md:896 doc/en/reference.md:1032 doc/en/api.md:206 doc/en/api.md:212 doc/en/api.md:218 doc/en/api.md:229 doc/en/api.md:235
+#: doc/en/reference.md:39 doc/en/reference.md:80 doc/en/reference.md:98 doc/en/reference.md:216 doc/en/reference.md:231 doc/en/reference.md:297 doc/en/reference.md:378 doc/en/reference.md:412 doc/en/reference.md:438 doc/en/reference.md:450 doc/en/reference.md:504 doc/en/reference.md:660 doc/en/reference.md:708 doc/en/reference.md:793 doc/en/reference.md:810 doc/en/reference.md:816 doc/en/reference.md:822 doc/en/reference.md:836 doc/en/reference.md:857 doc/en/reference.md:894 doc/en/reference.md:1030 doc/en/api.md:213 doc/en/api.md:219 doc/en/api.md:225 doc/en/api.md:236 doc/en/api.md:242
 msgid "```graphql"
 msgstr ""
 
-#: doc/en/reference.md:42
+#: doc/en/reference.md:40
 msgid "# List all spaces"
 msgstr ""
 
-#: doc/en/reference.md:43 doc/en/reference.md:48 doc/en/reference.md:84 doc/en/reference.md:102 doc/en/reference.md:301 doc/en/reference.md:381 doc/en/reference.md:416 doc/en/reference.md:427 doc/en/reference.md:441 doc/en/reference.md:454 doc/en/reference.md:683 doc/en/reference.md:712 doc/en/reference.md:729 doc/en/reference.md:861
+#: doc/en/reference.md:41 doc/en/reference.md:46 doc/en/reference.md:82 doc/en/reference.md:100 doc/en/reference.md:299 doc/en/reference.md:379 doc/en/reference.md:414 doc/en/reference.md:425 doc/en/reference.md:439 doc/en/reference.md:452 doc/en/reference.md:681 doc/en/reference.md:710 doc/en/reference.md:727 doc/en/reference.md:859
 msgid "query {"
 msgstr ""
 
-#: doc/en/reference.md:44
+#: doc/en/reference.md:42
 msgid "  spaces { id name description fields { id name fieldType } }"
 msgstr ""
 
-#: doc/en/reference.md:45 doc/en/reference.md:56 doc/en/reference.md:61 doc/en/reference.md:66 doc/en/reference.md:93 doc/en/reference.md:110 doc/en/reference.md:225 doc/en/reference.md:239 doc/en/reference.md:248 doc/en/reference.md:258 doc/en/reference.md:266 doc/en/reference.md:277 doc/en/reference.md:286 doc/en/reference.md:305 doc/en/reference.md:316 doc/en/reference.md:327 doc/en/reference.md:338 doc/en/reference.md:350 doc/en/reference.md:396 doc/en/reference.md:424 doc/en/reference.md:435 doc/en/reference.md:445 doc/en/reference.md:458 doc/en/reference.md:469 doc/en/reference.md:477 doc/en/reference.md:485 doc/en/reference.md:492 doc/en/reference.md:513 doc/en/reference.md:518 doc/en/reference.md:672 doc/en/reference.md:677 doc/en/reference.md:691 doc/en/reference.md:726 doc/en/reference.md:731 doc/en/reference.md:743 doc/en/reference.md:759 doc/en/reference.md:764 doc/en/reference.md:769 doc/en/reference.md:801 doc/en/reference.md:827 doc/en/reference.md:849 doc/en/reference.md:854 doc/en/reference.md:867 doc/en/reference.md:872 doc/en/reference.md:904 doc/en/reference.md:1036 doc/en/reference.md:1046 doc/en/reference.md:1056 doc/en/api.md:209 doc/en/api.md:224 doc/en/api.md:232 doc/en/api.md:238
+#: doc/en/reference.md:43 doc/en/reference.md:54 doc/en/reference.md:59 doc/en/reference.md:64 doc/en/reference.md:91 doc/en/reference.md:108 doc/en/reference.md:223 doc/en/reference.md:237 doc/en/reference.md:246 doc/en/reference.md:256 doc/en/reference.md:264 doc/en/reference.md:275 doc/en/reference.md:284 doc/en/reference.md:303 doc/en/reference.md:314 doc/en/reference.md:325 doc/en/reference.md:336 doc/en/reference.md:348 doc/en/reference.md:394 doc/en/reference.md:422 doc/en/reference.md:433 doc/en/reference.md:443 doc/en/reference.md:456 doc/en/reference.md:467 doc/en/reference.md:475 doc/en/reference.md:483 doc/en/reference.md:490 doc/en/reference.md:511 doc/en/reference.md:516 doc/en/reference.md:670 doc/en/reference.md:675 doc/en/reference.md:689 doc/en/reference.md:724 doc/en/reference.md:729 doc/en/reference.md:741 doc/en/reference.md:757 doc/en/reference.md:762 doc/en/reference.md:767 doc/en/reference.md:799 doc/en/reference.md:825 doc/en/reference.md:847 doc/en/reference.md:852 doc/en/reference.md:865 doc/en/reference.md:870 doc/en/reference.md:902 doc/en/reference.md:1034 doc/en/reference.md:1044 doc/en/reference.md:1054 doc/en/api.md:216 doc/en/api.md:231 doc/en/api.md:239 doc/en/api.md:245
 msgid "}"
 msgstr ""
 
-#: doc/en/reference.md:47
+#: doc/en/reference.md:45
 msgid "# Space details, including nested records"
 msgstr ""
 
-#: doc/en/reference.md:49
+#: doc/en/reference.md:47
 msgid "  space(id: \"...\") {"
 msgstr ""
 
-#: doc/en/reference.md:50
+#: doc/en/reference.md:48
 msgid "    id name fields { id name fieldType formula }"
 msgstr ""
 
-#: doc/en/reference.md:51
+#: doc/en/reference.md:49
 msgid "    records(limit: 10, offset: 0, filter: { field: \"status\", op: EQ, value: \"active\" }) {"
 msgstr ""
 
-#: doc/en/reference.md:52 doc/en/reference.md:106
+#: doc/en/reference.md:50 doc/en/reference.md:104
 msgid "      items { id data }"
 msgstr ""
 
-#: doc/en/reference.md:53 doc/en/reference.md:107
+#: doc/en/reference.md:51 doc/en/reference.md:105
 msgid "      total"
 msgstr ""
 
-#: doc/en/reference.md:54 doc/en/reference.md:91 doc/en/reference.md:108 doc/en/reference.md:389 doc/en/reference.md:724 doc/en/reference.md:741 doc/en/reference.md:757
+#: doc/en/reference.md:52 doc/en/reference.md:89 doc/en/reference.md:106 doc/en/reference.md:387 doc/en/reference.md:722 doc/en/reference.md:739 doc/en/reference.md:755
 msgid "    }"
 msgstr ""
 
-#: doc/en/reference.md:55 doc/en/reference.md:92 doc/en/reference.md:109 doc/en/reference.md:304 doc/en/reference.md:349 doc/en/reference.md:395 doc/en/reference.md:423 doc/en/reference.md:434 doc/en/reference.md:444 doc/en/reference.md:457 doc/en/reference.md:491 doc/en/reference.md:725 doc/en/reference.md:800 doc/en/reference.md:866 doc/en/reference.md:1045 doc/en/reference.md:1055 doc/en/api.md:223
+#: doc/en/reference.md:53 doc/en/reference.md:90 doc/en/reference.md:107 doc/en/reference.md:302 doc/en/reference.md:347 doc/en/reference.md:393 doc/en/reference.md:421 doc/en/reference.md:432 doc/en/reference.md:442 doc/en/reference.md:455 doc/en/reference.md:489 doc/en/reference.md:723 doc/en/reference.md:798 doc/en/reference.md:864 doc/en/reference.md:1043 doc/en/reference.md:1053 doc/en/api.md:230
 msgid "  }"
 msgstr ""
 
-#: doc/en/reference.md:58 doc/en/reference.md:666 doc/en/reference.md:869
+#: doc/en/reference.md:56 doc/en/reference.md:664 doc/en/reference.md:867
 msgid "# Create"
 msgstr ""
 
-#: doc/en/reference.md:59 doc/en/reference.md:64 doc/en/reference.md:219 doc/en/reference.md:235 doc/en/reference.md:242 doc/en/reference.md:251 doc/en/reference.md:261 doc/en/reference.md:272 doc/en/reference.md:280 doc/en/reference.md:308 doc/en/reference.md:319 doc/en/reference.md:330 doc/en/reference.md:344 doc/en/reference.md:464 doc/en/reference.md:472 doc/en/reference.md:480 doc/en/reference.md:488 doc/en/reference.md:508 doc/en/reference.md:516 doc/en/reference.md:667 doc/en/reference.md:675 doc/en/reference.md:734 doc/en/reference.md:746 doc/en/reference.md:762 doc/en/reference.md:767 doc/en/reference.md:796 doc/en/reference.md:825 doc/en/reference.md:843 doc/en/reference.md:852 doc/en/reference.md:870 doc/en/reference.md:898
+#: doc/en/reference.md:57 doc/en/reference.md:62 doc/en/reference.md:217 doc/en/reference.md:233 doc/en/reference.md:240 doc/en/reference.md:249 doc/en/reference.md:259 doc/en/reference.md:270 doc/en/reference.md:278 doc/en/reference.md:306 doc/en/reference.md:317 doc/en/reference.md:328 doc/en/reference.md:342 doc/en/reference.md:462 doc/en/reference.md:470 doc/en/reference.md:478 doc/en/reference.md:486 doc/en/reference.md:506 doc/en/reference.md:514 doc/en/reference.md:665 doc/en/reference.md:673 doc/en/reference.md:732 doc/en/reference.md:744 doc/en/reference.md:760 doc/en/reference.md:765 doc/en/reference.md:794 doc/en/reference.md:823 doc/en/reference.md:841 doc/en/reference.md:850 doc/en/reference.md:868 doc/en/reference.md:896
 msgid "mutation {"
 msgstr ""
 
-#: doc/en/reference.md:60
+#: doc/en/reference.md:58
 msgid "  createSpace(input: { name: \"livres\", description: \"Book catalog\" }) { id }"
 msgstr ""
 
-#: doc/en/reference.md:63
+#: doc/en/reference.md:61
 msgid "# Rename"
 msgstr ""
 
-#: doc/en/reference.md:65
+#: doc/en/reference.md:63
 msgid "  updateSpace(id: \"...\", input: { name: \"new_name\" }) { id name }"
 msgstr ""
 
-#: doc/en/reference.md:68 doc/en/reference.md:268 doc/en/reference.md:340 doc/en/reference.md:494 doc/en/reference.md:520 doc/en/reference.md:679 doc/en/reference.md:766 doc/en/reference.md:874
+#: doc/en/reference.md:66 doc/en/reference.md:266 doc/en/reference.md:338 doc/en/reference.md:492 doc/en/reference.md:518 doc/en/reference.md:677 doc/en/reference.md:764 doc/en/reference.md:872
 msgid "# Delete"
 msgstr ""
 
-#: doc/en/reference.md:69
+#: doc/en/reference.md:67
 msgid "mutation { deleteSpace(id: \"...\") }"
 msgstr ""
 
-#: doc/en/reference.md:74
+#: doc/en/reference.md:72
 msgid "## Nested Queries (Nesting)"
 msgstr ""
 
-#: doc/en/reference.md:76
+#: doc/en/reference.md:74
 msgid "In addition to fetching simple relations (FK) directly within records, it is possible to **query collections of related records (back-references) with pagination and filtering directly within a parent query**."
 msgstr ""
 
-#: doc/en/reference.md:78
+#: doc/en/reference.md:76
 msgid "### Back-references with pagination and filtering"
 msgstr ""
 
-#: doc/en/reference.md:80
+#: doc/en/reference.md:78
 msgid "Dynamically generated back-reference fields (based on inverse relations) support `limit`, `offset`, and `filter` arguments:"
 msgstr ""
 
-#: doc/en/reference.md:83
+#: doc/en/reference.md:81
 msgid "# Fetch users and their tasks, filtering tasks by title"
 msgstr ""
 
-#: doc/en/reference.md:85
+#: doc/en/reference.md:83
 msgid "  users {"
 msgstr ""
 
-#: doc/en/reference.md:86 doc/en/reference.md:714
+#: doc/en/reference.md:84 doc/en/reference.md:712
 msgid "    id"
 msgstr ""
 
-#: doc/en/reference.md:87
+#: doc/en/reference.md:85
 msgid "    username"
 msgstr ""
 
-#: doc/en/reference.md:88
+#: doc/en/reference.md:86
 msgid "    groups {"
 msgstr ""
 
-#: doc/en/reference.md:89
+#: doc/en/reference.md:87
 msgid "      id"
 msgstr ""
 
-#: doc/en/reference.md:90
+#: doc/en/reference.md:88
 msgid "      name"
 msgstr ""
 
-#: doc/en/reference.md:96
+#: doc/en/reference.md:94
 msgid "### Direct access to space records via `Space.records`"
 msgstr ""
 
-#: doc/en/reference.md:98
+#: doc/en/reference.md:96
 msgid "The `Space` type exposes a `records` field that allows direct retrieval of records from a given space, with pagination and filtering, without going through the root `Query.records`:"
 msgstr ""
 
-#: doc/en/reference.md:101
+#: doc/en/reference.md:99
 msgid "# Fetch space details and its first 10 records"
 msgstr ""
 
-#: doc/en/reference.md:103
+#: doc/en/reference.md:101
 msgid "  space(id: \"my_space_id\") {"
 msgstr ""
 
-#: doc/en/reference.md:104 doc/en/reference.md:715
+#: doc/en/reference.md:102 doc/en/reference.md:713
 msgid "    name"
 msgstr ""
 
-#: doc/en/reference.md:105
+#: doc/en/reference.md:103
 msgid "    records(limit: 10, offset: 0) {"
 msgstr ""
 
-#: doc/en/reference.md:115
+#: doc/en/reference.md:113
 msgid "## 2. Fields"
 msgstr ""
 
-#: doc/en/reference.md:117
+#: doc/en/reference.md:115
 msgid "A **field** is a column of a space. Each field has a type, a name, and may have a formula."
 msgstr ""
 
-#: doc/en/reference.md:119
+#: doc/en/reference.md:117
 msgid "### Available Types"
 msgstr ""
 
-#: doc/en/reference.md:121
+#: doc/en/reference.md:119
 msgid "| Type      | Description |"
 msgstr ""
 
-#: doc/en/reference.md:122
+#: doc/en/reference.md:120
 msgid "|-----------|-------------|"
 msgstr ""
 
-#: doc/en/reference.md:123
+#: doc/en/reference.md:121
 msgid "| `String`  | String |"
 msgstr ""
 
-#: doc/en/reference.md:124
+#: doc/en/reference.md:122
 msgid "| `Int`     | Integer |"
 msgstr ""
 
-#: doc/en/reference.md:125
+#: doc/en/reference.md:123
 msgid "| `Float`   | Decimal number |"
 msgstr ""
 
-#: doc/en/reference.md:126
+#: doc/en/reference.md:124
 msgid "| `Boolean` | Boolean (`true` / `false`) |"
 msgstr ""
 
-#: doc/en/reference.md:127
+#: doc/en/reference.md:125
 msgid "| `UUID`    | Automatically generated UUID |"
 msgstr ""
 
-#: doc/en/reference.md:128
+#: doc/en/reference.md:126
 msgid "| `Sequence`| Auto-increment integer (natural primary key) |"
 msgstr ""
 
-#: doc/en/reference.md:129
+#: doc/en/reference.md:127
 msgid "| `Any`     | Free type (JSON) |"
 msgstr ""
 
-#: doc/en/reference.md:130
+#: doc/en/reference.md:128
 msgid "| `Map`     | JSON object |"
 msgstr ""
 
-#: doc/en/reference.md:131
+#: doc/en/reference.md:129
 msgid "| `Array`   | JSON array |"
 msgstr ""
 
-#: doc/en/reference.md:132
+#: doc/en/reference.md:130
 msgid "| `Datetime`| Date and time |"
 msgstr ""
 
-#: doc/en/reference.md:133
+#: doc/en/reference.md:131
 msgid "| `Relation`| Reference to a record in another space (display customizable via `reprFormula`) |"
 msgstr ""
 
-#: doc/en/reference.md:135
+#: doc/en/reference.md:133
 msgid "### Computed Field (calculated column)"
 msgstr ""
 
-#: doc/en/reference.md:137
+#: doc/en/reference.md:135
 msgid "A computed field evaluates a **MoonScript expression** on each read. The value is **not stored**."
 msgstr ""
 
-#: doc/en/reference.md:139
+#: doc/en/reference.md:137
 msgid "The formula is the body of a function `(self, space) -> <formula>`. In MoonScript, `@field` is a shortcut for `self.field`:"
 msgstr ""
 
-#: doc/en/reference.md:141
+#: doc/en/reference.md:139
 msgid "**Example: `nom_complet` in `auteurs`** — combines first name, particle, and last name, handling null values:"
 msgstr ""
 
-#: doc/en/reference.md:151
+#: doc/en/reference.md:149
 msgid "### Trigger formula"
 msgstr ""
 
-#: doc/en/reference.md:153
+#: doc/en/reference.md:151
 msgid "A trigger formula is evaluated and its result **stored** on each creation or modification of the record (or only when listed fields in `triggerFields` change)."
 msgstr ""
 
-#: doc/en/reference.md:155
+#: doc/en/reference.md:153
 msgid "**Example: `cote_auto` in `livres`** — generates a bibliographic code from the first three letters of the title and the year (triggered on `titre` and `annee`):"
 msgstr ""
 
-#: doc/en/reference.md:164
+#: doc/en/reference.md:162
 msgid "### Formula languages"
 msgstr ""
 
-#: doc/en/reference.md:166
+#: doc/en/reference.md:164
 msgid "| Value        | Description |"
 msgstr ""
 
-#: doc/en/reference.md:167
+#: doc/en/reference.md:165
 msgid "|--------------|-------------|"
 msgstr ""
 
-#: doc/en/reference.md:168
+#: doc/en/reference.md:166
 msgid "| `moonscript` | MoonScript (compiled → Lua on the fly) |"
 msgstr ""
 
-#: doc/en/reference.md:169
+#: doc/en/reference.md:167
 msgid "| `lua`        | Native Lua |"
 msgstr ""
 
-#: doc/en/reference.md:171
+#: doc/en/reference.md:169
 msgid "### Helper `space` — access to other spaces"
 msgstr ""
 
-#: doc/en/reference.md:173
+#: doc/en/reference.md:171
 msgid "Formulas and triggers receive a second parameter `space` that allows access to all records of another space (full scan):"
 msgstr ""
 
-#: doc/en/reference.md:181
+#: doc/en/reference.md:179
 msgid "-- Get the label of a book's genre"
 msgstr ""
 
-#: doc/en/reference.md:182
+#: doc/en/reference.md:180
 msgid "next(g for g in *space(\"genres\") when g._id == @genre_id)?.libelle"
 msgstr ""
 
-#: doc/en/reference.md:185
+#: doc/en/reference.md:183
 msgid "`space(\"name\")` returns a Lua list of all records in the space `name`, each record being an object with `_id` (identifier) plus all data fields. Returns `{}` if the space does not exist."
 msgstr ""
 
-#: doc/en/reference.md:187
+#: doc/en/reference.md:185
 msgid "> **Note:** Full scan is suitable for small spaces (a few thousand records). For large volumes, prefer relations and aggregate widgets."
 msgstr ""
 
-#: doc/en/reference.md:189
+#: doc/en/reference.md:187
 msgid "### Reordering"
 msgstr ""
 
-#: doc/en/reference.md:191
+#: doc/en/reference.md:189
 msgid "Fields can be reordered by drag-and-drop (::) in the Fields panel."
 msgstr ""
 
-#: doc/en/reference.md:193
+#: doc/en/reference.md:191
 msgid "### Custom Relation Display (`reprFormula`)"
 msgstr ""
 
-#: doc/en/reference.md:195
+#: doc/en/reference.md:193
 msgid "For `Relation` type fields, `reprFormula` controls how the relationship is displayed"
 msgstr ""
 
-#: doc/en/reference.md:196
+#: doc/en/reference.md:194
 msgid "in the interface (grids, forms, etc.). The formula receives the linked record"
 msgstr ""
 
-#: doc/en/reference.md:197
+#: doc/en/reference.md:195
 msgid "as parameter (`self`) and must return a string."
 msgstr ""
 
-#: doc/en/reference.md:199
+#: doc/en/reference.md:197
 msgid "**Example:** For an `auteur_id` field pointing to the `auteurs` space:"
 msgstr ""
 
-#: doc/en/reference.md:202
+#: doc/en/reference.md:200
 msgid "# Display \"First Last\" instead of UUID"
 msgstr ""
 
-#: doc/en/reference.md:203
+#: doc/en/reference.md:201
 msgid "\"#{@nom} #{@prenom}\""
 msgstr ""
 
-#: doc/en/reference.md:206
+#: doc/en/reference.md:204
 msgid "```lua"
 msgstr ""
 
-#: doc/en/reference.md:207
+#: doc/en/reference.md:205
 msgid "-- Equivalent Lua version"
 msgstr ""
 
-#: doc/en/reference.md:208
+#: doc/en/reference.md:206
 msgid "return self.nom .. \" \" .. self.prenom"
 msgstr ""
 
-#: doc/en/reference.md:211
+#: doc/en/reference.md:209
 msgid "### Field Type Conversion"
 msgstr ""
 
-#: doc/en/reference.md:213
+#: doc/en/reference.md:211
 msgid "The `changeFieldType` mutation allows converting a field from one type to another,"
 msgstr ""
 
-#: doc/en/reference.md:214
+#: doc/en/reference.md:212
 msgid "with an optional conversion formula to transform existing data."
 msgstr ""
 
-#: doc/en/reference.md:216
+#: doc/en/reference.md:214
 msgid "**Example:** Convert a `String` field to `Int`:"
 msgstr ""
 
-#: doc/en/reference.md:220 doc/en/reference.md:281
+#: doc/en/reference.md:218 doc/en/reference.md:279
 msgid "  changeFieldType(fieldId: \"...\", input: {"
 msgstr ""
 
-#: doc/en/reference.md:221 doc/en/reference.md:282
+#: doc/en/reference.md:219 doc/en/reference.md:280
 msgid "    fieldType: Int,"
 msgstr ""
 
-#: doc/en/reference.md:222 doc/en/reference.md:283
+#: doc/en/reference.md:220 doc/en/reference.md:281
 msgid "    conversionFormula: \"tonumber(self.amount)\","
 msgstr ""
 
-#: doc/en/reference.md:223 doc/en/reference.md:264 doc/en/reference.md:284
+#: doc/en/reference.md:221 doc/en/reference.md:262 doc/en/reference.md:282
 msgid "    language: \"lua\""
 msgstr ""
 
-#: doc/en/reference.md:224 doc/en/reference.md:285
+#: doc/en/reference.md:222 doc/en/reference.md:283
 msgid "  }) { id name fieldType }"
 msgstr ""
 
-#: doc/en/reference.md:228
+#: doc/en/reference.md:226
 msgid "If `conversionFormula` is omitted, values are automatically converted when possible,"
 msgstr ""
 
-#: doc/en/reference.md:229
+#: doc/en/reference.md:227
 msgid "or set to `null` otherwise."
 msgstr ""
 
-#: doc/en/reference.md:234
+#: doc/en/reference.md:232
 msgid "# Add a simple field"
 msgstr ""
 
-#: doc/en/reference.md:236 doc/en/reference.md:243 doc/en/reference.md:252
+#: doc/en/reference.md:234 doc/en/reference.md:241 doc/en/reference.md:250
 msgid "  addField(spaceId: \"...\", input: {"
 msgstr ""
 
-#: doc/en/reference.md:237
+#: doc/en/reference.md:235
 msgid "    name: \"age\", fieldType: Int, notNull: false"
 msgstr ""
 
-#: doc/en/reference.md:238 doc/en/reference.md:742 doc/en/reference.md:758
+#: doc/en/reference.md:236 doc/en/reference.md:740 doc/en/reference.md:756
 msgid "  }) { id name }"
 msgstr ""
 
-#: doc/en/reference.md:241
+#: doc/en/reference.md:239
 msgid "# Add a computed column"
 msgstr ""
 
-#: doc/en/reference.md:244
+#: doc/en/reference.md:242
 msgid "    name: \"nom_complet\", fieldType: String,"
 msgstr ""
 
-#: doc/en/reference.md:245
+#: doc/en/reference.md:243
 msgid "    formula: \"parts = {}\\ntable.insert(parts, @prenom) if @prenom and @prenom != \\\"\\\"\\ntable.insert(parts, @particule) if @particule and @particule != \\\"\\\"\\ntable.insert(parts, @nom) if @nom and @nom != \\\"\\\"\\ntable.concat(parts, \\\" \\\" )\","
 msgstr ""
 
-#: doc/en/reference.md:246 doc/en/reference.md:256
+#: doc/en/reference.md:244 doc/en/reference.md:254
 msgid "    language: \"moonscript\""
 msgstr ""
 
-#: doc/en/reference.md:247 doc/en/reference.md:257 doc/en/reference.md:315 doc/en/reference.md:326 doc/en/reference.md:337 doc/en/reference.md:671 doc/en/reference.md:848 doc/en/reference.md:903
+#: doc/en/reference.md:245 doc/en/reference.md:255 doc/en/reference.md:313 doc/en/reference.md:324 doc/en/reference.md:335 doc/en/reference.md:669 doc/en/reference.md:846 doc/en/reference.md:901
 msgid "  }) { id }"
 msgstr ""
 
-#: doc/en/reference.md:250
+#: doc/en/reference.md:248
 msgid "# Add a trigger formula (triggered on change of \"titre\" or \"annee\")"
 msgstr ""
 
-#: doc/en/reference.md:253
+#: doc/en/reference.md:251
 msgid "    name: \"cote_auto\", fieldType: String,"
 msgstr ""
 
-#: doc/en/reference.md:254
+#: doc/en/reference.md:252
 msgid "    formula: \"prefix = (@titre or \\\"\\\")\\\\upper!\\\\sub(1, 3)\\\\gsub(\\\"[^%A]\\\", \\\"\\\")\\nannee  = if @annee then tostring(@annee) else \\\"????\\\"\\n\\\"#{prefix}-#{annee}\\\"\","
 msgstr ""
 
-#: doc/en/reference.md:255
+#: doc/en/reference.md:253
 msgid "    triggerFields: [\"titre\", \"annee\"],"
 msgstr ""
 
-#: doc/en/reference.md:260
+#: doc/en/reference.md:258
 msgid "# Update an existing field"
 msgstr ""
 
-#: doc/en/reference.md:262
+#: doc/en/reference.md:260
 msgid "  updateField(fieldId: \"...\", input: {"
 msgstr ""
 
-#: doc/en/reference.md:263
+#: doc/en/reference.md:261
 msgid "    formula: \"self.prenom .. \\\" \\\" .. self.nom\","
 msgstr ""
 
-#: doc/en/reference.md:265
+#: doc/en/reference.md:263
 msgid "  }) { id name formula }"
 msgstr ""
 
-#: doc/en/reference.md:269
+#: doc/en/reference.md:267
 msgid "mutation { removeField(fieldId: \"...\") }"
 msgstr ""
 
-#: doc/en/reference.md:271
+#: doc/en/reference.md:269
 msgid "# Reorder"
 msgstr ""
 
-#: doc/en/reference.md:273
+#: doc/en/reference.md:271
 msgid "  reorderFields("
 msgstr ""
 
-#: doc/en/reference.md:274 doc/en/reference.md:466 doc/en/reference.md:474 doc/en/reference.md:482 doc/en/reference.md:510
+#: doc/en/reference.md:272 doc/en/reference.md:464 doc/en/reference.md:472 doc/en/reference.md:480 doc/en/reference.md:508
 msgid "    spaceId: \"...\","
 msgstr ""
 
-#: doc/en/reference.md:275
+#: doc/en/reference.md:273
 msgid "    fieldIds: [\"id1\", \"id2\", \"id3\"]"
 msgstr ""
 
-#: doc/en/reference.md:276
+#: doc/en/reference.md:274
 msgid "  ) { id position }"
 msgstr ""
 
-#: doc/en/reference.md:279
+#: doc/en/reference.md:277
 msgid "# Change field type"
 msgstr ""
 
-#: doc/en/reference.md:291
+#: doc/en/reference.md:289
 msgid "## 3. Relations"
 msgstr ""
 
-#: doc/en/reference.md:293
+#: doc/en/reference.md:291
 msgid "A **relation** links a field of a space (field of type `Relation`) to another space. It enables dependent filtering in custom views."
 msgstr ""
 
-#: doc/en/reference.md:295
+#: doc/en/reference.md:293
 msgid "**Recursive relations** (to the same space) are supported, for modeling tree structures (e.g., categories, genealogies)."
 msgstr ""
 
-#: doc/en/reference.md:300
+#: doc/en/reference.md:298
 msgid "# List relations of a space"
 msgstr ""
 
-#: doc/en/reference.md:302
+#: doc/en/reference.md:300
 msgid "  relations(spaceId: \"...\") {"
 msgstr ""
 
-#: doc/en/reference.md:303
+#: doc/en/reference.md:301
 msgid "    id name fromFieldId toSpaceId toFieldId reprFormula"
 msgstr ""
 
-#: doc/en/reference.md:307
+#: doc/en/reference.md:305
 msgid "# Create a relation livres → auteurs"
 msgstr ""
 
-#: doc/en/reference.md:309 doc/en/reference.md:320 doc/en/reference.md:331
+#: doc/en/reference.md:307 doc/en/reference.md:318 doc/en/reference.md:329
 msgid "  createRelation(input: {"
 msgstr ""
 
-#: doc/en/reference.md:310
+#: doc/en/reference.md:308
 msgid "    name: \"livre_auteur\","
 msgstr ""
 
-#: doc/en/reference.md:311 doc/en/reference.md:322
+#: doc/en/reference.md:309 doc/en/reference.md:320
 msgid "    fromSpaceId: \"livres-id\","
 msgstr ""
 
-#: doc/en/reference.md:312
+#: doc/en/reference.md:310
 msgid "    fromFieldId: \"auteur_id-field-id\","
 msgstr ""
 
-#: doc/en/reference.md:313
+#: doc/en/reference.md:311
 msgid "    toSpaceId:   \"auteurs-id\","
 msgstr ""
 
-#: doc/en/reference.md:314 doc/en/reference.md:325 doc/en/reference.md:336
+#: doc/en/reference.md:312 doc/en/reference.md:323 doc/en/reference.md:334
 msgid "    toFieldId:   \"id-field-id\""
 msgstr ""
 
-#: doc/en/reference.md:318
+#: doc/en/reference.md:316
 msgid "# Create a relation livres → genres"
 msgstr ""
 
-#: doc/en/reference.md:321
+#: doc/en/reference.md:319
 msgid "    name: \"livre_genre\","
 msgstr ""
 
-#: doc/en/reference.md:323
+#: doc/en/reference.md:321
 msgid "    fromFieldId: \"genre_id-field-id\","
 msgstr ""
 
-#: doc/en/reference.md:324
+#: doc/en/reference.md:322
 msgid "    toSpaceId:   \"genres-id\","
 msgstr ""
 
-#: doc/en/reference.md:329
+#: doc/en/reference.md:327
 msgid "# Create a relation exemplaires → livres"
 msgstr ""
 
-#: doc/en/reference.md:332
+#: doc/en/reference.md:330
 msgid "    name: \"exemplaire_livre\","
 msgstr ""
 
-#: doc/en/reference.md:333
+#: doc/en/reference.md:331
 msgid "    fromSpaceId: \"exemplaires-id\","
 msgstr ""
 
-#: doc/en/reference.md:334
+#: doc/en/reference.md:332
 msgid "    fromFieldId: \"livre_id-field-id\","
 msgstr ""
 
-#: doc/en/reference.md:335
+#: doc/en/reference.md:333
 msgid "    toSpaceId:   \"livres-id\","
 msgstr ""
 
-#: doc/en/reference.md:341
+#: doc/en/reference.md:339
 msgid "mutation { deleteRelation(id: \"...\") }"
 msgstr ""
 
-#: doc/en/reference.md:343
+#: doc/en/reference.md:341
 msgid "# Set the display formula for a relation livres → auteurs"
 msgstr ""
 
-#: doc/en/reference.md:345
+#: doc/en/reference.md:343
 msgid "  updateRelation(id: \"...\", input: {"
 msgstr ""
 
-#: doc/en/reference.md:346
+#: doc/en/reference.md:344
 msgid "    reprFormula: \"(@particule and @particule .. ' ' or '') .. @nom .. (@prenom and ' ' .. @prenom or '')\""
 msgstr ""
 
-#: doc/en/reference.md:347
+#: doc/en/reference.md:345
 msgid "  }) {"
 msgstr ""
 
-#: doc/en/reference.md:348
+#: doc/en/reference.md:346
 msgid "    id reprFormula"
 msgstr ""
 
-#: doc/en/reference.md:353
+#: doc/en/reference.md:351
 msgid "### Display formula"
 msgstr ""
 
-#: doc/en/reference.md:355
+#: doc/en/reference.md:353
 msgid "A relation can have a **`reprFormula`** field: a MoonScript expression evaluated on each target record to produce a readable label."
 msgstr ""
 
-#: doc/en/reference.md:357
+#: doc/en/reference.md:355
 msgid "- The variable `self` (accessible via `@field`) is bound to the target record."
 msgstr ""
 
-#: doc/en/reference.md:358
+#: doc/en/reference.md:356
 msgid "- Examples: `@libelle`, `@nom .. ' ' .. @prenom`"
 msgstr ""
 
-#: doc/en/reference.md:359
+#: doc/en/reference.md:357
 msgid "- FK fields are automatically resolved: `@genre_id.libelle` follows the `genre_id` relation and returns the `libelle` field of the corresponding genres record."
 msgstr ""
 
-#: doc/en/reference.md:360
+#: doc/en/reference.md:358
 msgid "- Chaining is possible over several levels: `@livre_id.genre_id.libelle` (exemplaire → livre → genre)."
 msgstr ""
 
-#: doc/en/reference.md:361
+#: doc/en/reference.md:359
 msgid "- When defined, FK columns in the grid display the formula result instead of the raw identifier."
 msgstr ""
 
-#: doc/en/reference.md:362
+#: doc/en/reference.md:360
 msgid "- In edit mode, a dropdown lists all target records with their computed label."
 msgstr ""
 
-#: doc/en/reference.md:363
+#: doc/en/reference.md:361
 msgid "- If no formula is defined, the column uses the `_repr` field of the target space (if it exists), otherwise the raw identifier."
 msgstr ""
 
-#: doc/en/reference.md:367
+#: doc/en/reference.md:365
 msgid "## 4. Data (records)"
 msgstr ""
 
-#: doc/en/reference.md:369
+#: doc/en/reference.md:367
 msgid "### Editing in the grid"
 msgstr ""
 
-#: doc/en/reference.md:371
+#: doc/en/reference.md:369
 msgid "- Click a cell to enter edit mode."
 msgstr ""
 
-#: doc/en/reference.md:372
+#: doc/en/reference.md:370
 msgid "- **Enter** or **Tab** to validate and move to the next cell."
 msgstr ""
 
-#: doc/en/reference.md:373
+#: doc/en/reference.md:371
 msgid "- Empty row at the bottom: type to create a new record."
 msgstr ""
 
-#: doc/en/reference.md:374
+#: doc/en/reference.md:372
 msgid "- Check one or more rows then click **[del]** to delete."
 msgstr ""
 
-#: doc/en/reference.md:376
+#: doc/en/reference.md:374
 msgid "### Filtering"
 msgstr ""
 
-#: doc/en/reference.md:378
+#: doc/en/reference.md:376
 msgid "The API supports composable filtering:"
 msgstr ""
 
-#: doc/en/reference.md:382 doc/en/reference.md:417 doc/en/reference.md:428
+#: doc/en/reference.md:380 doc/en/reference.md:415 doc/en/reference.md:426
 msgid "  records("
 msgstr ""
 
-#: doc/en/reference.md:383
+#: doc/en/reference.md:381
 msgid "    spaceId: \"...\""
 msgstr ""
 
-#: doc/en/reference.md:384
+#: doc/en/reference.md:382
 msgid "    filter: {"
 msgstr ""
 
-#: doc/en/reference.md:385
+#: doc/en/reference.md:383
 msgid "      or: ["
 msgstr ""
 
-#: doc/en/reference.md:386
+#: doc/en/reference.md:384
 msgid "        { field: \"titre\", op: STARTS_WITH, value: \"Le\" }"
 msgstr ""
 
-#: doc/en/reference.md:387
+#: doc/en/reference.md:385
 msgid "        { field: \"annee\", op: GTE, value: \"2000\" }"
 msgstr ""
 
-#: doc/en/reference.md:388
+#: doc/en/reference.md:386
 msgid "      ]"
 msgstr ""
 
-#: doc/en/reference.md:390
+#: doc/en/reference.md:388
 msgid "    limit: 50"
 msgstr ""
 
-#: doc/en/reference.md:391
+#: doc/en/reference.md:389
 msgid "    offset: 0"
 msgstr ""
 
-#: doc/en/reference.md:392 doc/en/reference.md:420 doc/en/reference.md:431
+#: doc/en/reference.md:390 doc/en/reference.md:418 doc/en/reference.md:429
 msgid "  ) {"
 msgstr ""
 
-#: doc/en/reference.md:393 doc/en/reference.md:421 doc/en/reference.md:432 doc/en/api.md:222
+#: doc/en/reference.md:391 doc/en/reference.md:419 doc/en/reference.md:430 doc/en/api.md:229
 msgid "    items { id data }"
 msgstr ""
 
-#: doc/en/reference.md:394 doc/en/reference.md:422 doc/en/reference.md:433 doc/en/api.md:221
+#: doc/en/reference.md:392 doc/en/reference.md:420 doc/en/reference.md:431 doc/en/api.md:228
 msgid "    total"
 msgstr ""
 
-#: doc/en/reference.md:399
+#: doc/en/reference.md:397
 msgid "### Filter operators"
 msgstr ""
 
-#: doc/en/reference.md:401
+#: doc/en/reference.md:399
 msgid "| Operator      | Meaning |"
 msgstr ""
 
-#: doc/en/reference.md:402
+#: doc/en/reference.md:400
 msgid "|---------------|---------|"
 msgstr ""
 
-#: doc/en/reference.md:403
+#: doc/en/reference.md:401
 msgid "| `EQ`          | Equal to |"
 msgstr ""
 
-#: doc/en/reference.md:404
+#: doc/en/reference.md:402
 msgid "| `NEQ`         | Not equal to |"
 msgstr ""
 
-#: doc/en/reference.md:405
+#: doc/en/reference.md:403
 msgid "| `LT` / `GT`   | Less / greater (strict) |"
 msgstr ""
 
-#: doc/en/reference.md:406
+#: doc/en/reference.md:404
 msgid "| `LTE` / `GTE` | Less / greater or equal |"
 msgstr ""
 
-#: doc/en/reference.md:407
+#: doc/en/reference.md:405
 msgid "| `CONTAINS`    | Contains substring |"
 msgstr ""
 
-#: doc/en/reference.md:408
+#: doc/en/reference.md:406
 msgid "| `STARTS_WITH` | Starts with |"
 msgstr ""
 
-#: doc/en/reference.md:410
+#: doc/en/reference.md:408
 msgid "### Formula filters and FK traversal"
 msgstr ""
 
-#: doc/en/reference.md:412
+#: doc/en/reference.md:410
 msgid "In addition to field/operator filters, you can express arbitrary conditions in **MoonScript** via `formula`. These formulas have access to the **FK proxy**: relation fields are automatically resolved to the linked record, and multi-level chaining is supported."
 msgstr ""
 
-#: doc/en/reference.md:415
+#: doc/en/reference.md:413
 msgid "# Filter books whose genre is 'Roman' (via FK traversal)"
 msgstr ""
 
-#: doc/en/reference.md:418
+#: doc/en/reference.md:416
 msgid "    spaceId: \"livres-id\""
 msgstr ""
 
-#: doc/en/reference.md:419
+#: doc/en/reference.md:417
 msgid "    filter: { formula: \"@genre_id.libelle == 'Roman'\", language: \"moonscript\" }"
 msgstr ""
 
-#: doc/en/reference.md:426
+#: doc/en/reference.md:424
 msgid "# Filter copies whose book belongs to genre 'Polar' (2 levels)"
 msgstr ""
 
-#: doc/en/reference.md:429
+#: doc/en/reference.md:427
 msgid "    spaceId: \"exemplaires-id\""
 msgstr ""
 
-#: doc/en/reference.md:430
+#: doc/en/reference.md:428
 msgid "    filter: { formula: \"@livre_id.genre_id.libelle == 'Polar'\", language: \"moonscript\" }"
 msgstr ""
 
-#: doc/en/reference.md:438
+#: doc/en/reference.md:436
 msgid "FK formulas also work in **dynamic queries** generated for each space:"
 msgstr ""
 
-#: doc/en/reference.md:442
+#: doc/en/reference.md:440
 msgid "  livres(filter: { formula: \"@genre_id.libelle == 'Roman'\", language: \"moonscript\" }) {"
 msgstr ""
 
-#: doc/en/reference.md:443
+#: doc/en/reference.md:441
 msgid "    items { titre }"
 msgstr ""
 
-#: doc/en/reference.md:448
+#: doc/en/reference.md:446
 msgid "> **Note:** FK resolution first tries direct access by primary key (efficient), with fallback to a full scan for non-PK references. For large spaces, prefer classic field filters when possible."
 msgstr ""
 
-#: doc/en/reference.md:453
+#: doc/en/reference.md:451
 msgid "# Read records"
 msgstr ""
 
-#: doc/en/reference.md:455
+#: doc/en/reference.md:453
 msgid "  records(spaceId: \"...\", limit: 100) {"
 msgstr ""
 
-#: doc/en/reference.md:456
+#: doc/en/reference.md:454
 msgid "    items { id data } total"
 msgstr ""
 
-#: doc/en/reference.md:460
+#: doc/en/reference.md:458
 msgid "# Read a single record"
 msgstr ""
 
-#: doc/en/reference.md:461
+#: doc/en/reference.md:459
 msgid "query { record(spaceId: \"...\", id: \"42\") { id data } }"
 msgstr ""
 
-#: doc/en/reference.md:463
+#: doc/en/reference.md:461
 msgid "# Insert an author"
 msgstr ""
 
-#: doc/en/reference.md:465 doc/en/reference.md:473 doc/en/reference.md:481
+#: doc/en/reference.md:463 doc/en/reference.md:471 doc/en/reference.md:479
 msgid "  insertRecord("
 msgstr ""
 
-#: doc/en/reference.md:467
+#: doc/en/reference.md:465
 msgid "    data: { nom: \"Hugo\", prenom: \"Victor\", particule: \"\" }"
 msgstr ""
 
-#: doc/en/reference.md:468 doc/en/reference.md:476 doc/en/reference.md:484
+#: doc/en/reference.md:466 doc/en/reference.md:474 doc/en/reference.md:482
 msgid "  ) { id data }"
 msgstr ""
 
-#: doc/en/reference.md:471
+#: doc/en/reference.md:469
 msgid "# Insert a book"
 msgstr ""
 
-#: doc/en/reference.md:475
+#: doc/en/reference.md:473
 msgid "    data: { titre: \"Les Misérables\", auteur_id: 1, genre_id: 2, annee: 1862, isbn: \"978-2-07-040850-4\" }"
 msgstr ""
 
-#: doc/en/reference.md:479
+#: doc/en/reference.md:477
 msgid "# Insert a copy"
 msgstr ""
 
-#: doc/en/reference.md:483
+#: doc/en/reference.md:481
 msgid "    data: { livre_id: 1, etat: \"bon\", disponible: true }"
 msgstr ""
 
-#: doc/en/reference.md:487 doc/en/reference.md:515 doc/en/reference.md:674 doc/en/reference.md:761
+#: doc/en/reference.md:485 doc/en/reference.md:513 doc/en/reference.md:672 doc/en/reference.md:759
 msgid "# Update"
 msgstr ""
 
-#: doc/en/reference.md:489
+#: doc/en/reference.md:487
 msgid "  updateRecord(spaceId: \"...\", id: \"42\", data: { nom: \"Martin\" }) {"
 msgstr ""
 
-#: doc/en/reference.md:490
+#: doc/en/reference.md:488
 msgid "    id data"
 msgstr ""
 
-#: doc/en/reference.md:495
+#: doc/en/reference.md:493
 msgid "mutation { deleteRecord(spaceId: \"...\", id: \"42\") }"
 msgstr ""
 
-#: doc/en/reference.md:500
+#: doc/en/reference.md:498
 msgid "## 5. Classic Views"
 msgstr ""
 
-#: doc/en/reference.md:502
+#: doc/en/reference.md:500
 msgid "Classic views are named display configurations for a space (grid, form, or gallery type). Currently, only the `grid` type is fully supported."
 msgstr ""
 
-#: doc/en/reference.md:507
+#: doc/en/reference.md:505
 msgid "# Create a grid view on the book catalog"
 msgstr ""
 
-#: doc/en/reference.md:509
+#: doc/en/reference.md:507
 msgid "  createView("
 msgstr ""
 
-#: doc/en/reference.md:511
+#: doc/en/reference.md:509
 msgid "    input: { name: \"Catalog\", viewType: grid }"
 msgstr ""
 
-#: doc/en/reference.md:512
+#: doc/en/reference.md:510
 msgid "  ) { id }"
 msgstr ""
 
-#: doc/en/reference.md:517
+#: doc/en/reference.md:515
 msgid "  updateView(id: \"...\", input: { name: \"New name\" }) { id name }"
 msgstr ""
 
-#: doc/en/reference.md:521
+#: doc/en/reference.md:519
 msgid "mutation { deleteView(id: \"...\") }"
 msgstr ""
 
-#: doc/en/reference.md:526
+#: doc/en/reference.md:524
 msgid "## 6. Custom Views (YAML)"
 msgstr ""
 
-#: doc/en/reference.md:528
+#: doc/en/reference.md:526
 msgid "Custom views are multi-space dashboards declared in YAML."
 msgstr ""
 
-#: doc/en/reference.md:530
+#: doc/en/reference.md:528
 msgid "### Editor"
 msgstr ""
 
-#: doc/en/reference.md:532
+#: doc/en/reference.md:530
 msgid "Click **“Edit”** on a view to open a fullscreen modal composed of:"
 msgstr ""
 
-#: doc/en/reference.md:534
+#: doc/en/reference.md:532
 msgid "- A **CodeMirror** editor (YAML, monokai theme) for direct YAML editing."
 msgstr ""
 
-#: doc/en/reference.md:535
+#: doc/en/reference.md:533
 msgid "- An **interactive ERD diagram** on the right: clicking a field automatically generates the corresponding YAML in the editor (widget, columns, `depends_on` if FK detected)."
 msgstr ""
 
-#: doc/en/reference.md:537
+#: doc/en/reference.md:535
 msgid "Each ERD box has a pseudo-field **`*`** (first row) that adds the space without column restriction (no `columns` key in YAML)."
 msgstr ""
 
-#: doc/en/reference.md:538
+#: doc/en/reference.md:536
 msgid "Fields are sorted **alphabetically**. Self-relations (e.g., `parent_id → id`) are shown as a loop on the right side of the box."
 msgstr ""
 
-#: doc/en/reference.md:540
+#: doc/en/reference.md:538
 msgid "### Basic structure"
 msgstr ""
 
-#: doc/en/reference.md:544
+#: doc/en/reference.md:542
 msgid "  direction: vertical    # or horizontal"
 msgstr ""
 
-#: doc/en/reference.md:546
+#: doc/en/reference.md:544
 msgid "    - widget: ...        # leaf widget (data grid)"
 msgstr ""
 
-#: doc/en/reference.md:547
+#: doc/en/reference.md:545
 msgid "    - layout: ...        # nested area (recursive)"
 msgstr ""
 
-#: doc/en/reference.md:550
+#: doc/en/reference.md:548
 msgid "### Widget"
 msgstr ""
 
-#: doc/en/reference.md:553 doc/en/reference.md:624 doc/en/reference.md:641
+#: doc/en/reference.md:551 doc/en/reference.md:622 doc/en/reference.md:639
 msgid "widget:"
 msgstr ""
 
-#: doc/en/reference.md:554
+#: doc/en/reference.md:552
 msgid "  id: unique_identifier   # required, unique in the view"
 msgstr ""
 
-#: doc/en/reference.md:555
+#: doc/en/reference.md:553
 msgid "  title: \"Displayed title\"   # optional"
 msgstr ""
 
-#: doc/en/reference.md:556
+#: doc/en/reference.md:554
 msgid "  space: space_name        # Tarantool space name"
 msgstr ""
 
-#: doc/en/reference.md:557
+#: doc/en/reference.md:555
 msgid "  columns: [field1, field2]  # displayed columns (default: all)"
 msgstr ""
 
-#: doc/en/reference.md:558
+#: doc/en/reference.md:556
 msgid "  factor: 2                  # weight in parent area (default: 1)"
 msgstr ""
 
-#: doc/en/reference.md:559
+#: doc/en/reference.md:557
 msgid "  depends_on:                # dependent filtering (optional)"
 msgstr ""
 
-#: doc/en/reference.md:560
+#: doc/en/reference.md:558
 msgid "    widget: parent_widget_id"
 msgstr ""
 
-#: doc/en/reference.md:561
+#: doc/en/reference.md:559
 msgid "    field: join_field        # field in THIS space"
 msgstr ""
 
-#: doc/en/reference.md:562
+#: doc/en/reference.md:560
 msgid "    from_field: id           # field in parent widget (default: id)"
 msgstr ""
 
-#: doc/en/reference.md:565
+#: doc/en/reference.md:563
 msgid "### Dependencies (inter-widget filtering)"
 msgstr ""
 
-#: doc/en/reference.md:567
+#: doc/en/reference.md:565
 msgid "When `depends_on` is set, the widget only displays records whose `field` matches the value of `from_field` in the selected row of the parent widget."
 msgstr ""
 
-#: doc/en/reference.md:569
+#: doc/en/reference.md:567
 msgid "### Proportional factors"
 msgstr ""
 
-#: doc/en/reference.md:571
+#: doc/en/reference.md:569
 msgid "The `factor` indicates the relative space taken by a child in its area. Example: if widget A has `factor: 2` and widget B `factor: 1`, A takes up 2/3 of the space."
 msgstr ""
 
-#: doc/en/reference.md:573
+#: doc/en/reference.md:571
 msgid "### Custom columns"
 msgstr ""
 
-#: doc/en/reference.md:576
+#: doc/en/reference.md:574
 msgid "columns: [prenom, nom, email]   # only these fields, in this order"
 msgstr ""
 
-#: doc/en/reference.md:579
+#: doc/en/reference.md:577
 msgid "If omitted, all fields of the space are displayed."
 msgstr ""
 
-#: doc/en/reference.md:581
+#: doc/en/reference.md:579
 msgid "### Full example"
 msgstr ""
 
-#: doc/en/reference.md:583
+#: doc/en/reference.md:581
 msgid "**Library management** view: book catalog → copies → current loans, with an aggregate widget for loans by genre."
 msgstr ""
 
-#: doc/en/reference.md:591
+#: doc/en/reference.md:589
 msgid "        title: Book catalog"
 msgstr ""
 
-#: doc/en/reference.md:599
+#: doc/en/reference.md:597
 msgid "              title: Copies"
 msgstr ""
 
-#: doc/en/reference.md:608
+#: doc/en/reference.md:606
 msgid "              id: emprunts"
 msgstr ""
 
-#: doc/en/reference.md:609
+#: doc/en/reference.md:607
 msgid "              title: Current loans"
 msgstr ""
 
-#: doc/en/reference.md:619
+#: doc/en/reference.md:617
 msgid "### Aggregate widget"
 msgstr ""
 
-#: doc/en/reference.md:621
+#: doc/en/reference.md:619
 msgid "A widget of type `aggregate` displays a read-only summary table, computed server-side by iterating over the space. It is equivalent to a SQL `GROUP BY`."
 msgstr ""
 
-#: doc/en/reference.md:625 doc/en/reference.md:642
+#: doc/en/reference.md:623 doc/en/reference.md:640
 msgid "  type: aggregate"
 msgstr ""
 
-#: doc/en/reference.md:626 doc/en/reference.md:643
+#: doc/en/reference.md:624 doc/en/reference.md:641
 msgid "  title: \"Loans by genre\""
 msgstr ""
 
-#: doc/en/reference.md:627 doc/en/reference.md:644
+#: doc/en/reference.md:625 doc/en/reference.md:642
 msgid "  space: emprunts"
 msgstr ""
 
-#: doc/en/reference.md:628 doc/en/reference.md:645
+#: doc/en/reference.md:626 doc/en/reference.md:643
 msgid "  groupBy: [genre_id]"
 msgstr ""
 
-#: doc/en/reference.md:629 doc/en/reference.md:646
+#: doc/en/reference.md:627 doc/en/reference.md:644
 msgid "  aggregate:"
 msgstr ""
 
-#: doc/en/reference.md:630 doc/en/reference.md:647
+#: doc/en/reference.md:628 doc/en/reference.md:645
 msgid "    - fn: count"
 msgstr ""
 
-#: doc/en/reference.md:631 doc/en/reference.md:648
+#: doc/en/reference.md:629 doc/en/reference.md:646
 msgid "      as: nb_emprunts"
 msgstr ""
 
-#: doc/en/reference.md:634
+#: doc/en/reference.md:632
 msgid "The `as` alias is optional: if absent, the generated column name is `fn_field` (e.g., `avg_annee`) or `count` for `COUNT(*)`."
 msgstr ""
 
-#: doc/en/reference.md:636
+#: doc/en/reference.md:634
 msgid "#### Computed columns"
 msgstr ""
 
-#: doc/en/reference.md:638
+#: doc/en/reference.md:636
 msgid "You can add client-side computed columns via the `computed` key. Each entry provides an alias (`as`) and a JavaScript expression (`expr`) evaluated on each aggregated row. The `row` object contains all `groupBy` fields and `aggregate` aliases."
 msgstr ""
 
-#: doc/en/reference.md:649
+#: doc/en/reference.md:647
 msgid "  computed:"
 msgstr ""
 
-#: doc/en/reference.md:650
+#: doc/en/reference.md:648
 msgid "    - as: label"
 msgstr ""
 
-#: doc/en/reference.md:651
+#: doc/en/reference.md:649
 msgid "      expr: \"row.genre_id + ' (' + row.nb_emprunts + ')'\""
 msgstr ""
 
-#: doc/en/reference.md:652
+#: doc/en/reference.md:650
 msgid "    - as: status"
 msgstr ""
 
-#: doc/en/reference.md:653
+#: doc/en/reference.md:651
 msgid "      expr: \"row.nb_emprunts > 10 ? 'Active' : 'Low activity'\""
 msgstr ""
 
-#: doc/en/reference.md:656
+#: doc/en/reference.md:654
 msgid "> **Note:** `computed` expressions are pure JavaScript (not MoonScript); they run in the browser after receiving the aggregated data."
 msgstr ""
 
-#: doc/en/reference.md:658
+#: doc/en/reference.md:656
 msgid "![Aggregate widget](../img/aggregate-widget.png)"
 msgstr ""
 
-#: doc/en/reference.md:663 doc/en/reference.md:839
+#: doc/en/reference.md:661 doc/en/reference.md:837
 msgid "# List"
 msgstr ""
 
-#: doc/en/reference.md:664
+#: doc/en/reference.md:662
 msgid "query { customViews { id name yaml } }"
 msgstr ""
 
-#: doc/en/reference.md:668
+#: doc/en/reference.md:666
 msgid "  createCustomView(input: {"
 msgstr ""
 
-#: doc/en/reference.md:669
+#: doc/en/reference.md:667
 msgid "    name: \"Dashboard\","
 msgstr ""
 
-#: doc/en/reference.md:670
+#: doc/en/reference.md:668
 msgid "    yaml: \"layout:\\n  direction: vertical\\n  children: []\\n\""
 msgstr ""
 
-#: doc/en/reference.md:676
+#: doc/en/reference.md:674
 msgid "  updateCustomView(id: \"...\", input: { yaml: \"...\" }) { id yaml }"
 msgstr ""
 
-#: doc/en/reference.md:680
+#: doc/en/reference.md:678
 msgid "mutation { deleteCustomView(id: \"...\") }"
 msgstr ""
 
-#: doc/en/reference.md:682
+#: doc/en/reference.md:680
 msgid "# Direct aggregate query: loans by genre"
 msgstr ""
 
-#: doc/en/reference.md:684
+#: doc/en/reference.md:682
 msgid "  aggregateSpace("
 msgstr ""
 
-#: doc/en/reference.md:685
+#: doc/en/reference.md:683
 msgid "    spaceName: \"emprunts\","
 msgstr ""
 
-#: doc/en/reference.md:686
+#: doc/en/reference.md:684
 msgid "    groupBy: [\"genre_id\"],"
 msgstr ""
 
-#: doc/en/reference.md:687
+#: doc/en/reference.md:685
 msgid "    aggregate: ["
 msgstr ""
 
-#: doc/en/reference.md:688
+#: doc/en/reference.md:686
 msgid "      { fn: \"count\", as: \"nb_emprunts\" }"
 msgstr ""
 
-#: doc/en/reference.md:689
+#: doc/en/reference.md:687
 msgid "    ]"
 msgstr ""
 
-#: doc/en/reference.md:690
+#: doc/en/reference.md:688
 msgid "  )"
 msgstr ""
 
-#: doc/en/reference.md:696
+#: doc/en/reference.md:694
 msgid "## 7. Data Views (Saved Queries)"
 msgstr ""
 
-#: doc/en/reference.md:698
+#: doc/en/reference.md:696
 msgid "**Data Views** allow saving a specific configuration of a space (filtering, sorting, grouping, and column selection) as a reusable entity."
 msgstr ""
 
-#: doc/en/reference.md:700
+#: doc/en/reference.md:698
 msgid "### Features"
 msgstr ""
 
-#: doc/en/reference.md:702
+#: doc/en/reference.md:700
 msgid "- **Filtering**: Persistent filter (MoonScript or UI-based) applied to the source space."
 msgstr ""
 
-#: doc/en/reference.md:703
+#: doc/en/reference.md:701
 msgid "- **Grouping & Aggregation**: Server-side grouping (GROUP BY) and aggregations (COUNT, SUM, AVG, MIN, MAX)."
 msgstr ""
 
-#: doc/en/reference.md:704
+#: doc/en/reference.md:702
 msgid "- **Column Mapping**: Custom selection and naming of output columns."
 msgstr ""
 
-#: doc/en/reference.md:705
+#: doc/en/reference.md:703
 msgid "- **Ordering**: Default sort order."
 msgstr ""
 
-#: doc/en/reference.md:706
+#: doc/en/reference.md:704
 msgid "- **Widget Source**: Data Views can be used as sources for widgets in **Custom Views**, allowing dashboards to display pre-processed or aggregated data."
 msgstr ""
 
-#: doc/en/reference.md:711
+#: doc/en/reference.md:709
 msgid "# List all data views"
 msgstr ""
 
-#: doc/en/reference.md:713
+#: doc/en/reference.md:711
 msgid "  dataViews {"
 msgstr ""
 
-#: doc/en/reference.md:716
+#: doc/en/reference.md:714
 msgid "    sourceSpace"
 msgstr ""
 
-#: doc/en/reference.md:717
+#: doc/en/reference.md:715
 msgid "    config {"
 msgstr ""
 
-#: doc/en/reference.md:718
+#: doc/en/reference.md:716
 msgid "      columns"
 msgstr ""
 
-#: doc/en/reference.md:719
+#: doc/en/reference.md:717
 msgid "      filter { field op value }"
 msgstr ""
 
-#: doc/en/reference.md:720
+#: doc/en/reference.md:718
 msgid "      groupBy"
 msgstr ""
 
-#: doc/en/reference.md:721
+#: doc/en/reference.md:719
 msgid "      aggregates { fn field as }"
 msgstr ""
 
-#: doc/en/reference.md:722
+#: doc/en/reference.md:720
 msgid "      sort { field order }"
 msgstr ""
 
-#: doc/en/reference.md:723
+#: doc/en/reference.md:721
 msgid "      limit"
 msgstr ""
 
-#: doc/en/reference.md:728
+#: doc/en/reference.md:726
 msgid "# Execute a data view (returns raw JSON objects)"
 msgstr ""
 
-#: doc/en/reference.md:730
+#: doc/en/reference.md:728
 msgid "  executeDataView(id: \"view_id\", limit: 50, offset: 0)"
 msgstr ""
 
-#: doc/en/reference.md:733
+#: doc/en/reference.md:731
 msgid "# Create a filtered Data View"
 msgstr ""
 
-#: doc/en/reference.md:735 doc/en/reference.md:747
+#: doc/en/reference.md:733 doc/en/reference.md:745
 msgid "  createDataView(input: {"
 msgstr ""
 
-#: doc/en/reference.md:736
+#: doc/en/reference.md:734
 msgid "    name: \"Active Tasks\","
 msgstr ""
 
-#: doc/en/reference.md:737
+#: doc/en/reference.md:735
 msgid "    sourceSpace: \"tasks\","
 msgstr ""
 
-#: doc/en/reference.md:738 doc/en/reference.md:750
+#: doc/en/reference.md:736 doc/en/reference.md:748
 msgid "    config: {"
 msgstr ""
 
-#: doc/en/reference.md:739
+#: doc/en/reference.md:737
 msgid "      filter: { field: \"status\", op: EQ, value: \"active\" },"
 msgstr ""
 
-#: doc/en/reference.md:740
+#: doc/en/reference.md:738
 msgid "      columns: [\"title\", \"due_date\", \"assigned_to\"]"
 msgstr ""
 
-#: doc/en/reference.md:745
+#: doc/en/reference.md:743
 msgid "# Create an aggregated Data View (Stats by Category)"
 msgstr ""
 
-#: doc/en/reference.md:748
+#: doc/en/reference.md:746
 msgid "    name: \"Revenue by Category\","
 msgstr ""
 
-#: doc/en/reference.md:749
+#: doc/en/reference.md:747
 msgid "    sourceSpace: \"sales\","
 msgstr ""
 
-#: doc/en/reference.md:751
+#: doc/en/reference.md:749
 msgid "      groupBy: [\"category\"],"
 msgstr ""
 
-#: doc/en/reference.md:752
+#: doc/en/reference.md:750
 msgid "      aggregates: ["
 msgstr ""
 
-#: doc/en/reference.md:753
+#: doc/en/reference.md:751
 msgid "        { fn: \"sum\", field: \"amount\", as: \"total_revenue\" },"
 msgstr ""
 
-#: doc/en/reference.md:754
+#: doc/en/reference.md:752
 msgid "        { fn: \"count\", as: \"count\" }"
 msgstr ""
 
-#: doc/en/reference.md:755
+#: doc/en/reference.md:753
 msgid "      ],"
 msgstr ""
 
-#: doc/en/reference.md:756
+#: doc/en/reference.md:754
 msgid "      sort: { field: \"total_revenue\", order: \"desc\" }"
 msgstr ""
 
-#: doc/en/reference.md:763
+#: doc/en/reference.md:761
 msgid "  updateDataView(id: \"...\", input: { name: \"New Name\" }) { id name }"
 msgstr ""
 
-#: doc/en/reference.md:768
+#: doc/en/reference.md:766
 msgid "  deleteDataView(id: \"...\")"
 msgstr ""
 
-#: doc/en/reference.md:772
+#: doc/en/reference.md:770
 msgid "### Usage in Widgets"
 msgstr ""
 
-#: doc/en/reference.md:774
+#: doc/en/reference.md:772
 msgid "When adding a widget to a **Custom View** (Page), you can select a **Data View** instead of a raw **Space**. "
 msgstr ""
 
-#: doc/en/reference.md:776
+#: doc/en/reference.md:774
 msgid "In the YAML layout, the `space` key refers either to a Space name or a Data View name:"
 msgstr ""
 
-#: doc/en/reference.md:779
+#: doc/en/reference.md:777
 msgid "# Widget displaying an aggregated Data View"
 msgstr ""
 
-#: doc/en/reference.md:781
+#: doc/en/reference.md:779
 msgid "    id: stats_widget"
 msgstr ""
 
-#: doc/en/reference.md:782
+#: doc/en/reference.md:780
 msgid "    title: Monthly Revenue"
 msgstr ""
 
-#: doc/en/reference.md:783
+#: doc/en/reference.md:781
 msgid "    space: revenue_by_month  # Name of a Data View"
 msgstr ""
 
-#: doc/en/reference.md:784
+#: doc/en/reference.md:782
 msgid "    columns: [month, total_revenue]"
 msgstr ""
 
-#: doc/en/reference.md:789
+#: doc/en/reference.md:787
 msgid "## 8. Authentication"
 msgstr ""
 
-#: doc/en/reference.md:791
+#: doc/en/reference.md:789
 msgid "TGui uses **Bearer tokens** (SHA-256 + salt, stored in Tarantool session). The token is persisted in `localStorage` and automatically sent by the client."
 msgstr ""
 
-#: doc/en/reference.md:793
+#: doc/en/reference.md:791
 msgid "### Login flow"
 msgstr ""
 
-#: doc/en/reference.md:797
+#: doc/en/reference.md:795
 msgid "  login(username: \"alice\", password: \"secret\") {"
 msgstr ""
 
-#: doc/en/reference.md:798
+#: doc/en/reference.md:796
 msgid "    token"
 msgstr ""
 
-#: doc/en/reference.md:799
+#: doc/en/reference.md:797
 msgid "    user { id username email groups { id name } }"
 msgstr ""
 
-#: doc/en/reference.md:804
+#: doc/en/reference.md:802
 msgid "The token is then sent in the HTTP header:"
 msgstr ""
 
-#: doc/en/reference.md:807
+#: doc/en/reference.md:805
 msgid "Authorization: Bearer <token>"
 msgstr ""
 
-#: doc/en/reference.md:810
+#: doc/en/reference.md:808
 msgid "### Logout"
 msgstr ""
 
-#: doc/en/reference.md:813
+#: doc/en/reference.md:811
 msgid "mutation { logout }"
 msgstr ""
 
-#: doc/en/reference.md:816
+#: doc/en/reference.md:814
 msgid "### Current user"
 msgstr ""
 
-#: doc/en/reference.md:819
+#: doc/en/reference.md:817
 msgid "query { me { id username email groups { id name } } }"
 msgstr ""
 
-#: doc/en/reference.md:822
+#: doc/en/reference.md:820
 msgid "### Change own password"
 msgstr ""
 
-#: doc/en/reference.md:826
+#: doc/en/reference.md:824
 msgid "  changePassword(currentPassword: \"old\", newPassword: \"new\")"
 msgstr ""
 
-#: doc/en/reference.md:832
+#: doc/en/reference.md:830
 msgid "## 8. Users and Groups"
 msgstr ""
 
-#: doc/en/reference.md:834
+#: doc/en/reference.md:832
 msgid "These operations require **membership in the `admin` group**."
 msgstr ""
 
-#: doc/en/reference.md:840
+#: doc/en/reference.md:838
 msgid "query { users { id username email groups { id name } } }"
 msgstr ""
 
-#: doc/en/reference.md:842
+#: doc/en/reference.md:840
 msgid "# Create (admin only)"
 msgstr ""
 
-#: doc/en/reference.md:844
+#: doc/en/reference.md:842
 msgid "  createUser(input: {"
 msgstr ""
 
-#: doc/en/reference.md:845
+#: doc/en/reference.md:843
 msgid "    username: \"bob\","
 msgstr ""
 
-#: doc/en/reference.md:846
+#: doc/en/reference.md:844
 msgid "    email: \"bob@ex.com\","
 msgstr ""
 
-#: doc/en/reference.md:847
+#: doc/en/reference.md:845
 msgid "    password: \"secret\""
 msgstr ""
 
-#: doc/en/reference.md:851
+#: doc/en/reference.md:849
 msgid "# Force password change (admin only)"
 msgstr ""
 
-#: doc/en/reference.md:853
+#: doc/en/reference.md:851
 msgid "  adminSetPassword(userId: \"...\", newPassword: \"new\")"
 msgstr ""
 
-#: doc/en/reference.md:860
+#: doc/en/reference.md:858
 msgid "# List (with members and permissions)"
 msgstr ""
 
-#: doc/en/reference.md:862
+#: doc/en/reference.md:860
 msgid "  groups {"
 msgstr ""
 
-#: doc/en/reference.md:863
+#: doc/en/reference.md:861
 msgid "    id name description"
 msgstr ""
 
-#: doc/en/reference.md:864
+#: doc/en/reference.md:862
 msgid "    members { id username }"
 msgstr ""
 
-#: doc/en/reference.md:865
+#: doc/en/reference.md:863
 msgid "    permissions { id resourceType resourceId level }"
 msgstr ""
 
-#: doc/en/reference.md:871
+#: doc/en/reference.md:869
 msgid "  createGroup(input: { name: \"editors\", description: \"...\" }) { id }"
 msgstr ""
 
-#: doc/en/reference.md:875
+#: doc/en/reference.md:873
 msgid "mutation { deleteGroup(id: \"...\") }"
 msgstr ""
 
-#: doc/en/reference.md:877
+#: doc/en/reference.md:875
 msgid "# Add member"
 msgstr ""
 
-#: doc/en/reference.md:878
+#: doc/en/reference.md:876
 msgid "mutation { addMember(userId: \"...\", groupId: \"...\") }"
 msgstr ""
 
-#: doc/en/reference.md:880
+#: doc/en/reference.md:878
 msgid "# Remove member"
 msgstr ""
 
-#: doc/en/reference.md:881
+#: doc/en/reference.md:879
 msgid "mutation { removeMember(userId: \"...\", groupId: \"...\") }"
 msgstr ""
 
-#: doc/en/reference.md:886
+#: doc/en/reference.md:884
 msgid "## 9. Permissions"
 msgstr ""
 
-#: doc/en/reference.md:888
+#: doc/en/reference.md:886
 msgid "Permissions are granted to a **group** on a resource."
 msgstr ""
 
-#: doc/en/reference.md:890
+#: doc/en/reference.md:888
 msgid "| Level   | Description |"
 msgstr ""
 
-#: doc/en/reference.md:891
+#: doc/en/reference.md:889
 msgid "|---------|-------------|"
 msgstr ""
 
-#: doc/en/reference.md:892
+#: doc/en/reference.md:890
 msgid "| `read`  | Read-only |"
 msgstr ""
 
-#: doc/en/reference.md:893
+#: doc/en/reference.md:891
 msgid "| `write` | Read + write |"
 msgstr ""
 
-#: doc/en/reference.md:894
+#: doc/en/reference.md:892
 msgid "| `admin` | Full control of the resource |"
 msgstr ""
 
-#: doc/en/reference.md:897
+#: doc/en/reference.md:895
 msgid "# Grant a permission"
 msgstr ""
 
-#: doc/en/reference.md:899
+#: doc/en/reference.md:897
 msgid "  grant(groupId: \"...\", input: {"
 msgstr ""
 
-#: doc/en/reference.md:900
+#: doc/en/reference.md:898
 msgid "    resourceType: \"space\","
 msgstr ""
 
-#: doc/en/reference.md:901
+#: doc/en/reference.md:899
 msgid "    resourceId: \"...\","
 msgstr ""
 
-#: doc/en/reference.md:902
+#: doc/en/reference.md:900
 msgid "    level: write"
 msgstr ""
 
-#: doc/en/reference.md:906
+#: doc/en/reference.md:904
 msgid "# Revoke"
 msgstr ""
 
-#: doc/en/reference.md:907
+#: doc/en/reference.md:905
 msgid "mutation { revoke(permissionId: \"...\") }"
 msgstr ""
 
-#: doc/en/reference.md:912
+#: doc/en/reference.md:910
 msgid "## 10. Export and Import Snapshots"
 msgstr ""
 
-#: doc/en/reference.md:914
+#: doc/en/reference.md:912
 msgid "The **Export / Import** section of the Admin panel lets you save the entire TGui application (schema, custom views, groups, permissions, and optionally data) to a `.tdb.yaml` file, then restore it on another instance."
 msgstr ""
 
-#: doc/en/reference.md:916
+#: doc/en/reference.md:914
 msgid "### Export"
 msgstr ""
 
-#: doc/en/reference.md:918
+#: doc/en/reference.md:916
 msgid "Two export modes are available:"
 msgstr ""
 
-#: doc/en/reference.md:920
+#: doc/en/reference.md:918
 msgid "- **Structure only** (`exportSnapshot(includeData: false)`): exports the full schema (spaces, fields, relations, custom views, groups, permissions) without data. Useful for sharing an application model."
 msgstr ""
 
-#: doc/en/reference.md:921
+#: doc/en/reference.md:919
 msgid "- **Structure + data** (`exportSnapshot(includeData: true)`): also exports all rows of each space. Useful for a full backup or migration."
 msgstr ""
 
-#: doc/en/reference.md:923
+#: doc/en/reference.md:921
 msgid "The produced file is readable YAML:"
 msgstr ""
 
-#: doc/en/reference.md:926
+#: doc/en/reference.md:924
 msgid "version: \"1\""
 msgstr ""
 
-#: doc/en/reference.md:927
+#: doc/en/reference.md:925
 msgid "exported_at: \"2026-03-08T12:00:00\""
 msgstr ""
 
-#: doc/en/reference.md:928
+#: doc/en/reference.md:926
 msgid "schema:"
 msgstr ""
 
-#: doc/en/reference.md:929
+#: doc/en/reference.md:927
 msgid "  spaces:"
 msgstr ""
 
-#: doc/en/reference.md:930
+#: doc/en/reference.md:928
 msgid "    - name: auteurs"
 msgstr ""
 
-#: doc/en/reference.md:931 doc/en/reference.md:946 doc/en/reference.md:951
+#: doc/en/reference.md:929 doc/en/reference.md:944 doc/en/reference.md:949
 msgid "      fields:"
 msgstr ""
 
-#: doc/en/reference.md:932
+#: doc/en/reference.md:930
 msgid "        - name: particule"
 msgstr ""
 
-#: doc/en/reference.md:933 doc/en/reference.md:936 doc/en/reference.md:939 doc/en/reference.md:942 doc/en/reference.md:948 doc/en/reference.md:953 doc/en/reference.md:962 doc/en/reference.md:965 doc/en/reference.md:971
+#: doc/en/reference.md:931 doc/en/reference.md:934 doc/en/reference.md:937 doc/en/reference.md:940 doc/en/reference.md:946 doc/en/reference.md:951 doc/en/reference.md:960 doc/en/reference.md:963 doc/en/reference.md:969
 msgid "          fieldType: String"
 msgstr ""
 
-#: doc/en/reference.md:934 doc/en/reference.md:940 doc/en/reference.md:957 doc/en/reference.md:960 doc/en/reference.md:963 doc/en/reference.md:966 doc/en/reference.md:969
+#: doc/en/reference.md:932 doc/en/reference.md:938 doc/en/reference.md:955 doc/en/reference.md:958 doc/en/reference.md:961 doc/en/reference.md:964 doc/en/reference.md:967
 msgid "          notNull: false"
 msgstr ""
 
-#: doc/en/reference.md:935
+#: doc/en/reference.md:933
 msgid "        - name: nom"
 msgstr ""
 
-#: doc/en/reference.md:937 doc/en/reference.md:949 doc/en/reference.md:954
+#: doc/en/reference.md:935 doc/en/reference.md:947 doc/en/reference.md:952
 msgid "          notNull: true"
 msgstr ""
 
-#: doc/en/reference.md:938
+#: doc/en/reference.md:936
 msgid "        - name: prenom"
 msgstr ""
 
-#: doc/en/reference.md:941
+#: doc/en/reference.md:939
 msgid "        - name: nom_complet"
 msgstr ""
 
-#: doc/en/reference.md:943
+#: doc/en/reference.md:941
 msgid "          formula: \"=> parts = {}\\ntable.insert(parts, @prenom) if @prenom and @prenom != \\\"\\\"\\ntable.insert(parts, @particule) if @particule and @particule != \\\"\\\"\\ntable.insert(parts, @nom) if @nom and @nom != \\\"\\\"\\ntable.concat(parts, \\\" \\\" )\""
 msgstr ""
 
-#: doc/en/reference.md:944 doc/en/reference.md:974
+#: doc/en/reference.md:942 doc/en/reference.md:972
 msgid "          language: moonscript"
 msgstr ""
 
-#: doc/en/reference.md:945
+#: doc/en/reference.md:943
 msgid "    - name: genres"
 msgstr ""
 
-#: doc/en/reference.md:947
+#: doc/en/reference.md:945
 msgid "        - name: libelle"
 msgstr ""
 
-#: doc/en/reference.md:950
+#: doc/en/reference.md:948
 msgid "    - name: livres"
 msgstr ""
 
-#: doc/en/reference.md:952
+#: doc/en/reference.md:950
 msgid "        - name: titre"
 msgstr ""
 
-#: doc/en/reference.md:955
+#: doc/en/reference.md:953
 msgid "        - name: auteur_id"
 msgstr ""
 
-#: doc/en/reference.md:956 doc/en/reference.md:959
+#: doc/en/reference.md:954 doc/en/reference.md:957
 msgid "          fieldType: Relation"
 msgstr ""
 
-#: doc/en/reference.md:958
+#: doc/en/reference.md:956
 msgid "        - name: genre_id"
 msgstr ""
 
-#: doc/en/reference.md:961
+#: doc/en/reference.md:959
 msgid "        - name: cote"
 msgstr ""
 
-#: doc/en/reference.md:964
+#: doc/en/reference.md:962
 msgid "        - name: isbn"
 msgstr ""
 
-#: doc/en/reference.md:967
+#: doc/en/reference.md:965
 msgid "        - name: annee"
 msgstr ""
 
-#: doc/en/reference.md:968
+#: doc/en/reference.md:966
 msgid "          fieldType: Int"
 msgstr ""
 
-#: doc/en/reference.md:970
+#: doc/en/reference.md:968
 msgid "        - name: cote_auto"
 msgstr ""
 
-#: doc/en/reference.md:972
+#: doc/en/reference.md:970
 msgid "          formula: \"=> prefix = (@titre or \\\"\\\")\\\\upper!\\\\sub(1, 3)\\\\gsub(\\\"[^%A]\\\", \\\"\\\")\\nannee  = if @annee then tostring(@annee) else \\\"????\\\"\\n\\\"#{prefix}-#{annee}\\\"\""
 msgstr ""
 
-#: doc/en/reference.md:973
+#: doc/en/reference.md:971
 msgid "          triggerFields: [titre, annee]"
 msgstr ""
 
-#: doc/en/reference.md:975
+#: doc/en/reference.md:973
 msgid "      views:"
 msgstr ""
 
-#: doc/en/reference.md:976
+#: doc/en/reference.md:974
 msgid "        - name: Catalog"
 msgstr ""
 
-#: doc/en/reference.md:977
+#: doc/en/reference.md:975
 msgid "          viewType: Grid"
 msgstr ""
 
-#: doc/en/reference.md:978
+#: doc/en/reference.md:976
 msgid "  relations:"
 msgstr ""
 
-#: doc/en/reference.md:979 doc/en/reference.md:983
+#: doc/en/reference.md:977 doc/en/reference.md:981
 msgid "    - fromSpace: livres"
 msgstr ""
 
-#: doc/en/reference.md:980
+#: doc/en/reference.md:978
 msgid "      fromField: auteur_id"
 msgstr ""
 
-#: doc/en/reference.md:981
+#: doc/en/reference.md:979
 msgid "      toSpace: auteurs"
 msgstr ""
 
-#: doc/en/reference.md:982 doc/en/reference.md:986 doc/en/reference.md:990
+#: doc/en/reference.md:980 doc/en/reference.md:984 doc/en/reference.md:988
 msgid "      toField: id"
 msgstr ""
 
-#: doc/en/reference.md:984
+#: doc/en/reference.md:982
 msgid "      fromField: genre_id"
 msgstr ""
 
-#: doc/en/reference.md:985
+#: doc/en/reference.md:983
 msgid "      toSpace: genres"
 msgstr ""
 
-#: doc/en/reference.md:987
+#: doc/en/reference.md:985
 msgid "    - fromSpace: exemplaires"
 msgstr ""
 
-#: doc/en/reference.md:988
+#: doc/en/reference.md:986
 msgid "      fromField: livre_id"
 msgstr ""
 
-#: doc/en/reference.md:989
+#: doc/en/reference.md:987
 msgid "      toSpace: livres"
 msgstr ""
 
-#: doc/en/reference.md:991
+#: doc/en/reference.md:989
 msgid "  custom_views:"
 msgstr ""
 
-#: doc/en/reference.md:992
+#: doc/en/reference.md:990
 msgid "    - name: Library management"
 msgstr ""
 
-#: doc/en/reference.md:993
+#: doc/en/reference.md:991
 msgid "      yaml: |"
 msgstr ""
 
-#: doc/en/reference.md:994
+#: doc/en/reference.md:992
 msgid "        layout: …"
 msgstr ""
 
-#: doc/en/reference.md:995
+#: doc/en/reference.md:993
 msgid "  groups:"
 msgstr ""
 
-#: doc/en/reference.md:996
+#: doc/en/reference.md:994
 msgid "    - name: admin"
 msgstr ""
 
-#: doc/en/reference.md:997
+#: doc/en/reference.md:995
 msgid "      members: [admin]"
 msgstr ""
 
-#: doc/en/reference.md:998
+#: doc/en/reference.md:996
 msgid "      permissions:"
 msgstr ""
 
-#: doc/en/reference.md:999
+#: doc/en/reference.md:997
 msgid "        - resourceType: space"
 msgstr ""
 
-#: doc/en/reference.md:1000
+#: doc/en/reference.md:998
 msgid "          level: admin"
 msgstr ""
 
-#: doc/en/reference.md:1001
+#: doc/en/reference.md:999
 msgid "data:                    # absent if structure only export"
 msgstr ""
 
-#: doc/en/reference.md:1002
+#: doc/en/reference.md:1000
 msgid "  auteurs:"
 msgstr ""
 
-#: doc/en/reference.md:1003
+#: doc/en/reference.md:1001
 msgid "    - {nom: Hugo, prenom: Victor}"
 msgstr ""
 
-#: doc/en/reference.md:1004
+#: doc/en/reference.md:1002
 msgid "  genres:"
 msgstr ""
 
-#: doc/en/reference.md:1005
+#: doc/en/reference.md:1003
 msgid "    - {libelle: Roman}"
 msgstr ""
 
-#: doc/en/reference.md:1006
+#: doc/en/reference.md:1004
 msgid "  livres:"
 msgstr ""
 
-#: doc/en/reference.md:1007
+#: doc/en/reference.md:1005
 msgid "    - {titre: \"Les Misérables\", auteur_id: 1, genre_id: 1, annee: 1862}"
 msgstr ""
 
-#: doc/en/reference.md:1010
+#: doc/en/reference.md:1008
 msgid "Internal identifiers are excluded; matching on import is done by **name**."
 msgstr ""
 
-#: doc/en/reference.md:1012
+#: doc/en/reference.md:1010
 msgid "### Import"
 msgstr ""
 
-#: doc/en/reference.md:1015
+#: doc/en/reference.md:1013
 msgid "2. TGui automatically computes a **diff** between the file's schema and the current schema, and displays it with color codes:"
 msgstr ""
 
-#: doc/en/reference.md:1016
+#: doc/en/reference.md:1014
 msgid "   - green **Create**: the item will be added."
 msgstr ""
 
-#: doc/en/reference.md:1017
+#: doc/en/reference.md:1015
 msgid "   - red **Delete**: the item will be removed (Replace mode only)."
 msgstr ""
 
-#: doc/en/reference.md:1018
+#: doc/en/reference.md:1016
 msgid "   - orange **Modify**: a field's type has changed."
 msgstr ""
 
-#: doc/en/reference.md:1019
+#: doc/en/reference.md:1017
 msgid "3. Choose the **import mode** and confirm."
 msgstr ""
 
-#: doc/en/reference.md:1021
+#: doc/en/reference.md:1019
 msgid "### Import modes"
 msgstr ""
 
-#: doc/en/reference.md:1023
+#: doc/en/reference.md:1021
 msgid "| Mode         | Behavior |"
 msgstr ""
 
-#: doc/en/reference.md:1024
+#: doc/en/reference.md:1022
 msgid "|--------------|----------|"
 msgstr ""
 
-#: doc/en/reference.md:1025
+#: doc/en/reference.md:1023
 msgid "| **Merge**    | Creates missing spaces, fields, relations, views, and groups. Existing items (same name) are left untouched. |"
 msgstr ""
 
-#: doc/en/reference.md:1026
+#: doc/en/reference.md:1024
 msgid "| **Replace**  | First deletes all existing spaces and groups, then recreates everything from the snapshot. Warning: all existing data is lost. |"
 msgstr ""
 
-#: doc/en/reference.md:1028
+#: doc/en/reference.md:1026
 msgid "The result indicates the number of items created, ignored, and any errors."
 msgstr ""
 
-#: doc/en/reference.md:1030
+#: doc/en/reference.md:1028
 msgid "### Corresponding GraphQL API"
 msgstr ""
 
-#: doc/en/reference.md:1033
+#: doc/en/reference.md:1031
 msgid "# Export"
 msgstr ""
 
-#: doc/en/reference.md:1034
+#: doc/en/reference.md:1032
 msgid "query Export($includeData: Boolean!) {"
 msgstr ""
 
-#: doc/en/reference.md:1035
+#: doc/en/reference.md:1033
 msgid "  exportSnapshot(includeData: $includeData)"
 msgstr ""
 
-#: doc/en/reference.md:1038
+#: doc/en/reference.md:1036
 msgid "# Diff preview"
 msgstr ""
 
-#: doc/en/reference.md:1039
+#: doc/en/reference.md:1037
 msgid "query Diff($yaml: String!) {"
 msgstr ""
 
-#: doc/en/reference.md:1040
+#: doc/en/reference.md:1038
 msgid "  diffSnapshot(yaml: $yaml) {"
 msgstr ""
 
-#: doc/en/reference.md:1041
+#: doc/en/reference.md:1039
 msgid "    spacesToCreate"
 msgstr ""
 
-#: doc/en/reference.md:1042
+#: doc/en/reference.md:1040
 msgid "    spacesToDelete"
 msgstr ""
 
-#: doc/en/reference.md:1043
+#: doc/en/reference.md:1041
 msgid "    customViewsToCreate"
 msgstr ""
 
-#: doc/en/reference.md:1044
+#: doc/en/reference.md:1042
 msgid "    customViewsToUpdate"
 msgstr ""
 
-#: doc/en/reference.md:1048
+#: doc/en/reference.md:1046
 msgid "# Import"
 msgstr ""
 
-#: doc/en/reference.md:1049
+#: doc/en/reference.md:1047
 msgid "mutation Import($yaml: String!, $mode: ImportMode!) {"
 msgstr ""
 
-#: doc/en/reference.md:1050
+#: doc/en/reference.md:1048
 msgid "  importSnapshot(yaml: $yaml, mode: $mode) {"
 msgstr ""
 
-#: doc/en/reference.md:1051
+#: doc/en/reference.md:1049
 msgid "    ok"
 msgstr ""
 
-#: doc/en/reference.md:1052
+#: doc/en/reference.md:1050
 msgid "    created"
 msgstr ""
 
-#: doc/en/reference.md:1053
+#: doc/en/reference.md:1051
 msgid "    skipped"
 msgstr ""
 
-#: doc/en/reference.md:1054
+#: doc/en/reference.md:1052
 msgid "    errors"
 msgstr ""
 
-#: doc/en/reference.md:1061
+#: doc/en/reference.md:1059
 msgid "## 11. Full GraphQL API"
 msgstr ""
 
-#: doc/en/reference.md:1063
+#: doc/en/reference.md:1061
 msgid "### Queries"
 msgstr ""
 
-#: doc/en/reference.md:1065
+#: doc/en/reference.md:1063
 msgid "| Query | Description |"
 msgstr ""
 
-#: doc/en/reference.md:1066
+#: doc/en/reference.md:1064
 msgid "|-------|-------------|"
 msgstr ""
 
-#: doc/en/reference.md:1067
+#: doc/en/reference.md:1065
 msgid "| `spaces` | List all spaces |"
 msgstr ""
 
-#: doc/en/reference.md:1068
+#: doc/en/reference.md:1066
 msgid "| `space(id)` | Space details |"
 msgstr ""
 
-#: doc/en/reference.md:1069
+#: doc/en/reference.md:1067
 msgid "| `views(spaceId)` | Classic views of a space |"
 msgstr ""
 
-#: doc/en/reference.md:1070
+#: doc/en/reference.md:1068
 msgid "| `view(id)` | Classic view details |"
 msgstr ""
 
-#: doc/en/reference.md:1071
+#: doc/en/reference.md:1069
 msgid "| `customViews` | All custom views |"
 msgstr ""
 
-#: doc/en/reference.md:1072
+#: doc/en/reference.md:1070
 msgid "| `customView(id)` | Custom view details |"
 msgstr ""
 
-#: doc/en/reference.md:1073
+#: doc/en/reference.md:1071
 msgid "| `records(spaceId, filter, limit, offset)` | Paginated and filtered records |"
 msgstr ""
 
-#: doc/en/reference.md:1074
+#: doc/en/reference.md:1072
 msgid "| `record(spaceId, id)` | A single record |"
 msgstr ""
 
-#: doc/en/reference.md:1075
+#: doc/en/reference.md:1073
 msgid "| `relations(spaceId)` | Relations of a space |"
 msgstr ""
 
-#: doc/en/reference.md:1076
+#: doc/en/reference.md:1074
 msgid "| `me` | Connected user |"
 msgstr ""
 
-#: doc/en/reference.md:1077
+#: doc/en/reference.md:1075
 msgid "| `users` | All users (admin) |"
 msgstr ""
 
-#: doc/en/reference.md:1078
+#: doc/en/reference.md:1076
 msgid "| `user(id)` | User details (admin) |"
 msgstr ""
 
-#: doc/en/reference.md:1079
+#: doc/en/reference.md:1077
 msgid "| `groups` | All groups (admin) |"
 msgstr ""
 
-#: doc/en/reference.md:1080
+#: doc/en/reference.md:1078
 msgid "| `group(id)` | Group details (admin) |"
 msgstr ""
 
-#: doc/en/reference.md:1081
+#: doc/en/reference.md:1079
 msgid "| `exportSnapshot(includeData)` | YAML export of the application (admin) |"
 msgstr ""
 
-#: doc/en/reference.md:1082
+#: doc/en/reference.md:1080
 msgid "| `diffSnapshot(yaml)` | Diff preview before import (admin) |"
 msgstr ""
 
-#: doc/en/reference.md:1083
+#: doc/en/reference.md:1081
 msgid "| `aggregateSpace(spaceName, groupBy, aggregate)` | Aggregation query on a space |"
 msgstr ""
 
-#: doc/en/reference.md:1085
+#: doc/en/reference.md:1083
 msgid "### Mutations"
 msgstr ""
 
-#: doc/en/reference.md:1087
+#: doc/en/reference.md:1085
 msgid "| Mutation | Description |"
 msgstr ""
 
-#: doc/en/reference.md:1089
+#: doc/en/reference.md:1087
 msgid "| `createSpace` / `updateSpace` / `deleteSpace` | CRUD spaces |"
 msgstr ""
 
-#: doc/en/reference.md:1090
+#: doc/en/reference.md:1088
 msgid "| `addField` / `updateField` / `removeField` / `reorderFields` | CRUD fields |"
 msgstr ""
 
-#: doc/en/reference.md:1091
+#: doc/en/reference.md:1089
 msgid "| `createView` / `updateView` / `deleteView` | CRUD classic views |"
 msgstr ""
 
-#: doc/en/reference.md:1092
+#: doc/en/reference.md:1090
 msgid "| `createRelation` / `updateRelation` / `deleteRelation` | CRUD relations |"
 msgstr ""
 
-#: doc/en/reference.md:1093
+#: doc/en/reference.md:1091
 msgid "| `createCustomView` / `updateCustomView` / `deleteCustomView` | CRUD YAML views |"
 msgstr ""
 
-#: doc/en/reference.md:1094
+#: doc/en/reference.md:1092
 msgid "| `insertRecord` / `updateRecord` / `deleteRecord` | Single-record CRUD |"
 msgstr ""
 
-#: doc/en/reference.md:1095
+#: doc/en/reference.md:1093
 msgid "| `insertRecords` / `updateRecords` / `deleteRecords` | Batch record operations |"
 msgstr ""
 
-#: doc/en/reference.md:1096
+#: doc/en/reference.md:1094
 msgid "| `addFields` | Add multiple fields at once |"
 msgstr ""
 
-#: doc/en/reference.md:1097
+#: doc/en/reference.md:1095
 msgid "| `login` / `logout` | Authentication |"
 msgstr ""
 
-#: doc/en/reference.md:1098
+#: doc/en/reference.md:1096
 msgid "| `createUser` | Create a user (admin) |"
 msgstr ""
 
-#: doc/en/reference.md:1099
+#: doc/en/reference.md:1097
 msgid "| `changePassword` | Change own password |"
 msgstr ""
 
-#: doc/en/reference.md:1100
+#: doc/en/reference.md:1098
 msgid "| `adminSetPassword` | Force a user's password (admin) |"
 msgstr ""
 
-#: doc/en/reference.md:1101
+#: doc/en/reference.md:1099
 msgid "| `createGroup` / `deleteGroup` | CRUD groups (admin) |"
 msgstr ""
 
-#: doc/en/reference.md:1102
+#: doc/en/reference.md:1100
 msgid "| `addMember` / `removeMember` | Manage members (admin) |"
 msgstr ""
 
-#: doc/en/reference.md:1103
+#: doc/en/reference.md:1101
 msgid "| `grant` / `revoke` | Manage permissions (admin) |"
 msgstr ""
 
-#: doc/en/reference.md:1104
+#: doc/en/reference.md:1102
 msgid "| `importSnapshot(yaml, mode)` | Import a YAML snapshot (admin) |"
 msgstr ""
 
@@ -3433,7 +3429,7 @@ msgid ">"
 msgstr ""
 
 #: doc/en/api.md:5 doc/en/dev.md:5 doc/en/dev/architecture.md:5 doc/en/dev/runtime.md:5 doc/en/dev/graphql.md:5 doc/en/dev/frontend.md:5 doc/en/dev/tests.md:5
-msgid "> Generated at: 2026-06-13 10:32:02 UTC"
+msgid "> Generated at: 2026-10-07 19:50:07 UTC"
 msgstr ""
 
 #: doc/en/api.md:7
@@ -3468,15 +3464,15 @@ msgstr ""
 msgid "## Queries"
 msgstr ""
 
-#: doc/en/api.md:19 doc/en/api.md:96
+#: doc/en/api.md:19 doc/en/api.md:101
 msgid "### Spaces & Fields"
 msgstr ""
 
-#: doc/en/api.md:21 doc/en/api.md:28 doc/en/api.md:37 doc/en/api.md:45 doc/en/api.md:52 doc/en/api.md:59 doc/en/api.md:66 doc/en/api.md:74 doc/en/api.md:80 doc/en/api.md:89 doc/en/api.md:98 doc/en/api.md:112 doc/en/api.md:123 doc/en/api.md:132 doc/en/api.md:140 doc/en/api.md:156 doc/en/api.md:165 doc/en/api.md:177 doc/en/api.md:186 doc/en/api.md:198
+#: doc/en/api.md:21 doc/en/api.md:28 doc/en/api.md:37 doc/en/api.md:45 doc/en/api.md:52 doc/en/api.md:59 doc/en/api.md:66 doc/en/api.md:74 doc/en/api.md:80 doc/en/api.md:89 doc/en/api.md:103 doc/en/api.md:117 doc/en/api.md:128 doc/en/api.md:137 doc/en/api.md:145 doc/en/api.md:161 doc/en/api.md:170 doc/en/api.md:182 doc/en/api.md:191 doc/en/api.md:203
 msgid "| Operation | Arguments | Return | Description |"
 msgstr ""
 
-#: doc/en/api.md:22 doc/en/api.md:29 doc/en/api.md:38 doc/en/api.md:46 doc/en/api.md:53 doc/en/api.md:60 doc/en/api.md:67 doc/en/api.md:75 doc/en/api.md:81 doc/en/api.md:90 doc/en/api.md:99 doc/en/api.md:113 doc/en/api.md:124 doc/en/api.md:133 doc/en/api.md:141 doc/en/api.md:157 doc/en/api.md:166 doc/en/api.md:178 doc/en/api.md:187 doc/en/api.md:199
+#: doc/en/api.md:22 doc/en/api.md:29 doc/en/api.md:38 doc/en/api.md:46 doc/en/api.md:53 doc/en/api.md:60 doc/en/api.md:67 doc/en/api.md:75 doc/en/api.md:81 doc/en/api.md:90 doc/en/api.md:104 doc/en/api.md:118 doc/en/api.md:129 doc/en/api.md:138 doc/en/api.md:146 doc/en/api.md:162 doc/en/api.md:171 doc/en/api.md:183 doc/en/api.md:192 doc/en/api.md:204
 msgid "|---|---|---|---|"
 msgstr ""
 
@@ -3488,7 +3484,7 @@ msgstr ""
 msgid "| `space` | `id: ID!` | `Space` | Read operation on space/field metadata. |"
 msgstr ""
 
-#: doc/en/api.md:26 doc/en/api.md:110
+#: doc/en/api.md:26 doc/en/api.md:115
 msgid "### Views"
 msgstr ""
 
@@ -3508,7 +3504,7 @@ msgstr ""
 msgid "| `customView` | `id: ID!` | `CustomView` | Manage standard and custom views. |"
 msgstr ""
 
-#: doc/en/api.md:35 doc/en/api.md:121
+#: doc/en/api.md:35 doc/en/api.md:126
 msgid "### Data Views"
 msgstr ""
 
@@ -3524,7 +3520,7 @@ msgstr ""
 msgid "| `executeDataView` | `id: ID!, limit: Int, offset: Int` | `[JSON!]!` | Create, update and execute Data Views (server-side filters, joins and aggregations). |"
 msgstr ""
 
-#: doc/en/api.md:43 doc/en/api.md:130
+#: doc/en/api.md:43 doc/en/api.md:135
 msgid "### Widget Plugins"
 msgstr ""
 
@@ -3536,7 +3532,7 @@ msgstr ""
 msgid "| `widgetPlugin` | `id: ID, name: String` | `WidgetPlugin` | Manage custom widget plugins (script + template) usable in views. |"
 msgstr ""
 
-#: doc/en/api.md:50 doc/en/api.md:138
+#: doc/en/api.md:50 doc/en/api.md:143
 msgid "### Layouts & Zones"
 msgstr ""
 
@@ -3548,7 +3544,7 @@ msgstr ""
 msgid "| `listLayoutSnapshots` | `pageId: ID!` | `[LayoutSnapshot!]!` | Manage page layout snapshots and zone composition (create/resize/merge/split). |"
 msgstr ""
 
-#: doc/en/api.md:57 doc/en/api.md:154
+#: doc/en/api.md:57 doc/en/api.md:159
 msgid "### Relations"
 msgstr ""
 
@@ -3560,7 +3556,7 @@ msgstr ""
 msgid "| `gridColumnPrefs` | `spaceId: ID!` | `JSON!` | Manage inter-space relations and column display preferences. |"
 msgstr ""
 
-#: doc/en/api.md:64 doc/en/api.md:163
+#: doc/en/api.md:64 doc/en/api.md:168
 msgid "### Data (records)"
 msgstr ""
 
@@ -3576,7 +3572,7 @@ msgstr ""
 msgid "| `aggregateSpace` | `spaceName: String! groupBy: [String!]! aggregate: [AggregateInput!]!` | `[JSON]` | Read/write user records. |"
 msgstr ""
 
-#: doc/en/api.md:72 doc/en/api.md:175
+#: doc/en/api.md:72 doc/en/api.md:180
 msgid "### Authentication"
 msgstr ""
 
@@ -3584,7 +3580,7 @@ msgstr ""
 msgid "| `me` | `-` | `User` | Authentication, sessions and password lifecycle. |"
 msgstr ""
 
-#: doc/en/api.md:78 doc/en/api.md:184
+#: doc/en/api.md:78 doc/en/api.md:189
 msgid "### Users & Groups"
 msgstr ""
 
@@ -3604,7 +3600,7 @@ msgstr ""
 msgid "| `group` | `id: ID!` | `Group` | Administration for users, groups and permissions. |"
 msgstr ""
 
-#: doc/en/api.md:87 doc/en/api.md:196
+#: doc/en/api.md:87 doc/en/api.md:201
 msgid "### Snapshots"
 msgstr ""
 
@@ -3616,419 +3612,459 @@ msgstr ""
 msgid "| `diffSnapshot` | `yaml: String!` | `SnapshotDiff!` | Export, diff and import configuration snapshots. |"
 msgstr ""
 
+#: doc/en/api.md:93
+msgid "| `listApps` | `-` | `[AppInfo!]!` | Export, diff and import configuration snapshots. |"
+msgstr ""
+
 #: doc/en/api.md:94
+msgid "| `appItems` | `appId: String!` | `[AppItem!]!` | Export, diff and import configuration snapshots. |"
+msgstr ""
+
+#: doc/en/api.md:95
+msgid "| `exportApp` | `meta: AppMetaInput!, seed: [AppSeedInput!]` | `String!` | Export, diff and import configuration snapshots. |"
+msgstr ""
+
+#: doc/en/api.md:96
+msgid "| `previewAppUpdate` | `yaml: String!, allowDowngrade: Boolean` | `AppPlan!` | Export, diff and import configuration snapshots. |"
+msgstr ""
+
+#: doc/en/api.md:97
+msgid "| `previewAppPurge` | `appId: String!, keys: [String!]!` | `AppPurgePreview!` | Export, diff and import configuration snapshots. |"
+msgstr ""
+
+#: doc/en/api.md:99
 msgid "## Mutations"
 msgstr ""
 
-#: doc/en/api.md:100
+#: doc/en/api.md:105
 msgid "| `createSpace` | `input: CreateSpaceInput!` | `Space!` | Mutation operation on space/field metadata. |"
 msgstr ""
 
-#: doc/en/api.md:101
+#: doc/en/api.md:106
 msgid "| `updateSpace` | `id: ID!, input: UpdateSpaceInput!` | `Space!` | Mutation operation on space/field metadata. |"
 msgstr ""
 
-#: doc/en/api.md:102
+#: doc/en/api.md:107
 msgid "| `deleteSpace` | `id: ID!` | `Boolean!` | Mutation operation on space/field metadata. |"
 msgstr ""
 
-#: doc/en/api.md:103
+#: doc/en/api.md:108
 msgid "| `addField` | `spaceId: ID!, input: FieldInput!` | `Field!` | Mutation operation on space/field metadata. |"
 msgstr ""
 
-#: doc/en/api.md:104
+#: doc/en/api.md:109
 msgid "| `addFields` | `spaceId: ID!, inputs: [FieldInput!]!` | `[Field!]!` | Mutation operation on space/field metadata. |"
 msgstr ""
 
-#: doc/en/api.md:105
+#: doc/en/api.md:110
 msgid "| `removeField` | `fieldId: ID!` | `Boolean!` | Mutation operation on space/field metadata. |"
 msgstr ""
 
-#: doc/en/api.md:106
+#: doc/en/api.md:111
 msgid "| `reorderFields` | `spaceId: ID!, fieldIds: [ID!]!` | `[Field!]!` | Mutation operation on space/field metadata. |"
 msgstr ""
 
-#: doc/en/api.md:107
+#: doc/en/api.md:112
 msgid "| `updateField` | `fieldId: ID!, input: UpdateFieldInput!` | `Field!` | Mutation operation on space/field metadata. |"
 msgstr ""
 
-#: doc/en/api.md:108
+#: doc/en/api.md:113
 msgid "| `changeFieldType` | `fieldId: ID!, input: ChangeFieldTypeInput!` | `Field!` | Mutation operation on space/field metadata. |"
 msgstr ""
 
-#: doc/en/api.md:114
+#: doc/en/api.md:119
 msgid "| `createView` | `spaceId: ID!, input: CreateViewInput!` | `View!` | Manage standard and custom views. |"
 msgstr ""
 
-#: doc/en/api.md:115
+#: doc/en/api.md:120
 msgid "| `updateView` | `id: ID!, input: UpdateViewInput!` | `View!` | Manage standard and custom views. |"
 msgstr ""
 
-#: doc/en/api.md:116
+#: doc/en/api.md:121
 msgid "| `deleteView` | `id: ID!` | `Boolean!` | Manage standard and custom views. |"
 msgstr ""
 
-#: doc/en/api.md:117
+#: doc/en/api.md:122
 msgid "| `createCustomView` | `input: CreateCustomViewInput!` | `CustomView!` | Manage standard and custom views. |"
 msgstr ""
 
-#: doc/en/api.md:118
+#: doc/en/api.md:123
 msgid "| `updateCustomView` | `id: ID!, input: UpdateCustomViewInput!` | `CustomView!` | Manage standard and custom views. |"
 msgstr ""
 
-#: doc/en/api.md:119
+#: doc/en/api.md:124
 msgid "| `deleteCustomView` | `id: ID!` | `Boolean!` | Manage standard and custom views. |"
 msgstr ""
 
-#: doc/en/api.md:125
+#: doc/en/api.md:130
 msgid "| `createDataView` | `input: DataViewInput!` | `DataView!` | Create, update and execute Data Views (server-side filters, joins and aggregations). |"
 msgstr ""
 
-#: doc/en/api.md:126
+#: doc/en/api.md:131
 msgid "| `updateDataView` | `id: ID!, input: DataViewInput!` | `DataView!` | Create, update and execute Data Views (server-side filters, joins and aggregations). |"
 msgstr ""
 
-#: doc/en/api.md:127
+#: doc/en/api.md:132
 msgid "| `deleteDataView` | `id: ID!` | `Boolean!` | Create, update and execute Data Views (server-side filters, joins and aggregations). |"
 msgstr ""
 
-#: doc/en/api.md:128
+#: doc/en/api.md:133
 msgid "| `addDataViewToPage` | `pageId: ID!, dataViewId: ID!` | `CustomView!` | Create, update and execute Data Views (server-side filters, joins and aggregations). |"
 msgstr ""
 
-#: doc/en/api.md:134
+#: doc/en/api.md:139
 msgid "| `createWidgetPlugin` | `input: CreateWidgetPluginInput!` | `WidgetPlugin!` | Manage custom widget plugins (script + template) usable in views. |"
 msgstr ""
 
-#: doc/en/api.md:135
+#: doc/en/api.md:140
 msgid "| `updateWidgetPlugin` | `id: ID!, input: UpdateWidgetPluginInput!` | `WidgetPlugin!` | Manage custom widget plugins (script + template) usable in views. |"
 msgstr ""
 
-#: doc/en/api.md:136
+#: doc/en/api.md:141
 msgid "| `deleteWidgetPlugin` | `id: ID!` | `Boolean!` | Manage custom widget plugins (script + template) usable in views. |"
 msgstr ""
 
-#: doc/en/api.md:142
+#: doc/en/api.md:147
 msgid "| `addWidgetToView` | `viewId: ID!, widget: WidgetInput!` | `CustomView!` | Manage page layout snapshots and zone composition (create/resize/merge/split). |"
 msgstr ""
 
-#: doc/en/api.md:143
+#: doc/en/api.md:148
 msgid "| `reorderWidgets` | `pageId: ID!, widgetPositions: [WidgetPosition!]!` | `CustomView!` | Manage page layout snapshots and zone composition (create/resize/merge/split). |"
 msgstr ""
 
-#: doc/en/api.md:144
+#: doc/en/api.md:149
 msgid "| `updateWidgetInView` | `viewId: ID!, widgetId: String!, widget: WidgetInput!` | `CustomView!` | Manage page layout snapshots and zone composition (create/resize/merge/split). |"
 msgstr ""
 
-#: doc/en/api.md:145
+#: doc/en/api.md:150
 msgid "| `removeWidgetFromView` | `viewId: ID!, widgetId: String!` | `CustomView!` | Manage page layout snapshots and zone composition (create/resize/merge/split). |"
 msgstr ""
 
-#: doc/en/api.md:146
+#: doc/en/api.md:151
 msgid "| `importLayout` | `pageId: ID!, yaml: String!` | `CustomView!` | Manage page layout snapshots and zone composition (create/resize/merge/split). |"
 msgstr ""
 
-#: doc/en/api.md:147
+#: doc/en/api.md:152
 msgid "| `createLayoutSnapshot` | `pageId: ID!, yaml: String!, description: String` | `LayoutSnapshot!` | Manage page layout snapshots and zone composition (create/resize/merge/split). |"
 msgstr ""
 
-#: doc/en/api.md:148
+#: doc/en/api.md:153
 msgid "| `restoreLayoutSnapshot` | `snapshotId: ID!` | `CustomView!` | Manage page layout snapshots and zone composition (create/resize/merge/split). |"
 msgstr ""
 
-#: doc/en/api.md:149
+#: doc/en/api.md:154
 msgid "| `createZone` | `pageId: ID!, zoneData: ZoneInput!` | `Zone!` | Manage page layout snapshots and zone composition (create/resize/merge/split). |"
 msgstr ""
 
-#: doc/en/api.md:150
+#: doc/en/api.md:155
 msgid "| `resizeZone` | `pageId: ID!, zoneId: ID!, factor: Float!` | `Zone!` | Manage page layout snapshots and zone composition (create/resize/merge/split). |"
 msgstr ""
 
-#: doc/en/api.md:151
+#: doc/en/api.md:156
 msgid "| `mergeZones` | `pageId: ID!, zoneId1: ID!, zoneId2: ID!` | `CustomView!` | Manage page layout snapshots and zone composition (create/resize/merge/split). |"
 msgstr ""
 
-#: doc/en/api.md:152
+#: doc/en/api.md:157
 msgid "| `splitZone` | `pageId: ID!, zoneId: ID!, direction: String!` | `CustomView!` | Manage page layout snapshots and zone composition (create/resize/merge/split). |"
 msgstr ""
 
-#: doc/en/api.md:158
+#: doc/en/api.md:163
 msgid "| `createRelation` | `input: CreateRelationInput!` | `Relation!` | Manage inter-space relations and column display preferences. |"
 msgstr ""
 
-#: doc/en/api.md:159
+#: doc/en/api.md:164
 msgid "| `deleteRelation` | `id: ID!` | `Boolean!` | Manage inter-space relations and column display preferences. |"
 msgstr ""
 
-#: doc/en/api.md:160
+#: doc/en/api.md:165
 msgid "| `updateRelation` | `id: ID!, input: UpdateRelationInput!` | `Relation!` | Manage inter-space relations and column display preferences. |"
 msgstr ""
 
-#: doc/en/api.md:161
+#: doc/en/api.md:166
 msgid "| `saveGridColumnPrefs` | `spaceId: ID!, prefs: JSON!, asDefault: Boolean` | `Boolean!` | Manage inter-space relations and column display preferences. |"
 msgstr ""
 
-#: doc/en/api.md:167
+#: doc/en/api.md:172
 msgid "| `insertRecord` | `spaceId: ID!, data: JSON!` | `Record!` | Read/write user records. |"
 msgstr ""
 
-#: doc/en/api.md:168
+#: doc/en/api.md:173
 msgid "| `updateRecord` | `spaceId: ID!, id: ID!, data: JSON!` | `Record!` | Read/write user records. |"
 msgstr ""
 
-#: doc/en/api.md:169
+#: doc/en/api.md:174
 msgid "| `deleteRecord` | `spaceId: ID!, id: ID!` | `Boolean!` | Read/write user records. |"
 msgstr ""
 
-#: doc/en/api.md:170
+#: doc/en/api.md:175
 msgid "| `deleteRecords` | `spaceId: ID!, ids: [ID!]!` | `[Boolean!]!` | Read/write user records. |"
 msgstr ""
 
-#: doc/en/api.md:171
+#: doc/en/api.md:176
 msgid "| `insertRecords` | `spaceId: ID!, data: [JSON!]!` | `[Record!]!` | Read/write user records. |"
 msgstr ""
 
-#: doc/en/api.md:172
+#: doc/en/api.md:177
 msgid "| `updateRecords` | `spaceId: ID!, records: [RecordUpdateInput!]!` | `[Record!]!` | Read/write user records. |"
 msgstr ""
 
-#: doc/en/api.md:173
+#: doc/en/api.md:178
 msgid "| `restoreRecords` | `spaceId: ID!, records: [RecordUpdateInput!]!` | `[Record!]!` | Read/write user records. |"
 msgstr ""
 
-#: doc/en/api.md:179
+#: doc/en/api.md:184
 msgid "| `login` | `username: String!, password: String!` | `AuthPayload!` | Authentication, sessions and password lifecycle. |"
 msgstr ""
 
-#: doc/en/api.md:180
+#: doc/en/api.md:185
 msgid "| `logout` | `-` | `Boolean!` | Authentication, sessions and password lifecycle. |"
 msgstr ""
 
-#: doc/en/api.md:181
+#: doc/en/api.md:186
 msgid "| `changePassword` | `currentPassword: String!, newPassword: String!` | `Boolean!` | Authentication, sessions and password lifecycle. |"
 msgstr ""
 
-#: doc/en/api.md:182
+#: doc/en/api.md:187
 msgid "| `adminSetPassword` | `userId: ID!, newPassword: String!` | `Boolean!` | Authentication, sessions and password lifecycle. |"
 msgstr ""
 
-#: doc/en/api.md:188
+#: doc/en/api.md:193
 msgid "| `createUser` | `input: CreateUserInput!` | `User!` | Administration for users, groups and permissions. |"
 msgstr ""
 
-#: doc/en/api.md:189
+#: doc/en/api.md:194
 msgid "| `createGroup` | `input: CreateGroupInput!` | `Group!` | Administration for users, groups and permissions. |"
 msgstr ""
 
-#: doc/en/api.md:190
+#: doc/en/api.md:195
 msgid "| `deleteGroup` | `id: ID!` | `Boolean!` | Administration for users, groups and permissions. |"
 msgstr ""
 
-#: doc/en/api.md:191
+#: doc/en/api.md:196
 msgid "| `addMember` | `userId: ID!, groupId: ID!` | `Boolean!` | Administration for users, groups and permissions. |"
 msgstr ""
 
-#: doc/en/api.md:192
+#: doc/en/api.md:197
 msgid "| `removeMember` | `userId: ID!, groupId: ID!` | `Boolean!` | Administration for users, groups and permissions. |"
 msgstr ""
 
-#: doc/en/api.md:193
+#: doc/en/api.md:198
 msgid "| `grant` | `groupId: ID!, input: PermissionInput!` | `Permission!` | Administration for users, groups and permissions. |"
 msgstr ""
 
-#: doc/en/api.md:194
+#: doc/en/api.md:199
 msgid "| `revoke` | `permissionId: ID!` | `Boolean!` | Administration for users, groups and permissions. |"
 msgstr ""
 
-#: doc/en/api.md:200
+#: doc/en/api.md:205
 msgid "| `importSnapshot` | `yaml: String!, mode: ImportMode!` | `ImportResult!` | Export, diff and import configuration snapshots. |"
 msgstr ""
 
-#: doc/en/api.md:202
-msgid "## Usage Examples"
-msgstr ""
-
-#: doc/en/api.md:204
-msgid "### 1) Authenticate then query spaces"
+#: doc/en/api.md:206
+msgid "| `applyAppUpdate` | `yaml: String!, decisions: [AppDecisionInput!], allowDowngrade: Boolean` | `AppApplyReport!` | Export, diff and import configuration snapshots. |"
 msgstr ""
 
 #: doc/en/api.md:207
+msgid "| `purgeAppObsolete` | `appId: String!, keys: [String!]!, confirmed: Boolean!` | `AppPurgeReport!` | Export, diff and import configuration snapshots. |"
+msgstr ""
+
+#: doc/en/api.md:209
+msgid "## Usage Examples"
+msgstr ""
+
+#: doc/en/api.md:211
+msgid "### 1) Authenticate then query spaces"
+msgstr ""
+
+#: doc/en/api.md:214
 msgid "mutation Login($u: String!, $p: String!) {"
 msgstr ""
 
-#: doc/en/api.md:208
+#: doc/en/api.md:215
 msgid "  login(username: $u, password: $p) { token user { id username } }"
 msgstr ""
 
-#: doc/en/api.md:213
+#: doc/en/api.md:220
 msgid "query { spaces { id name description } }"
 msgstr ""
 
-#: doc/en/api.md:216
+#: doc/en/api.md:223
 msgid "### 2) Paginated records query"
 msgstr ""
 
-#: doc/en/api.md:219
+#: doc/en/api.md:226
 msgid "query Records($spaceId: ID!, $limit: Int!, $offset: Int!) {"
 msgstr ""
 
-#: doc/en/api.md:220
+#: doc/en/api.md:227
 msgid "  records(spaceId: $spaceId, limit: $limit, offset: $offset) {"
 msgstr ""
 
-#: doc/en/api.md:227
+#: doc/en/api.md:234
 msgid "### 3) Structural mutation: create space and field"
 msgstr ""
 
-#: doc/en/api.md:230
+#: doc/en/api.md:237
 msgid "mutation CreateSpace($input: CreateSpaceInput!) {"
 msgstr ""
 
-#: doc/en/api.md:231
+#: doc/en/api.md:238
 msgid "  createSpace(input: $input) { id name }"
 msgstr ""
 
-#: doc/en/api.md:236
+#: doc/en/api.md:243
 msgid "mutation AddField($spaceId: ID!, $input: FieldInput!) {"
 msgstr ""
 
-#: doc/en/api.md:237
+#: doc/en/api.md:244
 msgid "  addField(spaceId: $spaceId, input: $input) { id name fieldType }"
 msgstr ""
 
-#: doc/en/api.md:241
+#: doc/en/api.md:248
 msgid "## Input Types"
 msgstr ""
 
-#: doc/en/api.md:243
+#: doc/en/api.md:250
 msgid "- `WidgetInput`"
 msgstr ""
 
-#: doc/en/api.md:244
+#: doc/en/api.md:251
 msgid "- `PositionInput`"
 msgstr ""
 
-#: doc/en/api.md:245
+#: doc/en/api.md:252
 msgid "- `RecordUpdateInput`"
 msgstr ""
 
-#: doc/en/api.md:246
+#: doc/en/api.md:253
 msgid "- `RecordFilter`"
 msgstr ""
 
-#: doc/en/api.md:247
+#: doc/en/api.md:254
 msgid "- `UpdateFieldInput`"
 msgstr ""
 
-#: doc/en/api.md:248
+#: doc/en/api.md:255
 msgid "- `CreateSpaceInput`"
 msgstr ""
 
-#: doc/en/api.md:249
+#: doc/en/api.md:256
 msgid "- `UpdateSpaceInput`"
 msgstr ""
 
-#: doc/en/api.md:250
+#: doc/en/api.md:257
 msgid "- `FieldInput`"
 msgstr ""
 
-#: doc/en/api.md:251
+#: doc/en/api.md:258
 msgid "- `ChangeFieldTypeInput`"
 msgstr ""
 
-#: doc/en/api.md:252
+#: doc/en/api.md:259
 msgid "- `CreateViewInput`"
 msgstr ""
 
-#: doc/en/api.md:253
+#: doc/en/api.md:260
 msgid "- `UpdateViewInput`"
 msgstr ""
 
-#: doc/en/api.md:254
+#: doc/en/api.md:261
 msgid "- `CreateRelationInput`"
 msgstr ""
 
-#: doc/en/api.md:255
+#: doc/en/api.md:262
 msgid "- `UpdateRelationInput`"
 msgstr ""
 
-#: doc/en/api.md:256
+#: doc/en/api.md:263
 msgid "- `CreateCustomViewInput`"
 msgstr ""
 
-#: doc/en/api.md:257
+#: doc/en/api.md:264
 msgid "- `UpdateCustomViewInput`"
 msgstr ""
 
-#: doc/en/api.md:258
+#: doc/en/api.md:265
 msgid "- `DataViewInput`"
 msgstr ""
 
-#: doc/en/api.md:259
+#: doc/en/api.md:266
 msgid "- `CreateWidgetPluginInput`"
 msgstr ""
 
-#: doc/en/api.md:260
+#: doc/en/api.md:267
 msgid "- `UpdateWidgetPluginInput`"
 msgstr ""
 
-#: doc/en/api.md:261
+#: doc/en/api.md:268
 msgid "- `CreateUserInput`"
 msgstr ""
 
-#: doc/en/api.md:262
+#: doc/en/api.md:269
 msgid "- `CreateGroupInput`"
 msgstr ""
 
-#: doc/en/api.md:263
+#: doc/en/api.md:270
 msgid "- `PermissionInput`"
 msgstr ""
 
-#: doc/en/api.md:264
+#: doc/en/api.md:271
 msgid "- `AggregateInput`"
 msgstr ""
 
-#: doc/en/api.md:265
-msgid "- `WidgetPosition`"
-msgstr ""
-
-#: doc/en/api.md:266
-msgid "- `ZoneInput`"
-msgstr ""
-
-#: doc/en/api.md:268
-msgid "## Enums"
-msgstr ""
-
-#: doc/en/api.md:270
-msgid "- `FieldType`"
-msgstr ""
-
-#: doc/en/api.md:271
-msgid "- `ViewType`"
-msgstr ""
-
 #: doc/en/api.md:272
-msgid "- `FilterOp`"
+msgid "- `AppMetaInput`"
 msgstr ""
 
 #: doc/en/api.md:273
-msgid "- `PermissionLevel`"
+msgid "- `AppSeedInput`"
 msgstr ""
 
 #: doc/en/api.md:274
-msgid "- `ImportMode`"
+msgid "- `AppDecisionInput`"
+msgstr ""
+
+#: doc/en/api.md:275
+msgid "- `WidgetPosition`"
 msgstr ""
 
 #: doc/en/api.md:276
-msgid "## Notes"
+msgid "- `ZoneInput`"
 msgstr ""
 
 #: doc/en/api.md:278
+msgid "## Enums"
+msgstr ""
+
+#: doc/en/api.md:280
+msgid "- `FieldType`"
+msgstr ""
+
+#: doc/en/api.md:281
+msgid "- `ViewType`"
+msgstr ""
+
+#: doc/en/api.md:282
+msgid "- `FilterOp`"
+msgstr ""
+
+#: doc/en/api.md:283
+msgid "- `PermissionLevel`"
+msgstr ""
+
+#: doc/en/api.md:284
+msgid "- `ImportMode`"
+msgstr ""
+
+#: doc/en/api.md:286
+msgid "## Notes"
+msgstr ""
+
+#: doc/en/api.md:288
 msgid "- Dynamic user-space types are rebuilt by backend schema reinitialization."
 msgstr ""
 
-#: doc/en/api.md:279
+#: doc/en/api.md:289
 msgid "- To refresh SDL runtime snapshot: `make sdl-gen`."
 msgstr ""
 
@@ -4124,35 +4160,35 @@ msgstr ""
 msgid "|---|---|"
 msgstr ""
 
-#: doc/en/dev/architecture.md:11 doc/en/dev/runtime.md:33
+#: doc/en/dev/architecture.md:11 doc/en/dev/runtime.md:37
 msgid "| `backend/init.moon` | Tarantool bootstrap entrypoint for TGui backend runtime. |"
 msgstr ""
 
-#: doc/en/dev/architecture.md:12 doc/en/dev/runtime.md:31
+#: doc/en/dev/architecture.md:12 doc/en/dev/runtime.md:35
 msgid "| `backend/http_server.moon` | HTTP edge for TGui (index/static assets + GraphQL POST endpoint). |"
 msgstr ""
 
-#: doc/en/dev/architecture.md:13 doc/en/dev/runtime.md:18
+#: doc/en/dev/architecture.md:13 doc/en/dev/runtime.md:21
 msgid "| `backend/core/spaces.moon` | Bootstrap and manage tdb system spaces (metadata) in Tarantool. |"
 msgstr ""
 
-#: doc/en/dev/architecture.md:14 doc/en/dev/runtime.md:11
+#: doc/en/dev/architecture.md:14 doc/en/dev/runtime.md:14
 msgid "| `backend/core/auth.moon` | Authentication: hashing, sessions, user management. |"
 msgstr ""
 
-#: doc/en/dev/architecture.md:15 doc/en/dev/runtime.md:17
+#: doc/en/dev/architecture.md:15 doc/en/dev/runtime.md:20
 msgid "| `backend/core/permissions.moon` | Unix-style group permissions management. |"
 msgstr ""
 
-#: doc/en/dev/architecture.md:16 doc/en/dev/runtime.md:19
+#: doc/en/dev/architecture.md:16 doc/en/dev/runtime.md:22
 msgid "| `backend/core/triggers.moon` | Manages Tarantool before_replace triggers for trigger formula fields. |"
 msgstr ""
 
-#: doc/en/dev/architecture.md:17 doc/en/dev/runtime.md:20
+#: doc/en/dev/architecture.md:17 doc/en/dev/runtime.md:24
 msgid "| `backend/core/views.moon` | Manage view definitions: named projections over a data space. |"
 msgstr ""
 
-#: doc/en/dev/architecture.md:18 doc/en/dev/runtime.md:41
+#: doc/en/dev/architecture.md:18 doc/en/dev/runtime.md:49
 msgid "| `backend/resolvers/init.moon` | Compose and initialize the executable GraphQL schema/resolver graph. |"
 msgstr ""
 
@@ -4164,123 +4200,155 @@ msgstr ""
 msgid "Tarantool startup, HTTP lifecycle and subsystem initialization details."
 msgstr ""
 
+#: doc/en/dev/runtime.md:11
+msgid "| `backend/core/app_apply.moon` | Application atomique d'un paquet d'app (spec §4, plan « Étape 4 », ligne V3). |"
+msgstr ""
+
 #: doc/en/dev/runtime.md:12
-msgid "| `backend/core/config.moon` | Centralized configuration for TGui. |"
+msgid "| `backend/core/app_package.moon` | App versioning foundation (task V1): stable item identity, canonical JSON |"
 msgstr ""
 
 #: doc/en/dev/runtime.md:13
-msgid "| `backend/core/data_views.moon` | CRUD for Data Views (stored YAML/JSON configs over a source space). |"
-msgstr ""
-
-#: doc/en/dev/runtime.md:14
-msgid "| `backend/core/data_views_executor.moon` | Execution engine for Data Views queries. |"
+msgid "| `backend/core/app_plan.moon` | Moteur pur de calcul du plan de mise a jour d'une application (spec §2). |"
 msgstr ""
 
 #: doc/en/dev/runtime.md:15
-msgid "| `backend/core/fk_proxy.moon` | Foreign-key proxy resolution module to simplify triggers.moon. |"
+msgid "| `backend/core/config.moon` | Centralized configuration for TGui. |"
 msgstr ""
 
 #: doc/en/dev/runtime.md:16
+msgid "| `backend/core/data_views.moon` | CRUD for Data Views (stored YAML/JSON configs over a source space). |"
+msgstr ""
+
+#: doc/en/dev/runtime.md:17
+msgid "| `backend/core/data_views_executor.moon` | Execution engine for Data Views queries. |"
+msgstr ""
+
+#: doc/en/dev/runtime.md:18
+msgid "| `backend/core/fk_proxy.moon` | Foreign-key proxy resolution module to simplify triggers.moon. |"
+msgstr ""
+
+#: doc/en/dev/runtime.md:19
 msgid "| `backend/core/graphql_flattener.moon` | GraphQL Flattener with intelligent list handling |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:21
+#: doc/en/dev/runtime.md:23
+msgid "| `backend/core/validation.moon` | (pas de description en tête de fichier) |"
+msgstr ""
+
+#: doc/en/dev/runtime.md:25
 msgid "| `backend/fixtures.moon` | Seed dataset for the TGui test container. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:22
+#: doc/en/dev/runtime.md:26
 msgid "| `backend/generate_sdl.moon` | CLI entrypoint to generate passive SDL artifact. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:23 doc/en/dev/graphql.md:15
+#: doc/en/dev/runtime.md:27 doc/en/dev/graphql.md:15
 msgid "| `backend/graphql/dynamic.moon` | Generates GraphQL SDL and resolvers dynamically from space metadata. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:24 doc/en/dev/graphql.md:14
+#: doc/en/dev/runtime.md:28 doc/en/dev/graphql.md:14
 msgid "| `backend/graphql/executor.moon` | Executes a parsed GraphQL operation against a schema and resolvers. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:25 doc/en/dev/graphql.md:16
+#: doc/en/dev/runtime.md:29 doc/en/dev/graphql.md:16
 msgid "| `backend/graphql/introspection.moon` | Implements GraphQL introspection: __schema, __type, __typename. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:26 doc/en/dev/graphql.md:11
+#: doc/en/dev/runtime.md:30 doc/en/dev/graphql.md:11
 msgid "| `backend/graphql/lexer.moon` | Tokenizes a GraphQL document (query or SDL) into a token stream. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:27 doc/en/dev/graphql.md:12
+#: doc/en/dev/runtime.md:31 doc/en/dev/graphql.md:12
 msgid "| `backend/graphql/parser.moon` | Parses a GraphQL document (query or SDL) into an AST. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:28 doc/en/dev/graphql.md:13
+#: doc/en/dev/runtime.md:32 doc/en/dev/graphql.md:13
 msgid "| `backend/graphql/schema.moon` | Type system: builds an executable schema from a parsed SDL document. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:29
+#: doc/en/dev/runtime.md:33
 msgid "| `backend/graphql/sdl_generator.moon` | Generates a passive SDL artifact from MoonScript registry metadata. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:30
+#: doc/en/dev/runtime.md:34
 msgid "| `backend/graphql/sdl_registry.moon` | Passive MoonScript source of truth for static root GraphQL fields. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:32
+#: doc/en/dev/runtime.md:36
 msgid "| `backend/index.moon` | Dynamically generates the main TGui HTML page. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:34
+#: doc/en/dev/runtime.md:38
 msgid "| `backend/resolvers/aggregate_resolvers.moon` | Aggregation query: GROUP BY via Lua iteration over tuples. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:35 doc/en/dev/graphql.md:19
+#: doc/en/dev/runtime.md:39
+msgid "| `backend/resolvers/app_resolvers.moon` | GraphQL resolvers for application versioning (list, export, preview, apply, purge). |"
+msgstr ""
+
+#: doc/en/dev/runtime.md:40 doc/en/dev/graphql.md:19
 msgid "| `backend/resolvers/auth_resolvers.moon` | Resolvers for authentication, user management, groups, and permissions. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:36
-msgid "| `backend/resolvers/custom_view_resolvers.moon` | CRUD resolvers for custom YAML views (dashboard layouts). |"
+#: doc/en/dev/runtime.md:41
+msgid "| `backend/resolvers/custom_view_crud.moon` | CRUD, snapshot and layout export/import functions for custom YAML views. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:37 doc/en/dev/graphql.md:18
-msgid "| `backend/resolvers/data_resolvers.moon` | Resolvers for CRUD operations on user-defined data spaces. |"
-msgstr ""
-
-#: doc/en/dev/runtime.md:38
-msgid "| `backend/resolvers/data_view_resolvers.moon` | CRUD resolvers for data views (persisted queries). |"
-msgstr ""
-
-#: doc/en/dev/runtime.md:39
-msgid "| `backend/resolvers/export_resolvers.moon` | Snapshot export, diff and import resolvers. |"
-msgstr ""
-
-#: doc/en/dev/runtime.md:40
-msgid "| `backend/resolvers/graphql_view_resolvers.moon` | GraphQL resolvers for data views with list support |"
-msgstr ""
-
-#: doc/en/dev/runtime.md:42 doc/en/dev/graphql.md:17
-msgid "| `backend/resolvers/schema_resolvers.moon` | Resolvers for space, field, view, and relation metadata. |"
+#: doc/en/dev/runtime.md:42
+msgid "| `backend/resolvers/custom_view_resolvers.moon` | Entry point: assembles Query and Mutation for custom YAML views (dashboard layouts). |"
 msgstr ""
 
 #: doc/en/dev/runtime.md:43
-msgid "| `backend/resolvers/utils.moon` | Shared helpers for all resolvers. |"
+msgid "| `backend/resolvers/custom_view_widgets.moon` | Widget and layout-editing functions for custom YAML views. |"
 msgstr ""
 
 #: doc/en/dev/runtime.md:44
-msgid "| `backend/resolvers/widget_plugin_resolvers.moon` | CRUD resolvers for custom widget plugins used by custom views. |"
+msgid "| `backend/resolvers/custom_view_zones.moon` | Zone layout functions for custom YAML views. |"
 msgstr ""
 
-#: doc/en/dev/runtime.md:45
-msgid "| `backend/test_runner.moon` | Entrypoint to run tests in a Docker container. |"
+#: doc/en/dev/runtime.md:45 doc/en/dev/graphql.md:18
+msgid "| `backend/resolvers/data_resolvers.moon` | Resolvers for CRUD operations on user-defined data spaces. |"
 msgstr ""
 
 #: doc/en/dev/runtime.md:46
-msgid "| `backend/zstd_wrapper.moon` | ZSTD-FFI Wrapper |"
+msgid "| `backend/resolvers/data_view_resolvers.moon` | CRUD resolvers for data views (persisted queries). |"
 msgstr ""
 
 #: doc/en/dev/runtime.md:47
-msgid "| `backend/init.lua` | (pas de description en tête de fichier) |"
+msgid "| `backend/resolvers/export_resolvers.moon` | Snapshot export, diff and import resolvers. |"
 msgstr ""
 
 #: doc/en/dev/runtime.md:48
+msgid "| `backend/resolvers/graphql_view_resolvers.moon` | GraphQL resolvers for data views with list support |"
+msgstr ""
+
+#: doc/en/dev/runtime.md:50 doc/en/dev/graphql.md:17
+msgid "| `backend/resolvers/schema_resolvers.moon` | Resolvers for space, field, view, and relation metadata. |"
+msgstr ""
+
+#: doc/en/dev/runtime.md:51
+msgid "| `backend/resolvers/utils.moon` | Shared helpers for all resolvers. |"
+msgstr ""
+
+#: doc/en/dev/runtime.md:52
+msgid "| `backend/resolvers/widget_plugin_resolvers.moon` | CRUD resolvers for custom widget plugins used by custom views. |"
+msgstr ""
+
+#: doc/en/dev/runtime.md:53
+msgid "| `backend/test_runner.moon` | Entrypoint to run tests in a Docker container. |"
+msgstr ""
+
+#: doc/en/dev/runtime.md:54
+msgid "| `backend/zstd_wrapper.moon` | ZSTD-FFI Wrapper |"
+msgstr ""
+
+#: doc/en/dev/runtime.md:55
+msgid "| `backend/init.lua` | (pas de description en tête de fichier) |"
+msgstr ""
+
+#: doc/en/dev/runtime.md:56
 msgid "| `backend/html.lua` | SPDX-License-Identifier: MIT |"
 msgstr ""
 
@@ -4345,173 +4413,229 @@ msgid "| `tests/test_add_data_view_to_page.moon` | Tests the addDataViewToPage m
 msgstr ""
 
 #: doc/en/dev/tests.md:14
-msgid "| `tests/test_batch_ops.moon` | GraphQL integration tests for insertRecords/updateRecords on a temporary space. |"
+msgid "| `tests/test_app_apply.moon` | Tests d'intégration pour backend/core/app_apply.moon (tâche V3a, plan |"
 msgstr ""
 
 #: doc/en/dev/tests.md:15
-msgid "| `tests/test_change_parent.moon` | Tests for changing widget parent via reorderWidgets mutation |"
+msgid "| `tests/test_app_lifecycle_parts.moon` | Tests d'intégration V3b du cycle de vie d'une app (spec §1-§4, plan « Étape 4 ») : |"
 msgstr ""
 
 #: doc/en/dev/tests.md:16
-msgid "| `tests/test_custom_views.moon` | Tests CRUD operations on custom views (resolvers/custom_view_resolvers.moon). |"
+msgid "| `tests/test_app_package.moon` | Tests for backend/core/app_package.moon (task V1, plan « Étape 4 » : |"
 msgstr ""
 
 #: doc/en/dev/tests.md:17
-msgid "| `tests/test_data_filters.moon` | Tests filter operators (matches_filter / apply_filter). |"
+msgid "| `tests/test_app_plan.moon` | Tests purs pour core/app_plan.moon (moteur de plan de mise a jour, spec §2). |"
 msgstr ""
 
 #: doc/en/dev/tests.md:18
-msgid "| `tests/test_data_views.moon` | (pas de description en tête de fichier) |"
+msgid "| `tests/test_app_resolvers.moon` | Tests des résolveurs GraphQL du versionnage des apps (tâche V4, spec §3/§4, |"
 msgstr ""
 
 #: doc/en/dev/tests.md:19
-msgid "| `tests/test_drag_drop_e2e.moon` | E2E tests for drag & drop functionality |"
+msgid "| `tests/test_batch_ops.moon` | GraphQL integration tests for insertRecords/updateRecords on a temporary space. |"
 msgstr ""
 
 #: doc/en/dev/tests.md:20
-msgid "| `tests/test_executor.moon` | Tests GraphQL executor behavior (graphql/executor.moon). |"
+msgid "| `tests/test_change_parent.moon` | Tests for changing widget parent via reorderWidgets mutation |"
 msgstr ""
 
 #: doc/en/dev/tests.md:21
-msgid "| `tests/test_extended_proxy.moon` | Tests for extended proxy with list support |"
+msgid "| `tests/test_custom_view_resolvers_api.moon` | Guards the public surface of resolvers/custom_view_resolvers.moon: |"
 msgstr ""
 
 #: doc/en/dev/tests.md:22
-msgid "| `tests/test_graphql_builder_simple.moon` | Simple tests for GraphQL Builder functionality (backend only) |"
+msgid "| `tests/test_custom_views.moon` | Tests CRUD operations on custom views (resolvers/custom_view_resolvers.moon). |"
 msgstr ""
 
 #: doc/en/dev/tests.md:23
-msgid "| `tests/test_graphql_flattener.moon` | Tests for GraphQL Flattener with list support |"
+msgid "| `tests/test_data_filters.moon` | Tests filter operators (matches_filter / apply_filter). |"
 msgstr ""
 
 #: doc/en/dev/tests.md:24
-msgid "| `tests/test_graphql_integration_working.moon` | Working integration tests for GraphQL Builder system |"
+msgid "| `tests/test_data_views.moon` | (pas de description en tête de fichier) |"
 msgstr ""
 
 #: doc/en/dev/tests.md:25
-msgid "| `tests/test_index_html.moon` | Garde-fou : le HTML de la SPA doit inclure tous les bundles vendor requis. |"
+msgid "| `tests/test_drag_drop_e2e.moon` | E2E tests for drag & drop functionality |"
 msgstr ""
 
 #: doc/en/dev/tests.md:26
-msgid "| `tests/test_lexer.moon` | Tests for GraphQL lexer (graphql/lexer.moon). |"
+msgid "| `tests/test_executor.moon` | Tests GraphQL executor behavior (graphql/executor.moon). |"
 msgstr ""
 
 #: doc/en/dev/tests.md:27
-msgid "| `tests/test_multiple_relations.moon` | Tests for multiple relations detection functionality |"
+msgid "| `tests/test_extended_proxy.moon` | Tests for extended proxy with list support |"
 msgstr ""
 
 #: doc/en/dev/tests.md:28
-msgid "| `tests/test_multiple_relations_simple.moon` | Simple tests for multiple relations detection functionality |"
+msgid "| `tests/test_formula_guard.moon` | Every formula call site must run through core.config.safe_formula_call |"
 msgstr ""
 
 #: doc/en/dev/tests.md:29
-msgid "| `tests/test_nesting.moon` | Tests nested GraphQL queries (nesting/sub-queries). |"
+msgid "| `tests/test_formula_read_perms.moon` | Formula columns and FK traversal must not read a space the requesting user |"
 msgstr ""
 
 #: doc/en/dev/tests.md:30
-msgid "| `tests/test_parser.moon` | Tests for GraphQL parser (graphql/parser.moon). |"
+msgid "| `tests/test_graphql_flattener.moon` | Tests for GraphQL Flattener with list support |"
 msgstr ""
 
 #: doc/en/dev/tests.md:31
-msgid "| `tests/test_permissions.moon` | Tests permission coverage: require_auth, require_admin, |"
+msgid "| `tests/test_graphql_integration_working.moon` | Working integration tests for GraphQL Builder system |"
 msgstr ""
 
 #: doc/en/dev/tests.md:32
-msgid "| `tests/test_relation_type_regression.moon` | Regression: verifies safe fieldType=Relation -> Int mapping and relation creation. |"
+msgid "| `tests/test_http_static.moon` | Task 3 — fichiers statiques : garde-fous anti-traversal de chemin. |"
 msgstr ""
 
 #: doc/en/dev/tests.md:33
-msgid "| `tests/test_relations.moon` | Tests FK relation behavior: create_relation, list_relations, update_relation |"
+msgid "| `tests/test_index_html.moon` | Garde-fou : le HTML de la SPA doit inclure tous les bundles vendor requis. |"
 msgstr ""
 
 #: doc/en/dev/tests.md:34
-msgid "| `tests/test_reorder_widgets.moon` | Tests for the reorderWidgets mutation |"
+msgid "| `tests/test_lexer.moon` | Tests for GraphQL lexer (graphql/lexer.moon). |"
 msgstr ""
 
 #: doc/en/dev/tests.md:35
-msgid "| `tests/test_resize_zone.moon` | Tests for the resizeZone mutation |"
+msgid "| `tests/test_multiple_relations.moon` | Tests for multiple relations detection functionality |"
 msgstr ""
 
 #: doc/en/dev/tests.md:36
-msgid "| `tests/test_schema.moon` | Tests for GraphQL type system (graphql/schema.moon). |"
+msgid "| `tests/test_nesting.moon` | Tests nested GraphQL queries (nesting/sub-queries). |"
 msgstr ""
 
 #: doc/en/dev/tests.md:37
-msgid "| `tests/test_snapshot.moon` | Tests exportSnapshot / diffSnapshot / importSnapshot resolvers. |"
+msgid "| `tests/test_parser.moon` | Tests for GraphQL parser (graphql/parser.moon). |"
 msgstr ""
 
 #: doc/en/dev/tests.md:38
-msgid "| `tests/test_spaces.moon` | Tests CRUD operations on spaces (core/spaces.moon). |"
+msgid "| `tests/test_permissions.moon` | Tests permission coverage: require_auth, require_admin, |"
 msgstr ""
 
 #: doc/en/dev/tests.md:39
-msgid "| `tests/test_triggers.moon` | Tests trigger formulas (core/triggers.moon). |"
+msgid "| `tests/test_relation_cardinality.moon` | Declared relation cardinality ('one' \\| 'many'): storage, GraphQL API and |"
 msgstr ""
 
 #: doc/en/dev/tests.md:40
-msgid "| `tests/test_widget_plugins.moon` | Tests CRUD operations on widget plugins (resolvers/widget_plugin_resolvers.moon). |"
+msgid "| `tests/test_relation_type_regression.moon` | Regression: verifies safe fieldType=Relation -> Int mapping and relation creation. |"
 msgstr ""
 
 #: doc/en/dev/tests.md:41
-msgid "| `tests/js/dom_stub.coffee` | tests/js/dom_stub.coffee — minimal DOM stub for Node.js |"
+msgid "| `tests/test_relations.moon` | Tests FK relation behavior: create_relation, list_relations, update_relation |"
 msgstr ""
 
 #: doc/en/dev/tests.md:42
-msgid "| `tests/js/run.coffee` | tests/js/run.coffee — runs all test_*.coffee files sequentially |"
+msgid "| `tests/test_reorder_widgets.moon` | Tests for the reorderWidgets mutation |"
 msgstr ""
 
 #: doc/en/dev/tests.md:43
-msgid "| `tests/js/runner.coffee` | tests/js/runner.coffee — minimal test runner (no dependencies) |"
+msgid "| `tests/test_resize_zone.moon` | Tests for the resizeZone mutation |"
 msgstr ""
 
 #: doc/en/dev/tests.md:44
-msgid "| `tests/js/test_auth.coffee` | tests/js/test_auth.coffee — tests pour Auth (auth.js) |"
+msgid "| `tests/test_schema.moon` | Tests for GraphQL type system (graphql/schema.moon). |"
 msgstr ""
 
 #: doc/en/dev/tests.md:45
-msgid "| `tests/js/test_custom_view.coffee` | tests/js/test_custom_view.coffee — tests for CustomView (custom_view.js) |"
+msgid "| `tests/test_snapshot.moon` | Tests exportSnapshot / diffSnapshot / importSnapshot resolvers. |"
 msgstr ""
 
 #: doc/en/dev/tests.md:46
-msgid "| `tests/js/test_data_view.coffee` | tests/js/test_data_view.coffee — tests for DataView (data_view.js) |"
+msgid "| `tests/test_spaces.moon` | Tests CRUD operations on spaces (core/spaces.moon). |"
 msgstr ""
 
 #: doc/en/dev/tests.md:47
-msgid "| `tests/js/test_data_view_opts.coffee` | tests/js/test_data_view_opts.coffee — tests for DataView options (readOnly) |"
+msgid "| `tests/test_triggers.moon` | Tests trigger formulas (core/triggers.moon). |"
 msgstr ""
 
 #: doc/en/dev/tests.md:48
-msgid "| `tests/js/test_drag_drop_manager.coffee` | tests/js/test_drag_drop_manager.coffee - tests for DragDropManager |"
+msgid "| `tests/test_typed_query_permissions.moon` | Typed space queries generated by graphql/dynamic.moon must enforce the read |"
 msgstr ""
 
 #: doc/en/dev/tests.md:49
-msgid "| `tests/js/test_graphql_client.coffee` | tests/js/test_graphql_client.coffee — tests pour GQL (graphql_client.js) |"
+msgid "| `tests/test_validation.moon` | Write-time record validation (core.validation), through validate_record and |"
 msgstr ""
 
 #: doc/en/dev/tests.md:50
-msgid "| `tests/js/test_i18n.coffee` | tests/js/test_i18n.coffee — tests du runtime i18n minimal |"
+msgid "| `tests/test_views_core.moon` | Non-regression tests for the two bugs of core/views.moon (task T5). |"
 msgstr ""
 
 #: doc/en/dev/tests.md:51
-msgid "| `tests/js/test_relation_display_frontend.coffee` | Static frontend tests (Node) for relation display. |"
+msgid "| `tests/test_widget_plugins.moon` | Tests CRUD operations on widget plugins (resolvers/widget_plugin_resolvers.moon). |"
 msgstr ""
 
 #: doc/en/dev/tests.md:52
-msgid "| `tests/js/test_relation_display_frontend_regression.coffee` | Targeted regressions for frontend relation rendering. |"
+msgid "| `tests/test_zone_merge_split.moon` | Tests for the mergeZones and splitZone mutations. |"
 msgstr ""
 
 #: doc/en/dev/tests.md:53
-msgid "| `tests/js/test_spaces.coffee` | tests/js/test_spaces.coffee — tests for Spaces (spaces.js) |"
+msgid "| `tests/js/dom_stub.coffee` | tests/js/dom_stub.coffee — minimal DOM stub for Node.js |"
 msgstr ""
 
 #: doc/en/dev/tests.md:54
-msgid "| `tests/js/test_undo_helpers.coffee` | tests/js/test_undo_helpers.coffee — tests for global AppUndoHelpers service. |"
+msgid "| `tests/js/run.coffee` | tests/js/run.coffee — runs all test_*.coffee files sequentially |"
 msgstr ""
 
 #: doc/en/dev/tests.md:55
-msgid "| `tests/js/test_view_helpers.coffee` | Régression pour AppViewHelpers.renderCustomViewPreview. |"
+msgid "| `tests/js/runner.coffee` | tests/js/runner.coffee — minimal test runner (no dependencies) |"
 msgstr ""
 
 #: doc/en/dev/tests.md:56
+msgid "| `tests/js/test_auth.coffee` | tests/js/test_auth.coffee — tests pour Auth (auth.js) |"
+msgstr ""
+
+#: doc/en/dev/tests.md:57
+msgid "| `tests/js/test_custom_view.coffee` | tests/js/test_custom_view.coffee — tests for CustomView (custom_view.js) |"
+msgstr ""
+
+#: doc/en/dev/tests.md:58
+msgid "| `tests/js/test_data_view.coffee` | tests/js/test_data_view.coffee — tests for DataView (data_view.js) |"
+msgstr ""
+
+#: doc/en/dev/tests.md:59
+msgid "| `tests/js/test_data_view_opts.coffee` | tests/js/test_data_view_opts.coffee — tests for DataView options (readOnly) |"
+msgstr ""
+
+#: doc/en/dev/tests.md:60
+msgid "| `tests/js/test_drag_drop_manager.coffee` | tests/js/test_drag_drop_manager.coffee - tests for DragDropManager |"
+msgstr ""
+
+#: doc/en/dev/tests.md:61
+msgid "| `tests/js/test_graphql_client.coffee` | tests/js/test_graphql_client.coffee — tests pour GQL (graphql_client.js) |"
+msgstr ""
+
+#: doc/en/dev/tests.md:62
+msgid "| `tests/js/test_i18n.coffee` | tests/js/test_i18n.coffee — tests du runtime i18n minimal |"
+msgstr ""
+
+#: doc/en/dev/tests.md:63
+msgid "| `tests/js/test_relation_display_frontend.coffee` | Static frontend tests (Node) for relation display. |"
+msgstr ""
+
+#: doc/en/dev/tests.md:64
+msgid "| `tests/js/test_relation_display_frontend_regression.coffee` | Targeted regressions for frontend relation rendering. |"
+msgstr ""
+
+#: doc/en/dev/tests.md:65
+msgid "| `tests/js/test_spaces.coffee` | tests/js/test_spaces.coffee — tests for Spaces (spaces.js) |"
+msgstr ""
+
+#: doc/en/dev/tests.md:66
+msgid "| `tests/js/test_undo_helpers.coffee` | tests/js/test_undo_helpers.coffee — tests for global AppUndoHelpers service. |"
+msgstr ""
+
+#: doc/en/dev/tests.md:67
+msgid "| `tests/js/test_view_helpers.coffee` | Régression pour AppViewHelpers.renderCustomViewPreview. |"
+msgstr ""
+
+#: doc/en/dev/tests.md:68
+msgid "| `tests/js/test_view_helpers_dedup.coffee` | T11 refactor guard: AppViewHelpers must not define any key twice, and every |"
+msgstr ""
+
+#: doc/en/dev/tests.md:69
+msgid "| `tests/js/test_widget_plugins_dedup.coffee` | T13 guard: LIST_WIDGET_PLUGINS must be defined in exactly one frontend source |"
+msgstr ""
+
+#: doc/en/dev/tests.md:70
 msgid "| `tests/js/test_yaml_builder.coffee` | tests/js/test_yaml_builder.coffee — tests for YamlBuilder (yaml_builder.js) |"
 msgstr ""

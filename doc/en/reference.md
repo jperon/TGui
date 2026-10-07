@@ -1,7 +1,5 @@
 # Feature Reference — TGui
 
-**TGui** is inspired by [Grist](https://www.getgrist.com) — for any serious or production use, users are encouraged to consider Grist as a priority.
-
 TGui exposes all its features via a **GraphQL API** at `http://localhost:8080/graphql`. The web interface is a client of this same API; anything possible in the UI can also be done directly via GraphQL queries.
 
 ---
