@@ -194,6 +194,9 @@
       summary = window.AppAppsHelpers.summarizePlan(plan);
       box.appendChild(window.AppAppsHelpers._makeEl('h4', null, app._t('ui.apps.previewTitle')));
       box.appendChild(window.AppAppsHelpers._makeEl('p', 'apps-plan-counts', app._t('ui.apps.counts', summary)));
+      if (window.AppAppsHelpers.hasCodeChanges(plan)) {
+        box.appendChild(window.AppAppsHelpers._makeEl('p', 'apps-code-warning', app._t('ui.apps.codeWarning')));
+      }
       window.AppAppsHelpers._renderItemSection(app, box, 'ui.apps.created', plan.create, 'diff-create');
       window.AppAppsHelpers._renderItemSection(app, box, 'ui.apps.updated', plan.update, 'diff-change');
       window.AppAppsHelpers._renderItemSection(app, box, 'ui.apps.kept', plan.keepLocal, 'apps-kept');
@@ -304,6 +307,12 @@
         c = conflicts[i];
         container = window.AppAppsHelpers._makeEl('div', 'apps-conflict');
         container.appendChild(window.AppAppsHelpers._makeEl('div', 'apps-conflict-key', String(c.key)));
+        if (window.AppAppsHelpers._isCodeItem({
+          type: c.type
+        })) {
+          container.appendChild(window.AppAppsHelpers._makeEl('span', 'apps-code-badge', app._t('ui.apps.codeBadge')));
+          container.appendChild(window.AppAppsHelpers._makeEl('p', 'apps-code-warning', app._t('ui.apps.codeWarning')));
+        }
         row = window.AppAppsHelpers._makeEl('div', 'apps-conflict-versions');
         localSide = window.AppAppsHelpers._makeEl('div', 'apps-conflict-side');
         localSide.appendChild(window.AppAppsHelpers._makeEl('div', 'apps-conflict-side-title', app._t('ui.apps.localVersion')));
