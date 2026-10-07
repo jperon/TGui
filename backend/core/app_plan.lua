@@ -151,10 +151,12 @@ _classify_installed = function(entry, old, local_state, plan)
     return table.insert(plan.unchanged, entry.key)
   elseif C == L then
     return table.insert(plan.update, entry)
-  elseif N == L or _is_special(entry.type) then
+  elseif N == L then
     return table.insert(plan.keep_local, entry)
   elseif C == N then
     return table.insert(plan.unchanged, entry.key)
+  elseif _is_special(entry.type) then
+    return table.insert(plan.keep_local, entry)
   else
     return table.insert(plan.conflict, {
       entry,

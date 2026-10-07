@@ -694,7 +694,7 @@ R.describe("app_plan — règle 7 : version", function()
     return all_lists_empty(plan)
   end)
 end)
-return R.describe("app_plan — règle 8 : déterminisme", function()
+R.describe("app_plan — règle 8 : déterminisme", function()
   R.it("règle 8 : les listes create/unchanged sont triées par clé", function()
     local pkg = mk_pkg({
       item('space', 'space:c', 'fc'),
@@ -789,5 +789,47 @@ return R.describe("app_plan — règle 8 : déterminisme", function()
     R.ok(deep_eq(inst, inst_before), 'installed intact')
     R.ok(deep_eq(pkg, pkg_before), 'package intact')
     return R.ok(deep_eq(loc, loc_before), 'local_states intact')
+  end)
+end)
+return R.describe("app_plan — convergence des types speciaux", function()
+  R.it("convergence d'un seed (local == nouveau paquet, auteur a change) → unchanged", function()
+    local plan = plan_update(mk_installed({
+      {
+        key = 'seed:s|k',
+        type = 'seed',
+        fp = 'L'
+      }
+    }), mk_pkg({
+      item('seed', 'seed:s|k', 'N')
+    }), mk_local({
+      {
+        key = 'seed:s|k',
+        fp = 'N'
+      }
+    }), { })
+    eq_list(plan.unchanged, {
+      'seed:s|k'
+    }, 'unchanged')
+    return R.eq(#plan.keep_local, 0)
+  end)
+  return R.it("convergence d'un perm → unchanged", function()
+    local plan = plan_update(mk_installed({
+      {
+        key = 'perm:g|read|r|1',
+        type = 'perm',
+        fp = 'L'
+      }
+    }), mk_pkg({
+      item('perm', 'perm:g|read|r|1', 'N')
+    }), mk_local({
+      {
+        key = 'perm:g|read|r|1',
+        fp = 'N'
+      }
+    }), { })
+    eq_list(plan.unchanged, {
+      'perm:g|read|r|1'
+    }, 'unchanged')
+    return R.eq(#plan.keep_local, 0)
   end)
 end)

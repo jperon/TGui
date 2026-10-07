@@ -350,3 +350,18 @@ R.describe "app_plan — règle 8 : déterminisme", ->
     R.ok deep_eq(inst, inst_before), 'installed intact'
     R.ok deep_eq(pkg, pkg_before), 'package intact'
     R.ok deep_eq(loc, loc_before), 'local_states intact'
+
+R.describe "app_plan — convergence des types speciaux", ->
+  R.it "convergence d'un seed (local == nouveau paquet, auteur a change) → unchanged", ->
+    plan = plan_update mk_installed({ {key: 'seed:s|k', type: 'seed', fp: 'L'} }),
+      mk_pkg({ item 'seed', 'seed:s|k', 'N' }),
+      mk_local({ {key: 'seed:s|k', fp: 'N'} }), {}
+    eq_list plan.unchanged, {'seed:s|k'}, 'unchanged'
+    R.eq #plan.keep_local, 0
+
+  R.it "convergence d'un perm → unchanged", ->
+    plan = plan_update mk_installed({ {key: 'perm:g|read|r|1', type: 'perm', fp: 'L'} }),
+      mk_pkg({ item 'perm', 'perm:g|read|r|1', 'N' }),
+      mk_local({ {key: 'perm:g|read|r|1', fp: 'N'} }), {}
+    eq_list plan.unchanged, {'perm:g|read|r|1'}, 'unchanged'
+    R.eq #plan.keep_local, 0

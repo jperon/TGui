@@ -93,10 +93,12 @@ _classify_installed = (entry, old, local_state, plan) ->
     table.insert plan.unchanged, entry.key
   elseif C == L
     table.insert plan.update, entry
-  elseif N == L or _is_special entry.type
+  elseif N == L
     table.insert plan.keep_local, entry
   elseif C == N
     table.insert plan.unchanged, entry.key
+  elseif _is_special entry.type
+    table.insert plan.keep_local, entry
   else
     table.insert plan.conflict, { entry, local_state, N }
 
