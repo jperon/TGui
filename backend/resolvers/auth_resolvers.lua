@@ -1,9 +1,9 @@
 local auth_mod = require('core.auth')
 local perms_mod = require('core.permissions')
-local require_auth, require_admin
+local require_auth, require_auth_unchecked, require_admin
 do
   local _obj_0 = require('resolvers.utils')
-  require_auth, require_admin = _obj_0.require_auth, _obj_0.require_admin
+  require_auth, require_auth_unchecked, require_admin = _obj_0.require_auth, _obj_0.require_auth_unchecked, _obj_0.require_admin
 end
 local Query = {
   me = function(_, args, ctx)
@@ -22,7 +22,8 @@ local Query = {
         id = t[1],
         username = t[2],
         email = t[3],
-        createdAt = t[6]
+        createdAt = t[6],
+        must_change_password = t[8] == true
       })
     end
     return result
@@ -64,7 +65,7 @@ local Mutation = {
     return auth_mod.create_user(i.username, i.email, i.password)
   end,
   changePassword = function(_, args, ctx)
-    local uid = require_auth(ctx)
+    local uid = require_auth_unchecked(ctx)
     return auth_mod.change_password(uid, args.currentPassword, args.newPassword)
   end,
   adminSetPassword = function(_, args, ctx)
@@ -105,6 +106,9 @@ local Mutation = {
 local User = {
   groups = function(obj, args, ctx)
     return perms_mod.user_groups(obj.id)
+  end,
+  mustChangePassword = function(obj, args, ctx)
+    return obj.must_change_password == true
   end
 }
 local Group = {

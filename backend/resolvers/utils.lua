@@ -1,10 +1,28 @@
 local perms_mod = require('core.permissions')
-local require_auth
-require_auth = function(ctx)
+local password_change_enforced
+password_change_enforced = function()
+  if os.getenv('TGUI_TEST_ENV') == 'true' then
+    return false
+  end
+  if os.getenv('TDB_ALLOW_DEFAULT_PASSWORD') == 'true' then
+    return false
+  end
+  return true
+end
+local require_auth_unchecked
+require_auth_unchecked = function(ctx)
   if not (ctx and ctx.user_id) then
     error("Unauthorized")
   end
   return ctx.user_id
+end
+local require_auth
+require_auth = function(ctx)
+  local uid = require_auth_unchecked(ctx)
+  if password_change_enforced() and not ctx.trusted and ctx.must_change_password then
+    error("PASSWORD_CHANGE_REQUIRED: the default password must be changed before this operation")
+  end
+  return uid
 end
 local is_admin_user
 is_admin_user = function(uid)
@@ -72,10 +90,12 @@ fk_cache_for = function(ctx)
 end
 return {
   require_auth = require_auth,
+  require_auth_unchecked = require_auth_unchecked,
   require_admin = require_admin,
   require_perm = require_perm,
   perm_ok = perm_ok,
   is_admin_user = is_admin_user,
   fk_cache_for = fk_cache_for,
-  trusted_ctx = trusted_ctx
+  trusted_ctx = trusted_ctx,
+  password_change_enforced = password_change_enforced
 }

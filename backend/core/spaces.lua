@@ -502,6 +502,11 @@ local SYSTEM_SPACES = {
       {
         name = 'updated_at',
         type = 'number'
+      },
+      {
+        name = 'must_change_password',
+        type = 'boolean',
+        is_nullable = true
       }
     },
     indexes = {
@@ -902,7 +907,7 @@ bootstrap = function()
       return log.info('tdb_v2: added repr_formula to _tdb_relations')
     end
   end)
-  return box.once('tdb_v3', function()
+  box.once('tdb_v3', function()
     local sp = box.space._tdb_relations
     if sp then
       local new_fmt = {
@@ -943,6 +948,71 @@ bootstrap = function()
       }
       sp:format(new_fmt)
       return log.info("tdb_v3: added cardinality to _tdb_relations — relations existantes : cardinalité 'one' par défaut")
+    end
+  end)
+  return box.once('tdb_v4', function()
+    local sp = box.space._tdb_users
+    if sp then
+      sp:format({
+        {
+          name = 'id',
+          type = 'string'
+        },
+        {
+          name = 'username',
+          type = 'string'
+        },
+        {
+          name = 'email',
+          type = 'string'
+        },
+        {
+          name = 'password_hash',
+          type = 'string'
+        },
+        {
+          name = 'salt',
+          type = 'string'
+        },
+        {
+          name = 'created_at',
+          type = 'number'
+        },
+        {
+          name = 'updated_at',
+          type = 'number'
+        },
+        {
+          name = 'must_change_password',
+          type = 'boolean',
+          is_nullable = true
+        }
+      })
+      log.info('tdb_v4: added must_change_password to _tdb_users')
+      local auth_mod = require('core.auth')
+      local DEFAULT_ADMIN_PASSWORD
+      DEFAULT_ADMIN_PASSWORD = require('core.config').DEFAULT_ADMIN_PASSWORD
+      local flagged = 0
+      local _list_0 = sp:select({ })
+      for _index_0 = 1, #_list_0 do
+        local t = _list_0[_index_0]
+        if t[8] ~= true and auth_mod.verify_password(DEFAULT_ADMIN_PASSWORD, t[5], t[4]) then
+          sp:replace({
+            t[1],
+            t[2],
+            t[3],
+            t[4],
+            t[5],
+            t[6],
+            t[7],
+            true
+          })
+          flagged = flagged + 1
+        end
+      end
+      if flagged > 0 then
+        return log.warn("tdb_v4: " .. tostring(flagged) .. " user(s) still use the default password — change required")
+      end
     end
   end)
 end

@@ -158,6 +158,7 @@ SYSTEM_SPACES =
       { name: 'salt',        type: 'string' }
       { name: 'created_at',  type: 'number' }
       { name: 'updated_at',  type: 'number' }
+      { name: 'must_change_password', type: 'boolean', is_nullable: true }
     }
     indexes:
       primary:      { parts: {'id'},       unique: true, type: 'HASH' }
@@ -339,6 +340,34 @@ bootstrap = ->
       }
       sp\format new_fmt
       log.info "tdb_v3: added cardinality to _tdb_relations — relations existantes : cardinalité 'one' par défaut"
+
+  -- Forced default-password change (spec §7 / audit 1.4). Extends the users
+  -- format with a nullable boolean; existing rows get nil (== false). For an
+  -- existing instance, any user whose current password is still the public
+  -- default is flagged once, at startup (a single verify_password per user).
+  box.once 'tdb_v4', ->
+    sp = box.space._tdb_users
+    if sp
+      sp\format {
+        { name: 'id',          type: 'string'   }
+        { name: 'username',    type: 'string' }
+        { name: 'email',       type: 'string' }
+        { name: 'password_hash',type: 'string'}
+        { name: 'salt',        type: 'string' }
+        { name: 'created_at',  type: 'number' }
+        { name: 'updated_at',  type: 'number' }
+        { name: 'must_change_password', type: 'boolean', is_nullable: true }
+      }
+      log.info 'tdb_v4: added must_change_password to _tdb_users'
+      auth_mod = require 'core.auth'
+      { :DEFAULT_ADMIN_PASSWORD } = require 'core.config'
+      flagged = 0
+      for t in *sp\select {}
+        if t[8] != true and auth_mod.verify_password DEFAULT_ADMIN_PASSWORD, t[5], t[4]
+          sp\replace { t[1], t[2], t[3], t[4], t[5], t[6], t[7], true }
+          flagged += 1
+      if flagged > 0
+        log.warn "tdb_v4: #{flagged} user(s) still use the default password — change required"
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- Runtime space management

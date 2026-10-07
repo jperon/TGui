@@ -3,7 +3,7 @@
 
 auth_mod  = require 'core.auth'
 perms_mod = require 'core.permissions'
-{ :require_auth, :require_admin } = require 'resolvers.utils'
+{ :require_auth, :require_auth_unchecked, :require_admin } = require 'resolvers.utils'
 
 Query =
   me: (_, args, ctx) ->
@@ -14,7 +14,10 @@ Query =
     require_admin ctx
     result = {}
     for t in *box.space._tdb_users\select {}
-      table.insert result, { id: t[1], username: t[2], email: t[3], createdAt: t[6] }
+      table.insert result, {
+        id: t[1], username: t[2], email: t[3], createdAt: t[6],
+        must_change_password: t[8] == true
+      }
     result
 
   user: (_, args, ctx) ->
@@ -48,9 +51,11 @@ Mutation =
     i = args.input
     auth_mod.create_user i.username, i.email, i.password
 
-  -- Any authenticated user can change their own password.
+  -- Any authenticated user can change their own password. This operation (with
+  -- me and logout) stays reachable while the account still uses the default
+  -- password, so it must bypass the forced-password-change gate.
   changePassword: (_, args, ctx) ->
-    uid = require_auth ctx
+    uid = require_auth_unchecked ctx
     auth_mod.change_password uid, args.currentPassword, args.newPassword
 
 -- Admin can force-reset any user's password.
@@ -91,6 +96,7 @@ Mutation =
 -- Field-level resolvers for User and Group types
 User =
   groups: (obj, args, ctx) -> perms_mod.user_groups obj.id
+  mustChangePassword: (obj, args, ctx) -> obj.must_change_password == true
 
 Group =
   members:     (obj, args, ctx) -> perms_mod.group_members obj.id

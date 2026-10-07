@@ -1,10 +1,10 @@
 local digest = require('digest')
 local uuid_mod = require('uuid')
 local log = require('log')
-local SESSION_TTL, TOKEN_LENGTH, LOGIN_MAX_ATTEMPTS, LOGIN_IP_MAX_ATTEMPTS, LOGIN_ATTEMPT_WINDOW, LOGIN_LOCKOUT_BASE_SECONDS, LOGIN_LOCKOUT_MAX_SECONDS, LOGIN_ATTEMPTS_TTL
+local SESSION_TTL, TOKEN_LENGTH, LOGIN_MAX_ATTEMPTS, LOGIN_IP_MAX_ATTEMPTS, LOGIN_ATTEMPT_WINDOW, LOGIN_LOCKOUT_BASE_SECONDS, LOGIN_LOCKOUT_MAX_SECONDS, LOGIN_ATTEMPTS_TTL, DEFAULT_ADMIN_PASSWORD
 do
   local _obj_0 = require('core.config')
-  SESSION_TTL, TOKEN_LENGTH, LOGIN_MAX_ATTEMPTS, LOGIN_IP_MAX_ATTEMPTS, LOGIN_ATTEMPT_WINDOW, LOGIN_LOCKOUT_BASE_SECONDS, LOGIN_LOCKOUT_MAX_SECONDS, LOGIN_ATTEMPTS_TTL = _obj_0.SESSION_TTL, _obj_0.TOKEN_LENGTH, _obj_0.LOGIN_MAX_ATTEMPTS, _obj_0.LOGIN_IP_MAX_ATTEMPTS, _obj_0.LOGIN_ATTEMPT_WINDOW, _obj_0.LOGIN_LOCKOUT_BASE_SECONDS, _obj_0.LOGIN_LOCKOUT_MAX_SECONDS, _obj_0.LOGIN_ATTEMPTS_TTL
+  SESSION_TTL, TOKEN_LENGTH, LOGIN_MAX_ATTEMPTS, LOGIN_IP_MAX_ATTEMPTS, LOGIN_ATTEMPT_WINDOW, LOGIN_LOCKOUT_BASE_SECONDS, LOGIN_LOCKOUT_MAX_SECONDS, LOGIN_ATTEMPTS_TTL, DEFAULT_ADMIN_PASSWORD = _obj_0.SESSION_TTL, _obj_0.TOKEN_LENGTH, _obj_0.LOGIN_MAX_ATTEMPTS, _obj_0.LOGIN_IP_MAX_ATTEMPTS, _obj_0.LOGIN_ATTEMPT_WINDOW, _obj_0.LOGIN_LOCKOUT_BASE_SECONDS, _obj_0.LOGIN_LOCKOUT_MAX_SECONDS, _obj_0.LOGIN_ATTEMPTS_TTL, _obj_0.DEFAULT_ADMIN_PASSWORD
 end
 local PBKDF2_ITERATIONS = 100000
 local PBKDF2_KEY_LEN = 32
@@ -38,6 +38,10 @@ check_password_length = function(password)
     return error("Password must be at least " .. tostring(MIN_PASSWORD_LEN) .. " characters")
   end
 end
+local must_change_password_for
+must_change_password_for = function(password)
+  return password == DEFAULT_ADMIN_PASSWORD
+end
 local create_user
 create_user = function(username, email, password)
   check_password_length(password)
@@ -45,6 +49,7 @@ create_user = function(username, email, password)
   local uid = tostring(uuid_mod.new())
   local salt = gen_salt()
   local hash = hash_password(password, salt)
+  local must = must_change_password_for(password)
   box.space._tdb_users:insert({
     uid,
     username,
@@ -52,13 +57,15 @@ create_user = function(username, email, password)
     hash,
     salt,
     now,
-    now
+    now,
+    must
   })
   return {
     id = uid,
     username = username,
     email = email,
-    createdAt = now
+    createdAt = now,
+    must_change_password = must
   }
 end
 local get_user_by_username
@@ -75,7 +82,8 @@ get_user_by_username = function(username)
     email = t[3],
     password_hash = t[4],
     salt = t[5],
-    createdAt = t[6]
+    createdAt = t[6],
+    must_change_password = t[8] == true
   }
 end
 local get_user_by_id
@@ -88,7 +96,8 @@ get_user_by_id = function(id)
     id = t[1],
     username = t[2],
     email = t[3],
-    createdAt = t[6]
+    createdAt = t[6],
+    must_change_password = t[8] == true
   }
 end
 local gen_token
@@ -309,7 +318,8 @@ login = function(username, password, client_addr)
           new_hash,
           new_salt,
           t[6],
-          now
+          now,
+          must_change_password_for(password)
         })
         log.info("tdb auth: upgraded password hash for user '" .. tostring(username) .. "' to PBKDF2")
       end
@@ -342,7 +352,8 @@ change_password = function(user_id, current_password, new_password)
     new_hash,
     new_salt,
     t[6],
-    now
+    now,
+    must_change_password_for(new_password)
   })
   return true
 end
@@ -363,7 +374,8 @@ admin_set_password = function(user_id, new_password)
     new_hash,
     new_salt,
     t[6],
-    now
+    now,
+    must_change_password_for(new_password)
   })
   return true
 end
@@ -380,6 +392,8 @@ return {
   gen_salt = gen_salt,
   change_password = change_password,
   admin_set_password = admin_set_password,
+  verify_password = verify_password,
+  must_change_password_for = must_change_password_for,
   purge_login_attempts = purge_login_attempts,
   login_key = login_key,
   login_ip_key = login_ip_key,
