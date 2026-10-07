@@ -451,6 +451,55 @@ The **Export / Import** section allows saving and restoring a TGui application.
    - **Replace**: delete everything and recreate from the snapshot (warning: data loss).
 4. Click **Confirm import**.
 
+### Applications (paquets et mises à jour)
+
+Le panneau **Applications** permet à un administrateur de distribuer une application TGui complète sous forme de paquet, puis d'en recevoir les versions ultérieures sans tout reconstruire.
+
+#### Format du paquet
+
+Un paquet est un fichier `.tdbapp.yaml`. Son en-tête est `app: {id, name, version, description}` : `id` est un identifiant stable et globalement unique (par exemple `org.exemple.biblio`), `name` est un nom d'affichage, et `version` suit le format `x.y.z` (semver). Le corps contient les espaces (avec leurs champs et relations), les vues de données, les pages, les plugins de widget YAML, les groupes avec leurs droits par défaut, et les lignes d'amorçage des espaces que vous listez. Chaque élément est identifié par une clé stable (son nom dans son périmètre), jamais par un UUID local ; un renommage est déclaré avec `renamed_from`.
+
+#### Exporter une application
+
+1. Ouvrez **Administration > Applications**, puis l'encadré **Exporter une application**.
+2. Renseignez l'**Identifiant** (par exemple `org.exemple.biblio`), le **Nom**, la **Version (x.y.z)** et une **Description** facultative.
+3. Dans **Lignes d'amorçage (une par ligne, espace:champCle)**, ajoutez une ligne par espace dont les enregistrements doivent voyager avec le paquet, sous la forme `espace:champCle` (par exemple `livres:isbn`). L'espace et le champ clé doivent déjà exister, et la valeur de clé doit être unique sur chaque ligne : une valeur manquante sur un champ clé obligatoire, ou deux lignes partageant la même valeur de clé, refusent l'export. Les lignes qui laissent vide un champ clé facultatif sont considérées comme locales et laissées de côté.
+4. Cliquez sur **⬇ Exporter le paquet**. Le navigateur télécharge `<id>-<version>.tdbapp.yaml`.
+
+#### Installer ou mettre à jour
+
+1. Dans **Installer ou mettre à jour**, cliquez sur **📂 Choisir un fichier** et sélectionnez un paquet `.tdbapp.yaml`.
+2. Un **Aperçu des changements** s'affiche avant toute écriture :
+   - **+ Créés** : éléments qui n'existent pas localement.
+   - **~ Mis à jour** : éléments que vous n'avez pas modifiés mais que l'auteur a changés.
+   - **🔒 Conservés (modifiés localement)** : éléments que vous avez modifiés et que l'auteur a laissés tels quels.
+   - **↷ Renommés** : éléments renommés par l'auteur, appariés via `renamed_from` ; leurs données sont conservées.
+   - **⚠ Obsolètes** : éléments que la nouvelle version ne contient plus ; ils ne sont pas supprimés.
+   - **⚠ Conflits** : éléments modifiés à la fois localement et par l'auteur.
+3. Le code livré par un tiers (plugins, pages, vues de données, champs à formule) est marqué **⚠ Code tiers** avec l'avertissement **Code livré par un tiers : relisez-le avant d'appliquer** ; ouvrez **Voir le contenu livré** pour l'examiner.
+4. Pour chaque **⚠ Conflits**, choisissez **Garder le mien** (par défaut) ou **Prendre la version livrée**.
+5. Pour installer une version antérieure à celle déjà installée, cochez **Autoriser une version antérieure** ; sinon la mise à jour est refusée.
+6. Cliquez sur **Appliquer** et confirmez.
+
+#### Ce que garantit une mise à jour
+
+- Aucun enregistrement n'est jamais supprimé.
+- Les éléments créés localement sur l'instance (absents du suivi de l'application) ne sont jamais touchés.
+- Les éléments retirés par l'auteur deviennent **obsolètes** mais restent en place.
+- Les groupes ne sont créés que s'ils manquent ; les membres et droits locaux sont préservés.
+- Lignes d'amorçage : les nouvelles sont ajoutées, celles non modifiées localement sont mises à jour, celles modifiées localement sont conservées, aucune n'est supprimée.
+- L'ensemble de la mise à jour est atomique : en cas d'erreur, l'état précédent est restauré.
+
+#### Purger les éléments obsolètes
+
+1. Dans **Applications installées**, cliquez sur **Éléments obsolètes…** (activé dès qu'une application a des éléments obsolètes).
+2. Sélectionnez les éléments à purger, puis cliquez sur **Aperçu des pertes**. Un avertissement rouge (**Suppression définitive — les données de ces éléments seront perdues.**) indique, par élément, le nombre d'enregistrements, de champs, de relations et de vues qui seront perdus.
+3. Saisissez exactement la valeur demandée : le nom de l'élément (la partie après le dernier `:`) lorsqu'un seul élément est sélectionné, ou l'identifiant de l'application lorsque plusieurs sont sélectionnés. Cliquez ensuite sur **Purger définitivement**. La purge est définitive.
+
+Seuls les éléments obsolètes suivis pour une application peuvent être purgés ; un élément actif ou purement local ne peut jamais être purgé.
+
+> **Limite connue :** lors du renommage d'un élément, les formules qui citent son ancien nom en clair ne sont pas réécrites.
+
 ---
 
 ## User profile

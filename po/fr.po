@@ -3,3 +3,123 @@ msgstr ""
 "Project-Id-Version: tdb-docs\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+
+msgid "### Applications (packaging and updates)"
+msgstr "### Applications (paquets et mises à jour)"
+
+msgid "The **Applications** panel lets an administrator distribute a whole TGui application as a package and receive later versions without rebuilding it from scratch."
+msgstr "Le panneau **Applications** permet à un administrateur de distribuer une application TGui complète sous forme de paquet, puis d'en recevoir les versions ultérieures sans tout reconstruire."
+
+msgid "#### Package format"
+msgstr "#### Format du paquet"
+
+msgid "A package is a `.tdbapp.yaml` file. Its header is `app: {id, name, version, description}`: `id` is a stable, globally unique identifier (for example `org.exemple.biblio`), `name` is a display name, and `version` follows `x.y.z` (semver). The body contains spaces (with their fields and relations), data views, pages, YAML widget plugins, groups with their default permissions, and seed rows for the spaces you list. Every element is identified by a stable key (its name inside its scope), never by a local UUID; a rename is declared with `renamed_from`."
+msgstr "Un paquet est un fichier `.tdbapp.yaml`. Son en-tête est `app: {id, name, version, description}` : `id` est un identifiant stable et globalement unique (par exemple `org.exemple.biblio`), `name` est un nom d'affichage, et `version` suit le format `x.y.z` (semver). Le corps contient les espaces (avec leurs champs et relations), les vues de données, les pages, les plugins de widget YAML, les groupes avec leurs droits par défaut, et les lignes d'amorçage des espaces que vous listez. Chaque élément est identifié par une clé stable (son nom dans son périmètre), jamais par un UUID local ; un renommage est déclaré avec `renamed_from`."
+
+msgid "#### Export an application"
+msgstr "#### Exporter une application"
+
+msgid "1. Open **Administration > Applications**, then the **Export an application** box."
+msgstr "1. Ouvrez **Administration > Applications**, puis l'encadré **Exporter une application**."
+
+msgid "2. Fill in the **Identifier** (for example `org.exemple.biblio`), the **Name**, the **Version (x.y.z)** and an optional **Description**."
+msgstr "2. Renseignez l'**Identifiant** (par exemple `org.exemple.biblio`), le **Nom**, la **Version (x.y.z)** et une **Description** facultative."
+
+msgid "3. In **Seed lines (one per line, space:keyField)**, add one line per space whose rows must travel with the package, in the form `space:keyField` (for example `livres:isbn`). The space and the key field must already exist, and the key value must be unique on every row: a missing value on a required key field, or two rows sharing the same key value, refuses the export. Rows that leave an optional key field empty are considered local and left out."
+msgstr "3. Dans **Lignes d'amorçage (une par ligne, espace:champCle)**, ajoutez une ligne par espace dont les enregistrements doivent voyager avec le paquet, sous la forme `espace:champCle` (par exemple `livres:isbn`). L'espace et le champ clé doivent déjà exister, et la valeur de clé doit être unique sur chaque ligne : une valeur manquante sur un champ clé obligatoire, ou deux lignes partageant la même valeur de clé, refusent l'export. Les lignes qui laissent vide un champ clé facultatif sont considérées comme locales et laissées de côté."
+
+msgid "4. Click **Export package**. The browser downloads `<id>-<version>.tdbapp.yaml`."
+msgstr "4. Cliquez sur **⬇ Exporter le paquet**. Le navigateur télécharge `<id>-<version>.tdbapp.yaml`."
+
+msgid "#### Install or update"
+msgstr "#### Installer ou mettre à jour"
+
+msgid "1. In **Install or update**, click **Choose file** and select a `.tdbapp.yaml` package."
+msgstr "1. Dans **Installer ou mettre à jour**, cliquez sur **📂 Choisir un fichier** et sélectionnez un paquet `.tdbapp.yaml`."
+
+msgid "2. A **Change preview** is shown before anything is written:"
+msgstr "2. Un **Aperçu des changements** s'affiche avant toute écriture :"
+
+msgid "   - **Created**: elements that do not exist locally."
+msgstr "   - **+ Créés** : éléments qui n'existent pas localement."
+
+msgid "   - **Updated**: elements you have not modified but the author changed."
+msgstr "   - **~ Mis à jour** : éléments que vous n'avez pas modifiés mais que l'auteur a changés."
+
+msgid "   - **Kept (locally modified)**: elements you modified and the author kept as they were."
+msgstr "   - **🔒 Conservés (modifiés localement)** : éléments que vous avez modifiés et que l'auteur a laissés tels quels."
+
+msgid "   - **Renamed**: elements renamed by the author, matched through `renamed_from`; their data is kept."
+msgstr "   - **↷ Renommés** : éléments renommés par l'auteur, appariés via `renamed_from` ; leurs données sont conservées."
+
+msgid "   - **Obsolete**: elements the new version no longer contains; they are not deleted."
+msgstr "   - **⚠ Obsolètes** : éléments que la nouvelle version ne contient plus ; ils ne sont pas supprimés."
+
+msgid "   - **Conflicts**: elements modified both locally and by the author."
+msgstr "   - **⚠ Conflits** : éléments modifiés à la fois localement et par l'auteur."
+
+msgid "3. Code delivered by a third party (plugins, pages, data views, formula fields) is marked **Third-party code** with the warning **Code delivered by a third party: review it before applying**; open **View delivered content** to inspect it."
+msgstr "3. Le code livré par un tiers (plugins, pages, vues de données, champs à formule) est marqué **⚠ Code tiers** avec l'avertissement **Code livré par un tiers : relisez-le avant d'appliquer** ; ouvrez **Voir le contenu livré** pour l'examiner."
+
+msgid "4. For each **Conflict**, choose **Keep mine** (the default) or **Take delivered version**."
+msgstr "4. Pour chaque **⚠ Conflits**, choisissez **Garder le mien** (par défaut) ou **Prendre la version livrée**."
+
+msgid "5. To install a version lower than the one already installed, tick **Allow an older version**; otherwise the update is refused."
+msgstr "5. Pour installer une version antérieure à celle déjà installée, cochez **Autoriser une version antérieure** ; sinon la mise à jour est refusée."
+
+msgid "6. Click **Apply** and confirm."
+msgstr "6. Cliquez sur **Appliquer** et confirmez."
+
+msgid "#### What an update guarantees"
+msgstr "#### Ce que garantit une mise à jour"
+
+msgid "- No record is ever deleted."
+msgstr "- Aucun enregistrement n'est jamais supprimé."
+
+msgid "- Elements created locally on the instance (absent from the application tracking) are never touched."
+msgstr "- Les éléments créés localement sur l'instance (absents du suivi de l'application) ne sont jamais touchés."
+
+msgid "- Elements the author removed become **obsolete** but stay in place."
+msgstr "- Les éléments retirés par l'auteur deviennent **obsolètes** mais restent en place."
+
+msgid "- Groups are created only when missing; local members and permissions are preserved."
+msgstr "- Les groupes ne sont créés que s'ils manquent ; les membres et droits locaux sont préservés."
+
+msgid "- Seed rows: new ones are added, rows not modified locally are updated, locally modified rows are kept, none are deleted."
+msgstr "- Lignes d'amorçage : les nouvelles sont ajoutées, celles non modifiées localement sont mises à jour, celles modifiées localement sont conservées, aucune n'est supprimée."
+
+msgid "- The whole update is atomic: on error, the previous state is restored."
+msgstr "- L'ensemble de la mise à jour est atomique : en cas d'erreur, l'état précédent est restauré."
+
+msgid "#### Purge obsolete elements"
+msgstr "#### Purger les éléments obsolètes"
+
+msgid "1. In **Installed applications**, click **Obsolete items…** (enabled as soon as an application has obsolete elements)."
+msgstr "1. Dans **Applications installées**, cliquez sur **Éléments obsolètes…** (activé dès qu'une application a des éléments obsolètes)."
+
+msgid "2. Select the elements to purge, then click **Preview losses**. A red warning (**Permanent deletion — the data of these items will be lost.**) lists, per element, the number of records, fields, relations and views that will be lost."
+msgstr "2. Sélectionnez les éléments à purger, puis cliquez sur **Aperçu des pertes**. Un avertissement rouge (**Suppression définitive — les données de ces éléments seront perdues.**) indique, par élément, le nombre d'enregistrements, de champs, de relations et de vues qui seront perdus."
+
+msgid "3. Type exactly the requested value: the item name (the part after the last `:`) when a single element is selected, or the application identifier when several are selected. Then click **Purge permanently**. The purge is definitive."
+msgstr "3. Saisissez exactement la valeur demandée : le nom de l'élément (la partie après le dernier `:`) lorsqu'un seul élément est sélectionné, ou l'identifiant de l'application lorsque plusieurs sont sélectionnés. Cliquez ensuite sur **Purger définitivement**. La purge est définitive."
+
+msgid "Only obsolete elements tracked for an application can be purged; an active or purely local element can never be purged."
+msgstr "Seuls les éléments obsolètes suivis pour une application peuvent être purgés ; un élément actif ou purement local ne peut jamais être purgé."
+
+msgid "> **Known limitation:** when an element is renamed, formulas that reference its old name as plain text are not rewritten."
+msgstr "> **Limite connue :** lors du renommage d'un élément, les formules qui citent son ancien nom en clair ne sont pas réécrites."
+
+msgid "TGui can package a whole application into a `.tdbapp.yaml` file, install it on another instance, and receive later versions while keeping local data and customisations. The walkthrough for an administrator is in [Quick Start](get-started.md)."
+msgstr "TGui peut empaqueter une application complète dans un fichier `.tdbapp.yaml`, l'installer sur une autre instance et recevoir les versions ultérieures tout en conservant les données et personnalisations locales. La procédure destinée à un administrateur se trouve dans [Quick Start](get-started.md)."
+
+msgid "The header of a package is `app: {id, name, version, description}`; `version` is `x.y.z`. Elements are identified by stable keys (`space:<name>`, `field:<space>.<name>`, `view:<space>.<name>`, `page:<name>`, `dataview:<name>`, `plugin:<name>`, `group:<name>`, `perm:<group>|<type>|<resource>|<level>`, `seed:<space>|<value>`); a rename is declared with `renamed_from`."
+msgstr "L'en-tête d'un paquet est `app: {id, name, version, description}` ; `version` suit le format `x.y.z`. Les éléments sont identifiés par des clés stables (`space:<name>`, `field:<space>.<name>`, `view:<space>.<name>`, `page:<name>`, `dataview:<name>`, `plugin:<name>`, `group:<name>`, `perm:<group>|<type>|<resource>|<level>`, `seed:<space>|<value>`) ; un renommage est déclaré avec `renamed_from`."
+
+msgid "- `previewAppUpdate` and `previewAppPurge` never write."
+msgstr "- `previewAppUpdate` et `previewAppPurge` n'écrivent jamais."
+
+msgid "- `applyAppUpdate` is atomic and requires a decision (`local` or `delivered`) for each conflict."
+msgstr "- `applyAppUpdate` est atomique et exige une décision (`local` ou `delivered`) pour chaque conflit."
+
+msgid "- `purgeAppObsolete` requires `confirmed: true` and only accepts items whose tracked state is obsolete."
+msgstr "- `purgeAppObsolete` exige `confirmed: true` et n'accepte que les éléments dont l'état suivi est obsolète."

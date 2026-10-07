@@ -18,6 +18,7 @@ TGui exposes all its features via a **GraphQL API** at `http://localhost:8080/gr
 10. [Permissions](#10-permissions)
 11. [Export and Import Snapshots](#11-export-and-import-snapshots)
 12. [Full GraphQL API](#12-full-graphql-api)
+13. [Applications (packaging and updates)](#13-applications-packaging-and-updates)
 
 ---
 
@@ -1100,3 +1101,67 @@ mutation Import($yaml: String!, $mode: ImportMode!) {
 | `addMember` / `removeMember` | Manage members (admin) |
 | `grant` / `revoke` | Manage permissions (admin) |
 | `importSnapshot(yaml, mode)` | Import a YAML snapshot (admin) |
+
+---
+
+## 13. Applications (packaging and updates)
+
+TGui peut empaqueter une application complète dans un fichier `.tdbapp.yaml`, l'installer sur une autre instance et recevoir les versions ultérieures tout en conservant les données et personnalisations locales. La procédure destinée à un administrateur se trouve dans [Quick Start](get-started.md).
+
+L'en-tête d'un paquet est `app: {id, name, version, description}` ; `version` suit le format `x.y.z`. Les éléments sont identifiés par des clés stables (`space:<name>`, `field:<space>.<name>`, `view:<space>.<name>`, `page:<name>`, `dataview:<name>`, `plugin:<name>`, `group:<name>`, `perm:<group>|<type>|<resource>|<level>`, `seed:<space>|<value>`) ; un renommage est déclaré avec `renamed_from`.
+
+### GraphQL API
+
+```graphql
+# Installed applications
+query { listApps { appId name version activeCount obsoleteCount } }
+
+# Tracked items of one application
+query { appItems(appId: "org.exemple.biblio") { key type state version } }
+
+# Export a package (admin)
+query {
+  exportApp(
+    meta: { id: "org.exemple.biblio", name: "Library", version: "1.0.0" },
+    seed: [{ space: "livres", keyField: "isbn" }]
+  )
+}
+
+# Preview an install or update (read-only)
+query {
+  previewAppUpdate(yaml: "...") {
+    create { key type isCode }
+    update { key type isCode }
+    conflict { key type local delivered }
+    keepLocal { key type }
+    obsolete
+    rename { from to }
+    unchanged
+    errors
+  }
+}
+
+# Apply the update
+mutation {
+  applyAppUpdate(yaml: "...", decisions: [{ key: "field:livres.titre", choice: "local" }]) {
+    ok created updated kept unchanged obsolete skipped error
+  }
+}
+
+# Preview and purge obsolete items
+query {
+  previewAppPurge(appId: "org.exemple.biblio", keys: ["space:old"]) {
+    losses { key type records fields relations views }
+    totalRecords
+  }
+}
+mutation {
+  purgeAppObsolete(appId: "org.exemple.biblio", keys: ["space:old"], confirmed: true) {
+    ok purged error
+  }
+}
+```
+
+- `previewAppUpdate` et `previewAppPurge` n'écrivent jamais.
+- `applyAppUpdate` est atomique et exige une décision (`local` ou `delivered`) pour chaque conflit.
+- `purgeAppObsolete` exige `confirmed: true` et n'accepte que les éléments dont l'état suivi est obsolète.
