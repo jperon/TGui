@@ -35,6 +35,15 @@ sequence_fields = function(space_id)
   end
   return result
 end
+local numeric_compare
+numeric_compare = function(v, flt_value, cmp)
+  local n = tonumber(v)
+  local m = tonumber(flt_value)
+  if n == nil or m == nil then
+    return false
+  end
+  return cmp(n, m)
+end
 local matches_filter
 matches_filter = function(self_val, flt)
   if not (flt) then
@@ -59,13 +68,21 @@ matches_filter = function(self_val, flt)
       elseif 'NEQ' == _exp_0 then
         ok = v ~= flt.value
       elseif 'LT' == _exp_0 then
-        ok = tonumber(v) < tonumber(flt.value)
+        ok = numeric_compare(v, flt.value, function(a, b)
+          return a < b
+        end)
       elseif 'GT' == _exp_0 then
-        ok = tonumber(v) > tonumber(flt.value)
+        ok = numeric_compare(v, flt.value, function(a, b)
+          return a > b
+        end)
       elseif 'LTE' == _exp_0 then
-        ok = tonumber(v) <= tonumber(flt.value)
+        ok = numeric_compare(v, flt.value, function(a, b)
+          return a <= b
+        end)
       elseif 'GTE' == _exp_0 then
-        ok = tonumber(v) >= tonumber(flt.value)
+        ok = numeric_compare(v, flt.value, function(a, b)
+          return a >= b
+        end)
       elseif 'CONTAINS' == _exp_0 then
         ok = v:find(flt.value, 1, true) ~= nil
       elseif 'STARTS_WITH' == _exp_0 then
@@ -416,30 +433,34 @@ local Query = {
         parsed._repr = repr_compile_error
       else
         if repr_fn then
-          local ok_r, val = pcall(repr_fn, self_proxy, nil)
-          if ok_r and val ~= nil then
-            parsed._repr = tostring(val)
+          local val, err = config_mod.safe_formula_call((function()
+            return repr_fn(self_proxy, nil)
+          end), "reprFormula evaluation")
+          if err then
+            parsed._repr = triggers_mod.format_formula_error(err)
           else
-            if ok_r and val == nil and repr_uses_self_repr then
-              local fallback_repr = self_proxy._repr
-              if fallback_repr ~= nil then
-                parsed._repr = tostring(fallback_repr)
-              end
+            if val ~= nil then
+              parsed._repr = tostring(val)
             else
-              if not ok_r then
-                parsed._repr = triggers_mod.format_formula_error(val)
+              if repr_uses_self_repr then
+                local fallback_repr = self_proxy._repr
+                if fallback_repr ~= nil then
+                  parsed._repr = tostring(fallback_repr)
+                end
               end
             end
           end
         end
       end
       for fname, fn in pairs(field_reprs) do
-        local ok_r, val = pcall(fn, self_proxy, nil)
-        if ok_r and val ~= nil then
-          parsed["_repr_" .. tostring(fname)] = tostring(val)
+        local val, err = config_mod.safe_formula_call((function()
+          return fn(self_proxy, nil)
+        end), "repr_" .. tostring(fname) .. " evaluation")
+        if err then
+          parsed["_repr_" .. tostring(fname)] = triggers_mod.format_formula_error(err)
         else
-          if not ok_r then
-            parsed["_repr_" .. tostring(fname)] = triggers_mod.format_formula_error(val)
+          if val ~= nil then
+            parsed["_repr_" .. tostring(fname)] = tostring(val)
           end
         end
       end

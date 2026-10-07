@@ -16,7 +16,7 @@ R = require 'tests.runner'
 triggers   = require 'core.triggers'
 spaces_mod = require 'core.spaces'
 { Query: schema_Query, Mutation: schema_Mutation } = require 'resolvers.schema_resolvers'
-{ Query: data_Query,   Mutation: data_Mutation }   = require 'resolvers.data_resolvers'
+{ Query: data_Query, Mutation: data_Mutation, matches_filter: real_matches_filter } = require 'resolvers.data_resolvers'
 
 CTX_FK = { user_id: 'test-user' }
 
@@ -118,6 +118,154 @@ R.describe "matches_filter — LT / GT / LTE / GTE operators", ->
   R.it "GTE: greater or equal -> true", ->
     R.ok matches_filter { age: 40 }, { field: 'age', op: 'GTE', value: '40' }
     R.ok matches_filter { age: 41 }, { field: 'age', op: 'GTE', value: '40' }
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- Robustness of the numeric operators, exercised on the REAL matches_filter
+-- exported by resolvers.data_resolvers (the local copy above is a test double).
+-- Non-numeric data must exclude the record, never raise a comparison error.
+-- ────────────────────────────────────────────────────────────────────────────
+R.describe "matches_filter (real) — LT/GT/LTE/GTE with non-numeric data", ->
+
+  R.it "LT: empty, text or missing field value -> excluded, no error", ->
+    R.eq real_matches_filter({ age: '' }, { field: 'age', op: 'LT', value: '40' }), false
+    R.eq real_matches_filter({ age: 'abc' }, { field: 'age', op: 'LT', value: '40' }), false
+    R.eq real_matches_filter({}, { field: 'age', op: 'LT', value: '40' }), false
+
+  R.it "GT: empty, text or missing field value -> excluded, no error", ->
+    R.eq real_matches_filter({ age: '' }, { field: 'age', op: 'GT', value: '40' }), false
+    R.eq real_matches_filter({ age: 'abc' }, { field: 'age', op: 'GT', value: '40' }), false
+    R.eq real_matches_filter({}, { field: 'age', op: 'GT', value: '40' }), false
+
+  R.it "LTE: empty, text or missing field value -> excluded, no error", ->
+    R.eq real_matches_filter({ age: '' }, { field: 'age', op: 'LTE', value: '40' }), false
+    R.eq real_matches_filter({ age: 'abc' }, { field: 'age', op: 'LTE', value: '40' }), false
+    R.eq real_matches_filter({}, { field: 'age', op: 'LTE', value: '40' }), false
+
+  R.it "GTE: empty, text or missing field value -> excluded, no error", ->
+    R.eq real_matches_filter({ age: '' }, { field: 'age', op: 'GTE', value: '40' }), false
+    R.eq real_matches_filter({ age: 'abc' }, { field: 'age', op: 'GTE', value: '40' }), false
+    R.eq real_matches_filter({}, { field: 'age', op: 'GTE', value: '40' }), false
+
+  R.it "LT/GT/LTE/GTE: non-numeric filter value -> excluded, no error", ->
+    R.eq real_matches_filter({ age: 30 }, { field: 'age', op: 'LT', value: 'abc' }), false
+    R.eq real_matches_filter({ age: 30 }, { field: 'age', op: 'GT', value: 'abc' }), false
+    R.eq real_matches_filter({ age: 30 }, { field: 'age', op: 'LTE', value: '' }), false
+    R.eq real_matches_filter({ age: 30 }, { field: 'age', op: 'GTE', value: '' }), false
+    R.eq real_matches_filter({ age: 30 }, { field: 'age', op: 'LT', value: nil }), false
+
+  R.it "integer field vs numeric string filter -> numeric comparison", ->
+    R.ok real_matches_filter { age: 30 }, { field: 'age', op: 'LT', value: '40' }
+    R.eq real_matches_filter({ age: 40 }, { field: 'age', op: 'LTE', value: '40' }), true
+    R.eq real_matches_filter({ age: 39 }, { field: 'age', op: 'LTE', value: '40' }), true
+    R.eq real_matches_filter({ age: 41 }, { field: 'age', op: 'GTE', value: '40' }), true
+
+  R.it "float field values -> numeric comparison", ->
+    R.ok real_matches_filter { score: 5.5 }, { field: 'score', op: 'GT', value: '5.4' }
+    R.ok real_matches_filter { score: 5.5 }, { field: 'score', op: 'LTE', value: '5.5' }
+    R.eq real_matches_filter({ score: 5.5 }, { field: 'score', op: 'LT', value: '5.5' }), false
+
+  R.it "numeric strings compare numerically, not lexicographically", ->
+    -- '10' > '9' numerically, while '10' < '9' lexicographically
+    R.ok real_matches_filter { age: '10' }, { field: 'age', op: 'GT', value: '9' }
+    R.eq real_matches_filter({ age: '10' }, { field: 'age', op: 'LT', value: '9' }), false
+    -- '9' < '10' numerically, while '9' > '10' lexicographically
+    R.ok real_matches_filter { age: '9' }, { field: 'age', op: 'LT', value: '10' }
+    R.eq real_matches_filter({ age: '9' }, { field: 'age', op: 'GTE', value: '10' }), false
+
+  R.it "EQ / NEQ / CONTAINS / STARTS_WITH keep their string semantics", ->
+    R.ok real_matches_filter { age: 40 }, { field: 'age', op: 'EQ', value: '40' }
+    R.eq real_matches_filter({ age: 40 }, { field: 'age', op: 'NEQ', value: '40' }), false
+    R.ok real_matches_filter { nom: 'Dupont' }, { field: 'nom', op: 'CONTAINS', value: 'pont' }
+    R.ok real_matches_filter { nom: 'Dupont' }, { field: 'nom', op: 'STARTS_WITH', value: 'Du' }
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- End to end: Query.records must exclude non-numeric rows instead of failing.
+-- ────────────────────────────────────────────────────────────────────────────
+R.describe "Query.records — numeric filter on non-numeric data", ->
+  NUMFX = tostring math.random(100000, 999999)
+  num_space_name = "numfilt_#{NUMFX}"
+  num_sp_id = nil
+  json_mod = require 'json'
+
+  do
+    sp = spaces_mod.create_user_space num_space_name, "numeric filter robustness"
+    num_sp_id = sp.id
+    spaces_mod.add_field num_sp_id, 'val', 'String'
+    data_Mutation.insertRecord {}, { spaceId: num_sp_id, data: { val: '10' } }, CTX_FK
+    data_Mutation.insertRecord {}, { spaceId: num_sp_id, data: { val: '9' } }, CTX_FK
+    data_Mutation.insertRecord {}, { spaceId: num_sp_id, data: { val: 'abc' } }, CTX_FK
+    data_Mutation.insertRecord {}, { spaceId: num_sp_id, data: { val: '' } }, CTX_FK
+    data_Mutation.insertRecord {}, { spaceId: num_sp_id, data: {} }, CTX_FK
+
+  R.it "records() without filter returns every record", ->
+    res = data_Query.records {}, { spaceId: num_sp_id }, CTX_FK
+    R.eq res.total, 5
+
+  R.it "GT '9' keeps only the numeric '10' record", ->
+    res = data_Query.records {}, {
+      spaceId: num_sp_id
+      filter: { field: 'val', op: 'GT', value: '9' }
+    }, CTX_FK
+    R.eq res.total, 1
+    d = json_mod.decode res.items[1].data
+    R.eq d.val, '10'
+
+  R.it "LT '10' keeps only the numeric '9' record", ->
+    res = data_Query.records {}, {
+      spaceId: num_sp_id
+      filter: { field: 'val', op: 'LT', value: '10' }
+    }, CTX_FK
+    R.eq res.total, 1
+    d = json_mod.decode res.items[1].data
+    R.eq d.val, '9'
+
+  R.it "cleanup", ->
+    spaces_mod.delete_user_space num_space_name
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- repr formulas evaluated by Query.records must go through
+-- config_mod.safe_formula_call (instruction guard + error metrics), not
+-- through a bare pcall: a failing repr formula is counted in the metrics.
+-- ────────────────────────────────────────────────────────────────────────────
+R.describe "Query.records — repr formulas guarded by safe_formula_call", ->
+  RFFX = tostring math.random(100000, 999999)
+  rf_space_name = "reprguard_#{RFFX}"
+  rf_sp_id = nil
+  json_mod = require 'json'
+  config_mod = require 'core.config'
+
+  do
+    sp = spaces_mod.create_user_space rf_space_name, "repr guard test"
+    rf_sp_id = sp.id
+    -- reprFormula stored on the field: compiles, fails at runtime
+    spaces_mod.add_field rf_sp_id, 'label', 'String', false, '', '', nil, 'lua', 'error("boom")'
+    data_Mutation.insertRecord {}, { spaceId: rf_sp_id, data: { label: 'x' } }, CTX_FK
+
+  R.it "global reprFormula failure: query succeeds and is counted in metrics", ->
+    config_mod.clear_formula_metrics!
+    res = data_Query.records {}, {
+      spaceId: rf_sp_id
+      reprFormula: 'error("boom")'
+      reprLanguage: 'moonscript'
+    }, CTX_FK
+    R.eq res.total, 1
+    d = json_mod.decode res.items[1].data
+    R.ok d._repr != nil
+    metrics = config_mod.get_formula_metrics!
+    R.ok metrics.total_errors > 0
+
+  R.it "per-field reprFormula failure: query succeeds and is counted in metrics", ->
+    config_mod.clear_formula_metrics!
+    res = data_Query.records {}, { spaceId: rf_sp_id }, CTX_FK
+    R.eq res.total, 1
+    d = json_mod.decode res.items[1].data
+    R.ok d._repr_label != nil
+    metrics = config_mod.get_formula_metrics!
+    R.ok metrics.total_errors > 0
+
+  R.it "cleanup", ->
+    config_mod.clear_formula_metrics!
+    spaces_mod.delete_user_space rf_space_name
 
 -- ────────────────────────────────────────────────────────────────────────────
 R.describe "matches_filter — CONTAINS operator", ->

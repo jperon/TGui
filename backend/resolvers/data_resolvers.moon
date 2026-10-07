@@ -25,6 +25,15 @@ sequence_fields = (space_id) ->
       result[t[3]] = t[1]  -- name -> field_id
   result
 
+-- Numeric comparison for LT / GT / LTE / GTE: both operands must convert to a
+-- number, otherwise the record is excluded (false) instead of raising
+-- "attempt to compare nil with number".
+numeric_compare = (v, flt_value, cmp) ->
+  n = tonumber v
+  m = tonumber flt_value
+  return false if n == nil or m == nil
+  cmp n, m
+
 -- Test one record against a filter (recursively handles and/or).
 -- self_val: the record as a make_self_proxy (for formula) or plain dict (for field filters)
 matches_filter = (self_val, flt) ->
@@ -42,10 +51,10 @@ matches_filter = (self_val, flt) ->
     switch flt.op
       when 'EQ'          then v == flt.value
       when 'NEQ'         then v != flt.value
-      when 'LT'          then tonumber(v) < tonumber(flt.value)
-      when 'GT'          then tonumber(v) > tonumber(flt.value)
-      when 'LTE'         then tonumber(v) <= tonumber(flt.value)
-      when 'GTE'         then tonumber(v) >= tonumber(flt.value)
+      when 'LT'          then numeric_compare(v, flt.value, (a, b) -> a < b)
+      when 'GT'          then numeric_compare(v, flt.value, (a, b) -> a > b)
+      when 'LTE'         then numeric_compare(v, flt.value, (a, b) -> a <= b)
+      when 'GTE'         then numeric_compare(v, flt.value, (a, b) -> a >= b)
       when 'CONTAINS'    then v\find(flt.value, 1, true) != nil
       when 'STARTS_WITH' then v\sub(1, #flt.value) == flt.value
       else true
@@ -257,22 +266,24 @@ Query =
       if repr_compile_error
         parsed._repr = repr_compile_error
       else if repr_fn
-        ok_r, val = pcall repr_fn, self_proxy, nil
-        if ok_r and val != nil
+        -- safe_formula_call: instruction guard + error metrics; second return
+        -- value is the error message (nil on success).
+        val, err = config_mod.safe_formula_call (-> repr_fn self_proxy, nil), "reprFormula evaluation"
+        if err
+          parsed._repr = triggers_mod.format_formula_error err
+        else if val != nil
           parsed._repr = tostring val
-        else if ok_r and val == nil and repr_uses_self_repr
+        else if repr_uses_self_repr
           fallback_repr = self_proxy._repr
           parsed._repr = tostring(fallback_repr) if fallback_repr != nil
-        else if not ok_r
-          parsed._repr = triggers_mod.format_formula_error val
 
       -- Per-field reprs
       for fname, fn in pairs field_reprs
-        ok_r, val = pcall fn, self_proxy, nil
-        if ok_r and val != nil
+        val, err = config_mod.safe_formula_call (-> fn self_proxy, nil), "repr_#{fname} evaluation"
+        if err
+          parsed["_repr_#{fname}"] = triggers_mod.format_formula_error err
+        else if val != nil
           parsed["_repr_#{fname}"] = tostring val
-        else if not ok_r
-          parsed["_repr_#{fname}"] = triggers_mod.format_formula_error val
       for fname, err_val in pairs field_repr_errors
         parsed["_repr_#{fname}"] = err_val if parsed["_repr_#{fname}"] == nil
 
