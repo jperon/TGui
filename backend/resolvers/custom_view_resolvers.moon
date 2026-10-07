@@ -13,6 +13,7 @@ local encode_layout_yaml
 local create_zone
 local resize_zone
 local merge_zones
+local split_zone
 local export_layout
 local import_layout
 local create_layout_snapshot
@@ -434,6 +435,14 @@ Mutation =
     snap = box.space._tdb_layout_snapshots\get args.snapshotId
     require_perm ctx, 'view', snap and snap[2], 'write'
     restore_layout_snapshot args.snapshotId
+
+  mergeZones: (_, args, ctx) ->
+    require_perm ctx, 'view', args.pageId, 'write'
+    merge_zones args.pageId, args.zoneId1, args.zoneId2
+
+  splitZone: (_, args, ctx) ->
+    require_perm ctx, 'view', args.pageId, 'write'
+    split_zone args.pageId, args.zoneId, args.direction
 
  -- Créer une nouvelle zone dans une vue
 create_zone = (pageId, zoneData) ->
@@ -911,15 +920,5 @@ add_widget_to_view = (viewId, widget) ->
     createdAt: tostring(t[5])
     updatedAt: tostring(os.time())
   }
-
--- Fusionner deux zones adjacentes ayant le même parent
-mergeZones: (_, args, ctx) ->
-  require_auth ctx
-  merge_zones args.pageId, args.zoneId1, args.zoneId2
-
--- Diviser une zone en deux zones selon une direction
-splitZone: (_, args, ctx) ->
-  require_auth ctx
-  split_zone args.pageId, args.zoneId, args.direction
 
 { :Query, :Mutation }

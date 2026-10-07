@@ -12,6 +12,7 @@ local encode_layout_yaml
 local create_zone
 local resize_zone
 local merge_zones
+local split_zone
 local export_layout
 local import_layout
 local create_layout_snapshot
@@ -560,6 +561,14 @@ local Mutation = {
     local snap = box.space._tdb_layout_snapshots:get(args.snapshotId)
     require_perm(ctx, 'view', snap and snap[2], 'write')
     return restore_layout_snapshot(args.snapshotId)
+  end,
+  mergeZones = function(_, args, ctx)
+    require_perm(ctx, 'view', args.pageId, 'write')
+    return merge_zones(args.pageId, args.zoneId1, args.zoneId2)
+  end,
+  splitZone = function(_, args, ctx)
+    require_perm(ctx, 'view', args.pageId, 'write')
+    return split_zone(args.pageId, args.zoneId, args.direction)
   end
 }
 create_zone = function(pageId, zoneData)
@@ -791,7 +800,6 @@ merge_zones = function(pageId, zoneId1, zoneId2)
     yaml = updated_yaml
   }
 end
-local split_zone
 split_zone = function(pageId, zoneId, direction)
   if not (direction == 'vertical' or direction == 'horizontal') then
     error("Direction must be 'vertical' or 'horizontal'")
@@ -1081,18 +1089,6 @@ add_widget_to_view = function(viewId, widget)
     updatedAt = tostring(os.time())
   }
 end
-local _ = {
-  mergeZones = function(_, args, ctx)
-    require_auth(ctx)
-    return merge_zones(args.pageId, args.zoneId1, args.zoneId2)
-  end
-}
-_ = {
-  splitZone = function(_, args, ctx)
-    require_auth(ctx)
-    return split_zone(args.pageId, args.zoneId, args.direction)
-  end
-}
 return {
   Query = Query,
   Mutation = Mutation
