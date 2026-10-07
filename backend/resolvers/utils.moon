@@ -55,4 +55,31 @@ require_perm = (ctx, resource_type, resource_id, level) ->
   error "Forbidden" unless perm_ok ctx, resource_type, resource_id, level
   uid
 
-{ :require_auth, :require_admin, :require_perm, :perm_ok, :is_admin_user }
+-- Returns the per-request FK cache (creating it if absent) with a `can_read`
+-- predicate attached. Formula columns and FK traversal consult it through the
+-- cache (core/triggers.moon make_space_helper and ensure_space): a space the
+-- user cannot read yields no records, so no indirect read leaks. The
+-- server-side write-trigger context builds no cache, so `can_read` stays absent
+-- and triggers keep full access.
+--
+-- The readability map is (re)computed here, rather than inside can_read:
+-- can_read runs from a metatable __index while safe_formula_call installs a
+-- debug count hook (core/config.moon), and performing the permission lookups
+-- (box accesses) at that point makes the hook trip the instruction limit
+-- spuriously. Resolving every space by name up front keeps can_read a pure
+-- table lookup. The map is rebuilt on every call so a cache stored on a
+-- long-lived context cannot go stale when spaces are created; callers that
+-- loop over records reuse the same cache instead of calling this again.
+-- Spaces are read directly from the metadata space (no extra module import)
+-- to avoid a require cycle.
+fk_cache_for = (ctx) ->
+  cache = ctx._fk_cache or {}
+  readable = {}
+  for sp in *box.space._tdb_spaces\select {}
+    readable[sp[2]] = perm_ok ctx, 'space', sp[1], 'read'
+  cache.readable_by_name = readable
+  cache.can_read = (space_name) -> cache.readable_by_name[space_name] == true
+  ctx._fk_cache = cache
+  cache
+
+{ :require_auth, :require_admin, :require_perm, :perm_ok, :is_admin_user, :fk_cache_for }

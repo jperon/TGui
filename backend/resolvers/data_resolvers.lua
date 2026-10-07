@@ -2,10 +2,10 @@ local json = require('json')
 local log = require('log')
 local uuid_mod = require('uuid')
 local spaces_mod = require('core.spaces')
-local require_auth, require_perm, safe_call
+local require_auth, require_perm, safe_call, fk_cache_for
 do
   local _obj_0 = require('resolvers.utils')
-  require_auth, require_perm, safe_call = _obj_0.require_auth, _obj_0.require_perm, _obj_0.safe_call
+  require_auth, require_perm, safe_call, fk_cache_for = _obj_0.require_auth, _obj_0.require_perm, _obj_0.safe_call, _obj_0.fk_cache_for
 end
 local config_mod = require('core.config')
 local validation_mod = require('core.validation')
@@ -389,7 +389,7 @@ local Query = {
     end
     local sp_meta = box.space._tdb_spaces:get(args.spaceId)
     local space_name = sp_meta and sp_meta[2]
-    ctx._fk_cache = ctx._fk_cache or { }
+    ctx._fk_cache = fk_cache_for(ctx)
     local repr_fn = nil
     local repr_compile_error = nil
     if args.reprFormula and args.reprFormula ~= '' then

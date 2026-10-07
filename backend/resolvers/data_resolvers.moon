@@ -5,7 +5,7 @@ json      = require 'json'
 log       = require 'log'
 uuid_mod  = require 'uuid'
 spaces_mod = require 'core.spaces'
-{ :require_auth, :require_perm, :safe_call } = require 'resolvers.utils'
+{ :require_auth, :require_perm, :safe_call, :fk_cache_for } = require 'resolvers.utils'
 config_mod = require 'core.config'
 validation_mod = require 'core.validation'
 
@@ -223,8 +223,8 @@ Query =
     sp_meta = box.space._tdb_spaces\get args.spaceId
     space_name = sp_meta and sp_meta[2]
 
-    -- Reuse a per-request FK cache
-    ctx._fk_cache = ctx._fk_cache or {}
+    -- Reuse a per-request FK cache (carries the read-permission predicate)
+    ctx._fk_cache = fk_cache_for ctx
 
     -- Compile the global explicit reprFormula if provided (used by relations dropdown)
     repr_fn = nil

@@ -7,7 +7,7 @@ log        = require 'log'
 config     = require 'core.config'
 spaces_mod = require 'core.spaces'
 triggers   = require 'core.triggers'
-{ :require_perm, :perm_ok } = require 'resolvers.utils'
+{ :require_perm, :perm_ok, :fk_cache_for } = require 'resolvers.utils'
 
 -- Sanitize a name to a valid GraphQL identifier
 gql_name = (name) ->
@@ -158,7 +158,7 @@ generate = ->
         -- Build FK def map for this space so filter formulas can traverse FK chains
         ok_fk, fk_def_map = pcall triggers.build_fk_def_map, sp_cap.id
         fk_def_map = if ok_fk then fk_def_map else {}
-        ctx._fk_cache = ctx._fk_cache or {}
+        ctx._fk_cache = fk_cache_for ctx
         all    = apply_filter all, args.filter, fk_def_map, ctx._fk_cache, sp_cap.name
         total  = #all
         items  = [all[i] for i = offset + 1, math.min(offset + limit, total)]
@@ -224,7 +224,7 @@ generate = ->
           if args and args.filter
             ok_fk, fk_def_map = pcall triggers.build_fk_def_map, from_sp_id_cap
             fk_def_map = if ok_fk then fk_def_map else {}
-            ctx._fk_cache = ctx._fk_cache or {}
+            ctx._fk_cache = ctx._fk_cache or fk_cache_for ctx
             all = apply_filter all, args.filter, fk_def_map, ctx._fk_cache, from_sp_name_cap
 
           total = #all
@@ -258,11 +258,12 @@ generate = ->
               -- Prefer raw stored value if it's a trigger formula that was saved
               raw_val = obj[raw_name_cap]
               return raw_val if raw_val != nil and raw_val != ''
-              -- Reuse a per-request FK cache stored in ctx to avoid rescanning
-              -- FK target tables for every record in a batch query.
-              ctx._fk_cache = ctx._fk_cache or {}
+              -- Reuse the per-request FK cache set up by the query resolver
+              -- (fresh readability map) instead of rebuilding it per record.
+              ctx._fk_cache = ctx._fk_cache or fk_cache_for ctx
               proxy = triggers.make_self_proxy obj, fk_nm_cap, ctx._fk_cache, sp_name_cap
               space_helper = (sname) ->
+                return {} if ctx._fk_cache.can_read and not ctx._fk_cache.can_read sname
                 sp_box = box.space["data_#{sname}"]
                 return {} unless sp_box
                 [decode_tuple t for t in *sp_box\select {}]
@@ -283,7 +284,7 @@ generate = ->
         if repr_fn
           tr["_repr_#{gql_name f.name}"] = ((fn_cap, fk_nm_cap, raw_name_cap, sp_name_cap) ->
             (obj, a, ctx) ->
-              ctx._fk_cache = ctx._fk_cache or {}
+              ctx._fk_cache = ctx._fk_cache or fk_cache_for ctx
               proxy = triggers.make_self_proxy obj, fk_nm_cap, ctx._fk_cache, sp_name_cap
               val, err = config.safe_formula_call fn_cap, "repr_#{f.name} evaluation", nil, obj and obj._id, { proxy, nil }
               if err
