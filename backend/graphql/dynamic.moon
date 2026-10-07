@@ -4,6 +4,7 @@
 
 json       = require 'json'
 log        = require 'log'
+config     = require 'core.config'
 spaces_mod = require 'core.spaces'
 triggers   = require 'core.triggers'
 { :require_perm, :perm_ok } = require 'resolvers.utils'
@@ -31,8 +32,9 @@ matches_filter = (self_val, flt) ->
   -- Evaluate the primary condition
   ok = if flt.formula and flt.formula != ''
     if type(flt._formula_fn) == 'function'
-      r_ok, r_val = pcall flt._formula_fn, self_val
-      r_ok and r_val and r_val != false
+      -- Run through safe_formula_call: bounds infinite loops and tracks errors.
+      r_val = config.safe_formula_call flt._formula_fn, "filter formula evaluation", false, nil, { self_val }
+      r_val and r_val != false
     else false  -- formula failed to compile or not yet cached
   else if flt.field
     v = tostring (self_val[flt.field] or '')
@@ -264,12 +266,10 @@ generate = ->
                 sp_box = box.space["data_#{sname}"]
                 return {} unless sp_box
                 [decode_tuple t for t in *sp_box\select {}]
-              r_ok, val = pcall fn_cap, proxy, space_helper
-              if r_ok
-                return val
-              else
-                log.error "tdb proxy: error evaluating formula for '#{sp_name_cap}.#{f.name}': #{val}"
-                return triggers.format_formula_error val
+              val, err = config.safe_formula_call fn_cap, "formula #{sp_name_cap}.#{f.name}", nil, obj and obj._id, { proxy, space_helper }
+              if err
+                return triggers.format_formula_error err
+              return val
           )(formula_fn, fk_name_map, f.name, sp.name)
         else
           err_val = "[ERROR|Erreur de syntaxe|Compilation impossible pour #{sp.name}.#{f.name}]"
@@ -285,11 +285,11 @@ generate = ->
             (obj, a, ctx) ->
               ctx._fk_cache = ctx._fk_cache or {}
               proxy = triggers.make_self_proxy obj, fk_nm_cap, ctx._fk_cache, sp_name_cap
-              r_ok, val = pcall fn_cap, proxy, nil
-              if r_ok and val != nil
+              val, err = config.safe_formula_call fn_cap, "repr_#{f.name} evaluation", nil, obj and obj._id, { proxy, nil }
+              if err
+                return triggers.format_formula_error err
+              if val != nil
                 return tostring val
-              if not r_ok
-                return triggers.format_formula_error val
               return nil
           )(repr_fn, fk_name_map, f.name, sp.name)
         else

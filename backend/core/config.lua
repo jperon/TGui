@@ -14,7 +14,7 @@ local LIMITS = {
     max_length = DEFAULT_FIELD_NAME_MAX_LENGTH
   }
 }
-local FORMULA_INSTRUCTION_LIMIT = 200 * 1000 * 1000
+local FORMULA_INSTRUCTION_LIMIT = 20 * 1000 * 1000
 local FORMULA_HOOK_INTERVAL = 10000
 local safe_call
 safe_call = function(fn, context, default_value, record_id)
@@ -134,5 +134,7 @@ return {
   validate_input = validate_input,
   safe_formula_call = safe_formula_call,
   get_formula_metrics = get_formula_metrics,
-  clear_formula_metrics = clear_formula_metrics
+  clear_formula_metrics = clear_formula_metrics,
+  FORMULA_INSTRUCTION_LIMIT = FORMULA_INSTRUCTION_LIMIT,
+  FORMULA_HOOK_INTERVAL = FORMULA_HOOK_INTERVAL
 }

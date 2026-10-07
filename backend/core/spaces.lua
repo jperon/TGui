@@ -1,6 +1,9 @@
 local log = require('log')
-local validate_input
-validate_input = require('core.config').validate_input
+local validate_input, safe_formula_call
+do
+  local _obj_0 = require('core.config')
+  validate_input, safe_formula_call = _obj_0.validate_input, _obj_0.safe_formula_call
+end
 local FIELD_TYPES = {
   'String',
   'Int',
@@ -1228,8 +1231,11 @@ change_field_type = function(field_id, new_type, conversion_formula, language)
         else
           d = raw_t[2]
         end
-        local ok_r, new_val = pcall(conv_fn, d, nil)
-        if ok_r then
+        local new_val, conv_err = safe_formula_call(conv_fn, "conversion " .. tostring(space_name) .. "." .. tostring(field_name), nil, raw_t[1], {
+          d,
+          nil
+        })
+        if not (conv_err) then
           d[field_name] = new_val
         end
         data_sp:replace({

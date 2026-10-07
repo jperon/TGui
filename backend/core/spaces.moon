@@ -3,7 +3,7 @@
 -- User-data spaces are created dynamically at runtime.
 
 log = require 'log'
-{ :validate_input } = require 'core.config'
+{ :validate_input, :safe_formula_call } = require 'core.config'
 
 -- Field type constants (mirrors GraphQL scalar names)
 FIELD_TYPES = { 'String', 'Int', 'Float', 'Boolean', 'ID', 'UUID', 'Sequence', 'Any', 'Map', 'Array', 'Datetime', 'Relation' }
@@ -556,9 +556,8 @@ change_field_type = (field_id, new_type, conversion_formula, language) ->
     if data_sp
       for raw_t in *data_sp\select {}
         d = if type(raw_t[2]) == 'string' then json.decode(raw_t[2]) else raw_t[2]
-        ok_r, new_val = pcall conv_fn, d, nil
-        if ok_r
-          d[field_name] = new_val
+        new_val, conv_err = safe_formula_call conv_fn, "conversion #{space_name}.#{field_name}", nil, raw_t[1], { d, nil }
+        d[field_name] = new_val unless conv_err
         data_sp\replace { raw_t[1], json.encode(d) }
 
   -- Special handling for Sequence type conversion

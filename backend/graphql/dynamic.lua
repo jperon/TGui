@@ -1,5 +1,6 @@
 local json = require('json')
 local log = require('log')
+local config = require('core.config')
 local spaces_mod = require('core.spaces')
 local triggers = require('core.triggers')
 local require_perm, perm_ok
@@ -39,8 +40,10 @@ matches_filter = function(self_val, flt)
   local ok
   if flt.formula and flt.formula ~= '' then
     if type(flt._formula_fn) == 'function' then
-      local r_ok, r_val = pcall(flt._formula_fn, self_val)
-      ok = r_ok and r_val and r_val ~= false
+      local r_val = config.safe_formula_call(flt._formula_fn, "filter formula evaluation", false, nil, {
+        self_val
+      })
+      ok = r_val and r_val ~= false
     else
       ok = false
     end
@@ -411,13 +414,14 @@ generate = function()
                 end
                 return _accum_0
               end
-              local r_ok, val = pcall(fn_cap, proxy, space_helper)
-              if r_ok then
-                return val
-              else
-                log.error("tdb proxy: error evaluating formula for '" .. tostring(sp_name_cap) .. "." .. tostring(f.name) .. "': " .. tostring(val))
-                return triggers.format_formula_error(val)
+              local val, err = config.safe_formula_call(fn_cap, "formula " .. tostring(sp_name_cap) .. "." .. tostring(f.name), nil, obj and obj._id, {
+                proxy,
+                space_helper
+              })
+              if err then
+                return triggers.format_formula_error(err)
               end
+              return val
             end
           end)(formula_fn, fk_name_map, f.name, sp.name)
         else
@@ -436,12 +440,15 @@ generate = function()
             return function(obj, a, ctx)
               ctx._fk_cache = ctx._fk_cache or { }
               local proxy = triggers.make_self_proxy(obj, fk_nm_cap, ctx._fk_cache, sp_name_cap)
-              local r_ok, val = pcall(fn_cap, proxy, nil)
-              if r_ok and val ~= nil then
-                return tostring(val)
+              local val, err = config.safe_formula_call(fn_cap, "repr_" .. tostring(f.name) .. " evaluation", nil, obj and obj._id, {
+                proxy,
+                nil
+              })
+              if err then
+                return triggers.format_formula_error(err)
               end
-              if not r_ok then
-                return triggers.format_formula_error(val)
+              if val ~= nil then
+                return tostring(val)
               end
               return nil
             end
