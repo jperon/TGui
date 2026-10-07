@@ -110,7 +110,6 @@ prepare_cache = function(fk_cache)
   fk_cache = fk_cache or { }
   fk_cache.spaces = fk_cache.spaces or { }
   fk_cache.fk_def_maps = fk_cache.fk_def_maps or { }
-  fk_cache.formulas = fk_cache.formulas or { }
   return fk_cache
 end
 local ensure_space
@@ -250,16 +249,6 @@ make_self_proxy_extended = function(record, single_fk_map, multiple_fk_map, fk_c
     local results = { }
     for _, d in pairs(sc.records) do
       if d[relation_def.toFieldName] == source_id then
-        local nested_space = box.space._tdb_spaces.index.by_name:get({
-          relation_def.toSpaceName
-        })
-        local nested_space_id = nested_space and nested_space[1]
-        local nested_fk_map
-        if nested_space_id then
-          nested_fk_map = ensure_fk_def_map(fk_cache, nested_space_id)
-        else
-          nested_fk_map = { }
-        end
         local nested = make_self_proxy_extended(d, single_fk_map, multiple_fk_map, fk_cache, relation_def.toSpaceName)
         table.insert(results, nested)
       end
@@ -339,16 +328,6 @@ make_self_proxy_extended = function(record, single_fk_map, multiple_fk_map, fk_c
           d = sc.by_field['_id'] and sc.by_field['_id'][tostring(v)]
         end
         if d then
-          local nested_space = box.space._tdb_spaces.index.by_name:get({
-            fk.toSpaceName
-          })
-          local nested_space_id = nested_space and nested_space[1]
-          local nested_fk_map
-          if nested_space_id then
-            nested_fk_map = ensure_fk_def_map(fk_cache, nested_space_id)
-          else
-            nested_fk_map = { }
-          end
           local nested = make_self_proxy_extended(d, single_fk_map, multiple_fk_map, fk_cache, fk.toSpaceName)
           rawset(t, k, nested)
           return nested

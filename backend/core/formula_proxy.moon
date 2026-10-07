@@ -103,7 +103,6 @@ prepare_cache = (fk_cache) ->
   fk_cache             = fk_cache or {}
   fk_cache.spaces      = fk_cache.spaces      or {}
   fk_cache.fk_def_maps = fk_cache.fk_def_maps or {}
-  fk_cache.formulas    = fk_cache.formulas    or {}
   fk_cache
 
 -- Load a target space once and build field indexes on demand (no extra scan).
@@ -223,9 +222,6 @@ make_self_proxy_extended = (record, single_fk_map, multiple_fk_map, fk_cache, sp
     for _, d in pairs sc.records
       if d[relation_def.toFieldName] == source_id
         -- Create a nested proxy for each found record
-        nested_space = box.space._tdb_spaces.index.by_name\get { relation_def.toSpaceName }
-        nested_space_id = nested_space and nested_space[1]
-        nested_fk_map = if nested_space_id then ensure_fk_def_map fk_cache, nested_space_id else {}
         nested = make_self_proxy_extended d, single_fk_map, multiple_fk_map, fk_cache, relation_def.toSpaceName
         table.insert results, nested
 
@@ -273,9 +269,6 @@ make_self_proxy_extended = (record, single_fk_map, multiple_fk_map, fk_cache, sp
 
         if d
           -- Always return a nested proxy for consistent behavior
-          nested_space = box.space._tdb_spaces.index.by_name\get { fk.toSpaceName }
-          nested_space_id = nested_space and nested_space[1]
-          nested_fk_map = if nested_space_id then ensure_fk_def_map fk_cache, nested_space_id else {}
           nested = make_self_proxy_extended d, single_fk_map, multiple_fk_map, fk_cache, fk.toSpaceName
           rawset t, k, nested
           return nested
