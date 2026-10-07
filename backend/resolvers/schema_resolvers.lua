@@ -5,10 +5,10 @@ local executor = require('graphql.executor')
 local json = require('json')
 local data_r
 data_r = require('resolvers.data_resolvers')
-local require_auth, require_admin
+local require_auth, require_admin, require_perm, perm_ok
 do
   local _obj_0 = require('resolvers.utils')
-  require_auth, require_admin = _obj_0.require_auth, _obj_0.require_admin
+  require_auth, require_admin, require_perm, perm_ok = _obj_0.require_auth, _obj_0.require_admin, _obj_0.require_perm, _obj_0.perm_ok
 end
 local reinit_with_formula_cache_reset
 reinit_with_formula_cache_reset = function()
@@ -89,22 +89,44 @@ update_relation = function(id, repr_formula)
 end
 local Query = {
   spaces = function(_, args, ctx)
-    return require_auth(ctx) and spaces_mod.list_spaces()
+    require_auth(ctx)
+    local _accum_0 = { }
+    local _len_0 = 1
+    local _list_0 = spaces_mod.list_spaces()
+    for _index_0 = 1, #_list_0 do
+      local sp = _list_0[_index_0]
+      if perm_ok(ctx, 'space', sp.id, 'read') then
+        _accum_0[_len_0] = sp
+        _len_0 = _len_0 + 1
+      end
+    end
+    return _accum_0
   end,
   space = function(_, args, ctx)
-    return require_auth(ctx) and spaces_mod.get_space(args.id)
+    require_perm(ctx, 'space', args.id, 'read')
+    return spaces_mod.get_space(args.id)
   end,
   views = function(_, args, ctx)
-    return require_auth(ctx) and views_mod.list_views(args.spaceId)
+    require_auth(ctx)
+    if not (perm_ok(ctx, 'space', args.spaceId, 'read')) then
+      return { }
+    end
+    return views_mod.list_views(args.spaceId)
   end,
   view = function(_, args, ctx)
-    return require_auth(ctx) and views_mod.get_view(args.id)
+    local v = views_mod.get_view(args.id)
+    if not (v) then
+      return nil
+    end
+    require_perm(ctx, 'space', v.spaceId, 'read')
+    return v
   end,
   relations = function(_, args, ctx)
-    return require_auth(ctx) and list_relations(args.spaceId)
+    require_perm(ctx, 'space', args.spaceId, 'read')
+    return list_relations(args.spaceId)
   end,
   gridColumnPrefs = function(_, args, ctx)
-    local uid = require_auth(ctx)
+    local uid = require_perm(ctx, 'space', args.spaceId, 'read')
     local sp = box.space._tdb_ui_prefs
     if not (sp) then
       return { }
@@ -134,7 +156,7 @@ local Query = {
 }
 local Mutation = {
   createSpace = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, '*', nil, 'admin')
     local i = args.input
     local result = spaces_mod.create_user_space(i.name, i.description)
     spaces_mod.add_field(result.id, 'id', 'Sequence', true, 'Identifiant auto-incrémenté')
@@ -142,7 +164,7 @@ local Mutation = {
     return spaces_mod.get_space(result.id)
   end,
   updateSpace = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, '*', nil, 'admin')
     local t = box.space._tdb_spaces:get(args.id)
     if not (t) then
       error("Space not found")
@@ -162,7 +184,7 @@ local Mutation = {
     return result
   end,
   deleteSpace = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, '*', nil, 'admin')
     local t = box.space._tdb_spaces:get(args.id)
     if not (t) then
       error("Space not found")
@@ -172,7 +194,7 @@ local Mutation = {
     return true
   end,
   addField = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, '*', nil, 'admin')
     local i = args.input
     local result = spaces_mod.add_field(args.spaceId, i.name, i.fieldType, i.notNull, i.description, i.formula, i.triggerFields, i.language, i.reprFormula)
     reinit_with_formula_cache_reset()
@@ -183,7 +205,7 @@ local Mutation = {
     return result
   end,
   addFields = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, '*', nil, 'admin')
     local results = { }
     local _list_0 = args.inputs
     for _index_0 = 1, #_list_0 do
@@ -199,7 +221,7 @@ local Mutation = {
     return results
   end,
   removeField = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, '*', nil, 'admin')
     local fld = box.space._tdb_fields:get(args.fieldId)
     local sp_meta = fld and box.space._tdb_spaces:get(fld[2])
     spaces_mod.remove_field(args.fieldId)
@@ -210,13 +232,13 @@ local Mutation = {
     return true
   end,
   reorderFields = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, '*', nil, 'admin')
     local result = spaces_mod.reorder_fields(args.spaceId, args.fieldIds)
     reinit_with_formula_cache_reset()
     return result
   end,
   updateField = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, '*', nil, 'admin')
     local i = args.input
     local result = spaces_mod.update_field(args.fieldId, {
       name = i.name,
@@ -235,7 +257,7 @@ local Mutation = {
     return result
   end,
   changeFieldType = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, '*', nil, 'admin')
     local i = args.input
     local result = spaces_mod.change_field_type(args.fieldId, i.fieldType, i.conversionFormula, i.language)
     reinit_with_formula_cache_reset()
@@ -246,41 +268,41 @@ local Mutation = {
     return result
   end,
   createView = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, 'view', nil, 'write')
     local i = args.input
     return views_mod.create_view(args.spaceId, i.name, i.viewType, i.config)
   end,
   updateView = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, 'view', args.id, 'write')
     views_mod.update_view(args.id, args.input)
     return views_mod.get_view(args.id)
   end,
   deleteView = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, 'view', args.id, 'admin')
     views_mod.delete_view(args.id)
     return true
   end,
   createRelation = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, '*', nil, 'admin')
     local i = args.input
     local result = create_relation(i.name, i.fromSpaceId, i.fromFieldId, i.toSpaceId, i.toFieldId, i.reprFormula)
     reinit_with_formula_cache_reset()
     return result
   end,
   deleteRelation = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, '*', nil, 'admin')
     local result = delete_relation(args.id)
     reinit_with_formula_cache_reset()
     return result
   end,
   updateRelation = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, '*', nil, 'admin')
     local result = update_relation(args.id, args.input.reprFormula)
     reinit_with_formula_cache_reset()
     return result
   end,
   saveGridColumnPrefs = function(_, args, ctx)
-    local uid = require_auth(ctx)
+    local uid = require_perm(ctx, 'space', args.spaceId, 'write')
     local owner_key = uid
     if args.asDefault then
       require_admin(ctx)
@@ -303,9 +325,11 @@ local Mutation = {
 }
 local Space = {
   fields = function(obj, args, ctx)
+    require_perm(ctx, 'space', obj.id, 'read')
     return spaces_mod.list_fields(obj.id)
   end,
   views = function(obj, args, ctx)
+    require_perm(ctx, 'space', obj.id, 'read')
     return views_mod.list_views(obj.id)
   end,
   records = function(obj, args, ctx)
