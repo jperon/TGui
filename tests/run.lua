@@ -84,4 +84,24 @@ for _index_0 = 1, #test_files do
 end
 local exit_code = R.summary()
 require('resolvers.init').reinit()
+local executor = require('graphql.executor')
+local res = executor.execute({
+  query = '{ __type(name: "Query") { fields { name } } }'
+})
+local spaces_ok = false
+if res and type(res.data) == 'table' and res.data['__type'] and res.data['__type'].fields then
+  local _list_1 = res.data['__type'].fields
+  for _index_0 = 1, #_list_1 do
+    local f = _list_1[_index_0]
+    if f.name == 'spaces' then
+      spaces_ok = true
+    end
+  end
+end
+if not (spaces_ok) then
+  print('   [FAIL] production schema not restored: Query.spaces is missing')
+  exit_code = 1
+else
+  print('   [ok] production schema restored (Query.spaces present)')
+end
 return exit_code
