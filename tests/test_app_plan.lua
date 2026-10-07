@@ -140,7 +140,7 @@ R.describe("app_plan — règle 1 : élément absent de l'installation", functio
     return R.eq(plan.conflict[1][3], 'fpa')
   end)
 end)
-return R.describe("app_plan — règle 2 : élément installé et dans le paquet", function()
+R.describe("app_plan — règle 2 : élément installé et dans le paquet", function()
   R.it("règle 2 : inchangé localement + modifié par l'auteur → update", function()
     local plan = plan_update(mk_installed({
       {
@@ -275,5 +275,115 @@ return R.describe("app_plan — règle 2 : élément installé et dans le paquet
     }, 'conflict')
     R.eq(plan.conflict[1][2], nil)
     return R.eq(plan.conflict[1][3], 'N')
+  end)
+end)
+R.describe("app_plan — règle 3 : éléments obsolètes", function()
+  R.it("règle 3 : installé actif absent du paquet → obsolete", function()
+    local plan = plan_update(mk_installed({
+      {
+        key = 'space:a',
+        type = 'space',
+        fp = 'L'
+      }
+    }), mk_pkg({ }), { }, { })
+    eq_list(plan.obsolete, {
+      'space:a'
+    }, 'obsolete')
+    R.eq(#plan.create, 0)
+    return R.eq(#plan.update, 0)
+  end)
+  R.it("règle 3 : déjà obsolète et toujours absent → pas répété", function()
+    local plan = plan_update(mk_installed({
+      {
+        key = 'space:a',
+        type = 'space',
+        fp = 'L',
+        state = 'obsolète'
+      }
+    }), mk_pkg({ }), { }, { })
+    return R.eq(#plan.obsolete, 0)
+  end)
+  return R.it("règle 3 : élément obsolète qui réapparaît dans le paquet → traité comme règle 2", function()
+    local plan = plan_update(mk_installed({
+      {
+        key = 'space:a',
+        type = 'space',
+        fp = 'L',
+        state = 'obsolète'
+      }
+    }), mk_pkg({
+      item('space', 'space:a', 'N')
+    }), mk_local({
+      {
+        key = 'space:a',
+        fp = 'L'
+      }
+    }), { })
+    eq_list(keys_of(plan.update), {
+      'space:a'
+    }, 'update')
+    return R.eq(#plan.obsolete, 0)
+  end)
+end)
+return R.describe("app_plan — règle 4 : renamed_from", function()
+  R.it("règle 4 : ancienne clé installée → rename puis règle 2 sur l'ancienne clé", function()
+    local plan = plan_update(mk_installed({
+      {
+        key = 'space:old',
+        type = 'space',
+        fp = 'L'
+      }
+    }), mk_pkg({
+      item('space', 'space:new', 'N', 'space:old')
+    }), mk_local({
+      {
+        key = 'space:old',
+        fp = 'L'
+      }
+    }), { })
+    eq_list(plan.rename[1], {
+      'space:old',
+      'space:new'
+    }, 'rename')
+    eq_list(keys_of(plan.update), {
+      'space:new'
+    }, 'update')
+    return R.eq(#plan.obsolete, 0)
+  end)
+  R.it("règle 4 : ancienne clé non installée → create simple sans rename", function()
+    local plan = plan_update({ }, mk_pkg({
+      item('space', 'space:new', 'N', 'space:old')
+    }), mk_local({
+      {
+        key = 'space:new',
+        fp = 'other'
+      }
+    }), { })
+    R.eq(#plan.rename, 0)
+    return eq_list(keys_of(plan.create), {
+      'space:new'
+    }, 'create')
+  end)
+  return R.it("règle 4 : comparaison faite sur l'état local de l'ancienne clé (conflit)", function()
+    local plan = plan_update(mk_installed({
+      {
+        key = 'space:old',
+        type = 'space',
+        fp = 'L'
+      }
+    }), mk_pkg({
+      item('space', 'space:new', 'N', 'space:old')
+    }), mk_local({
+      {
+        key = 'space:old',
+        fp = 'C'
+      }
+    }), { })
+    eq_list(conflict_keys(plan), {
+      'space:new'
+    }, 'conflict')
+    R.eq(plan.conflict[1][2].fingerprint, 'C')
+    R.eq(plan.conflict[1][3], 'N')
+    return R.eq(#plan.obsolete, 0)
   end)
 end)

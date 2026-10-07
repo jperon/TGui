@@ -139,6 +139,44 @@ _sort_plan = function(plan)
   table.sort(plan.unchanged)
   return plan
 end
+local _collect_package_keys
+_collect_package_keys = function(package)
+  local result = { }
+  local _list_0 = package.items
+  for _index_0 = 1, #_list_0 do
+    local entry = _list_0[_index_0]
+    if entry.key ~= nil then
+      result[entry.key] = true
+    end
+  end
+  return result
+end
+local _mark_obsolete
+_mark_obsolete = function(installed, package, consumed, plan)
+  local pkg_keys = _collect_package_keys(package)
+  for key, info in pairs(installed) do
+    local _continue_0 = false
+    repeat
+      if consumed[key] or pkg_keys[key] then
+        _continue_0 = true
+        break
+      end
+      if info.type == 'seed' or info.type == 'perm' then
+        _continue_0 = true
+        break
+      end
+      if info.state == 'obsolète' then
+        _continue_0 = true
+        break
+      end
+      table.insert(plan.obsolete, key)
+      _continue_0 = true
+    until true
+    if not _continue_0 then
+      break
+    end
+  end
+end
 local plan_update
 plan_update = function(installed, package, local_states, opts)
   installed = installed or { }
@@ -150,17 +188,39 @@ plan_update = function(installed, package, local_states, opts)
     plan.errors = errors
     return plan
   end
+  local consumed = { }
   local _list_0 = package.items
   for _index_0 = 1, #_list_0 do
-    local entry = _list_0[_index_0]
-    local old = installed[entry.key]
-    local local_state = local_states[entry.key]
-    if old == nil then
-      _classify_uninstalled(entry, local_state, plan)
-    else
-      _classify_installed(entry, old, local_state, plan)
+    local _continue_0 = false
+    repeat
+      local entry = _list_0[_index_0]
+      if entry.renamed_from then
+        if installed[entry.renamed_from] then
+          consumed[entry.renamed_from] = true
+          table.insert(plan.rename, {
+            entry.renamed_from,
+            entry.key
+          })
+          _classify_installed(entry, installed[entry.renamed_from], local_states[entry.renamed_from], plan)
+        else
+          table.insert(plan.create, entry)
+        end
+        _continue_0 = true
+        break
+      end
+      local old = installed[entry.key]
+      if old == nil then
+        _classify_uninstalled(entry, local_states[entry.key], plan)
+      else
+        _classify_installed(entry, old, local_states[entry.key], plan)
+      end
+      _continue_0 = true
+    until true
+    if not _continue_0 then
+      break
     end
   end
+  _mark_obsolete(installed, package, consumed, plan)
   return _sort_plan(plan)
 end
 return {

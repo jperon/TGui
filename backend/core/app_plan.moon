@@ -85,6 +85,20 @@ _sort_plan = (plan) ->
   table.sort plan.unchanged
   plan
 
+_collect_package_keys = (package) ->
+  result = {}
+  for entry in *package.items
+    result[entry.key] = true if entry.key != nil
+  result
+
+_mark_obsolete = (installed, package, consumed, plan) ->
+  pkg_keys = _collect_package_keys package
+  for key, info in pairs installed
+    continue if consumed[key] or pkg_keys[key]
+    continue if info.type == 'seed' or info.type == 'perm'
+    continue if info.state == 'obsolète'
+    table.insert plan.obsolete, key
+
 plan_update = (installed, package, local_states, opts) ->
   installed or= {}
   local_states or= {}
@@ -94,13 +108,22 @@ plan_update = (installed, package, local_states, opts) ->
   if #errors > 0
     plan.errors = errors
     return plan
+  consumed = {}
   for entry in *package.items
+    if entry.renamed_from
+      if installed[entry.renamed_from]
+        consumed[entry.renamed_from] = true
+        table.insert plan.rename, { entry.renamed_from, entry.key }
+        _classify_installed entry, installed[entry.renamed_from], local_states[entry.renamed_from], plan
+      else
+        table.insert plan.create, entry
+      continue
     old = installed[entry.key]
-    local_state = local_states[entry.key]
     if old == nil
-      _classify_uninstalled entry, local_state, plan
+      _classify_uninstalled entry, local_states[entry.key], plan
     else
-      _classify_installed entry, old, local_state, plan
+      _classify_installed entry, old, local_states[entry.key], plan
+  _mark_obsolete installed, package, consumed, plan
   _sort_plan plan
 
 { :plan_update }
