@@ -325,7 +325,7 @@ R.describe("app_plan — règle 3 : éléments obsolètes", function()
     return R.eq(#plan.obsolete, 0)
   end)
 end)
-return R.describe("app_plan — règle 4 : renamed_from", function()
+R.describe("app_plan — règle 4 : renamed_from", function()
   R.it("règle 4 : ancienne clé installée → rename puis règle 2 sur l'ancienne clé", function()
     local plan = plan_update(mk_installed({
       {
@@ -385,5 +385,163 @@ return R.describe("app_plan — règle 4 : renamed_from", function()
     R.eq(plan.conflict[1][2].fingerprint, 'C')
     R.eq(plan.conflict[1][3], 'N')
     return R.eq(#plan.obsolete, 0)
+  end)
+end)
+R.describe("app_plan — règle 5 : lignes seed", function()
+  R.it("règle 5 : seed installé absent du paquet → jamais obsolete", function()
+    local plan = plan_update(mk_installed({
+      {
+        key = 'seed:s|k',
+        type = 'seed',
+        fp = 'L'
+      }
+    }), mk_pkg({ }), { }, { })
+    return R.eq(#plan.obsolete, 0)
+  end)
+  R.it("règle 5 : seed modifié localement et par l'auteur → keep_local (jamais conflict)", function()
+    local plan = plan_update(mk_installed({
+      {
+        key = 'seed:s|k',
+        type = 'seed',
+        fp = 'L'
+      }
+    }), mk_pkg({
+      item('seed', 'seed:s|k', 'N')
+    }), mk_local({
+      {
+        key = 'seed:s|k',
+        fp = 'C'
+      }
+    }), { })
+    eq_list(keys_of(plan.keep_local), {
+      'seed:s|k'
+    }, 'keep_local')
+    return R.eq(#plan.conflict, 0)
+  end)
+  R.it("règle 5 : seed absent installé mais présent localement différent → keep_local", function()
+    local plan = plan_update({ }, mk_pkg({
+      item('seed', 'seed:s|k', 'N')
+    }), mk_local({
+      {
+        key = 'seed:s|k',
+        fp = 'C'
+      }
+    }), { })
+    R.eq(#plan.conflict, 0)
+    return eq_list(keys_of(plan.keep_local), {
+      'seed:s|k'
+    }, 'keep_local')
+  end)
+  R.it("règle 5 : seed inchangé localement, modifié par l'auteur → update", function()
+    local plan = plan_update(mk_installed({
+      {
+        key = 'seed:s|k',
+        type = 'seed',
+        fp = 'L'
+      }
+    }), mk_pkg({
+      item('seed', 'seed:s|k', 'N')
+    }), mk_local({
+      {
+        key = 'seed:s|k',
+        fp = 'L'
+      }
+    }), { })
+    return eq_list(keys_of(plan.update), {
+      'seed:s|k'
+    }, 'update')
+  end)
+  return R.it("règle 5 : seed supprimé localement et auteur modifié → keep_local (pas de conflict)", function()
+    local plan = plan_update(mk_installed({
+      {
+        key = 'seed:s|k',
+        type = 'seed',
+        fp = 'L'
+      }
+    }), mk_pkg({
+      item('seed', 'seed:s|k', 'N')
+    }), { }, { })
+    eq_list(keys_of(plan.keep_local), {
+      'seed:s|k'
+    }, 'keep_local')
+    return R.eq(#plan.conflict, 0)
+  end)
+end)
+return R.describe("app_plan — règle 6 : groupes et droits", function()
+  R.it("règle 6 : groupe modifié localement → keep_local (jamais conflict)", function()
+    local plan = plan_update(mk_installed({
+      {
+        key = 'group:g',
+        type = 'group',
+        fp = 'L'
+      }
+    }), mk_pkg({
+      item('group', 'group:g', 'N')
+    }), mk_local({
+      {
+        key = 'group:g',
+        fp = 'C'
+      }
+    }), { })
+    eq_list(keys_of(plan.keep_local), {
+      'group:g'
+    }, 'keep_local')
+    return R.eq(#plan.conflict, 0)
+  end)
+  R.it("règle 6 : perm modifié localement → keep_local (jamais conflict)", function()
+    local plan = plan_update(mk_installed({
+      {
+        key = 'perm:g|read|r|1',
+        type = 'perm',
+        fp = 'L'
+      }
+    }), mk_pkg({
+      item('perm', 'perm:g|read|r|1', 'N')
+    }), mk_local({
+      {
+        key = 'perm:g|read|r|1',
+        fp = 'C'
+      }
+    }), { })
+    eq_list(keys_of(plan.keep_local), {
+      'perm:g|read|r|1'
+    }, 'keep_local')
+    return R.eq(#plan.conflict, 0)
+  end)
+  R.it("règle 6 : perm absent du paquet → pas d'obsolete", function()
+    local plan = plan_update(mk_installed({
+      {
+        key = 'perm:g|read|r|1',
+        type = 'perm',
+        fp = 'L'
+      }
+    }), mk_pkg({ }), { }, { })
+    return R.eq(#plan.obsolete, 0)
+  end)
+  R.it("règle 6 : groupe absent du paquet → obsolete comme les autres", function()
+    local plan = plan_update(mk_installed({
+      {
+        key = 'group:g',
+        type = 'group',
+        fp = 'L'
+      }
+    }), mk_pkg({ }), { }, { })
+    return eq_list(plan.obsolete, {
+      'group:g'
+    }, 'obsolete')
+  end)
+  return R.it("règle 6 : perm absent installé mais présent localement différent → keep_local", function()
+    local plan = plan_update({ }, mk_pkg({
+      item('perm', 'perm:g|read|r|1', 'N')
+    }), mk_local({
+      {
+        key = 'perm:g|read|r|1',
+        fp = 'C'
+      }
+    }), { })
+    eq_list(keys_of(plan.keep_local), {
+      'perm:g|read|r|1'
+    }, 'keep_local')
+    return R.eq(#plan.conflict, 0)
   end)
 end)
