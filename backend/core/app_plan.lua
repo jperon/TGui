@@ -20,6 +20,57 @@ local _is_special
 _is_special = function(type_)
   return SPECIAL_TYPES[type_] == true
 end
+local _parse_version
+_parse_version = function(value)
+  if not (type(value) == 'string') then
+    return nil
+  end
+  local parts = { }
+  for part in value:gmatch('[^.]+') do
+    local n = tonumber(part)
+    if n == nil then
+      return nil
+    end
+    table.insert(parts, n)
+  end
+  if #parts == 0 then
+    return nil
+  end
+  return parts
+end
+local compare_versions
+compare_versions = function(a, b)
+  local pa = _parse_version(a)
+  local pb = _parse_version(b)
+  if pa == nil or pb == nil then
+    return nil
+  end
+  local count = math.max(#pa, #pb)
+  for i = 1, count do
+    local x = pa[i] or 0
+    local y = pb[i] or 0
+    if x > y then
+      return 1
+    end
+    if x < y then
+      return -1
+    end
+  end
+  return 0
+end
+local _downgrade_error
+_downgrade_error = function(package, opts)
+  if not (opts.installed_version) then
+    return nil
+  end
+  if compare_versions(package.app.version, opts.installed_version) ~= -1 then
+    return nil
+  end
+  if opts.allow_downgrade then
+    return nil
+  end
+  return "downgrade from " .. tostring(opts.installed_version) .. " to " .. tostring(package.app.version) .. " is not allowed"
+end
 local _validate
 _validate = function(package)
   local errors = { }
@@ -188,6 +239,13 @@ plan_update = function(installed, package, local_states, opts)
     plan.errors = errors
     return plan
   end
+  local downgrade = _downgrade_error(package, opts)
+  if downgrade then
+    plan.errors = {
+      downgrade
+    }
+    return plan
+  end
   local consumed = { }
   local _list_0 = package.items
   for _index_0 = 1, #_list_0 do
@@ -224,5 +282,6 @@ plan_update = function(installed, package, local_states, opts)
   return _sort_plan(plan)
 end
 return {
-  plan_update = plan_update
+  plan_update = plan_update,
+  compare_versions = compare_versions
 }

@@ -232,3 +232,121 @@ R.describe "app_plan — règle 6 : groupes et droits", ->
       mk_local({ {key: 'perm:g|read|r|1', fp: 'C'} }), {}
     eq_list keys_of(plan.keep_local), {'perm:g|read|r|1'}, 'keep_local'
     R.eq #plan.conflict, 0
+
+all_lists_empty = (plan) ->
+  R.eq #plan.create, 0, 'create'
+  R.eq #plan.update, 0, 'update'
+  R.eq #plan.conflict, 0, 'conflict'
+  R.eq #plan.keep_local, 0, 'keep_local'
+  R.eq #plan.obsolete, 0, 'obsolete'
+  R.eq #plan.rename, 0, 'rename'
+  R.eq #plan.unchanged, 0, 'unchanged'
+
+deep_copy = (v) ->
+  return v unless type(v) == 'table'
+  result = {}
+  for k, val in pairs v
+    result[k] = deep_copy val
+  result
+
+deep_eq = (a, b) ->
+  return a == b unless type(a) == 'table' or type(b) == 'table'
+  return false unless type(a) == 'table' and type(b) == 'table'
+  for k, v in pairs a
+    return false unless deep_eq v, b[k]
+  for k in pairs b
+    return false if a[k] == nil
+  true
+
+R.describe "app_plan — règle 7 : version", ->
+  R.it "règle 7 : version inférieure refusée → erreur, listes vides", ->
+    app = { id: 'org.test.app', name: 'T', version: '1.9.0', description: '' }
+    plan = plan_update {}, mk_pkg({ item 'space', 'space:a', 'N' }, app),
+      mk_local({ {key: 'space:a', fp: 'C'} }), { installed_version: '1.10.0' }
+    R.ok #plan.errors > 0
+    all_lists_empty plan
+
+  R.it "règle 7 : comparaison semver numérique 1.10.0 > 1.9.0 (mise à jour autorisée)", ->
+    app = { id: 'org.test.app', name: 'T', version: '1.10.0', description: '' }
+    plan = plan_update {}, mk_pkg({ item 'space', 'space:a', 'N' }, app), {},
+      { installed_version: '1.9.0' }
+    R.eq #plan.errors, 0
+    eq_list keys_of(plan.create), {'space:a'}, 'create'
+
+  R.it "règle 7 : version égale autorisée", ->
+    plan = plan_update {}, mk_pkg({}), {}, { installed_version: '1.0.0' }
+    R.eq #plan.errors, 0
+
+  R.it "règle 7 : downgrade autorisé si allow_downgrade", ->
+    app = { id: 'org.test.app', name: 'T', version: '1.9.0', description: '' }
+    plan = plan_update {}, mk_pkg({ item 'space', 'space:a', 'N' }, app), {},
+      { installed_version: '1.10.0', allow_downgrade: true }
+    R.eq #plan.errors, 0
+    eq_list keys_of(plan.create), {'space:a'}, 'create'
+
+  R.it "règle 7 : app.id absent → erreur, listes vides", ->
+    app = { name: 'T', version: '1.0.0', description: '' }
+    plan = plan_update {}, mk_pkg({ item 'space', 'space:a', 'N' }, app), {}, {}
+    R.ok #plan.errors > 0
+    all_lists_empty plan
+
+  R.it "règle 7 : item sans type → erreur, listes vides", ->
+    plan = plan_update {}, mk_pkg({ {key: 'space:a', content: {}, fingerprint: 'N'} }), {}, {}
+    R.ok #plan.errors > 0
+    all_lists_empty plan
+
+  R.it "règle 7 : item sans key → erreur, listes vides", ->
+    plan = plan_update {}, mk_pkg({ {type: 'space', content: {}, fingerprint: 'N'} }), {}, {}
+    R.ok #plan.errors > 0
+    all_lists_empty plan
+
+  R.it "règle 7 : item sans fingerprint → erreur, listes vides", ->
+    plan = plan_update {}, mk_pkg({ {type: 'space', key: 'space:a', content: {}} }), {}, {}
+    R.ok #plan.errors > 0
+    all_lists_empty plan
+
+R.describe "app_plan — règle 8 : déterminisme", ->
+  R.it "règle 8 : les listes create/unchanged sont triées par clé", ->
+    pkg = mk_pkg({
+      item('space', 'space:c', 'fc'),
+      item('space', 'space:a', 'fa'),
+      item('space', 'space:b', 'fb'),
+    })
+    plan = plan_update {}, pkg, {}, {}
+    eq_list keys_of(plan.create), {'space:a', 'space:b', 'space:c'}, 'create'
+
+  R.it "règle 8 : la liste obsolete est triée par clé", ->
+    inst = mk_installed({
+      {key: 'space:z', type: 'space', fp: 'L'},
+      {key: 'space:a', type: 'space', fp: 'L'},
+      {key: 'space:m', type: 'space', fp: 'L'},
+    })
+    plan = plan_update inst, mk_pkg({}), {}, {}
+    eq_list plan.obsolete, {'space:a', 'space:m', 'space:z'}, 'obsolete'
+
+  R.it "règle 8 : la liste rename est triée par ancienne clé", ->
+    inst = mk_installed({
+      {key: 'space:z', type: 'space', fp: 'L'},
+      {key: 'space:a', type: 'space', fp: 'L'},
+    })
+    pkg = mk_pkg({
+      item('space', 'space:new1', 'N', 'space:z'),
+      item('space', 'space:new2', 'N', 'space:a'),
+    })
+    plan = plan_update inst, pkg,
+      mk_local({ {key: 'space:z', fp: 'L'}, {key: 'space:a', fp: 'L'} }), {}
+    R.eq #plan.rename, 2
+    R.eq plan.rename[1][1], 'space:a'
+    R.eq plan.rename[2][1], 'space:z'
+
+  R.it "règle 8 : la fonction ne modifie pas ses arguments", ->
+    inst = mk_installed({ {key: 'space:a', type: 'space', fp: 'L'} })
+    pkg = mk_pkg({ item('space', 'space:b', 'N'), item('space', 'space:a', 'N') })
+    loc = mk_local({ {key: 'space:a', fp: 'C'} })
+    inst_before = deep_copy inst
+    pkg_before = deep_copy pkg
+    loc_before = deep_copy loc
+    plan_update inst, pkg, loc, {}
+    R.ok deep_eq(inst, inst_before), 'installed intact'
+    R.ok deep_eq(pkg, pkg_before), 'package intact'
+    R.ok deep_eq(loc, loc_before), 'local_states intact'

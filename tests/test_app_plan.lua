@@ -467,7 +467,7 @@ R.describe("app_plan — règle 5 : lignes seed", function()
     return R.eq(#plan.conflict, 0)
   end)
 end)
-return R.describe("app_plan — règle 6 : groupes et droits", function()
+R.describe("app_plan — règle 6 : groupes et droits", function()
   R.it("règle 6 : groupe modifié localement → keep_local (jamais conflict)", function()
     local plan = plan_update(mk_installed({
       {
@@ -543,5 +543,251 @@ return R.describe("app_plan — règle 6 : groupes et droits", function()
       'perm:g|read|r|1'
     }, 'keep_local')
     return R.eq(#plan.conflict, 0)
+  end)
+end)
+local all_lists_empty
+all_lists_empty = function(plan)
+  R.eq(#plan.create, 0, 'create')
+  R.eq(#plan.update, 0, 'update')
+  R.eq(#plan.conflict, 0, 'conflict')
+  R.eq(#plan.keep_local, 0, 'keep_local')
+  R.eq(#plan.obsolete, 0, 'obsolete')
+  R.eq(#plan.rename, 0, 'rename')
+  return R.eq(#plan.unchanged, 0, 'unchanged')
+end
+local deep_copy
+deep_copy = function(v)
+  if not (type(v) == 'table') then
+    return v
+  end
+  local result = { }
+  for k, val in pairs(v) do
+    result[k] = deep_copy(val)
+  end
+  return result
+end
+local deep_eq
+deep_eq = function(a, b)
+  if not (type(a) == 'table' or type(b) == 'table') then
+    return a == b
+  end
+  if not (type(a) == 'table' and type(b) == 'table') then
+    return false
+  end
+  for k, v in pairs(a) do
+    if not (deep_eq(v, b[k])) then
+      return false
+    end
+  end
+  for k in pairs(b) do
+    if a[k] == nil then
+      return false
+    end
+  end
+  return true
+end
+R.describe("app_plan — règle 7 : version", function()
+  R.it("règle 7 : version inférieure refusée → erreur, listes vides", function()
+    local app = {
+      id = 'org.test.app',
+      name = 'T',
+      version = '1.9.0',
+      description = ''
+    }
+    local plan = plan_update({ }, mk_pkg({
+      item('space', 'space:a', 'N')
+    }, app), mk_local({
+      {
+        key = 'space:a',
+        fp = 'C'
+      }
+    }), {
+      installed_version = '1.10.0'
+    })
+    R.ok(#plan.errors > 0)
+    return all_lists_empty(plan)
+  end)
+  R.it("règle 7 : comparaison semver numérique 1.10.0 > 1.9.0 (mise à jour autorisée)", function()
+    local app = {
+      id = 'org.test.app',
+      name = 'T',
+      version = '1.10.0',
+      description = ''
+    }
+    local plan = plan_update({ }, mk_pkg({
+      item('space', 'space:a', 'N')
+    }, app), { }, {
+      installed_version = '1.9.0'
+    })
+    R.eq(#plan.errors, 0)
+    return eq_list(keys_of(plan.create), {
+      'space:a'
+    }, 'create')
+  end)
+  R.it("règle 7 : version égale autorisée", function()
+    local plan = plan_update({ }, mk_pkg({ }), { }, {
+      installed_version = '1.0.0'
+    })
+    return R.eq(#plan.errors, 0)
+  end)
+  R.it("règle 7 : downgrade autorisé si allow_downgrade", function()
+    local app = {
+      id = 'org.test.app',
+      name = 'T',
+      version = '1.9.0',
+      description = ''
+    }
+    local plan = plan_update({ }, mk_pkg({
+      item('space', 'space:a', 'N')
+    }, app), { }, {
+      installed_version = '1.10.0',
+      allow_downgrade = true
+    })
+    R.eq(#plan.errors, 0)
+    return eq_list(keys_of(plan.create), {
+      'space:a'
+    }, 'create')
+  end)
+  R.it("règle 7 : app.id absent → erreur, listes vides", function()
+    local app = {
+      name = 'T',
+      version = '1.0.0',
+      description = ''
+    }
+    local plan = plan_update({ }, mk_pkg({
+      item('space', 'space:a', 'N')
+    }, app), { }, { })
+    R.ok(#plan.errors > 0)
+    return all_lists_empty(plan)
+  end)
+  R.it("règle 7 : item sans type → erreur, listes vides", function()
+    local plan = plan_update({ }, mk_pkg({
+      {
+        key = 'space:a',
+        content = { },
+        fingerprint = 'N'
+      }
+    }), { }, { })
+    R.ok(#plan.errors > 0)
+    return all_lists_empty(plan)
+  end)
+  R.it("règle 7 : item sans key → erreur, listes vides", function()
+    local plan = plan_update({ }, mk_pkg({
+      {
+        type = 'space',
+        content = { },
+        fingerprint = 'N'
+      }
+    }), { }, { })
+    R.ok(#plan.errors > 0)
+    return all_lists_empty(plan)
+  end)
+  return R.it("règle 7 : item sans fingerprint → erreur, listes vides", function()
+    local plan = plan_update({ }, mk_pkg({
+      {
+        type = 'space',
+        key = 'space:a',
+        content = { }
+      }
+    }), { }, { })
+    R.ok(#plan.errors > 0)
+    return all_lists_empty(plan)
+  end)
+end)
+return R.describe("app_plan — règle 8 : déterminisme", function()
+  R.it("règle 8 : les listes create/unchanged sont triées par clé", function()
+    local pkg = mk_pkg({
+      item('space', 'space:c', 'fc'),
+      item('space', 'space:a', 'fa'),
+      item('space', 'space:b', 'fb')
+    })
+    local plan = plan_update({ }, pkg, { }, { })
+    return eq_list(keys_of(plan.create), {
+      'space:a',
+      'space:b',
+      'space:c'
+    }, 'create')
+  end)
+  R.it("règle 8 : la liste obsolete est triée par clé", function()
+    local inst = mk_installed({
+      {
+        key = 'space:z',
+        type = 'space',
+        fp = 'L'
+      },
+      {
+        key = 'space:a',
+        type = 'space',
+        fp = 'L'
+      },
+      {
+        key = 'space:m',
+        type = 'space',
+        fp = 'L'
+      }
+    })
+    local plan = plan_update(inst, mk_pkg({ }), { }, { })
+    return eq_list(plan.obsolete, {
+      'space:a',
+      'space:m',
+      'space:z'
+    }, 'obsolete')
+  end)
+  R.it("règle 8 : la liste rename est triée par ancienne clé", function()
+    local inst = mk_installed({
+      {
+        key = 'space:z',
+        type = 'space',
+        fp = 'L'
+      },
+      {
+        key = 'space:a',
+        type = 'space',
+        fp = 'L'
+      }
+    })
+    local pkg = mk_pkg({
+      item('space', 'space:new1', 'N', 'space:z'),
+      item('space', 'space:new2', 'N', 'space:a')
+    })
+    local plan = plan_update(inst, pkg, mk_local({
+      {
+        key = 'space:z',
+        fp = 'L'
+      },
+      {
+        key = 'space:a',
+        fp = 'L'
+      }
+    }), { })
+    R.eq(#plan.rename, 2)
+    R.eq(plan.rename[1][1], 'space:a')
+    return R.eq(plan.rename[2][1], 'space:z')
+  end)
+  return R.it("règle 8 : la fonction ne modifie pas ses arguments", function()
+    local inst = mk_installed({
+      {
+        key = 'space:a',
+        type = 'space',
+        fp = 'L'
+      }
+    })
+    local pkg = mk_pkg({
+      item('space', 'space:b', 'N'),
+      item('space', 'space:a', 'N')
+    })
+    local loc = mk_local({
+      {
+        key = 'space:a',
+        fp = 'C'
+      }
+    })
+    local inst_before = deep_copy(inst)
+    local pkg_before = deep_copy(pkg)
+    local loc_before = deep_copy(loc)
+    plan_update(inst, pkg, loc, { })
+    R.ok(deep_eq(inst, inst_before), 'installed intact')
+    R.ok(deep_eq(pkg, pkg_before), 'package intact')
+    return R.ok(deep_eq(loc, loc_before), 'local_states intact')
   end)
 end)

@@ -21,6 +21,34 @@ _empty_plan = (errors) ->
 
 _is_special = (type_) -> SPECIAL_TYPES[type_] == true
 
+_parse_version = (value) ->
+  return nil unless type(value) == 'string'
+  parts = {}
+  for part in value\gmatch '[^.]+'
+    n = tonumber part
+    return nil if n == nil
+    table.insert parts, n
+  return nil if #parts == 0
+  parts
+
+compare_versions = (a, b) ->
+  pa = _parse_version a
+  pb = _parse_version b
+  return nil if pa == nil or pb == nil
+  count = math.max #pa, #pb
+  for i = 1, count
+    x = pa[i] or 0
+    y = pb[i] or 0
+    return 1 if x > y
+    return -1 if x < y
+  0
+
+_downgrade_error = (package, opts) ->
+  return nil unless opts.installed_version
+  return nil if compare_versions(package.app.version, opts.installed_version) != -1
+  return nil if opts.allow_downgrade
+  "downgrade from #{opts.installed_version} to #{package.app.version} is not allowed"
+
 _validate = (package) ->
   errors = {}
   app = package and package.app
@@ -108,6 +136,10 @@ plan_update = (installed, package, local_states, opts) ->
   if #errors > 0
     plan.errors = errors
     return plan
+  downgrade = _downgrade_error package, opts
+  if downgrade
+    plan.errors = { downgrade }
+    return plan
   consumed = {}
   for entry in *package.items
     if entry.renamed_from
@@ -126,4 +158,4 @@ plan_update = (installed, package, local_states, opts) ->
   _mark_obsolete installed, package, consumed, plan
   _sort_plan plan
 
-{ :plan_update }
+{ :plan_update, :compare_versions }
