@@ -1,5 +1,8 @@
-local require_auth
-require_auth = require('resolvers.utils').require_auth
+local require_auth, require_perm
+do
+  local _obj_0 = require('resolvers.utils')
+  require_auth, require_perm = _obj_0.require_auth, _obj_0.require_perm
+end
 local json = require('json')
 local ALLOWED_FNS = {
   sum = true,
@@ -39,6 +42,8 @@ local Query = {
     if not (sp) then
       error("Espace introuvable: " .. tostring(space_name))
     end
+    local meta = box.space._tdb_spaces.index.by_name:get(space_name)
+    require_perm(ctx, 'space', meta and meta[1], 'read')
     local groups = { }
     local group_keys = { }
     local _list_0 = sp:select({ })

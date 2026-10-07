@@ -7,10 +7,10 @@ local uuid_mod = require('uuid')
 local yaml = require('yaml')
 local json = require('json')
 local clock = require('clock')
-local require_auth, require_admin
+local require_auth, require_admin, require_perm
 do
   local _obj_0 = require('resolvers.utils')
-  require_auth, require_admin = _obj_0.require_auth, _obj_0.require_admin
+  require_auth, require_admin, require_perm = _obj_0.require_auth, _obj_0.require_admin, _obj_0.require_perm
 end
 local ZstdWrapper = require('zstd_wrapper')
 local compress_yaml_if_needed
@@ -820,7 +820,7 @@ local Query = {
     return compress_yaml_if_needed(yaml_str, args.compress or false)
   end,
   diffSnapshot = function(_, args, ctx)
-    require_auth(ctx)
+    require_perm(ctx, '*', nil, 'read')
     local yaml_str = decompress_yaml_if_needed(args.yaml)
     local ok, snap = pcall(function()
       return yaml.decode(yaml_str)
