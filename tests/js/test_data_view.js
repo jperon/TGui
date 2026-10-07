@@ -72,6 +72,8 @@
 
   require('../../frontend/src/views/data_view');
 
+  require('../../frontend/src/views/data_view_helpers');
+
   DV = global.window.DataView;
 
   makeSpace = function(overrides = {}) {
@@ -555,6 +557,16 @@
       assert(!dv._mounted, '_mounted must be false');
       eq(dv._rows.length, 0);
       return eq(dv._currentData.length, 0);
+    });
+  });
+
+  // Freeze the public prototype surface so the data_view / data_view_helpers split
+  // cannot silently drop or rename a method.
+  describe('DataView prototype surface (frozen)', function() {
+    return it('exposes exactly the expected set of methods', function() {
+      var expected;
+      expected = ['_actionContext', '_applyData', '_buildFkMaps', '_clearError', '_cloneJson', '_coerceCellValue', '_columnWidth', '_defaultCellValue', '_escapeHtml', '_extractInsertedRecords', '_formatFormulaError', '_loadColWidths', '_lsKey', '_saveColWidths', '_sentinel', '_serializeRowForMutation', '_showError', '_toBoolean', 'constructor', 'deleteSelected', 'getFocusedColumnName', 'insertBlank', 'load', 'mount', 'setDefaultValues', 'setFilter', 'setFormulaFilter', 'unmount'];
+      return deepEq(Object.getOwnPropertyNames(DV.prototype).sort(), expected);
     });
   });
 
