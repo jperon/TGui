@@ -77,17 +77,54 @@ R.describe("Multiple Relations Detection", function()
     assert(next(single_map) == nil)
     return assert(next(multiple_map) == nil)
   end)
-  R.it("is_multiple_relation should return false for non-existent space", function()
-    local is_multiple = triggers.is_multiple_relation("999999", "NonExistent", "id")
-    return assert(is_multiple == false)
+  R.it("a relation without declared cardinality is classified as single", function()
+    local tgt = spaces_mod.create_user_space('TestTarget')
+    local src_meta = box.space._tdb_spaces.index.by_name:get({
+      'TestSource'
+    })
+    local source_id = src_meta[1]
+    local fk = spaces_mod.add_field(source_id, 'legacy_target_id', 'Int')
+    local key = spaces_mod.add_field(tgt.id, 'legacy_code', 'Int')
+    box.space._tdb_relations:insert({
+      'rel_card_one',
+      source_id,
+      fk.id,
+      tgt.id,
+      key.id,
+      'src_legacy',
+      ''
+    })
+    local single_map, multiple_map = triggers.build_single_and_multiple_maps(source_id)
+    assert(single_map['legacy_target_id'] ~= nil)
+    return assert(multiple_map['legacy_target_id'] == nil)
   end)
-  R.it("is_multiple_relation should return false for non-existent target space", function()
-    local is_multiple = triggers.is_multiple_relation("999999", "NonExistent", "id")
-    return assert(is_multiple == false)
+  R.it("a relation declared 'many' is classified as multiple", function()
+    local tgt = box.space._tdb_spaces.index.by_name:get({
+      'TestTarget'
+    })
+    local src_meta = box.space._tdb_spaces.index.by_name:get({
+      'TestSource'
+    })
+    local source_id = src_meta[1]
+    local fk = spaces_mod.add_field(source_id, 'multi_target_id', 'Int')
+    local key = spaces_mod.add_field(tgt[1], 'multi_code', 'Int')
+    box.space._tdb_relations:insert({
+      'rel_card_many',
+      source_id,
+      fk.id,
+      tgt[1],
+      key.id,
+      'src_multi',
+      '',
+      'many'
+    })
+    local single_map, multiple_map = triggers.build_single_and_multiple_maps(source_id)
+    assert(single_map['multi_target_id'] == nil)
+    assert(multiple_map['multi_target_id'] ~= nil)
+    return assert(multiple_map['multi_target_id'].toSpaceName == 'TestTarget')
   end)
   R.it("functions should be exported from triggers module", function()
     assert(type(triggers.build_relation_map) == 'function')
-    assert(type(triggers.is_multiple_relation) == 'function')
     return assert(type(triggers.build_single_and_multiple_maps) == 'function')
   end)
   return R.it("build_fk_def_map should still work (backward compatibility)", function()
@@ -96,4 +133,19 @@ R.describe("Multiple Relations Detection", function()
     return assert(next(fk_map) == nil)
   end)
 end)
-return spaces_mod.delete_user_space('TestSource')
+local _list_0 = {
+  'rel_card_one',
+  'rel_card_many'
+}
+for _index_0 = 1, #_list_0 do
+  local rid = _list_0[_index_0]
+  if box.space._tdb_relations:get({
+    rid
+  }) then
+    box.space._tdb_relations:delete({
+      rid
+    })
+  end
+end
+spaces_mod.delete_user_space('TestSource')
+return spaces_mod.delete_user_space('TestTarget')
