@@ -61,21 +61,11 @@ _split_scope = (key, prefix) ->
   return nil unless rest
   _scope_name rest
 
--- Un parseur YAML standard lit `formula: null` comme une clé absente ; on
--- normalise la forme d'un contenu de champ (mêmes clés et mêmes valeurs que
--- app_package.field_content) pour que l'empreinte du paquet corresponde à
--- l'état local et que formula/triggerFields ne soient jamais nil à l'écriture.
-_normalize_field_content = (item_type, content) ->
-  return content unless item_type == 'field'
-  {
-    fieldType: content.fieldType
-    notNull: content.notNull == true
-    description: content.description or ''
-    formula: content.formula or ''
-    triggerFields: content.triggerFields or {}
-    language: content.language or 'lua'
-  }
-
+-- Normalisation à la frontière de lecture (task T22) : strip_null retire les
+-- box.NULL issus d'un parseur YAML standard (`description: null`, `~`, liste),
+-- puis normalize_content ramène le contenu à la forme canonique des builders
+-- app_package.*_content. L'empreinte du paquet redevient alors égale à celle de
+-- l'état local identique, et formula/triggerFields ne sont jamais nil.
 _normalize_item = (entry, errors) ->
   unless type(entry) == 'table'
     table.insert errors, 'package item must be a table'
@@ -89,7 +79,7 @@ _normalize_item = (entry, errors) ->
   unless type(entry.content) == 'table'
     table.insert errors, "package item #{entry.key} is missing content"
     return nil
-  content = _normalize_field_content entry.type, entry.content
+  content = app_package.normalize_content entry.type, app_package.strip_null entry.content
   item = {
     type: entry.type
     key: entry.key
@@ -112,7 +102,7 @@ _normalize = (package) ->
       id: app.id
       name: app.name
       version: app.version
-      description: app.description or ''
+      description: app_package.strip_null(app.description) or ''
     }
   else
     table.insert errors, 'package app id is required'
@@ -122,7 +112,7 @@ _normalize = (package) ->
   for entry in *package.items
     item = _normalize_item entry, errors
     table.insert pkg.items, item if item
-  pkg.seed_keys = package.seed_keys or {}
+  pkg.seed_keys = app_package.strip_null(package.seed_keys) or {}
   { package: pkg, errors: errors }
 
 -- Valide la forme et recalcule chaque empreinte depuis le contenu : une

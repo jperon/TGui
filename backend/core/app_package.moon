@@ -249,6 +249,123 @@ seed_content = (space_name, key, data) ->
   { space: space_name, key: key, data: data }
 
 -- ────────────────────────────────────────────────────────────────────────────
+-- Reading-boundary normalization (task T22)
+-- `yaml.decode` turns YAML null/`~` into box.NULL, a cdata that is TRUE in Lua
+-- (`c.description or ''` then yields box.NULL). These helpers bring a decoded
+-- package item to exactly the shape produced by the *_content builders above,
+-- so that fingerprint(delivered) == fingerprint(identical local state).
+-- ────────────────────────────────────────────────────────────────────────────
+
+-- Recursively drops box.NULL: object keys holding it disappear, array elements
+-- holding it are filtered out. Other cdata and every scalar are left untouched.
+strip_null = (value) ->
+  return nil if value == box.NULL
+  return value unless type(value) == 'table'
+  result = {}
+  len = array_len value
+  if len != nil
+    for i = 1, len
+      v = strip_null value[i]
+      table.insert result, v if v != nil
+  else
+    for k, v in pairs value
+      sv = strip_null v
+      result[k] = sv if sv != nil
+  result
+
+-- Per-type defaults: mirrors the *_content builders above, one for one. The
+-- builders are the reference; these functions deliberately reproduce them.
+-- A parser reports an absent or empty value as nil or as ''; both must fall
+-- back to the builder default (a plain `or` would keep the empty string).
+_nonempty_or = (value, default) ->
+  return default if value == nil or value == ''
+  value
+
+_table_or_empty = (value) ->
+  (type(value) == 'table') and value or {}
+
+_normalize_space_content = (c) -> { description: c.description or '' }
+
+_normalize_field_content = (c) ->
+  {
+    fieldType: c.fieldType
+    notNull: c.notNull == true
+    description: c.description or ''
+    formula: c.formula or ''
+    triggerFields: _table_or_empty c.triggerFields
+    language: _nonempty_or c.language, 'lua'
+  }
+
+_normalize_relation_content = (c) ->
+  {
+    fromSpace: c.fromSpace
+    fromField: c.fromField
+    toSpace: c.toSpace
+    toField: c.toField
+    cardinality: relation_cardinality c.cardinality
+  }
+
+_normalize_view_content = (c) ->
+  { space: c.space, name: c.name, viewType: c.viewType, config: decode_config c.config }
+
+_normalize_page_content = (c) ->
+  { name: c.name, description: c.description or '', yaml: c.yaml or '' }
+
+_normalize_dataview_content = (c) ->
+  {
+    name: c.name
+    description: c.description or ''
+    sourceSpace: resolve_space_name c.sourceSpace
+    config: decode_config c.config
+  }
+
+_normalize_plugin_content = (c) ->
+  {
+    name: c.name
+    description: c.description or ''
+    scriptLanguage: _nonempty_or c.scriptLanguage, 'coffeescript'
+    templateLanguage: _nonempty_or c.templateLanguage, 'pug'
+    scriptCode: c.scriptCode or ''
+    templateCode: c.templateCode or ''
+  }
+
+_normalize_group_content = (c) ->
+  { name: c.name, description: c.description or '' }
+
+_normalize_perm_content = (c) ->
+  {
+    group: c.group
+    resourceType: c.resourceType
+    resource: resource_name c.resource
+    level: c.level
+  }
+
+_normalize_seed_content = (c) ->
+  { space: c.space, key: c.key, data: _table_or_empty c.data }
+
+CONTENT_NORMALIZERS = {
+  space: _normalize_space_content
+  field: _normalize_field_content
+  relation: _normalize_relation_content
+  view: _normalize_view_content
+  page: _normalize_page_content
+  dataview: _normalize_dataview_content
+  plugin: _normalize_plugin_content
+  group: _normalize_group_content
+  perm: _normalize_perm_content
+  seed: _normalize_seed_content
+}
+
+-- Canonical shape of a decoded package item content, by type. Unknown types and
+-- non-table contents are returned unchanged. Never mutates its argument;
+-- applying it twice gives the same result (idempotent).
+normalize_content = (item_type, content) ->
+  return content unless type(content) == 'table'
+  normalizer = CONTENT_NORMALIZERS[item_type]
+  return content unless normalizer
+  normalizer content
+
+-- ────────────────────────────────────────────────────────────────────────────
 -- Key parsing
 -- ────────────────────────────────────────────────────────────────────────────
 
@@ -659,4 +776,4 @@ build_package = (meta, opts) ->
     seed_keys: seed_keys
   }
 
-{ :canonical, :fingerprint, :describe_local, :build_package, :ITEM_TYPES, :key_part, :unkey_part }
+{ :canonical, :fingerprint, :describe_local, :build_package, :ITEM_TYPES, :key_part, :unkey_part, :strip_null, :normalize_content }

@@ -10,6 +10,7 @@ local dv_r = require('resolvers.data_view_resolvers')
 local data_r = require('resolvers.data_resolvers')
 local auth = require('core.auth')
 local json = require('json')
+local yaml = require('yaml')
 local SUFFIX = tostring(math.random(100000, 999999))
 local SP_BOOKS = "apkg_books_" .. tostring(SUFFIX)
 local SP_AUTHORS = "apkg_authors_" .. tostring(SUFFIX)
@@ -869,7 +870,7 @@ R.describe("app_package — special names are unambiguous", function()
     return R.is_nil(pkg.describe_local('group', "group:" .. tostring(pkg.key_part(GRP_ESP))))
   end)
 end)
-return R.describe("app_package — cleanup", function()
+R.describe("app_package — cleanup", function()
   R.it("removes the fixture elements", function()
     if FIX.rel_id then
       schema_r.Mutation.deleteRelation({ }, {
@@ -921,5 +922,118 @@ return R.describe("app_package — cleanup", function()
       end
     end
     return R.nok(found)
+  end)
+end)
+R.describe("app_package — strip_null (T22)", function()
+  R.it("drops box.NULL from object values and array elements decoded by yaml", function()
+    local raw = yaml.decode("a: null\nb: ~\nc:\nd: [1, null, 2]\ne:\n  x: null\n  y: ok\n")
+    R.ok(raw.a == box.NULL, 'yaml null decodes to box.NULL')
+    R.ok(raw.b == box.NULL, 'yaml ~ decodes to box.NULL')
+    R.eq(raw.c, '', 'an empty yaml value is an empty string')
+    R.ok(raw.d[2] == box.NULL, 'null inside a list decodes to box.NULL')
+    local s = pkg.strip_null(raw)
+    R.is_nil(s.a)
+    R.is_nil(s.b)
+    R.eq(s.c, '')
+    R.eq(#s.d, 2)
+    R.eq(s.d[1], 1)
+    R.eq(s.d[2], 2)
+    R.is_nil(s.e.x)
+    R.eq(s.e.y, 'ok')
+    return R.ok(raw.a == box.NULL, 'strip_null does not mutate its argument')
+  end)
+  return R.it("leaves ordinary scalars and non-null cdata untouched", function()
+    R.eq(pkg.strip_null('x'), 'x')
+    R.eq(pkg.strip_null(3), 3)
+    R.eq(pkg.strip_null(true), true)
+    R.is_nil(pkg.strip_null(nil))
+    return R.is_nil(pkg.strip_null(box.NULL))
+  end)
+end)
+return R.describe("app_package — normalize_content (T22)", function()
+  R.it("reproduces each builder's defaults for absent optional keys", function()
+    local expected = {
+      space = {
+        description = ''
+      },
+      field = {
+        notNull = false,
+        description = '',
+        formula = '',
+        triggerFields = { },
+        language = 'lua'
+      },
+      relation = {
+        cardinality = 'one'
+      },
+      view = { },
+      page = {
+        description = '',
+        yaml = ''
+      },
+      dataview = {
+        description = '',
+        sourceSpace = ''
+      },
+      plugin = {
+        description = '',
+        scriptLanguage = 'coffeescript',
+        templateLanguage = 'pug',
+        scriptCode = '',
+        templateCode = ''
+      },
+      group = {
+        description = ''
+      },
+      perm = {
+        resource = '*'
+      },
+      seed = {
+        data = { }
+      }
+    }
+    for item_type, exp in pairs(expected) do
+      local got = pkg.normalize_content(item_type, { })
+      R.eq(pkg.canonical(got), pkg.canonical(exp), "normalize " .. tostring(item_type))
+    end
+  end)
+  R.it("normalizes a field content decoded by yaml (null optionals)", function()
+    local raw = yaml.decode("fieldType: Int\nnotNull: ~\ndescription: null\nformula: ~\ntriggerFields: null\nlanguage: null\n")
+    local c = pkg.normalize_content('field', pkg.strip_null(raw))
+    return R.eq(pkg.canonical(c), pkg.canonical({
+      fieldType = 'Int',
+      notNull = false,
+      description = '',
+      formula = '',
+      triggerFields = { },
+      language = 'lua'
+    }))
+  end)
+  R.it("is idempotent and does not mutate its argument", function()
+    local original = {
+      fieldType = 'Int',
+      description = 'x'
+    }
+    local c1 = pkg.normalize_content('field', original)
+    local c2 = pkg.normalize_content('field', c1)
+    R.eq(pkg.canonical(c1), pkg.canonical(c2))
+    R.eq(pkg.canonical(original), pkg.canonical({
+      fieldType = 'Int',
+      description = 'x'
+    }))
+    return R.eq(original.formula, nil, 'the argument gained no key')
+  end)
+  return R.it("matches the fingerprint of the equivalent builder content", function()
+    local raw = yaml.decode("fieldType: String\nnotNull: false\ndescription: null\nformula: ~\ntriggerFields:\nlanguage: null\n")
+    local c = pkg.normalize_content('field', pkg.strip_null(raw))
+    local built = {
+      fieldType = 'String',
+      notNull = false,
+      description = '',
+      formula = '',
+      triggerFields = { },
+      language = 'lua'
+    }
+    return R.eq(pkg.fingerprint(c), pkg.fingerprint(built))
   end)
 end)
