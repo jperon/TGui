@@ -1,3 +1,15 @@
+> **Document historique** : fonctionnalité implémentée. Le glisser-déposer des
+> widgets et des zones est en place dans `frontend/src/drag_drop_manager.coffee`
+> et `frontend/src/yaml_builder.coffee`, avec les mutations `reorderWidgets`,
+> `createZone`, `resizeZone`, `mergeZones` et `splitZone` de `schema/tdb.graphql`
+> implémentées côté serveur dans `backend/resolvers/custom_view_widgets.moon` et
+> `backend/resolvers/custom_view_zones.moon`. Couverture : `tests/test_reorder_widgets.moon`,
+> `tests/test_change_parent.moon`, `tests/test_resize_zone.moon`,
+> `tests/test_zone_merge_split.moon`, `tests/test_drag_drop_e2e.moon` et les specs
+> Playwright `tests/playwright/pages/drag-drop-widgets.spec.coffee`,
+> `drag-drop-final-parallel.spec.coffee`, `zone-management-parallel.spec.coffee`
+> et `presentation-export-mobile.spec.coffee`. Ce plan est conservé pour mémoire.
+
 # Roadmap : Implémentation du Drag & Drop pour Widgets
 
 ## 📋 Contexte actuel

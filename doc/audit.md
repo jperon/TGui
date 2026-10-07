@@ -1,10 +1,108 @@
 # Audit complet — TGui
 
-> Date : juillet 2025 / Mises à jour : mars 2026, juin 2026
+> Date : juillet 2025 / Mises à jour : mars 2026, juin 2026, octobre 2026
 >
 > Périmètre : backend (MoonScript), frontend (CoffeeScript), tests, documentation, schéma GraphQL.
 
 ---
+
+## Mise à jour d'octobre 2026
+
+Revue générale du 2026-10-07 (voir `docs/superpowers/specs/2026-10-07-app-versioning-design.md`
+§7 et §8). Chaque affirmation ci-dessous a été revérifiée dans le code à cette date.
+
+### Corrigé depuis
+
+| Constat de l'audit d'origine | Preuve |
+|---|---|
+| 1.1 Hachage SHA-256 | `backend/core/auth.moon:10-22` : PBKDF2-HMAC-SHA256, 100 000 itérations |
+| 1.3 Aucune longueur minimale de mot de passe | `backend/core/auth.moon:34` : `check_password_length` (8 caractères) |
+| 1.6 Sandbox des formules | `backend/core/formula_sandbox.moon` (environnement par formule, `string.rep` borné) et `backend/core/config.moon:62` (`safe_formula_call`) |
+| 2.1 Double création dans `renderSpaceList` | `frontend/src/app_data_helpers.coffee:36-46` : un seul `addEventListener` par élément |
+| 2.2 Tests dupliqués dans `test_data_filters` | `tests/test_data_filters.moon` |
+| 2.3 Rendu d'erreur de formule copié-collé | `frontend/src/views/data_view.coffee:852` : `_formatFormulaError` factorisée |
+| 2.4 `LIST_WIDGET_PLUGINS` dupliqué | défini une seule fois, `frontend/src/widget_plugins.coffee:4` |
+| 3.2 Cinq fichiers de test relation orphelins | `test_relation_display_backend`, `test_relation_display_regression`, `test_relation_field`, `test_relation_integration`, `test_relation_repr` : absents du dépôt |
+| 3.3 Serveur HTTP non testé | `tests/test_http_static.moon`, `tests/test_index_html.moon` |
+| 3.3 Sécurité du sandbox non testée | `tests/test_triggers.moon` (sections « sandbox »), `tests/test_formula_guard.moon` |
+| 5.1 `AGENTS.md` mentionnait « bcrypt » | `AGENTS.md:135` : « PBKDF2-HMAC-SHA256 (100k itérations) » |
+| 5.5 `doc/fr/dev.md` annonçait `init.moon` | `backend/init.moon` existe, la mention est correcte |
+
+### Corrections de la revue d'octobre 2026
+
+- **Permissions jamais appliquées** : `core.permissions.can` n'était appelée par aucun
+  résolveur ; contrôles factorisés dans `require_perm` (`backend/resolvers/utils.moon:50`),
+  utilisés par tous les résolveurs. Tests : `tests/test_permissions.moon`,
+  `tests/test_typed_query_permissions.moon`, `tests/test_formula_read_perms.moon`.
+- **Requêtes typées lisibles sans authentification** : `backend/graphql/dynamic.moon:151`
+  appelle `require_perm ctx, 'space', sp_cap.id, 'read'` ; test
+  `tests/test_typed_query_permissions.moon`.
+- **Sandbox des formules** : copies d'environnement par formule
+  (`backend/core/formula_sandbox.moon:55`), garde d'instructions de 20 millions
+  (`backend/core/config.moon:41`), `string.rep` borné à 10 Mio
+  (`backend/core/formula_sandbox.moon:13-29`). Tests : `tests/test_triggers.moon`
+  (isolation des bibliothèques, limite d'instructions, `string.rep`),
+  `tests/test_formula_guard.moon`.
+- **Traversal de chemin sur les fichiers statiques** : `safe_static_path`
+  (`backend/http_server.moon:52`) refuse `..`, `//`, octet nul, encodages `%2e%2e`
+  et chemins absolus ; test `tests/test_http_static.moon`.
+- **Export de snapshot** : `handle_export` (`backend/http_server.moon:138`) lit les données
+  via `build_snapshot`, encode en YAML et contrôle l'appartenance au groupe admin ; test de
+  round-trip `tests/test_snapshot.moon` (`export → import (includeData)`), et
+  `tests/test_http_static.moon` pour l'authentification.
+- **Mutations `mergeZones`/`splitZone` jamais enregistrées** : enregistrées dans
+  `backend/resolvers/custom_view_resolvers.moon:103-109`, implémentées dans
+  `backend/resolvers/custom_view_zones.moon` ; test `tests/test_zone_merge_split.moon`.
+- **Bugs de `backend/core/views.moon`** : validation de la config à la création et écriture
+  de `config_str` à la mise à jour ; test `tests/test_views_core.moon`.
+- **Heuristique `is_multiple_relation` remplacée par une cardinalité déclarée** : plus aucune
+  occurrence dans `backend/` ; la cardinalité est stockée et validée (`createRelation`,
+  `schema/tdb.graphql`), valeur par défaut `one` pour les relations existantes. Tests :
+  `tests/test_relation_cardinality.moon`, `tests/test_multiple_relations.moon`.
+- **Validation des types et `not_null` à l'écriture** : `backend/core/validation.moon`,
+  appelée par `insertRecord`/`updateRecord` (`backend/resolvers/data_resolvers.moon:106,122`) ;
+  tests `tests/test_validation.moon`.
+- **Filtres numériques** : `numeric_compare` (`backend/resolvers/data_resolvers.moon:31`)
+  exclut un enregistrement dont la valeur n'est pas numérique au lieu de planter ; test
+  `tests/test_data_filters.moon` (LT/GT/LTE/GTE sur données vides, textuelles ou absentes).
+- **Exemption de test `is_perm_subject` remplacée par `trusted_ctx`** : plus aucune occurrence
+  dans `backend/` ; `trusted_ctx` (`backend/resolvers/utils.moon:33`) ne peut pas être forgé
+  par un client (le contexte HTTP est construit de zéro et ne recopie pas `trusted`) ; tests
+  `tests/test_permissions.moon` (« trusted cannot be forged by a request »).
+
+### Points encore ouverts
+
+- **Limitation de débit du login uniquement en mémoire** : `backend/core/auth.moon:97-135`
+  (`_login_attempts`), perdue au redémarrage du serveur.
+- **Changement du mot de passe admin par défaut non forcé côté serveur** :
+  `backend/core/spaces.moon:293` (`adminadmin`) ; seul un bandeau frontend s'appuie sur un
+  drapeau `localStorage` (`frontend/src/app.coffee:305`).
+- **Jeton stocké dans `localStorage`** : `frontend/src/graphql_client.coffee:3,12`, risque
+  XSS connu.
+- **`innerHTML` à auditer** : les trois fichiers cités par l'audit d'origine ont été revus —
+  `frontend/src/app_sidebar_helpers.coffee` et `frontend/src/app_fields_helpers.coffee`
+  utilisent désormais `textContent` ; `frontend/src/app_snapshot_helpers.coffee:135-139`
+  conserve `innerHTML` mais avec des valeurs échappées par `esc`.
+- **Budget d'instructions de 20 millions appliqué aussi aux lectures faites dans une
+  formule** : `FORMULA_INSTRUCTION_LIMIT` (`backend/core/config.moon:41`) borne toute lecture
+  déclenchée par une formule (`space(...)`, navigation FK) ; couvert par
+  `tests/test_formula_read_perms.moon`.
+- **`restoreRecords` non validé** : `backend/resolvers/data_resolvers.moon:197-209` insère les
+  enregistrements sans passer par `validation_mod.validate_record`, contrairement à
+  `insertRecord`/`updateRecord`.
+- **`CONTAINS` / `STARTS_WITH` avec une valeur de filtre `nil`** : `v\find(flt.value, …)` et
+  `v\sub(1, #flt.value)` (`backend/resolvers/data_resolvers.moon:58-59`, également
+  `backend/graphql/dynamic.moon:48-49`) lèvent une erreur si `flt.value` est `nil`.
+- **Formules citant un ancien nom en clair non réécrites au renommage d'app** :
+  `_rename_field` (`backend/core/app_apply.moon:785`) renomme le champ mais ne réécrit ni
+  `formula` ni `reprFormula`.
+- **Code frontend mort** : `frontend/src/graphql_builder.coffee` n'est référencé nulle part ;
+  ses trois tests `tests/test_graphql_builder_basic.coffee`, `_minimal.coffee` et
+  `_simple.coffee` ne sont découverts ni par `tests/run.moon` (motif `test_*.moon`) ni par
+  `tests/js/run.coffee`.
+- **Références obsolètes au module supprimé `core/fk_proxy.moon`** : `doc/en/dev/runtime.md:18`
+  et `doc/fr/dev/runtime.md:15` le listent alors que `backend/core/fk_proxy.moon` n'existe
+  pas dans le dépôt.
 
 ## Mise à jour juin 2026 — bugs trouvés par tests d'usage réel
 
@@ -314,7 +412,7 @@ Le fichier `AGENTS.md` est un guide développeur **exemplaire** : architecture, 
 |---|---|---|
 | **Langage de formules** | Peu documenté | Documenter les fonctions disponibles dans le sandbox, la syntaxe `@champ`, les FK |
 | **Widget plugins API** | Minimal | Documenter l'API `gql()`, `emitSelection()`, `onInputSelection()`, `render()`, `params` |
-| **YAML des vues custom** | `Views.md` existe | Vérifier qu'il couvre `depends_on`, `filter`, `computed`, plugins |
+| **YAML des vues custom** | `doc/views-yaml.md` existe | Vérifier qu'il couvre `depends_on`, `filter`, `computed`, plugins |
 | **Sécurité** | Non documenté | Ajouter une section sécurité (modèle d'authentification, permissions, sandbox) |
 | **Déploiement** | Basique (Docker) | Documenter les variables d'environnement, configuration réseau, TLS |
 
