@@ -8,10 +8,26 @@
 
 R = require 'tests.runner'
 http_server = require 'http_server'
+auth = require 'core.auth'
+perms = require 'core.permissions'
 { :FRONTEND_DIR } = require 'core.config'
+
+SFX = "#{os.time!}_#{math.random 100000, 999999}"
 
 -- Requête factice minimale : serve_static ne lit que `req.path`.
 mk_req = (path) -> { path: path, method: 'GET', headers: {} }
+
+-- Requête factice pour /export (headers, query string).
+mk_export_req = (opts) ->
+  opts = opts or {}
+  headers = {}
+  headers['authorization'] = "Bearer #{opts.token}" if opts.token
+  { path: '/export', method: 'GET', query: opts.query, headers: headers }
+
+admin_group_id = ->
+  for g in *perms.list_groups!
+    return g.id if g.name == 'admin'
+  nil
 
 -- ────────────────────────────────────────────────────────────────────────────
 R.describe "safe_static_path — assets frontend acceptés", ->
@@ -91,3 +107,73 @@ R.describe "serve_static — jamais de contenu hors de FRONTEND_DIR", ->
   R.it "/etc/passwd -> 404 (le join reste sous FRONTEND_DIR)", ->
     res = http_server.serve_static mk_req '/etc/passwd'
     R.eq res.status, 404
+
+-- ────────────────────────────────────────────────────────────────────────────
+R.describe "parse_export_query — analyse propre de la requête", ->
+-- Remplace le parsing hésitant en place dans handle_export (plan Task 3).
+
+  R.it "query absente -> défauts false/false", ->
+    q = http_server.parse_export_query nil
+    R.eq q.compress, false
+    R.eq q.include_data, false
+
+  R.it "compress=true&includeData=true -> true/true", ->
+    q = http_server.parse_export_query 'compress=true&includeData=true'
+    R.eq q.compress, true
+    R.eq q.include_data, true
+
+  R.it "valeurs autres que 'true' -> false/false", ->
+    q = http_server.parse_export_query 'compress=yes&includeData=1'
+    R.eq q.compress, false
+    R.eq q.include_data, false
+
+  R.it "paramètres inconnus ignorés", ->
+    q = http_server.parse_export_query 'foo=bar&includeData=true'
+    R.eq q.compress, false
+    R.eq q.include_data, true
+
+-- ────────────────────────────────────────────────────────────────────────────
+R.describe "handle_export — authentification", ->
+
+  R.it "sans token -> 401", ->
+    res = http_server.handle_export mk_export_req!
+    R.eq res.status, 401
+
+  R.it "token invalide -> 401", ->
+    res = http_server.handle_export mk_export_req token: 'not-a-token'
+    R.eq res.status, 401
+
+-- ────────────────────────────────────────────────────────────────────────────
+R.describe "handle_export — admin = groupe admin, plus le nom 'admin'", ->
+-- Spec §7 : `require_admin` (appartenance au groupe) remplace le test
+-- `user.username == 'admin'`.
+
+  R.it "utilisateur hors groupe admin -> 403", ->
+    user = auth.create_user "export_user_#{SFX}", "export_user_#{SFX}@test.local", "pass1234"
+    sess = auth.create_session user.id
+    res = http_server.handle_export mk_export_req token: sess.token
+    R.eq res.status, 403
+    auth.delete_session sess.token
+    box.space._tdb_users\delete user.id
+
+  R.it "membre du groupe admin, nom != 'admin' -> 200 (YAML)", ->
+    user = auth.create_user "export_admin_#{SFX}", "export_admin_#{SFX}@test.local", "pass1234"
+    gid = admin_group_id!
+    perms.add_member user.id, gid
+    sess = auth.create_session user.id
+    res = http_server.handle_export mk_export_req token: sess.token
+    R.eq res.status, 200
+    R.matches tostring(res.headers['content-type']), 'text/yaml'
+    R.matches tostring(res.headers['content-disposition']), 'schema%.tdb%.yaml'
+    perms.remove_member user.id, gid
+    auth.delete_session sess.token
+    box.space._tdb_users\delete user.id
+
+  R.it "admin historique + includeData=true -> backup.tdb.yaml", ->
+    admin = auth.get_user_by_username 'admin'
+    sess = auth.create_session admin.id
+    res = http_server.handle_export mk_export_req token: sess.token, query: 'includeData=true'
+    R.eq res.status, 200
+    R.matches tostring(res.headers['content-disposition']), 'backup%.tdb%.yaml'
+    R.ok #res.body > 10
+    auth.delete_session sess.token

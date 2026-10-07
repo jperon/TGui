@@ -83,6 +83,8 @@ serve_static = (req) ->
   { status: 200, headers: { 'content-type': mime }, body: content }
 
 auth_mod = require 'core.auth'
+-- Admin check shared with the GraphQL resolvers (group membership).
+{ :require_admin } = require 'resolvers.utils'
 
 -- Extract bearer token from Authorization header
 extract_token = (req) ->
@@ -117,46 +119,26 @@ serve_index = (req) ->
   -- `index` (require 'index') retourne directement la fonction de rendu.
   { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' }, body: index! }
 
--- Handle compressed snapshot export
+-- Analyse la query string de /export (une seule petite fonction pure) :
+-- seules les valeurs littérales 'true' comptent, les paramètres inconnus
+-- ou malformés sont ignorés.
+parse_export_query = (query) ->
+  params = { compress: false, include_data: false }
+  return params unless type(query) == 'string'
+  for pair in query\gmatch '[^&]+'
+    key, value = pair\match '^([^=]+)=(.*)$'
+    if key == 'compress'
+      params.compress = value == 'true'
+    elseif key == 'includeData'
+      params.include_data = value == 'true'
+  params
+
+-- Handle snapshot export (spec §7 : admin = appartenance au groupe, via
+-- resolvers.utils.require_admin — plus de test sur le nom d'utilisateur).
 handle_export = (req) ->
-  -- Parse query parameters - the Tarantool HTTP server doesn't include query params in req.path
-  -- We need to access them differently
-
-  query_params = {
-    compress: 'false'
-    includeData: 'false'
-  }
-
-  -- Try to get the full URL from various sources
-  full_url = nil
-
-  -- Check if there's a way to get the original request URL
-  -- The issue is that req.path only contains "/export" without query params
-  -- We need to find where the query parameters are stored
-
-  -- For now, let's use a simple approach: check the request object more thoroughly
-  -- Log what we have access to for debugging
-  log.info "Export request: path=#{req.path}, method=#{req.method}, headers available=#{req.headers and 'yes' or 'no'}"
-
-  -- Try to get query parameters from headers or other request properties
-  -- This is a limitation of the current Tarantool HTTP server implementation
-
-  -- As a temporary solution, we'll use the fact that we can detect the presence
-  query_params = { compress: 'false', includeData: 'false' }
-
-  if req.query and type(req.query) == 'string'
-    log.info "Export request: query=#{req.query}"
-    -- Parse key=value pairs
-    for pair in req.query\gmatch('[^&]+')
-      key, value = pair\match('([^=]+)=([^=]*)')
-      if key and value
-        query_params[key] = value
-        log.info "Export request: parsed #{key}=#{value}"
-
-  log.info "Export request: using compress=#{query_params.compress}, includeData=#{query_params.includeData}"
-
-  include_data = query_params.includeData == 'true'
-  compress = query_params.compress == 'true'
+  params = parse_export_query req.query
+  include_data = params.include_data
+  compress = params.compress
 
   -- Check authentication
   token = extract_token req
@@ -167,10 +149,12 @@ handle_export = (req) ->
   unless session
     return { status: 401, headers: {}, body: 'Invalid token' }
 
-  -- Check admin permissions
-  user = auth_mod.get_user_by_id session.user_id
-  unless user and user.username == 'admin'
-    return { status: 403, headers: {}, body: 'Admin access required' }
+  -- Check admin permissions (group membership, not username)
+  ok_admin, err_admin = pcall require_admin, { user_id: session.user_id }
+  unless ok_admin
+    if tostring(err_admin)\match 'Forbidden'
+      return { status: 403, headers: {}, body: 'Admin access required' }
+    return { status: 401, headers: {}, body: 'Unauthorized' }
 
   -- Build snapshot
   export_resolvers = require 'resolvers.export_resolvers'
@@ -224,4 +208,4 @@ start = (opts = {}) ->
   server\start!
   log.info "tdb HTTP server listening on #{host}:#{port}"
 
-{ :start, :safe_static_path, :serve_static }
+{ :start, :safe_static_path, :serve_static, :handle_export, :parse_export_query }

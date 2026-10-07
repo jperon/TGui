@@ -107,6 +107,8 @@ serve_static = function(req)
   }
 end
 local auth_mod = require('core.auth')
+local require_admin
+require_admin = require('resolvers.utils').require_admin
 local extract_token
 extract_token = function(req)
   local auth_header = req.headers and req.headers['authorization']
@@ -169,31 +171,30 @@ serve_index = function(req)
     body = index()
   }
 end
-local handle_export
-handle_export = function(req)
-  local query_params = {
-    compress = 'false',
-    includeData = 'false'
+local parse_export_query
+parse_export_query = function(query)
+  local params = {
+    compress = false,
+    include_data = false
   }
-  local full_url = nil
-  log.info("Export request: path=" .. tostring(req.path) .. ", method=" .. tostring(req.method) .. ", headers available=" .. tostring(req.headers and 'yes' or 'no'))
-  query_params = {
-    compress = 'false',
-    includeData = 'false'
-  }
-  if req.query and type(req.query) == 'string' then
-    log.info("Export request: query=" .. tostring(req.query))
-    for pair in req.query:gmatch('[^&]+') do
-      local key, value = pair:match('([^=]+)=([^=]*)')
-      if key and value then
-        query_params[key] = value
-        log.info("Export request: parsed " .. tostring(key) .. "=" .. tostring(value))
-      end
+  if not (type(query) == 'string') then
+    return params
+  end
+  for pair in query:gmatch('[^&]+') do
+    local key, value = pair:match('^([^=]+)=(.*)$')
+    if key == 'compress' then
+      params.compress = value == 'true'
+    elseif key == 'includeData' then
+      params.include_data = value == 'true'
     end
   end
-  log.info("Export request: using compress=" .. tostring(query_params.compress) .. ", includeData=" .. tostring(query_params.includeData))
-  local include_data = query_params.includeData == 'true'
-  local compress = query_params.compress == 'true'
+  return params
+end
+local handle_export
+handle_export = function(req)
+  local params = parse_export_query(req.query)
+  local include_data = params.include_data
+  local compress = params.compress
   local token = extract_token(req)
   if not (token) then
     return {
@@ -210,12 +211,21 @@ handle_export = function(req)
       body = 'Invalid token'
     }
   end
-  local user = auth_mod.get_user_by_id(session.user_id)
-  if not (user and user.username == 'admin') then
+  local ok_admin, err_admin = pcall(require_admin, {
+    user_id = session.user_id
+  })
+  if not (ok_admin) then
+    if tostring(err_admin):match('Forbidden') then
+      return {
+        status = 403,
+        headers = { },
+        body = 'Admin access required'
+      }
+    end
     return {
-      status = 403,
+      status = 401,
       headers = { },
-      body = 'Admin access required'
+      body = 'Unauthorized'
     }
   end
   local export_resolvers = require('resolvers.export_resolvers')
@@ -296,5 +306,7 @@ end
 return {
   start = start,
   safe_static_path = safe_static_path,
-  serve_static = serve_static
+  serve_static = serve_static,
+  handle_export = handle_export,
+  parse_export_query = parse_export_query
 }
