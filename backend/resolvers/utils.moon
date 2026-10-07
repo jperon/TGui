@@ -7,8 +7,16 @@ perms_mod = require 'core.permissions'
 -- default; disabled for the test environment (the Lua suite and the Playwright
 -- suite log in as admin/adminadmin and must not be blocked) or when an operator
 -- explicitly opts out. Read from the environment on every call — never a
--- constant captured at import time — so tests can toggle it.
+-- constant captured at import time — so tests can toggle it. `set_...` is a
+-- test hook: when set to true/false it overrides the environment; nil restores
+-- the environment-driven behaviour.
+_password_enforcement_override = nil
+
+set_password_enforcement = (value) ->
+  _password_enforcement_override = value
+
 password_change_enforced = ->
+  return _password_enforcement_override if _password_enforcement_override != nil
   return false if os.getenv('TGUI_TEST_ENV') == 'true'
   return false if os.getenv('TDB_ALLOW_DEFAULT_PASSWORD') == 'true'
   true
@@ -102,4 +110,5 @@ fk_cache_for = (ctx) ->
   cache
 
 { :require_auth, :require_auth_unchecked, :require_admin, :require_perm,
-  :perm_ok, :is_admin_user, :fk_cache_for, :trusted_ctx, :password_change_enforced }
+  :perm_ok, :is_admin_user, :fk_cache_for, :trusted_ctx, :password_change_enforced,
+  :set_password_enforcement }

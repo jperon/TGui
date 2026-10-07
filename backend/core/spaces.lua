@@ -805,6 +805,70 @@ local SYSTEM_SPACES = {
     }
   }
 }
+local migrate_must_change_password
+migrate_must_change_password = function()
+  local sp = box.space._tdb_users
+  if not (sp) then
+    return 0
+  end
+  sp:format({
+    {
+      name = 'id',
+      type = 'string'
+    },
+    {
+      name = 'username',
+      type = 'string'
+    },
+    {
+      name = 'email',
+      type = 'string'
+    },
+    {
+      name = 'password_hash',
+      type = 'string'
+    },
+    {
+      name = 'salt',
+      type = 'string'
+    },
+    {
+      name = 'created_at',
+      type = 'number'
+    },
+    {
+      name = 'updated_at',
+      type = 'number'
+    },
+    {
+      name = 'must_change_password',
+      type = 'boolean',
+      is_nullable = true
+    }
+  })
+  local auth_mod = require('core.auth')
+  local DEFAULT_ADMIN_PASSWORD
+  DEFAULT_ADMIN_PASSWORD = require('core.config').DEFAULT_ADMIN_PASSWORD
+  local flagged = 0
+  local _list_0 = sp:select({ })
+  for _index_0 = 1, #_list_0 do
+    local t = _list_0[_index_0]
+    if t[8] ~= true and auth_mod.verify_password(DEFAULT_ADMIN_PASSWORD, t[5], t[4]) then
+      sp:replace({
+        t[1],
+        t[2],
+        t[3],
+        t[4],
+        t[5],
+        t[6],
+        t[7],
+        true
+      })
+      flagged = flagged + 1
+    end
+  end
+  return flagged
+end
 local create_space
 create_space = function(name, desc)
   if box.space[name] then
@@ -951,68 +1015,10 @@ bootstrap = function()
     end
   end)
   return box.once('tdb_v4', function()
-    local sp = box.space._tdb_users
-    if sp then
-      sp:format({
-        {
-          name = 'id',
-          type = 'string'
-        },
-        {
-          name = 'username',
-          type = 'string'
-        },
-        {
-          name = 'email',
-          type = 'string'
-        },
-        {
-          name = 'password_hash',
-          type = 'string'
-        },
-        {
-          name = 'salt',
-          type = 'string'
-        },
-        {
-          name = 'created_at',
-          type = 'number'
-        },
-        {
-          name = 'updated_at',
-          type = 'number'
-        },
-        {
-          name = 'must_change_password',
-          type = 'boolean',
-          is_nullable = true
-        }
-      })
-      log.info('tdb_v4: added must_change_password to _tdb_users')
-      local auth_mod = require('core.auth')
-      local DEFAULT_ADMIN_PASSWORD
-      DEFAULT_ADMIN_PASSWORD = require('core.config').DEFAULT_ADMIN_PASSWORD
-      local flagged = 0
-      local _list_0 = sp:select({ })
-      for _index_0 = 1, #_list_0 do
-        local t = _list_0[_index_0]
-        if t[8] ~= true and auth_mod.verify_password(DEFAULT_ADMIN_PASSWORD, t[5], t[4]) then
-          sp:replace({
-            t[1],
-            t[2],
-            t[3],
-            t[4],
-            t[5],
-            t[6],
-            t[7],
-            true
-          })
-          flagged = flagged + 1
-        end
-      end
-      if flagged > 0 then
-        return log.warn("tdb_v4: " .. tostring(flagged) .. " user(s) still use the default password — change required")
-      end
+    local flagged = migrate_must_change_password()
+    log.info('tdb_v4: added must_change_password to _tdb_users')
+    if flagged > 0 then
+      return log.warn("tdb_v4: " .. tostring(flagged) .. " user(s) still use the default password — change required")
     end
   end)
 end
@@ -1592,6 +1598,7 @@ end
 return {
   bootstrap = bootstrap,
   migrate = migrate,
+  migrate_must_change_password = migrate_must_change_password,
   create_user_space = create_user_space,
   delete_user_space = delete_user_space,
   add_field = add_field,

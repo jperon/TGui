@@ -1,6 +1,14 @@
 local perms_mod = require('core.permissions')
+local _password_enforcement_override = nil
+local set_password_enforcement
+set_password_enforcement = function(value)
+  _password_enforcement_override = value
+end
 local password_change_enforced
 password_change_enforced = function()
+  if _password_enforcement_override ~= nil then
+    return _password_enforcement_override
+  end
   if os.getenv('TGUI_TEST_ENV') == 'true' then
     return false
   end
@@ -97,5 +105,6 @@ return {
   is_admin_user = is_admin_user,
   fk_cache_for = fk_cache_for,
   trusted_ctx = trusted_ctx,
-  password_change_enforced = password_change_enforced
+  password_change_enforced = password_change_enforced,
+  set_password_enforcement = set_password_enforcement
 }
