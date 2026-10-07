@@ -3,11 +3,41 @@
 
 perms_mod = require 'core.permissions'
 
--- Ensures an authentication context is present.
--- Raises a GraphQL "Unauthorized" error otherwise.
-require_auth = (ctx) ->
+-- Forced-password-change enforcement switch (spec §7 / audit 1.4). Active by
+-- default; disabled for the test environment (the Lua suite and the Playwright
+-- suite log in as admin/adminadmin and must not be blocked) or when an operator
+-- explicitly opts out. Read from the environment on every call — never a
+-- constant captured at import time — so tests can toggle it. `set_...` is a
+-- test hook: when set to true/false it overrides the environment; nil restores
+-- the environment-driven behaviour.
+_password_enforcement_override = nil
+
+set_password_enforcement = (value) ->
+  _password_enforcement_override = value
+
+password_change_enforced = ->
+  return _password_enforcement_override if _password_enforcement_override != nil
+  return false if os.getenv('TGUI_TEST_ENV') == 'true'
+  return false if os.getenv('TDB_ALLOW_DEFAULT_PASSWORD') == 'true'
+  true
+
+-- Ensures an authentication context is present, WITHOUT the forced-password
+-- gate. Reserved for the few operations that must stay reachable while the
+-- account still uses the default password: me, changePassword and logout.
+require_auth_unchecked = (ctx) ->
   error "Unauthorized" unless ctx and ctx.user_id
   ctx.user_id
+
+-- Ensures an authentication context is present and that, when enforcement is
+-- on, the account is not still using the default password. Raises a GraphQL
+-- "Unauthorized" error otherwise. The error message starts with
+-- PASSWORD_CHANGE_REQUIRED so the frontend can open the change-password dialog.
+-- A trusted in-process context is never refused.
+require_auth = (ctx) ->
+  uid = require_auth_unchecked ctx
+  if password_change_enforced! and not ctx.trusted and ctx.must_change_password
+    error "PASSWORD_CHANGE_REQUIRED: the default password must be changed before this operation"
+  uid
 
 -- True when the user belongs to the built-in 'admin' group.
 -- Group lookup is done by name instead of id for robustness.
@@ -79,4 +109,6 @@ fk_cache_for = (ctx) ->
   ctx._fk_cache = cache
   cache
 
-{ :require_auth, :require_admin, :require_perm, :perm_ok, :is_admin_user, :fk_cache_for, :trusted_ctx }
+{ :require_auth, :require_auth_unchecked, :require_admin, :require_perm,
+  :perm_ok, :is_admin_user, :fk_cache_for, :trusted_ctx, :password_change_enforced,
+  :set_password_enforcement }

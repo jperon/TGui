@@ -158,6 +158,7 @@ SYSTEM_SPACES =
       { name: 'salt',        type: 'string' }
       { name: 'created_at',  type: 'number' }
       { name: 'updated_at',  type: 'number' }
+      { name: 'must_change_password', type: 'boolean', is_nullable: true }
     }
     indexes:
       primary:      { parts: {'id'},       unique: true, type: 'HASH' }
@@ -259,6 +260,33 @@ SYSTEM_SPACES =
 -- Bootstrap
 -- ────────────────────────────────────────────────────────────────────────────
 
+-- Migration tdb_v4 (spec §7 / audit 1.4): extend the _tdb_users format with the
+-- nullable must_change_password boolean and flag every existing user whose
+-- current password is still the public default. Existing rows read as nil
+-- (== false) until flagged. Returns the number of accounts flagged. Exposed so
+-- the test suite can exercise the migration directly.
+migrate_must_change_password = ->
+  sp = box.space._tdb_users
+  return 0 unless sp
+  sp\format {
+    { name: 'id',          type: 'string'   }
+    { name: 'username',    type: 'string' }
+    { name: 'email',       type: 'string' }
+    { name: 'password_hash',type: 'string'}
+    { name: 'salt',        type: 'string' }
+    { name: 'created_at',  type: 'number' }
+    { name: 'updated_at',  type: 'number' }
+    { name: 'must_change_password', type: 'boolean', is_nullable: true }
+  }
+  auth_mod = require 'core.auth'
+  { :DEFAULT_ADMIN_PASSWORD } = require 'core.config'
+  flagged = 0
+  for t in *sp\select {}
+    if t[8] != true and auth_mod.verify_password DEFAULT_ADMIN_PASSWORD, t[5], t[4]
+      sp\replace { t[1], t[2], t[3], t[4], t[5], t[6], t[7], true }
+      flagged += 1
+  flagged
+
 create_space = (name, desc) ->
   if box.space[name] then return
   s = box.schema.space.create name, {
@@ -339,6 +367,16 @@ bootstrap = ->
       }
       sp\format new_fmt
       log.info "tdb_v3: added cardinality to _tdb_relations — relations existantes : cardinalité 'one' par défaut"
+
+  -- Forced default-password change (spec §7 / audit 1.4). Extends the users
+  -- format with a nullable boolean; existing rows get nil (== false). For an
+  -- existing instance, any user whose current password is still the public
+  -- default is flagged once, at startup (a single verify_password per user).
+  box.once 'tdb_v4', ->
+    flagged = migrate_must_change_password!
+    log.info 'tdb_v4: added must_change_password to _tdb_users'
+    if flagged > 0
+      log.warn "tdb_v4: #{flagged} user(s) still use the default password — change required"
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- Runtime space management
@@ -695,4 +733,4 @@ delete_user_space = (name) ->
   -- Remove metadata
   box.space._tdb_spaces\delete sid
 
-{ :bootstrap, :migrate, :create_user_space, :delete_user_space, :add_field, :remove_field, :update_field, :reorder_fields, :change_field_type, :list_spaces, :list_fields, :get_space, :get_space_by_name, :FIELD_TYPES }
+{ :bootstrap, :migrate, :migrate_must_change_password, :create_user_space, :delete_user_space, :add_field, :remove_field, :update_field, :reorder_fields, :change_field_type, :list_spaces, :list_fields, :get_space, :get_space_by_name, :FIELD_TYPES }

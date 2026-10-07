@@ -7,7 +7,7 @@ log      = require 'log'
 { :SESSION_TTL, :TOKEN_LENGTH,
   :LOGIN_MAX_ATTEMPTS, :LOGIN_IP_MAX_ATTEMPTS, :LOGIN_ATTEMPT_WINDOW,
   :LOGIN_LOCKOUT_BASE_SECONDS, :LOGIN_LOCKOUT_MAX_SECONDS,
-  :LOGIN_ATTEMPTS_TTL } = require 'core.config'
+  :LOGIN_ATTEMPTS_TTL, :DEFAULT_ADMIN_PASSWORD } = require 'core.config'
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- Password hashing (PBKDF2-HMAC-SHA256, 100 000 iterations)
@@ -37,6 +37,12 @@ verify_password = (password, salt, stored_hash) ->
 check_password_length = (password) ->
   error "Password must be at least #{MIN_PASSWORD_LEN} characters" if #password < MIN_PASSWORD_LEN
 
+-- Whether a freshly set plaintext is still the public default password. Used to
+-- compute the must_change_password flag on every password write so the flag
+-- clears automatically once the password actually changes (spec §7 / audit 1.4).
+must_change_password_for = (password) ->
+  password == DEFAULT_ADMIN_PASSWORD
+
 -- ────────────────────────────────────────────────────────────────────────────
 -- User management
 -- ────────────────────────────────────────────────────────────────────────────
@@ -47,18 +53,21 @@ create_user = (username, email, password) ->
   uid  = tostring uuid_mod.new!
   salt = gen_salt!
   hash = hash_password password, salt
-  box.space._tdb_users\insert { uid, username, email, hash, salt, now, now }
-  { id: uid, username: username, email: email, createdAt: now }
+  must = must_change_password_for password
+  box.space._tdb_users\insert { uid, username, email, hash, salt, now, now, must }
+  { id: uid, username: username, email: email, createdAt: now, must_change_password: must }
 
 get_user_by_username = (username) ->
   t = box.space._tdb_users.index.by_username\get { username }
   return nil unless t
-  { id: t[1], username: t[2], email: t[3], password_hash: t[4], salt: t[5], createdAt: t[6] }
+  { id: t[1], username: t[2], email: t[3], password_hash: t[4], salt: t[5],
+    createdAt: t[6], must_change_password: t[8] == true }
 
 get_user_by_id = (id) ->
   t = box.space._tdb_users\get id
   return nil unless t
-  { id: t[1], username: t[2], email: t[3], createdAt: t[6] }
+  { id: t[1], username: t[2], email: t[3], createdAt: t[6],
+    must_change_password: t[8] == true }
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- Sessions
@@ -221,7 +230,10 @@ login = (username, password, client_addr) ->
       now = os.time!
       t = box.space._tdb_users\get user.id
       if t
-        box.space._tdb_users\replace { t[1], t[2], t[3], new_hash, new_salt, t[6], now }
+        box.space._tdb_users\replace {
+          t[1], t[2], t[3], new_hash, new_salt, t[6], now,
+          must_change_password_for password
+        }
         log.info "tdb auth: upgraded password hash for user '#{username}' to PBKDF2"
     return create_session user.id
   for key in *keys
@@ -237,7 +249,10 @@ change_password = (user_id, current_password, new_password) ->
   new_salt = gen_salt!
   new_hash = hash_password new_password, new_salt
   now = os.time!
-  box.space._tdb_users\replace { t[1], t[2], t[3], new_hash, new_salt, t[6], now }
+  box.space._tdb_users\replace {
+    t[1], t[2], t[3], new_hash, new_salt, t[6], now,
+    must_change_password_for new_password
+  }
   true
 
 admin_set_password = (user_id, new_password) ->
@@ -247,10 +262,14 @@ admin_set_password = (user_id, new_password) ->
   new_salt = gen_salt!
   new_hash = hash_password new_password, new_salt
   now = os.time!
-  box.space._tdb_users\replace { t[1], t[2], t[3], new_hash, new_salt, t[6], now }
+  box.space._tdb_users\replace {
+    t[1], t[2], t[3], new_hash, new_salt, t[6], now,
+    must_change_password_for new_password
+  }
   true
 
 { :create_user, :get_user_by_username, :get_user_by_id,
   :create_session, :validate_session, :delete_session, :purge_expired_sessions,
   :login, :hash_password, :gen_salt, :change_password, :admin_set_password,
+  :verify_password, :must_change_password_for,
   :purge_login_attempts, :login_key, :login_ip_key, :MIN_PASSWORD_LEN }

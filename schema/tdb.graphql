@@ -349,6 +349,7 @@ type User {
   email:      String!
   groups:     [Group!]!
   createdAt:  String!
+  mustChangePassword: Boolean!
 }
 
 type Group {

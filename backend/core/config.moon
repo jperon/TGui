@@ -12,6 +12,12 @@ fiber = require 'fiber'
 SESSION_TTL = 24 * 3600  -- 24 hours in seconds
 TOKEN_LENGTH = 32
 
+-- Public default password shipped by the bootstrap. Any account whose current
+-- password is still this value has must_change_password set and is refused any
+-- operation but me/changePassword/logout (spec §7 / audit 1.4). Changing the
+-- password clears the flag.
+DEFAULT_ADMIN_PASSWORD = 'adminadmin'
+
 -- Login rate-limiting (spec §7 / audit 1.2). The counters are persisted in the
 -- `_tdb_login_attempts` system space so a server restart does not forgive
 -- accumulated failures. The lockout delay doubles on every new cycle.
@@ -153,7 +159,7 @@ validate_input = (type, value, context) ->
 
 -- Export configuration
 {
-  :SESSION_TTL, :TOKEN_LENGTH, :FRONTEND_DIR
+  :SESSION_TTL, :TOKEN_LENGTH, :FRONTEND_DIR, :DEFAULT_ADMIN_PASSWORD
   :LOGIN_MAX_ATTEMPTS, :LOGIN_IP_MAX_ATTEMPTS, :LOGIN_ATTEMPT_WINDOW
   :LOGIN_LOCKOUT_BASE_SECONDS, :LOGIN_LOCKOUT_MAX_SECONDS, :LOGIN_ATTEMPTS_TTL
   :DEFAULT_FORMULA_MAX_LENGTH, :DEFAULT_FIELD_NAME_MAX_LENGTH

@@ -115,6 +115,10 @@ handle_graphql = (req) ->
     if session
       ctx.token   = token
       ctx.user_id = session.user_id
+      -- Surface the forced-password-change flag so resolvers.utils.require_auth
+      -- can refuse everything but me/changePassword/logout (spec §7 / audit 1.4).
+      user = auth_mod.get_user_by_id session.user_id
+      ctx.must_change_password = user and user.must_change_password or false
 
   result = graphql.execute { query, variables, op_name, context: ctx }
   req\render { status: 200, json: result }
@@ -154,8 +158,15 @@ handle_export = (req) ->
     return { status: 401, headers: {}, body: 'Invalid token' }
 
   -- Check admin permissions (group membership, not username)
-  ok_admin, err_admin = pcall require_admin, { user_id: session.user_id }
+  exp_user = auth_mod.get_user_by_id session.user_id
+  export_ctx = {
+    user_id: session.user_id,
+    must_change_password: exp_user and exp_user.must_change_password or false
+  }
+  ok_admin, err_admin = pcall require_admin, export_ctx
   unless ok_admin
+    if tostring(err_admin)\match 'PASSWORD_CHANGE_REQUIRED'
+      return { status: 403, headers: {}, body: 'Password change required' }
     if tostring(err_admin)\match 'Forbidden'
       return { status: 403, headers: {}, body: 'Admin access required' }
     return { status: 401, headers: {}, body: 'Unauthorized' }

@@ -151,6 +151,8 @@ handle_graphql = function(req)
     if session then
       ctx.token = token
       ctx.user_id = session.user_id
+      local user = auth_mod.get_user_by_id(session.user_id)
+      ctx.must_change_password = user and user.must_change_password or false
     end
   end
   local result = graphql.execute({
@@ -214,10 +216,20 @@ handle_export = function(req)
       body = 'Invalid token'
     }
   end
-  local ok_admin, err_admin = pcall(require_admin, {
-    user_id = session.user_id
-  })
+  local exp_user = auth_mod.get_user_by_id(session.user_id)
+  local export_ctx = {
+    user_id = session.user_id,
+    must_change_password = exp_user and exp_user.must_change_password or false
+  }
+  local ok_admin, err_admin = pcall(require_admin, export_ctx)
   if not (ok_admin) then
+    if tostring(err_admin):match('PASSWORD_CHANGE_REQUIRED') then
+      return {
+        status = 403,
+        headers = { },
+        body = 'Password change required'
+      }
+    end
     if tostring(err_admin):match('Forbidden') then
       return {
         status = 403,

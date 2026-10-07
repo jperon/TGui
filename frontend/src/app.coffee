@@ -328,8 +328,9 @@ window.App =
     else
       @el.adminSidebarSection().classList.add 'hidden'
       @el.pluginsSidebarSection().classList.add 'hidden'
-    # Show warning banner when admin still uses the default password.
-    if user.username == 'admin' and not localStorage.getItem('tdb_password_changed')
+    # Show warning banner when the account still uses the default password.
+    # The flag is computed and exposed by the server (spec §7 / audit 1.4).
+    if user.mustChangePassword
       @el.defaultPasswordWarning().classList.remove 'hidden'
     else
       @el.defaultPasswordWarning().classList.add 'hidden'
@@ -363,8 +364,8 @@ window.App =
     window.AppAppsHelpers.loadApps @
 
   # ── Dialog: change password ──────────────────────────────────────────────────
-  _openChangePasswordDialog: ->
-    window.AppSidebarHelpers.openChangePasswordDialog @
+  _openChangePasswordDialog: (message) ->
+    window.AppSidebarHelpers.openChangePasswordDialog @, message
 
   _bindChangePasswordDialog: ->
     window.AppSidebarHelpers.bindChangePasswordDialog @
