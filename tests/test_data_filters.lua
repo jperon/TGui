@@ -6,10 +6,10 @@ do
   local _obj_0 = require('resolvers.schema_resolvers')
   schema_Query, schema_Mutation = _obj_0.Query, _obj_0.Mutation
 end
-local data_Query, data_Mutation
+local data_Query, data_Mutation, real_matches_filter
 do
   local _obj_0 = require('resolvers.data_resolvers')
-  data_Query, data_Mutation = _obj_0.Query, _obj_0.Mutation
+  data_Query, data_Mutation, real_matches_filter = _obj_0.Query, _obj_0.Mutation, _obj_0.matches_filter
 end
 local CTX_FK = {
   user_id = 'test-user'
@@ -236,6 +236,316 @@ R.describe("matches_filter — LT / GT / LTE / GTE operators", function()
       op = 'GTE',
       value = '40'
     }))
+  end)
+end)
+R.describe("matches_filter (real) — LT/GT/LTE/GTE with non-numeric data", function()
+  R.it("LT: empty, text or missing field value -> excluded, no error", function()
+    R.eq(real_matches_filter({
+      age = ''
+    }, {
+      field = 'age',
+      op = 'LT',
+      value = '40'
+    }), false)
+    R.eq(real_matches_filter({
+      age = 'abc'
+    }, {
+      field = 'age',
+      op = 'LT',
+      value = '40'
+    }), false)
+    return R.eq(real_matches_filter({ }, {
+      field = 'age',
+      op = 'LT',
+      value = '40'
+    }), false)
+  end)
+  R.it("GT: empty, text or missing field value -> excluded, no error", function()
+    R.eq(real_matches_filter({
+      age = ''
+    }, {
+      field = 'age',
+      op = 'GT',
+      value = '40'
+    }), false)
+    R.eq(real_matches_filter({
+      age = 'abc'
+    }, {
+      field = 'age',
+      op = 'GT',
+      value = '40'
+    }), false)
+    return R.eq(real_matches_filter({ }, {
+      field = 'age',
+      op = 'GT',
+      value = '40'
+    }), false)
+  end)
+  R.it("LTE: empty, text or missing field value -> excluded, no error", function()
+    R.eq(real_matches_filter({
+      age = ''
+    }, {
+      field = 'age',
+      op = 'LTE',
+      value = '40'
+    }), false)
+    R.eq(real_matches_filter({
+      age = 'abc'
+    }, {
+      field = 'age',
+      op = 'LTE',
+      value = '40'
+    }), false)
+    return R.eq(real_matches_filter({ }, {
+      field = 'age',
+      op = 'LTE',
+      value = '40'
+    }), false)
+  end)
+  R.it("GTE: empty, text or missing field value -> excluded, no error", function()
+    R.eq(real_matches_filter({
+      age = ''
+    }, {
+      field = 'age',
+      op = 'GTE',
+      value = '40'
+    }), false)
+    R.eq(real_matches_filter({
+      age = 'abc'
+    }, {
+      field = 'age',
+      op = 'GTE',
+      value = '40'
+    }), false)
+    return R.eq(real_matches_filter({ }, {
+      field = 'age',
+      op = 'GTE',
+      value = '40'
+    }), false)
+  end)
+  R.it("LT/GT/LTE/GTE: non-numeric filter value -> excluded, no error", function()
+    R.eq(real_matches_filter({
+      age = 30
+    }, {
+      field = 'age',
+      op = 'LT',
+      value = 'abc'
+    }), false)
+    R.eq(real_matches_filter({
+      age = 30
+    }, {
+      field = 'age',
+      op = 'GT',
+      value = 'abc'
+    }), false)
+    R.eq(real_matches_filter({
+      age = 30
+    }, {
+      field = 'age',
+      op = 'LTE',
+      value = ''
+    }), false)
+    R.eq(real_matches_filter({
+      age = 30
+    }, {
+      field = 'age',
+      op = 'GTE',
+      value = ''
+    }), false)
+    return R.eq(real_matches_filter({
+      age = 30
+    }, {
+      field = 'age',
+      op = 'LT',
+      value = nil
+    }), false)
+  end)
+  R.it("integer field vs numeric string filter -> numeric comparison", function()
+    R.ok(real_matches_filter({
+      age = 30
+    }, {
+      field = 'age',
+      op = 'LT',
+      value = '40'
+    }))
+    R.eq(real_matches_filter({
+      age = 40
+    }, {
+      field = 'age',
+      op = 'LTE',
+      value = '40'
+    }), true)
+    R.eq(real_matches_filter({
+      age = 39
+    }, {
+      field = 'age',
+      op = 'LTE',
+      value = '40'
+    }), true)
+    return R.eq(real_matches_filter({
+      age = 41
+    }, {
+      field = 'age',
+      op = 'GTE',
+      value = '40'
+    }), true)
+  end)
+  R.it("float field values -> numeric comparison", function()
+    R.ok(real_matches_filter({
+      score = 5.5
+    }, {
+      field = 'score',
+      op = 'GT',
+      value = '5.4'
+    }))
+    R.ok(real_matches_filter({
+      score = 5.5
+    }, {
+      field = 'score',
+      op = 'LTE',
+      value = '5.5'
+    }))
+    return R.eq(real_matches_filter({
+      score = 5.5
+    }, {
+      field = 'score',
+      op = 'LT',
+      value = '5.5'
+    }), false)
+  end)
+  R.it("numeric strings compare numerically, not lexicographically", function()
+    R.ok(real_matches_filter({
+      age = '10'
+    }, {
+      field = 'age',
+      op = 'GT',
+      value = '9'
+    }))
+    R.eq(real_matches_filter({
+      age = '10'
+    }, {
+      field = 'age',
+      op = 'LT',
+      value = '9'
+    }), false)
+    R.ok(real_matches_filter({
+      age = '9'
+    }, {
+      field = 'age',
+      op = 'LT',
+      value = '10'
+    }))
+    return R.eq(real_matches_filter({
+      age = '9'
+    }, {
+      field = 'age',
+      op = 'GTE',
+      value = '10'
+    }), false)
+  end)
+  return R.it("EQ / NEQ / CONTAINS / STARTS_WITH keep their string semantics", function()
+    R.ok(real_matches_filter({
+      age = 40
+    }, {
+      field = 'age',
+      op = 'EQ',
+      value = '40'
+    }))
+    R.eq(real_matches_filter({
+      age = 40
+    }, {
+      field = 'age',
+      op = 'NEQ',
+      value = '40'
+    }), false)
+    R.ok(real_matches_filter({
+      nom = 'Dupont'
+    }, {
+      field = 'nom',
+      op = 'CONTAINS',
+      value = 'pont'
+    }))
+    return R.ok(real_matches_filter({
+      nom = 'Dupont'
+    }, {
+      field = 'nom',
+      op = 'STARTS_WITH',
+      value = 'Du'
+    }))
+  end)
+end)
+R.describe("Query.records — numeric filter on non-numeric data", function()
+  local NUMFX = tostring(math.random(100000, 999999))
+  local num_space_name = "numfilt_" .. tostring(NUMFX)
+  local num_sp_id = nil
+  local json_mod = require('json')
+  do
+    local sp = spaces_mod.create_user_space(num_space_name, "numeric filter robustness")
+    num_sp_id = sp.id
+    spaces_mod.add_field(num_sp_id, 'val', 'String')
+    data_Mutation.insertRecord({ }, {
+      spaceId = num_sp_id,
+      data = {
+        val = '10'
+      }
+    }, CTX_FK)
+    data_Mutation.insertRecord({ }, {
+      spaceId = num_sp_id,
+      data = {
+        val = '9'
+      }
+    }, CTX_FK)
+    data_Mutation.insertRecord({ }, {
+      spaceId = num_sp_id,
+      data = {
+        val = 'abc'
+      }
+    }, CTX_FK)
+    data_Mutation.insertRecord({ }, {
+      spaceId = num_sp_id,
+      data = {
+        val = ''
+      }
+    }, CTX_FK)
+    data_Mutation.insertRecord({ }, {
+      spaceId = num_sp_id,
+      data = { }
+    }, CTX_FK)
+  end
+  R.it("records() without filter returns every record", function()
+    local res = data_Query.records({ }, {
+      spaceId = num_sp_id
+    }, CTX_FK)
+    return R.eq(res.total, 5)
+  end)
+  R.it("GT '9' keeps only the numeric '10' record", function()
+    local res = data_Query.records({ }, {
+      spaceId = num_sp_id,
+      filter = {
+        field = 'val',
+        op = 'GT',
+        value = '9'
+      }
+    }, CTX_FK)
+    R.eq(res.total, 1)
+    local d = json_mod.decode(res.items[1].data)
+    return R.eq(d.val, '10')
+  end)
+  R.it("LT '10' keeps only the numeric '9' record", function()
+    local res = data_Query.records({ }, {
+      spaceId = num_sp_id,
+      filter = {
+        field = 'val',
+        op = 'LT',
+        value = '10'
+      }
+    }, CTX_FK)
+    R.eq(res.total, 1)
+    local d = json_mod.decode(res.items[1].data)
+    return R.eq(d.val, '9')
+  end)
+  return R.it("cleanup", function()
+    return spaces_mod.delete_user_space(num_space_name)
   end)
 end)
 R.describe("matches_filter — CONTAINS operator", function()

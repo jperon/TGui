@@ -25,6 +25,15 @@ sequence_fields = (space_id) ->
       result[t[3]] = t[1]  -- name -> field_id
   result
 
+-- Numeric comparison for LT / GT / LTE / GTE: both operands must convert to a
+-- number, otherwise the record is excluded (false) instead of raising
+-- "attempt to compare nil with number".
+numeric_compare = (v, flt_value, cmp) ->
+  n = tonumber v
+  m = tonumber flt_value
+  return false if n == nil or m == nil
+  cmp n, m
+
 -- Test one record against a filter (recursively handles and/or).
 -- self_val: the record as a make_self_proxy (for formula) or plain dict (for field filters)
 matches_filter = (self_val, flt) ->
@@ -42,10 +51,10 @@ matches_filter = (self_val, flt) ->
     switch flt.op
       when 'EQ'          then v == flt.value
       when 'NEQ'         then v != flt.value
-      when 'LT'          then tonumber(v) < tonumber(flt.value)
-      when 'GT'          then tonumber(v) > tonumber(flt.value)
-      when 'LTE'         then tonumber(v) <= tonumber(flt.value)
-      when 'GTE'         then tonumber(v) >= tonumber(flt.value)
+      when 'LT'          then numeric_compare(v, flt.value, (a, b) -> a < b)
+      when 'GT'          then numeric_compare(v, flt.value, (a, b) -> a > b)
+      when 'LTE'         then numeric_compare(v, flt.value, (a, b) -> a <= b)
+      when 'GTE'         then numeric_compare(v, flt.value, (a, b) -> a >= b)
       when 'CONTAINS'    then v\find(flt.value, 1, true) != nil
       when 'STARTS_WITH' then v\sub(1, #flt.value) == flt.value
       else true

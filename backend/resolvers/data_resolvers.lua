@@ -35,6 +35,15 @@ sequence_fields = function(space_id)
   end
   return result
 end
+local numeric_compare
+numeric_compare = function(v, flt_value, cmp)
+  local n = tonumber(v)
+  local m = tonumber(flt_value)
+  if n == nil or m == nil then
+    return false
+  end
+  return cmp(n, m)
+end
 local matches_filter
 matches_filter = function(self_val, flt)
   if not (flt) then
@@ -59,13 +68,21 @@ matches_filter = function(self_val, flt)
       elseif 'NEQ' == _exp_0 then
         ok = v ~= flt.value
       elseif 'LT' == _exp_0 then
-        ok = tonumber(v) < tonumber(flt.value)
+        ok = numeric_compare(v, flt.value, function(a, b)
+          return a < b
+        end)
       elseif 'GT' == _exp_0 then
-        ok = tonumber(v) > tonumber(flt.value)
+        ok = numeric_compare(v, flt.value, function(a, b)
+          return a > b
+        end)
       elseif 'LTE' == _exp_0 then
-        ok = tonumber(v) <= tonumber(flt.value)
+        ok = numeric_compare(v, flt.value, function(a, b)
+          return a <= b
+        end)
       elseif 'GTE' == _exp_0 then
-        ok = tonumber(v) >= tonumber(flt.value)
+        ok = numeric_compare(v, flt.value, function(a, b)
+          return a >= b
+        end)
       elseif 'CONTAINS' == _exp_0 then
         ok = v:find(flt.value, 1, true) ~= nil
       elseif 'STARTS_WITH' == _exp_0 then
