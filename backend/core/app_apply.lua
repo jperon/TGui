@@ -1645,6 +1645,334 @@ _finalize = function(report, touched)
     pcall(triggers.register_space_trigger, name)
   end
 end
+local _normalize_keys
+_normalize_keys = function(keys)
+  if type(keys) == 'string' then
+    return {
+      keys
+    }
+  end
+  return keys or { }
+end
+local _purge_rows
+_purge_rows = function(app_id, keys)
+  local rows = { }
+  local _list_0 = _normalize_keys(keys)
+  for _index_0 = 1, #_list_0 do
+    local key = _list_0[_index_0]
+    local t = box.space._tdb_app_items:get({
+      app_id,
+      key
+    })
+    if not (t) then
+      return nil, "unknown app item '" .. tostring(key) .. "' for app '" .. tostring(app_id) .. "'"
+    end
+    if not (t[6] == 'obsolète') then
+      return nil, "item '" .. tostring(key) .. "' is not obsolete (state=" .. tostring(t[6]) .. "); only obsolete installed items can be purged"
+    end
+    table.insert(rows, {
+      key = t[2],
+      type = t[3],
+      local_id = t[4]
+    })
+  end
+  return rows, nil
+end
+local _relation_touching_count
+_relation_touching_count = function(sid)
+  local seen = { }
+  local n = 0
+  local _list_0 = box.space._tdb_relations.index.by_from:select({
+    sid
+  })
+  for _index_0 = 1, #_list_0 do
+    local t = _list_0[_index_0]
+    if not (seen[t[1]]) then
+      n = n + 1
+    end
+    seen[t[1]] = true
+  end
+  local _list_1 = box.space._tdb_relations.index.by_to:select({
+    sid
+  })
+  for _index_0 = 1, #_list_1 do
+    local t = _list_1[_index_0]
+    if not (seen[t[1]]) then
+      n = n + 1
+    end
+    seen[t[1]] = true
+  end
+  return n
+end
+local _views_referencing_count
+_views_referencing_count = function(name, sid)
+  local n = 0
+  local _list_0 = views_mod.list_views(sid)
+  for _index_0 = 1, #_list_0 do
+    local _ = _list_0[_index_0]
+    n = n + 1
+  end
+  local _list_1 = box.space._tdb_data_views:select({ })
+  for _index_0 = 1, #_list_1 do
+    local t = _list_1[_index_0]
+    if t[4] == sid or t[4] == name then
+      n = n + 1
+    end
+  end
+  local _list_2 = box.space._tdb_custom_views:select({ })
+  for _index_0 = 1, #_list_2 do
+    local row = _list_2[_index_0]
+    if row[4] and row[4]:find(name, 1, true) then
+      n = n + 1
+    end
+  end
+  return n
+end
+local _field_value_count
+_field_value_count = function(key)
+  local scope, name = _split_scope(key, 'field:')
+  local sp = scope and box.space["data_" .. tostring(scope)]
+  if not (sp and name) then
+    return 0
+  end
+  local n = 0
+  local _list_0 = sp:select({ })
+  for _index_0 = 1, #_list_0 do
+    local t = _list_0[_index_0]
+    if _decode(t[2])[name] ~= nil then
+      n = n + 1
+    end
+  end
+  return n
+end
+local _loss_for
+_loss_for = function(row)
+  local loss = {
+    key = row.key,
+    type = row.type,
+    records = 0,
+    fields = 0,
+    relations = 0,
+    views = 0
+  }
+  if row.type == 'field' then
+    loss.records = _field_value_count(row.key)
+  elseif row.type == 'space' then
+    local name = _after(row.key, 'space:')
+    local sp = name and spaces_mod.get_space_by_name(name)
+    if sp then
+      local data_sp = box.space["data_" .. tostring(name)]
+      loss.records = data_sp and #data_sp:select({ }) or 0
+      loss.fields = #spaces_mod.list_fields(sp.id)
+      loss.relations = _relation_touching_count(sp.id)
+      loss.views = _views_referencing_count(name, sp.id)
+    end
+  end
+  return loss
+end
+local preview_purge
+preview_purge = function(app_id, keys)
+  local rows, err = _purge_rows(app_id, keys)
+  if err then
+    return {
+      error = err,
+      losses = { },
+      total_records = 0
+    }
+  end
+  local losses = { }
+  local total = 0
+  for _index_0 = 1, #rows do
+    local row = rows[_index_0]
+    local loss = _loss_for(row)
+    table.insert(losses, loss)
+    total = total + loss.records
+  end
+  return {
+    losses = losses,
+    total_records = total,
+    error = nil
+  }
+end
+local _is_child_of_space
+_is_child_of_space = function(key, name)
+  local _list_0 = {
+    'field:',
+    'relation:',
+    'view:'
+  }
+  for _index_0 = 1, #_list_0 do
+    local prefix = _list_0[_index_0]
+    if _after(key, tostring(prefix) .. tostring(name) .. ".") then
+      return true
+    end
+  end
+  return _after(key, "seed:" .. tostring(name) .. "|") ~= nil
+end
+local _delete_space_children
+_delete_space_children = function(app_id, name)
+  local rows = box.space._tdb_app_items.index.by_app:select({
+    app_id
+  })
+  for _index_0 = 1, #rows do
+    local t = rows[_index_0]
+    if _is_child_of_space(t[2], name) then
+      box.space._tdb_app_items:delete({
+        t[1],
+        t[2]
+      })
+    end
+  end
+end
+local _remove_record_key
+_remove_record_key = function(sp, field_name)
+  local _list_0 = sp:select({ })
+  for _index_0 = 1, #_list_0 do
+    local t = _list_0[_index_0]
+    local d = _decode(t[2])
+    if d[field_name] ~= nil then
+      d[field_name] = nil
+      sp:replace({
+        t[1],
+        json.encode(d)
+      })
+    end
+  end
+end
+local _purge_field
+_purge_field = function(row)
+  local scope, name = _split_scope(row.key, 'field:')
+  if row.local_id and box.space._tdb_fields:get(row.local_id) then
+    spaces_mod.remove_field(row.local_id)
+  end
+  local sp = scope and box.space["data_" .. tostring(scope)]
+  if sp and name then
+    return _remove_record_key(sp, name)
+  end
+end
+local _purge_space
+_purge_space = function(ctx, row)
+  local name = _after(row.key, 'space:')
+  if name then
+    spaces_mod.delete_user_space(name)
+  end
+  if name then
+    return _delete_space_children(ctx.app_id, name)
+  end
+end
+local _purge_seed
+_purge_seed = function(row)
+  local rest = _after(row.key, 'seed:')
+  if not (rest) then
+    return 
+  end
+  local sep = rest:find('|')
+  if not (sep) then
+    return 
+  end
+  local sp = box.space["data_" .. tostring(rest:sub(1, sep - 1))]
+  if sp and row.local_id and row.local_id ~= '' then
+    return sp:delete(row.local_id)
+  end
+end
+local _purge_one
+_purge_one = function(ctx, row)
+  if not (row.local_id and row.local_id ~= '') then
+    error("missing local_id for '" .. tostring(row.key) .. "'")
+  end
+  local _exp_0 = row.type
+  if 'field' == _exp_0 then
+    return _purge_field(row)
+  elseif 'space' == _exp_0 then
+    return _purge_space(ctx, row)
+  elseif 'relation' == _exp_0 then
+    return box.space._tdb_relations:delete(row.local_id)
+  elseif 'view' == _exp_0 then
+    return box.space._tdb_views:delete(row.local_id)
+  elseif 'page' == _exp_0 then
+    return box.space._tdb_custom_views:delete(row.local_id)
+  elseif 'dataview' == _exp_0 then
+    return box.space._tdb_data_views:delete(row.local_id)
+  elseif 'plugin' == _exp_0 then
+    return box.space._tdb_widget_plugins:delete(row.local_id)
+  elseif 'group' == _exp_0 then
+    return perms_mod.delete_group(row.local_id)
+  elseif 'perm' == _exp_0 then
+    return box.space._tdb_permissions:delete(row.local_id)
+  elseif 'seed' == _exp_0 then
+    return _purge_seed(row)
+  else
+    return error("unsupported purge type '" .. tostring(row.type) .. "'")
+  end
+end
+local _purge_transaction
+_purge_transaction = function(app_id, rows)
+  local ordered
+  do
+    local _accum_0 = { }
+    local _len_0 = 1
+    for _index_0 = 1, #rows do
+      local r = rows[_index_0]
+      _accum_0[_len_0] = r
+      _len_0 = _len_0 + 1
+    end
+    ordered = _accum_0
+  end
+  table.sort(ordered, function(a, b)
+    local ra = TYPE_RANK[a.type] or 99
+    local rb = TYPE_RANK[b.type] or 99
+    if ra ~= rb then
+      return ra < rb
+    else
+      return a.key < b.key
+    end
+  end)
+  box.begin()
+  local ctx = {
+    app_id = app_id
+  }
+  for _index_0 = 1, #ordered do
+    local row = ordered[_index_0]
+    _purge_one(ctx, row)
+  end
+  for _index_0 = 1, #rows do
+    local row = rows[_index_0]
+    _delete_tracking(app_id, row.key)
+  end
+  return box.commit()
+end
+local purge_obsolete
+purge_obsolete = function(app_id, keys, opts)
+  opts = opts or { }
+  local report = {
+    ok = false,
+    purged = { },
+    error = nil
+  }
+  if not (opts.confirmed == true) then
+    report.error = 'confirmation required'
+    return report
+  end
+  local rows, err = _purge_rows(app_id, keys)
+  if err then
+    report.error = err
+    return report
+  end
+  local ok, err2 = pcall(_purge_transaction, app_id, rows)
+  if not (ok) then
+    pcall(function()
+      if box.is_in_txn() then
+        return box.rollback()
+      end
+    end)
+    report.error = tostring(err2)
+    return report
+  end
+  report.ok = true
+  report.purged = keys
+  _finalize(report, { })
+  return report
+end
 local apply_update
 apply_update = function(package, decisions, opts)
   decisions = decisions or { }
@@ -1698,5 +2026,7 @@ end
 return {
   load_package = load_package,
   preview_update = preview_update,
-  apply_update = apply_update
+  apply_update = apply_update,
+  preview_purge = preview_purge,
+  purge_obsolete = purge_obsolete
 }

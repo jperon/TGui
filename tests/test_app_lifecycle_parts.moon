@@ -402,6 +402,99 @@ R.describe "v3b partie 3 — renommages", ->
     R.matches report.error, 'already exists locally'
     R.eq box.space._tdb_apps\get(APP_ID)[3], before_version, 'no write'
 
+-- ── PARTIE 4 : aperçu des pertes et purge ────────────────────────────────────
+R.describe "v3b partie 4 — aperçu des pertes et purge", ->
+
+  R.it "makes a field obsolete and previews its losses exactly, without writing", ->
+    sid = spaces.get_space_by_name(SP_B).id
+    spaces.add_field sid, 'legacy', 'String', false, ''
+    sp = box.space["data_#{SP_B}"]
+    n = 0
+    for t in *sp\select {}
+      d = json.decode t[2]
+      if n < 2
+        d.legacy = "v#{n}"
+        sp\replace { t[1], json.encode d }
+      n += 1
+    R.ok (apply.apply_update (build_current '2.1.0'), {}, {}).ok, 'legacy field installed'
+    PKG_N = reversion (without (build_current '2.2.0'), "field:#{SP_B}.legacy"), '2.2.0'
+    R.ok (apply.apply_update PKG_N, {}, {}).ok, 'legacy field removed from the package'
+    R.eq item_state(APP_ID, "field:#{SP_B}.legacy"), 'obsolète'
+    R.ok field_by_name(sid, 'legacy'), 'field still present locally'
+    pv = apply.preview_purge APP_ID, { "field:#{SP_B}.legacy" }
+    R.is_nil pv.error
+    R.eq #pv.losses, 1
+    R.eq pv.losses[1].type, 'field'
+    R.eq pv.losses[1].records, 2
+    R.eq pv.total_records, 2
+    R.ok field_by_name(sid, 'legacy'), 'preview wrote nothing'
+
+  R.it "refuses to purge an active or unknown item and requires confirmation", ->
+    sid = spaces.get_space_by_name(SP_B).id
+    r = apply.purge_obsolete APP_ID, { "field:#{SP_B}.title" }, { confirmed: true }
+    R.nok r.ok
+    R.matches r.error, 'not obsolete'
+    R.is_nil r.purged[1]
+    pv = apply.preview_purge APP_ID, { "field:#{SP_B}.local_xyz" }
+    R.matches pv.error, 'unknown app item'
+    r2 = apply.purge_obsolete APP_ID, { "field:#{SP_B}.legacy" }, {}
+    R.nok r2.ok
+    R.matches r2.error, 'confirmation required'
+    R.ok field_by_name(sid, 'legacy'), 'no purge without confirmation'
+
+  R.it "purges an obsolete field: removes the key from records and nothing else", ->
+    sid = spaces.get_space_by_name(SP_B).id
+    rows_before = count_rows SP_B
+    r = apply.purge_obsolete APP_ID, { "field:#{SP_B}.legacy" }, { confirmed: true }
+    R.ok r.ok, r.error
+    R.is_nil field_by_name(sid, 'legacy')
+    R.is_nil item_row(APP_ID, "field:#{SP_B}.legacy")
+    R.eq count_rows(SP_B), rows_before, 'record count unchanged'
+    has = false
+    for row in *local_rows SP_B
+      has = true if row.legacy != nil
+    R.nok has, 'legacy key removed from every record'
+    R.ok field_by_name(sid, 'title'), 'other fields untouched'
+
+  R.it "purges an obsolete space after its relation", ->
+    base = build_current '2.3.0'
+    pkg_r = reversion (without (without base, "relation:#{SP_B}.author_id"), "space:#{SP_A2}"), '2.3.0'
+    r = apply.apply_update pkg_r, {}, {}
+    R.ok r.ok, r.error
+    R.eq item_state(APP_ID, "relation:#{SP_B}.author_id"), 'obsolète'
+    R.eq item_state(APP_ID, "space:#{SP_A2}"), 'obsolète'
+    R.ok (apply.purge_obsolete APP_ID, { "relation:#{SP_B}.author_id" }, { confirmed: true }).ok
+    pv = apply.preview_purge APP_ID, { "space:#{SP_A2}" }
+    R.is_nil pv.error
+    R.eq pv.losses[1].records, 1
+    R.eq pv.losses[1].fields, 2
+    R.eq pv.losses[1].relations, 0
+    rp = apply.purge_obsolete APP_ID, { "space:#{SP_A2}" }, { confirmed: true }
+    R.ok rp.ok, rp.error
+    R.is_nil spaces.get_space_by_name(SP_A2)
+    R.is_nil box.space["data_#{SP_A2}"]
+    R.is_nil item_row(APP_ID, "space:#{SP_A2}")
+    R.is_nil item_row(APP_ID, "field:#{SP_A2}.nom")
+
+  R.it "rolls back a purge that fails in the middle", ->
+    sid = spaces.get_space_by_name(SP_B).id
+    f = spaces.add_field sid, 'legacy2', 'String', false, ''
+    sp = box.space["data_#{SP_B}"]
+    for t in *sp\select {}
+      d = json.decode t[2]
+      if d.legacy2 == nil and d.code == 'V3B-1'
+        d.legacy2 = 'keepme'
+        sp\replace { t[1], json.encode d }
+    box.space._tdb_app_items\replace { APP_ID, "field:#{SP_B}.legacy2", 'field', f.id, 'fp', 'obsolète', '2.3.0' }
+    box.space._tdb_app_items\replace { APP_ID, "page:#{PAGE_N2}_ghost", 'page', '', 'fp', 'obsolète', '2.3.0' }
+    r = apply.purge_obsolete APP_ID,
+      { "field:#{SP_B}.legacy2", "page:#{PAGE_N2}_ghost" }, { confirmed: true }
+    R.nok r.ok
+    R.matches r.error, 'missing local_id'
+    R.ok field_by_name(sid, 'legacy2'), 'field restored by rollback'
+    R.ok (find_record SP_B, 'legacy2', 'keepme'), 'value preserved through rollback'
+    R.eq item_state(APP_ID, "field:#{SP_B}.legacy2"), 'obsolète', 'tracking restored'
+
 -- ── Nettoyage ────────────────────────────────────────────────────────────────
 R.describe "v3b — cleanup", ->
 

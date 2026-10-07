@@ -905,6 +905,172 @@ _finalize = (report, touched) ->
   for name, _ in pairs touched
     pcall triggers.register_space_trigger, name
 
+-- ────────────────────────────────────────────────────────────────────────────
+-- PARTIE 4 (V3b) : aperçu des pertes et purge des obsolètes
+-- Seule une clé suivie pour cette app avec state = 'obsolète' peut être purgée :
+-- jamais un élément actif ni un élément local (absent de _tdb_app_items).
+-- ────────────────────────────────────────────────────────────────────────────
+
+_normalize_keys = (keys) ->
+  return { keys } if type(keys) == 'string'
+  keys or {}
+
+-- Renvoie les lignes de suivi purgables, ou nil + message.
+_purge_rows = (app_id, keys) ->
+  rows = {}
+  for key in *_normalize_keys keys
+    t = box.space._tdb_app_items\get { app_id, key }
+    return nil, "unknown app item '#{key}' for app '#{app_id}'" unless t
+    unless t[6] == 'obsolète'
+      return nil, "item '#{key}' is not obsolete (state=#{t[6]}); only obsolete installed items can be purged"
+    table.insert rows, { key: t[2], type: t[3], local_id: t[4] }
+  rows, nil
+
+_relation_touching_count = (sid) ->
+  seen = {}
+  n = 0
+  for t in *box.space._tdb_relations.index.by_from\select { sid }
+    n += 1 unless seen[t[1]]
+    seen[t[1]] = true
+  for t in *box.space._tdb_relations.index.by_to\select { sid }
+    n += 1 unless seen[t[1]]
+    seen[t[1]] = true
+  n
+
+_views_referencing_count = (name, sid) ->
+  n = 0
+  n += 1 for _ in *views_mod.list_views sid
+  for t in *box.space._tdb_data_views\select {}
+    n += 1 if t[4] == sid or t[4] == name
+  for row in *box.space._tdb_custom_views\select {}
+    n += 1 if row[4] and row[4]\find(name, 1, true)
+  n
+
+_field_value_count = (key) ->
+  scope, name = _split_scope key, 'field:'
+  sp = scope and box.space["data_#{scope}"]
+  return 0 unless sp and name
+  n = 0
+  for t in *sp\select {}
+    n += 1 if _decode(t[2])[name] != nil
+  n
+
+_loss_for = (row) ->
+  loss = { key: row.key, type: row.type, records: 0, fields: 0, relations: 0, views: 0 }
+  if row.type == 'field'
+    loss.records = _field_value_count row.key
+  elseif row.type == 'space'
+    name = _after row.key, 'space:'
+    sp = name and spaces_mod.get_space_by_name name
+    if sp
+      data_sp = box.space["data_#{name}"]
+      loss.records = data_sp and #data_sp\select({}) or 0
+      loss.fields = #spaces_mod.list_fields sp.id
+      loss.relations = _relation_touching_count sp.id
+      loss.views = _views_referencing_count name, sp.id
+  loss
+
+preview_purge = (app_id, keys) ->
+  rows, err = _purge_rows app_id, keys
+  return { error: err, losses: {}, total_records: 0 } if err
+  losses = {}
+  total = 0
+  for row in *rows
+    loss = _loss_for row
+    table.insert losses, loss
+    total += loss.records
+  { losses: losses, total_records: total, error: nil }
+
+_is_child_of_space = (key, name) ->
+  for prefix in *{ 'field:', 'relation:', 'view:' }
+    return true if _after key, "#{prefix}#{name}."
+  _after(key, "seed:#{name}|") != nil
+
+_delete_space_children = (app_id, name) ->
+  rows = box.space._tdb_app_items.index.by_app\select { app_id }
+  for t in *rows
+    box.space._tdb_app_items\delete { t[1], t[2] } if _is_child_of_space t[2], name
+
+_remove_record_key = (sp, field_name) ->
+  for t in *sp\select {}
+    d = _decode t[2]
+    if d[field_name] != nil
+      d[field_name] = nil
+      sp\replace { t[1], json.encode d }
+
+_purge_field = (row) ->
+  scope, name = _split_scope row.key, 'field:'
+  if row.local_id and box.space._tdb_fields\get row.local_id
+    spaces_mod.remove_field row.local_id
+  sp = scope and box.space["data_#{scope}"]
+  _remove_record_key sp, name if sp and name
+
+_purge_space = (ctx, row) ->
+  name = _after row.key, 'space:'
+  spaces_mod.delete_user_space name if name
+  _delete_space_children ctx.app_id, name if name
+
+_purge_seed = (row) ->
+  rest = _after row.key, 'seed:'
+  return unless rest
+  sep = rest\find '|'
+  return unless sep
+  sp = box.space["data_#{rest\sub(1, sep - 1)}"]
+  sp\delete row.local_id if sp and row.local_id and row.local_id != ''
+
+_purge_one = (ctx, row) ->
+  unless row.local_id and row.local_id != ''
+    error "missing local_id for '#{row.key}'"
+  switch row.type
+    when 'field' then _purge_field row
+    when 'space' then _purge_space ctx, row
+    when 'relation' then box.space._tdb_relations\delete row.local_id
+    when 'view' then box.space._tdb_views\delete row.local_id
+    when 'page' then box.space._tdb_custom_views\delete row.local_id
+    when 'dataview' then box.space._tdb_data_views\delete row.local_id
+    when 'plugin' then box.space._tdb_widget_plugins\delete row.local_id
+    when 'group' then perms_mod.delete_group row.local_id
+    when 'perm' then box.space._tdb_permissions\delete row.local_id
+    when 'seed' then _purge_seed row
+    else error "unsupported purge type '#{row.type}'"
+
+_purge_transaction = (app_id, rows) ->
+  ordered = [r for r in *rows]
+  table.sort ordered, (a, b) ->
+    ra = TYPE_RANK[a.type] or 99
+    rb = TYPE_RANK[b.type] or 99
+    if ra != rb
+      ra < rb
+    else
+      a.key < b.key
+  box.begin!
+  ctx = { app_id: app_id }
+  for row in *ordered
+    _purge_one ctx, row
+  for row in *rows
+    _delete_tracking app_id, row.key
+  box.commit!
+
+purge_obsolete = (app_id, keys, opts) ->
+  opts or= {}
+  report = { ok: false, purged: {}, error: nil }
+  unless opts.confirmed == true
+    report.error = 'confirmation required'
+    return report
+  rows, err = _purge_rows app_id, keys
+  if err
+    report.error = err
+    return report
+  ok, err2 = pcall _purge_transaction, app_id, rows
+  unless ok
+    pcall -> box.rollback! if box.is_in_txn!
+    report.error = tostring err2
+    return report
+  report.ok = true
+  report.purged = keys
+  _finalize report, {}
+  report
+
 apply_update = (package, decisions, opts) ->
   decisions or= {}
   opts or= {}
@@ -932,4 +1098,4 @@ apply_update = (package, decisions, opts) ->
   _finalize report, report.touched
   report
 
-{ :load_package, :preview_update, :apply_update }
+{ :load_package, :preview_update, :apply_update, :preview_purge, :purge_obsolete }
