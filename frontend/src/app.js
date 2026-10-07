@@ -1,6 +1,6 @@
 (function() {
   // app.coffee — main application bootstrap and UI orchestration.
-  var CREATE_CUSTOM_VIEW, CREATE_WIDGET_PLUGIN, DELETE_CUSTOM_VIEW, DELETE_WIDGET_PLUGIN, LIST_CUSTOM_VIEWS, LIST_WIDGET_PLUGINS, REMOVE_FIELD, REORDER_FIELDS, UPDATE_CUSTOM_VIEW, UPDATE_WIDGET_PLUGIN;
+  var CREATE_CUSTOM_VIEW, CREATE_WIDGET_PLUGIN, DELETE_CUSTOM_VIEW, DELETE_WIDGET_PLUGIN, LIST_CUSTOM_VIEWS, REMOVE_FIELD, REORDER_FIELDS, UPDATE_CUSTOM_VIEW, UPDATE_WIDGET_PLUGIN;
 
   REMOVE_FIELD = `mutation RemoveField($fieldId: ID!) { removeField(fieldId: $fieldId) }`;
 
@@ -19,19 +19,6 @@
 }`;
 
   DELETE_CUSTOM_VIEW = `mutation DeleteCustomView($id: ID!) { deleteCustomView(id: $id) }`;
-
-  LIST_WIDGET_PLUGINS = `query {
-  widgetPlugins {
-    id
-    name
-    description
-    scriptLanguage
-    templateLanguage
-    scriptCode
-    templateCode
-    updatedAt
-  }
-}`;
 
   CREATE_WIDGET_PLUGIN = `mutation CreateWidgetPlugin($input: CreateWidgetPluginInput!) {
   createWidgetPlugin(input: $input) {
@@ -75,7 +62,7 @@
     _listCustomViewsQuery: LIST_CUSTOM_VIEWS,
     _updateCustomViewMutation: UPDATE_CUSTOM_VIEW,
     _deleteCustomViewMutation: DELETE_CUSTOM_VIEW,
-    _listWidgetPluginsQuery: LIST_WIDGET_PLUGINS,
+    _listWidgetPluginsQuery: window.WidgetPlugins.LIST_QUERY,
     _createWidgetPluginMutation: CREATE_WIDGET_PLUGIN,
     _updateWidgetPluginMutation: UPDATE_WIDGET_PLUGIN,
     _deleteWidgetPluginMutation: DELETE_WIDGET_PLUGIN,
