@@ -256,11 +256,11 @@ window.AppSidebarHelpers =
       app.el.adminCreateGroupBtn().onclick = -> app.el.createGroupDialog().classList.remove 'hidden'
     .catch (err) -> tdbAlert app._err(err), 'error'
 
-  openChangePasswordDialog: (app) ->
+  openChangePasswordDialog: (app, message) ->
     app.el.cpCurrent().value = ''
     app.el.cpNew().value = ''
     app.el.cpConfirm().value = ''
-    app.el.cpError().textContent = ''
+    app.el.cpError().textContent = message or ''
     app.el.changePasswordDialog().classList.remove 'hidden'
 
   bindChangePasswordDialog: (app) ->
@@ -285,9 +285,11 @@ window.AppSidebarHelpers =
       Auth.changePassword(current, nw)
         .then (ok) ->
           if ok
-            localStorage.setItem 'tdb_password_changed', '1'
+            Auth.currentUser.mustChangePassword = false if Auth.currentUser
             app.el.changePasswordDialog().classList.add 'hidden'
             app.el.defaultPasswordWarning().classList.add 'hidden'
+            # Reload the user state so the server-computed flag stays in sync.
+            Auth.restoreSession()
             tdbAlert app._t('ui.alerts.passwordChangedSuccess'), 'info'
           else
             app.el.cpError().textContent = app._t('ui.validation.currentPasswordIncorrect')

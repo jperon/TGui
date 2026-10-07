@@ -672,8 +672,9 @@
         this.el.adminSidebarSection().classList.add('hidden');
         this.el.pluginsSidebarSection().classList.add('hidden');
       }
-      // Show warning banner when admin still uses the default password.
-      if (user.username === 'admin' && !localStorage.getItem('tdb_password_changed')) {
+      // Show warning banner when the account still uses the default password.
+      // The flag is computed and exposed by the server (spec §7 / audit 1.4).
+      if (user.mustChangePassword) {
         return this.el.defaultPasswordWarning().classList.remove('hidden');
       } else {
         return this.el.defaultPasswordWarning().classList.add('hidden');
@@ -708,8 +709,8 @@
       return window.AppAppsHelpers.loadApps(this);
     },
     // ── Dialog: change password ──────────────────────────────────────────────────
-    _openChangePasswordDialog: function() {
-      return window.AppSidebarHelpers.openChangePasswordDialog(this);
+    _openChangePasswordDialog: function(message) {
+      return window.AppSidebarHelpers.openChangePasswordDialog(this, message);
     },
     _bindChangePasswordDialog: function() {
       return window.AppSidebarHelpers.bindChangePasswordDialog(this);

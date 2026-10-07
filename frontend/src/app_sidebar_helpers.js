@@ -363,11 +363,11 @@
         return tdbAlert(app._err(err), 'error');
       });
     },
-    openChangePasswordDialog: function(app) {
+    openChangePasswordDialog: function(app, message) {
       app.el.cpCurrent().value = '';
       app.el.cpNew().value = '';
       app.el.cpConfirm().value = '';
-      app.el.cpError().textContent = '';
+      app.el.cpError().textContent = message || '';
       return app.el.changePasswordDialog().classList.remove('hidden');
     },
     bindChangePasswordDialog: function(app) {
@@ -398,9 +398,13 @@
         }
         return Auth.changePassword(current, nw).then(function(ok) {
           if (ok) {
-            localStorage.setItem('tdb_password_changed', '1');
+            if (Auth.currentUser) {
+              Auth.currentUser.mustChangePassword = false;
+            }
             app.el.changePasswordDialog().classList.add('hidden');
             app.el.defaultPasswordWarning().classList.add('hidden');
+            // Reload the user state so the server-computed flag stays in sync.
+            Auth.restoreSession();
             return tdbAlert(app._t('ui.alerts.passwordChangedSuccess'), 'info');
           } else {
             return app.el.cpError().textContent = app._t('ui.validation.currentPasswordIncorrect');

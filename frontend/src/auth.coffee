@@ -5,7 +5,7 @@ LOGIN_MUTATION = """
   mutation Login($username: String!, $password: String!) {
     login(username: $username, password: $password) {
       token
-      user { id username email groups { id name } }
+      user { id username email mustChangePassword groups { id name } }
     }
   }
 """
@@ -15,7 +15,7 @@ LOGOUT_MUTATION = """
 """
 
 ME_QUERY = """
-  query { me { id username email groups { id name } } }
+  query { me { id username email mustChangePassword groups { id name } } }
 """
 
 CHANGE_PASSWORD_MUTATION = """
