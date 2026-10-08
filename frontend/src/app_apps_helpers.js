@@ -362,6 +362,12 @@
         return box.appendChild(window.AppAppsHelpers._makeEl('div', 'apps-apply-error', String(r.error)));
       }
     },
+    _reloadAppsAndMenu: function(app) {
+      if (typeof app._loadApps === "function") {
+        app._loadApps();
+      }
+      return typeof app._loadAll === "function" ? app._loadAll() : void 0;
+    },
     applyPackage: function(app) {
       var decisions;
       if (!(app._appPlan && app._appPackageYaml)) {
@@ -382,11 +388,12 @@
           dec: decisions,
           d: app.el.appsAllowDowngrade().checked
         }).then(function(data) {
-          var r;
+          var changed, r;
           r = data.applyAppUpdate;
           window.AppAppsHelpers.renderApplyReport(app, r);
-          if (r.ok) {
-            return typeof app._loadApps === "function" ? app._loadApps() : void 0;
+          changed = r.ok || (r.created || []).length > 0 || (r.updated || []).length > 0;
+          if (changed) {
+            return window.AppAppsHelpers._reloadAppsAndMenu(app);
           }
         }).catch(function(err) {
           app.el.appsApplyBtn().disabled = false;
@@ -643,7 +650,7 @@
           });
           if (r.ok) {
             app.el.appsPurgeBox().classList.add('hidden');
-            return typeof app._loadApps === "function" ? app._loadApps() : void 0;
+            return window.AppAppsHelpers._reloadAppsAndMenu(app);
           }
         }).catch(function(err) {
           return tdbAlert(app._err(err), 'error');
