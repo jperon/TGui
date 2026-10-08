@@ -241,8 +241,10 @@ app-bibliotheque: build
 app-bibliotheque-check: build
 	@tmp=$$(mktemp); \
 	docker build $(DOCKER_BUILD_NET) -t $(TEST_IMAGE) . >/dev/null; \
-	docker run --rm -v ./:/app $(TEST_IMAGE) tarantool -e 'package.path="/app/backend/?.lua;/app/backend/?/init.lua;"..package.path; io.write(require("tools.app_builder").emit(require("tools.bibliotheque_app").build()))' > $$tmp; \
-	diff -q $$tmp apps/bibliotheque/bibliotheque.tdbapp.yaml >/dev/null && echo "✅ paquet à jour" || { echo "❌ paquet périmé : make app-bibliotheque"; exit 1; }
+	docker run --rm -v ./:/app $(TEST_IMAGE) tarantool -e 'package.path="/app/backend/?.lua;/app/backend/?/init.lua;"..package.path; io.write(require("tools.app_builder").emit(require("tools.bibliotheque_app").build())); os.exit(0)' > $$tmp; \
+	diff -q $$tmp apps/bibliotheque/bibliotheque.tdbapp.yaml >/dev/null || { echo "❌ paquet périmé : make app-bibliotheque"; rm -f $$tmp; exit 1; }; \
+	rm -f $$tmp; \
+	echo "✅ paquet à jour"
 
 ci: sdl-check test test-js doc-check
 
