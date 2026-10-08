@@ -79,8 +79,16 @@
         if (!(name != null ? name.trim() : void 0)) {
           return;
         }
-        return Spaces.create(name.trim()).then(function() {
-          return app._loadAll();
+        return Spaces.create(name.trim()).then(function(created) {
+          return app._loadAll().then(function() {
+            var sp;
+            sp = (app._allSpaces || []).find(function(s) {
+              return s.id === created.id;
+            });
+            if (sp) {
+              return app.selectSpace(sp);
+            }
+          });
         }).catch(function(err) {
           return tdbAlert(app._err(err), 'error');
         });
