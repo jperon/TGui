@@ -56,17 +56,38 @@ _all_fields = (sp) ->
   table.insert fields, f for f in *(sp.fields or {})
   fields
 
+_page_item = (p) ->
+  {
+    type: 'page'
+    key: "page:#{key_part p.name}"
+    content: { name: p.name, description: p.description or '', yaml: p.yaml }
+  }
+
+_dataview_item = (d) ->
+  {
+    type: 'dataview'
+    key: "dataview:#{key_part d.name}"
+    content: {
+      name: d.name, description: d.description or ''
+      sourceSpace: d.sourceSpace, config: d.config
+    }
+  }
+
 expand = (structure) ->
   a = structure.app
-  spaces, fields, rels, seed_keys = {}, {}, {}, {}
+  spaces, fields, rels, pages, dataviews, seed_keys = {}, {}, {}, {}, {}, {}
   for sp in *structure.spaces
     table.insert spaces, { type: 'space', key: "space:#{key_part sp.name}", content: { description: sp.description or '' } }
     seed_keys[sp.name] = 'id'
     for f in *_all_fields sp
       table.insert fields, _field_item sp.name, f
       table.insert rels, _relation_item sp.name, f if f.ref
+  for p in *(structure.pages or {})
+    table.insert pages, _page_item p
+  for d in *(structure.dataviews or {})
+    table.insert dataviews, _dataview_item d
   items = {}
-  for group in *{ spaces, fields, rels }
+  for group in *{ spaces, fields, rels, pages, dataviews }
     table.insert items, it for it in *group
   { app: { id: a.id, name: a.name, version: a.version, description: a.description or '' }, items: items, seed_keys: seed_keys }
 
@@ -127,12 +148,17 @@ _read_yaml = (path) ->
   yaml.decode text
 
 load_structure = (dir) ->
-  structure = { app: (_read_yaml fio.pathjoin dir, 'app.yaml').app, spaces: {} }
+  structure = {
+    app: (_read_yaml fio.pathjoin dir, 'app.yaml').app
+    spaces: {}, dataviews: {}, pages: {}
+  }
   names = fio.glob fio.pathjoin dir, 'structure', '*.yaml'
   table.sort names
   for path in *names
-    for sp in *(_read_yaml path).spaces
-      table.insert structure.spaces, sp
+    doc = _read_yaml path
+    table.insert structure.spaces, sp for sp in *(doc.spaces or {})
+    table.insert structure.dataviews, d for d in *(doc.dataviews or {})
+    table.insert structure.pages, p for p in *(doc.pages or {})
   structure
 
 { :key_part, :expand, :add_seed, :emit, :load_structure }
