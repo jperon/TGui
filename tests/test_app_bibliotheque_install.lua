@@ -918,7 +918,7 @@ R.describe("bibliotheque install — formules (data_r.Query.records)", function(
     for _, lst in pairs(names) do
       total = total + #lst
     end
-    R.eq(total, 38, "nombre total de champs calculés (29 avant T16a + 9)")
+    R.eq(total, 40, "nombre total de champs calculés (29 avant T16a + 9 T16a + 2 T16b)")
     local wanted = {
       {
         'Emprunts',

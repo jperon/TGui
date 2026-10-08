@@ -79,13 +79,19 @@ execute_view = function(source_space_ref, config_json, params)
       if not (groups[key]) then
         groups[key] = {
           _d = rec.d,
+          _g = { },
           _vals = { }
         }
         table.insert(group_keys, key)
+        local _list_1 = config.groupBy
+        for _index_1 = 1, #_list_1 do
+          local f = _list_1[_index_1]
+          groups[key]._g[f] = rec.proxy[f]
+        end
         if config.aggregates then
-          local _list_1 = config.aggregates
-          for _index_1 = 1, #_list_1 do
-            local agg = _list_1[_index_1]
+          local _list_2 = config.aggregates
+          for _index_1 = 1, #_list_2 do
+            local agg = _list_2[_index_1]
             groups[key]._vals[agg] = {
               count = 0,
               sum = 0,
@@ -129,7 +135,7 @@ execute_view = function(source_space_ref, config_json, params)
       local _list_1 = config.groupBy
       for _index_1 = 1, #_list_1 do
         local f = _list_1[_index_1]
-        row[f] = g._d[f]
+        row[f] = g._g[f]
       end
       if config.aggregates then
         local _list_2 = config.aggregates

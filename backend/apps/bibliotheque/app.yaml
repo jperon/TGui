@@ -1,5 +1,5 @@
 app:
   id: org.tgui.bibliotheque
   name: Bibliothèque
-  version: 1.0.0
+  version: 1.1.0
   description: Bibliothèque scolaire (démonstration et base de tests de TGui).

@@ -1,0 +1,60 @@
+dataviews:
+- name: Emprunts en cours
+  description: Emprunts non rendus, triés par date d'emprunt.
+  sourceSpace: Emprunts
+  config:
+    columns: [lecteur, ouvrage, emprunt]
+    filter: {field: retour, op: EQ, value: ''}
+    orderBy: [{field: emprunt, desc: false}]
+- name: Exemplaires disponibles
+  description: Exemplaires non empruntés et non supprimés, triés par cote.
+  sourceSpace: Exemplaires
+  config:
+    columns: [cote, descriptif]
+    filter:
+      and:
+      - {field: emprunteur, op: EQ, value: ''}
+      - {field: suppression, op: EQ, value: ''}
+    orderBy: [{field: cote, desc: false}]
+- name: Exemplaires prêtés
+  description: Exemplaires actuellement prêtés.
+  sourceSpace: Exemplaires
+  config:
+    columns: [cote, descriptif, emprunteur]
+    filter: {field: emprunteur, op: NEQ, value: ''}
+- name: Livres sans exemplaire
+  description: Livres dont aucun exemplaire n'est en rayon.
+  sourceSpace: Livres
+  config:
+    columns: [titre, auteur_nom, genre_nom]
+    filter: {field: n_exemplaires, op: EQ, value: '0'}
+- name: Livres les plus empruntés
+  description: Nombre d'emprunts par titre, du plus emprunté au moins emprunté.
+  sourceSpace: Emprunts
+  config:
+    groupBy: [livre_titre]
+    aggregates: [{fn: count, as: nb_emprunts}]
+    orderBy: [{field: nb_emprunts, desc: true}]
+    limit: 10
+- name: Emprunts par année
+  description: Nombre d'emprunts par année scolaire.
+  sourceSpace: Emprunts
+  config:
+    groupBy: [annee_scolaire]
+    aggregates: [{fn: count, as: nb_emprunts}]
+    orderBy: [{field: annee_scolaire, desc: false}]
+- name: Livres par genre
+  description: Nombre de livres par genre, du plus fourni au moins fourni.
+  sourceSpace: Livres
+  config:
+    groupBy: [genre_nom]
+    aggregates: [{fn: count, as: nb_livres}]
+    orderBy: [{field: nb_livres, desc: true}]
+- name: Effectifs par classe
+  description: Nombre d'élèves par classe de l'année en cours.
+  sourceSpace: ClassesEleves
+  config:
+    filter: {field: annee_en_cours, op: EQ, value: 'true'}
+    groupBy: [classe_nom]
+    aggregates: [{fn: count, as: effectif}]
+    orderBy: [{field: classe_nom, desc: false}]

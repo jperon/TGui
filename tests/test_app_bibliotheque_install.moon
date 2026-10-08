@@ -543,7 +543,7 @@ R.describe "bibliotheque install — formules (data_r.Query.records)", ->
     total = 0
     for _, lst in pairs names
       total += #lst
-    R.eq total, 38, "nombre total de champs calculés (29 avant T16a + 9)"
+    R.eq total, 40, "nombre total de champs calculés (29 avant T16a + 9 T16a + 2 T16b)"
     wanted = {
       { 'Emprunts', 'lecteur' }, { 'Emprunts', 'ouvrage' }
       { 'Exemplaires', 'livre_titre' }
