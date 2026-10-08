@@ -821,6 +821,25 @@ do_import = function(snap, mode)
     errors = errors
   }
 end
+local _is_spaces_list
+_is_spaces_list = function(spaces_list)
+  if not (type(spaces_list) == 'table') then
+    return false
+  end
+  if next(spaces_list) == nil then
+    return true
+  end
+  return spaces_list[1] ~= nil
+end
+local _check_snapshot_document
+_check_snapshot_document = function(snap)
+  if snap.app ~= nil and snap.items ~= nil then
+    error("Ce fichier est un paquet d'application, pas un instantané : installez-le depuis Administration › Applications.")
+  end
+  if not (type(snap.schema) == 'table' and _is_spaces_list(snap.schema.spaces)) then
+    return error("Fichier non reconnu : ce n'est pas un instantané TGui (clé schema.spaces absente).")
+  end
+end
 local Query = {
   exportSnapshot = function(_, args, ctx)
     require_admin(ctx)
@@ -853,6 +872,7 @@ local Mutation = {
     if not (type(snap) == 'table') then
       error("Invalid YAML: expected a mapping")
     end
+    _check_snapshot_document(snap)
     return do_import(snap, args.mode)
   end
 }
