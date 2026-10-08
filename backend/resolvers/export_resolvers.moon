@@ -528,6 +528,28 @@ do_import = (snap, mode) ->
   { ok: #errors == 0, created: created, skipped: skipped, errors: errors }
 
 -- ────────────────────────────────────────────────────────────────────────────
+-- Import input check: refuse documents that are not snapshots
+-- ────────────────────────────────────────────────────────────────────────────
+
+-- build_snapshot (above) always emits schema.spaces as a list, empty but
+-- present when the database holds no space. Anything that is not such a list
+-- cannot be a TGui snapshot.
+_is_spaces_list = (spaces_list) ->
+  return false unless type(spaces_list) == 'table'
+  return true if next(spaces_list) == nil
+  spaces_list[1] != nil
+
+-- Called by importSnapshot BEFORE do_import: replace mode deletes every user
+-- space first (do_import, "replace" branch), so an application package or an
+-- unrecognized document must be refused here, not silently imported as "0
+-- created".
+_check_snapshot_document = (snap) ->
+  if snap.app != nil and snap.items != nil
+    error "Ce fichier est un paquet d'application, pas un instantané : installez-le depuis Administration › Applications."
+  unless type(snap.schema) == 'table' and _is_spaces_list snap.schema.spaces
+    error "Fichier non reconnu : ce n'est pas un instantané TGui (clé schema.spaces absente)."
+
+-- ────────────────────────────────────────────────────────────────────────────
 -- Resolvers
 -- ────────────────────────────────────────────────────────────────────────────
 
@@ -554,6 +576,9 @@ Mutation =
     ok, snap = pcall -> yaml.decode yaml_str
     error "Invalid YAML: #{snap}" unless ok and snap
     error "Invalid YAML: expected a mapping" unless type(snap) == 'table'
+    -- Refuse a non-snapshot before do_import: replace mode deletes every user
+    -- space first, so this check must never run after it.
+    _check_snapshot_document snap
     do_import snap, args.mode
 
 { :Query, :Mutation, :compress_yaml_if_needed, :decompress_yaml_if_needed, :build_snapshot }
