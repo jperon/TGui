@@ -17,13 +17,6 @@ spaces = require 'core.spaces'
 triggers = require 'core.triggers'
 auth = require 'core.auth'
 data_r = require 'resolvers.data_resolvers'
-fiber = require 'fiber'
-
--- Rend la main entre deux étapes : la suite tourne dans une seule fibre et les
--- lectures de formules consomment des milliards d'instructions sans écriture
--- (donc sans rendement). Sans ce ponctage, la tranche de fibre s'épuise et
--- déclenche « fiber slice is exceeded » au hasard dans les formules suivantes.
-tick = -> fiber.yield!
 
 admin = auth.get_user_by_username 'admin'
 CTX = { user_id: admin and admin.id }
@@ -265,7 +258,6 @@ check_field = (space_name, field_name, expected_fn) ->
   n = 0
   bad = {}
   for it in *rows
-    tick!
     exp = expected_fn it.raw
     got = it.proxy[field_name]
     unless exp == got
@@ -283,7 +275,6 @@ check_relation_label = (space_name, field_name, expected_fn) ->
   empty, errs, mism = 0, 0, 0
   bad = {}
   for it in *rows
-    tick!
     got = it.proxy[field_name]
     if got == nil or got == ''
       empty += 1
@@ -325,7 +316,6 @@ fk_by_space = ->
 warm_fk = ->
   touched = 0
   for name in *LIB_NAMES
-    tick!
     rows = items_of name
     for f in *(fk_by_space![name] or {})
       for it in *rows
@@ -362,7 +352,6 @@ check_formulas = ->
     continue unless sp
     for f in *spaces.list_fields sp.id
       continue unless f.formula and f.formula != ''
-      tick!
       fn = triggers.compile_formula f.formula, "#{name}.#{f.name}", f.language
       R.ok (type(fn) == 'function'), "formule non compilable #{name}.#{f.name}"
       checked += 1
@@ -405,16 +394,13 @@ R.describe "bibliotheque install — état livré par les fixtures", ->
 R.describe "bibliotheque install — formules (data_r.Query.records)", ->
 
   R.it "warms the foreign-key metadata caches", ->
-    tick!
     R.ok (warm_fk! > 0), 'aucun champ de clé étrangère résolu'
 
   R.it "compiles every formula of the installed spaces (anciens tests T3/T4)", ->
-    tick!
     R.ok (check_formulas! > 0), 'aucune formule dans les espaces installés'
 
   -- Reprise de tests/test_app_structure_ecole.moon (T3).
   R.it "T3 — ecole formulas recomputed from the installed seed", ->
-    tick!
     check_field 'Annee', 'annee', (a) -> annee_label a
     check_field 'Niveaux', 'descriptif', (n) -> niveau_descriptif n
     check_field 'Personnes', 'descriptif', (p) -> personne_descriptif p
@@ -426,14 +412,12 @@ R.describe "bibliotheque install — formules (data_r.Query.records)", ->
     check_field 'ClassesEleves', 'annee_en_cours', (ce) -> ce_annee_en_cours ce
 
   R.it "T3 — literal school values", ->
-    tick!
     assert_proxy 'Annee', 'id', 3, 'annee', '2026 - 2027', 'Annee.annee de l’année en cours'
     assert_proxy 'Niveaux', 'id', 1, 'descriptif', "01 #{MINUS} CP", 'Niveaux.descriptif du CP'
     assert_proxy 'Classes', 'id', 6, 'effectif', 12, 'Classes.effectif de la classe 6'
     assert_proxy 'Personnes', 'id', 1, 'classe_actuelle', nil, 'classe_actuelle d’un adulte (cas 4)'
 
   R.it "T3 — a level-1 student has classe_actuelle = 6", ->
-    tick!
     sid = nil
     for ce in *CE_ROWS
       c = CLASSES[ce.classe]
@@ -446,7 +430,6 @@ R.describe "bibliotheque install — formules (data_r.Query.records)", ->
 
   -- Reprise de tests/test_app_structure_bibliotheque.moon (T4).
   R.it "T4 — library formulas recomputed from the installed seed", ->
-    tick!
     check_field 'Genres', 'niveau', (g) -> niveau_of g.id
     check_field 'Genres', 'chemin', (g) -> chemin_of g.id
     check_field 'Auteurs', 'nom_complet', (a) -> nom_complet a
@@ -457,13 +440,11 @@ R.describe "bibliotheque install — formules (data_r.Query.records)", ->
     check_field 'Exemplaires', 'emprunteur', (e) -> emprunteur_of e.id
 
   R.it "T4 — literal library values", ->
-    tick!
     assert_proxy 'Genres', 'id', 3, 'chemin', 'Fiction › Roman › Policier', 'Genres.chemin du genre 3'
     assert_proxy 'Genres', 'id', 1, 'niveau', 1, 'Genres.niveau du genre racine'
     assert_proxy 'Genres', 'id', 1, 'chemin', 'Fiction', 'Genres.chemin du genre racine'
     total, errs, zeros = 0, 0, 0
     for it in *items_of 'Auteurs'
-      tick!
       v = it.proxy.n_ouvrages
       if type(v) == 'number'
         total += v
@@ -474,7 +455,6 @@ R.describe "bibliotheque install — formules (data_r.Query.records)", ->
     R.ok zeros > 0, "au moins un auteur sans livre (cas 3) (#{errs} erreur(s))"
     dbl_t, dbl_f, zero_ex, dbl_err = 0, 0, 0, 0
     for it in *items_of 'Livres'
-      tick!
       d = it.proxy.doublon
       if d == true
         dbl_t += 1
@@ -489,7 +469,6 @@ R.describe "bibliotheque install — formules (data_r.Query.records)", ->
 
   -- Reprise de tests/test_app_structure_coordonnees.moon (T5) : coordonnées.
   R.it "T5 — contact types, N-N shared coordonnée, notNull refusal", ->
-    tick!
     types = {}
     types[r.type] = true for r in *raw_rows 'TypesCoordonnees' when r.type != nil
     for t in *{ 'tel', 'courriel', 'adresse' }
@@ -525,16 +504,13 @@ R.describe "bibliotheque install — formules (data_r.Query.records)", ->
 
   -- Reprise de T9b §3.4 : emprunts de l'année en cours.
   R.it "T9b — Emprunts.annee_en_cours is true for exactly 30 emprunts", ->
-    tick!
     check_field 'Emprunts', 'annee_en_cours', (e) -> emprunt_annee_en_cours e
     n = 0
     for it in *items_of 'Emprunts'
-      tick!
       n += 1 if it.proxy.annee_en_cours
     R.eq n, 30, 'Emprunts.annee_en_cours vrai'
     open, open_err = 0, 0
     for it in *items_of 'Exemplaires'
-      tick!
       v = it.proxy.emprunteur
       if type(v) == 'string' and not is_formula_error(v)
         open += 1
@@ -543,7 +519,6 @@ R.describe "bibliotheque install — formules (data_r.Query.records)", ->
     R.eq open, 30, "Exemplaires.emprunteur non vide (#{open_err} valeur(s) en erreur de formule)"
     total, errs = 0, 0
     for it in *items_of 'Personnes'
-      tick!
       v = it.proxy.emprunts_en_cours
       if type(v) == 'number'
         total += v
@@ -553,7 +528,6 @@ R.describe "bibliotheque install — formules (data_r.Query.records)", ->
 
   -- T16a — colonnes calculées « libellé » : noms lisibles à la place des ids.
   R.it "T16a — relation labels match the raw seed", ->
-    tick!
     check_relation_label 'Emprunts', 'lecteur', (e) -> personne_descriptif PERSONNES[e.personne]
     check_relation_label 'Emprunts', 'ouvrage', (e) -> ex_descriptif EX[e.exemplaire]
     check_relation_label 'Exemplaires', 'livre_titre', (e) -> LIVRES[e.livre].titre
@@ -586,10 +560,6 @@ R.describe "bibliotheque install — formules (data_r.Query.records)", ->
 R.describe "bibliotheque install — contrat applicatif", ->
 
   R.it "apply_update of the same package creates and updates nothing", ->
-    -- Les lectures de formules ci-dessus consomment des milliards d'instructions
-    -- sans rendement : on rend la main avant la transaction, sinon la garde de
-    -- tranche de fibre (« fiber slice is exceeded ») déclenche au premier écrit.
-    require('fiber').yield!
     report = apply.apply_update pkg!, {}, {}
     R.ok report.ok, "apply_update: #{report.error}"
     R.is_nil report.reinit_error, 'reinit_schema'
@@ -597,7 +567,6 @@ R.describe "bibliotheque install — contrat applicatif", ->
     R.eq #(report.updated or {}), 0, 'updated'
 
   R.it "insertRecord gets an id above every seed id, then restores the row counts", ->
-    tick!
     specs = {
       { 'Livres', { titre: 'T9b', auteur: 1, genre: 1 } }
       { 'Personnes', { nom: 'T9b', prenom: 'X' } }
@@ -624,13 +593,7 @@ R.describe "bibliotheque install — contrat applicatif", ->
       R.eq sp\len!, count_before, "#{name}: comptes rétablis"
 
   R.it "emit(build()) is byte-identical on two calls", ->
-    tick!
     a = B.emit pkg!
     b = B.emit require('tools.bibliotheque_app').build!
     R.ok (a == b), "emit(build()) diffère (#{#a} vs #{#b} octets)"
 
--- Le package de T16a ajoute neuf colonnes calculées : la construction ci-dessus
--- consomme une tranche de fibre notable sans rendement. On rend la main une
--- dernière fois pour que les modules suivants repartent d'une tranche neuve
--- (même raison que le ponctuage `tick!` ci-dessus).
-require('fiber').yield!
