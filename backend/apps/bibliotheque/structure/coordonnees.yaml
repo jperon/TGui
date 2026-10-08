@@ -14,3 +14,9 @@ spaces:
   - {name: personne, type: Int, ref: Personnes.id}
   - {name: coordonnee, type: Int, ref: Coordonnees.id}
   - {name: libelle, type: String}
+  - name: personne_nom
+    type: String
+    formula: "@personne and @personne.descriptif"
+  - name: coordonnee_valeur
+    type: String
+    formula: "@coordonnee and @coordonnee.valeur"

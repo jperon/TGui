@@ -60,6 +60,12 @@ spaces:
   - {name: age_min, type: Int}
   - {name: age_max, type: Int}
   - {name: commentaire, type: String}
+  - name: auteur_nom
+    type: String
+    formula: "@auteur and @auteur.nom_complet"
+  - name: genre_nom
+    type: String
+    formula: "@genre and @genre.chemin"
   - name: descriptif
     type: String
     formula: "@titre .. ' (' .. (@auteur and @auteur.nom_complet or '?') .. ')'"
@@ -81,6 +87,9 @@ spaces:
   - {name: cote, type: String}
   - {name: acquisition, type: Datetime}
   - {name: suppression, type: Datetime}
+  - name: livre_titre
+    type: String
+    formula: "@livre and @livre.titre"
   - name: descriptif
     type: String
     formula: "(@livre and @livre.descriptif or '?') .. (@cote and (' − ' .. @cote) or '')"
@@ -95,6 +104,12 @@ spaces:
   - {name: exemplaire, type: Int, ref: Exemplaires.id}
   - {name: emprunt, type: Datetime, notNull: true}
   - {name: retour, type: Datetime}
+  - name: lecteur
+    type: String
+    formula: "@personne and @personne.descriptif"
+  - name: ouvrage
+    type: String
+    formula: "@exemplaire and @exemplaire.descriptif"
   - name: livre
     type: Int
     formula: "@exemplaire and @exemplaire.livre and @exemplaire.livre.id"
