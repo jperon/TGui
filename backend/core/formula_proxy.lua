@@ -1,7 +1,10 @@
 local json = require('json')
 local log = require('log')
-local safe_formula_call
-safe_formula_call = require('core.config').safe_formula_call
+local safe_formula_call, run_unguarded
+do
+  local _obj_0 = require('core.config')
+  safe_formula_call, run_unguarded = _obj_0.safe_formula_call, _obj_0.run_unguarded
+end
 local compile_formula
 compile_formula = require('core.formula_sandbox').compile_formula
 local build_fk_def_map
@@ -64,7 +67,7 @@ ensure_formulas = function(space_name)
       local field_name = field[3]
       local formula = field[8]
       local language = field[10] or 'lua'
-      local compiled = compile_formula(formula, field_name, language)
+      local compiled = run_unguarded(compile_formula, formula, field_name, language)
       if compiled then
         formulas[field_name] = compiled
       end
@@ -84,22 +87,58 @@ decode_tuple = function(t)
   d._id = tostring(t[1])
   return d
 end
+local load_space_records
+load_space_records = function(s_name)
+  local sc = {
+    records = { },
+    by_field = { },
+    list = { }
+  }
+  local tb = box.space["data_" .. tostring(s_name)]
+  if tb then
+    local _list_0 = tb:select({ })
+    for _index_0 = 1, #_list_0 do
+      local tup = _list_0[_index_0]
+      local d = decode_tuple(tup)
+      sc.records[d._id] = d
+      table.insert(sc.list, d)
+    end
+  end
+  return sc
+end
 local make_space_helper
 make_space_helper = function(fk_cache)
   return function(sname)
     if fk_cache and fk_cache.can_read and not fk_cache.can_read(sname) then
       return { }
     end
-    local sp = box.space["data_" .. tostring(sname)]
-    if not (sp) then
-      return { }
+    if not (fk_cache) then
+      local sp = box.space["data_" .. tostring(sname)]
+      if not (sp) then
+        return { }
+      end
+      local _accum_0 = { }
+      local _len_0 = 1
+      local _list_0 = sp:select({ })
+      for _index_0 = 1, #_list_0 do
+        local t = _list_0[_index_0]
+        _accum_0[_len_0] = decode_tuple(t)
+        _len_0 = _len_0 + 1
+      end
+      return _accum_0
+    end
+    fk_cache.spaces = fk_cache.spaces or { }
+    local sc = fk_cache.spaces[sname]
+    if not (sc) then
+      sc = run_unguarded(load_space_records, sname)
+      fk_cache.spaces[sname] = sc
     end
     local _accum_0 = { }
     local _len_0 = 1
-    local _list_0 = sp:select({ })
+    local _list_0 = sc.list
     for _index_0 = 1, #_list_0 do
-      local t = _list_0[_index_0]
-      _accum_0[_len_0] = decode_tuple(t)
+      local r = _list_0[_index_0]
+      _accum_0[_len_0] = r
       _len_0 = _len_0 + 1
     end
     return _accum_0
@@ -122,19 +161,7 @@ ensure_space = function(fk_cache, s_name, to_field_name)
   end
   local sc = fk_cache.spaces[s_name]
   if not (sc) then
-    sc = {
-      records = { },
-      by_field = { }
-    }
-    local tb = box.space["data_" .. tostring(s_name)]
-    if tb then
-      local _list_0 = tb:select({ })
-      for _index_0 = 1, #_list_0 do
-        local tup = _list_0[_index_0]
-        local d = decode_tuple(tup)
-        sc.records[d._id] = d
-      end
-    end
+    sc = run_unguarded(load_space_records, s_name)
     fk_cache.spaces[s_name] = sc
   end
   if not (sc.by_field['_id']) then
@@ -164,7 +191,7 @@ ensure_fk_def_map = function(fk_cache, space_id)
   if fk_cache.fk_def_maps[space_id] then
     return fk_cache.fk_def_maps[space_id]
   end
-  local fk_def_map = build_fk_def_map(space_id)
+  local fk_def_map = run_unguarded(build_fk_def_map, space_id)
   fk_cache.fk_def_maps[space_id] = fk_def_map
   return fk_def_map
 end
