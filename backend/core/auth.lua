@@ -68,6 +68,16 @@ create_user = function(username, email, password)
     must_change_password = must
   }
 end
+local user_from_tuple
+user_from_tuple = function(t)
+  return {
+    id = t[1],
+    username = t[2],
+    email = t[3],
+    createdAt = t[6],
+    must_change_password = t[8] == true
+  }
+end
 local get_user_by_username
 get_user_by_username = function(username)
   local t = box.space._tdb_users.index.by_username:get({
@@ -92,13 +102,7 @@ get_user_by_id = function(id)
   if not (t) then
     return nil
   end
-  return {
-    id = t[1],
-    username = t[2],
-    email = t[3],
-    createdAt = t[6],
-    must_change_password = t[8] == true
-  }
+  return user_from_tuple(t)
 end
 local gen_token
 gen_token = function()
@@ -383,6 +387,7 @@ return {
   create_user = create_user,
   get_user_by_username = get_user_by_username,
   get_user_by_id = get_user_by_id,
+  user_from_tuple = user_from_tuple,
   create_session = create_session,
   validate_session = validate_session,
   delete_session = delete_session,

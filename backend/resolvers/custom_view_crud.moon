@@ -3,24 +3,21 @@
 
 uuid_mod = require 'uuid'
 
+-- Convert a _tdb_custom_views tuple to the public page shape.
+custom_view_from_tuple = (t) ->
+  { id: t[1], name: t[2], description: t[3], yaml: t[4],
+    createdAt: tostring(t[5]), updatedAt: tostring(t[6]) }
+
 list_custom_views = ->
   result = {}
   for t in *box.space._tdb_custom_views\select {}
-    table.insert result, {
-      id:          t[1]
-      name:        t[2]
-      description: t[3]
-      yaml:        t[4]
-      createdAt:   tostring t[5]
-      updatedAt:   tostring t[6]
-    }
+    table.insert result, custom_view_from_tuple t
   result
 
 get_custom_view = (id) ->
   t = box.space._tdb_custom_views\get id
   return nil unless t
-  { id: t[1], name: t[2], description: t[3], yaml: t[4],
-    createdAt: tostring(t[5]), updatedAt: tostring(t[6]) }
+  custom_view_from_tuple t
 
 create_custom_view = (name, description, yaml) ->
   id  = tostring uuid_mod.new!

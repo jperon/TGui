@@ -488,30 +488,28 @@ remove_field = (field_id) ->
   box.space._tdb_fields\delete field_id
   true
 
+-- Convert a _tdb_spaces tuple to the public space shape.
+space_from_tuple = (t) ->
+  { id: t[1], name: t[2], description: t[3], createdAt: t[4], updatedAt: t[5] }
+
 -- List all user spaces
 list_spaces = ->
   result = {}
   for t in *box.space._tdb_spaces\select {}
-    table.insert result, {
-      id:          t[1]
-      name:        t[2]
-      description: t[3]
-      createdAt:   t[4]
-      updatedAt:   t[5]
-    }
+    table.insert result, space_from_tuple t
   result
 
 -- Get a single space by id
 get_space = (id) ->
   t = box.space._tdb_spaces\get id
   return nil unless t
-  { id: t[1], name: t[2], description: t[3], createdAt: t[4], updatedAt: t[5] }
+  space_from_tuple t
 
 -- Get a single space by name
 get_space_by_name = (name) ->
   t = box.space._tdb_spaces.index.by_name\get name
   return nil unless t
-  { id: t[1], name: t[2], description: t[3], createdAt: t[4], updatedAt: t[5] }
+  space_from_tuple t
 
 -- List fields for a space, sorted by position.
 list_fields = (space_id) ->

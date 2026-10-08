@@ -57,6 +57,11 @@ create_user = (username, email, password) ->
   box.space._tdb_users\insert { uid, username, email, hash, salt, now, now, must }
   { id: uid, username: username, email: email, createdAt: now, must_change_password: must }
 
+-- Convert a _tdb_users tuple to the public user shape (no password material).
+user_from_tuple = (t) ->
+  { id: t[1], username: t[2], email: t[3], createdAt: t[6],
+    must_change_password: t[8] == true }
+
 get_user_by_username = (username) ->
   t = box.space._tdb_users.index.by_username\get { username }
   return nil unless t
@@ -66,8 +71,7 @@ get_user_by_username = (username) ->
 get_user_by_id = (id) ->
   t = box.space._tdb_users\get id
   return nil unless t
-  { id: t[1], username: t[2], email: t[3], createdAt: t[6],
-    must_change_password: t[8] == true }
+  user_from_tuple t
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- Sessions
@@ -268,7 +272,7 @@ admin_set_password = (user_id, new_password) ->
   }
   true
 
-{ :create_user, :get_user_by_username, :get_user_by_id,
+{ :create_user, :get_user_by_username, :get_user_by_id, :user_from_tuple,
   :create_session, :validate_session, :delete_session, :purge_expired_sessions,
   :login, :hash_password, :gen_salt, :change_password, :admin_set_password,
   :verify_password, :must_change_password_for,

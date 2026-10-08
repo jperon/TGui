@@ -52,23 +52,19 @@ update_view = (view_id, patch) ->
 delete_view = (view_id) ->
   box.space._tdb_views\delete view_id
 
+-- Convert a _tdb_views tuple to the public view shape.
+view_from_tuple = (t) ->
+  { id: t[1], spaceId: t[2], name: t[3], viewType: t[4], config: t[5], createdAt: t[6], updatedAt: t[7] }
+
 list_views = (space_id) ->
   result = {}
   for t in *box.space._tdb_views.index.by_space\select { space_id }
-    table.insert result, {
-      id:         t[1]
-      spaceId:    t[2]
-      name:       t[3]
-      viewType:   t[4]
-      config:     t[5]
-      createdAt:  t[6]
-      updatedAt:  t[7]
-    }
+    table.insert result, view_from_tuple t
   result
 
 get_view = (view_id) ->
   t = box.space._tdb_views\get view_id
   return nil unless t
-  { id: t[1], spaceId: t[2], name: t[3], viewType: t[4], config: t[5], createdAt: t[6], updatedAt: t[7] }
+  view_from_tuple t
 
 { :create_view, :update_view, :delete_view, :list_views, :get_view, :VIEW_TYPES, :validate_view_yaml }

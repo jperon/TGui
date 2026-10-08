@@ -14,10 +14,7 @@ Query =
     require_admin ctx
     result = {}
     for t in *box.space._tdb_users\select {}
-      table.insert result, {
-        id: t[1], username: t[2], email: t[3], createdAt: t[6],
-        must_change_password: t[8] == true
-      }
+      table.insert result, auth_mod.user_from_tuple t
     result
 
   user: (_, args, ctx) ->

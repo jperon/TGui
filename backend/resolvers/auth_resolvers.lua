@@ -18,13 +18,7 @@ local Query = {
     local _list_0 = box.space._tdb_users:select({ })
     for _index_0 = 1, #_list_0 do
       local t = _list_0[_index_0]
-      table.insert(result, {
-        id = t[1],
-        username = t[2],
-        email = t[3],
-        createdAt = t[6],
-        must_change_password = t[8] == true
-      })
+      table.insert(result, auth_mod.user_from_tuple(t))
     end
     return result
   end,
