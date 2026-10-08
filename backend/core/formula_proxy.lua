@@ -166,7 +166,8 @@ ensure_space = function(fk_cache, s_name, to_field_name)
   end
   if not (sc.by_field['_id']) then
     local idx = { }
-    for _, d in pairs(sc.records) do
+    for i = 1, #sc.list do
+      local d = sc.list[i]
       if d._id ~= nil then
         local key = tostring(d._id)
         idx[key] = d
@@ -176,7 +177,8 @@ ensure_space = function(fk_cache, s_name, to_field_name)
   end
   if to_field_name ~= '_id' and not sc.by_field[to_field_name] then
     local idx = { }
-    for _, d in pairs(sc.records) do
+    for i = 1, #sc.list do
+      local d = sc.list[i]
       if d[to_field_name] ~= nil then
         local key = tostring(d[to_field_name])
         idx[key] = d
@@ -262,6 +264,7 @@ make_self_proxy = function(record, fk_def_map, fk_cache, space_name)
         end
         return nil
       end
+      rawset(t, k, v)
       return v
     end
   })
@@ -274,7 +277,8 @@ make_self_proxy_extended = function(record, single_fk_map, multiple_fk_map, fk_c
   resolve_multiple_references = function(source_id, relation_def)
     local sc = ensure_space(fk_cache, relation_def.toSpaceName, relation_def.toFieldName)
     local results = { }
-    for _, d in pairs(sc.records) do
+    for i = 1, #sc.list do
+      local d = sc.list[i]
       if d[relation_def.toFieldName] == source_id then
         local nested = make_self_proxy_extended(d, single_fk_map, multiple_fk_map, fk_cache, relation_def.toSpaceName)
         table.insert(results, nested)
@@ -361,6 +365,7 @@ make_self_proxy_extended = function(record, single_fk_map, multiple_fk_map, fk_c
         end
         return nil
       end
+      rawset(t, k, v)
       return v
     end
   })
