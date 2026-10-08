@@ -122,3 +122,15 @@ spaces:
   - name: annee_en_cours
     type: Boolean
     formula: "#[a for a in *space('Annee') when a.en_cours and a.debut <= @emprunt and @emprunt <= a.fin] > 0"
+  - name: livre_titre
+    type: String
+    formula: "@exemplaire and @exemplaire.livre and @exemplaire.livre.titre"
+  - name: annee_scolaire
+    type: String
+    formula: |
+      n = tonumber @emprunt\sub(1, 4)
+      m = tonumber @emprunt\sub(6, 7)
+      if m >= 9
+        "#{n} - #{n + 1}"
+      else
+        "#{n - 1} - #{n}"

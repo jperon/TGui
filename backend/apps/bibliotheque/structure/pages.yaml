@@ -1,0 +1,127 @@
+pages:
+- name: Prêts et retours
+  description: Suivi quotidien des prêts et retours au guichet.
+  yaml: |
+    layout:
+      direction: vertical
+      children:
+      - widget:
+          id: emprunts_en_cours
+          title: Emprunts en cours
+          space: Emprunts en cours
+      - layout:
+          direction: horizontal
+          children:
+          - widget:
+              id: lecteurs
+              title: Lecteurs
+              space: Personnes
+              columns: [descriptif, classe_actuelle, emprunts_en_cours]
+          - widget:
+              id: emprunts_lecteur
+              title: Emprunts du lecteur sélectionné
+              space: Emprunts
+              depends_on:
+                widget: lecteurs
+                field: personne
+                from_field: id
+              columns: [ouvrage, emprunt, retour]
+- name: Catalogue
+  description: "Exploration du catalogue : livres, exemplaires et emprunts."
+  yaml: |
+    layout:
+      direction: vertical
+      children:
+      - widget:
+          id: livres
+          title: Livres
+          space: Livres
+          columns: [titre, auteur_nom, genre_nom, n_exemplaires, note]
+      - layout:
+          direction: horizontal
+          children:
+          - widget:
+              id: exemplaires
+              title: Exemplaires
+              space: Exemplaires
+              depends_on:
+                widget: livres
+                field: livre
+                from_field: id
+              columns: [cote, emprunteur, suppression]
+          - widget:
+              id: emprunts_exemplaire
+              title: Emprunts de l'exemplaire sélectionné
+              space: Emprunts
+              depends_on:
+                widget: exemplaires
+                field: exemplaire
+                from_field: id
+              columns: [lecteur, emprunt, retour]
+- name: Lecteurs et classes
+  description: Élèves d'une classe et leurs emprunts.
+  yaml: |
+    layout:
+      direction: vertical
+      children:
+      - widget:
+          id: classes
+          title: Classes
+          space: Classes
+          columns: [descriptif_complet, effectif]
+      - layout:
+          direction: horizontal
+          children:
+          - widget:
+              id: classes_eleves
+              title: Élèves de la classe sélectionnée
+              space: ClassesEleves
+              depends_on:
+                widget: classes
+                field: classe
+                from_field: id
+              columns: [eleve_nom, entree, depart]
+          - widget:
+              id: emprunts_eleve
+              title: Emprunts de l'élève sélectionné
+              space: Emprunts
+              depends_on:
+                widget: classes_eleves
+                field: personne
+                from_field: eleve
+              columns: [ouvrage, emprunt, retour]
+- name: Tableau de bord
+  description: Vue synthétique en grille des indicateurs de la bibliothèque.
+  yaml: |
+    layout:
+      direction: vertical
+      children:
+      - layout:
+          direction: horizontal
+          children:
+          - widget:
+              id: dv_emprunts_en_cours
+              title: Emprunts en cours
+              space: Emprunts en cours
+          - widget:
+              id: dv_livres_plus_empruntes
+              title: Livres les plus empruntés
+              space: Livres les plus empruntés
+      - layout:
+          direction: horizontal
+          children:
+          - widget:
+              id: dv_emprunts_par_annee
+              title: Emprunts par année
+              space: Emprunts par année
+          - widget:
+              id: dv_livres_par_genre
+              title: Livres par genre
+              space: Livres par genre
+      - layout:
+          direction: horizontal
+          children:
+          - widget:
+              id: dv_effectifs_par_classe
+              title: Effectifs par classe
+              space: Effectifs par classe

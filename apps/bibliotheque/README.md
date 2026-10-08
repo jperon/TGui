@@ -40,6 +40,21 @@ Renvois : spec `docs/superpowers/specs/2026-10-08-bibliotheque-design.md` et pla
 `build({scale: N})` multiplie les volumes (facteur `N`) : utile pour des tests de
 charge, mais cette variante n'est **pas** commitée.
 
+## Vues de données et pages
+
+L'application livre 8 vues de données prêtes à l'emploi, définies dans
+`backend/apps/bibliotheque/structure/vues.yaml` :
+
+- **Emprunts en cours**, **Exemplaires disponibles**, **Exemplaires prêtés**,
+  **Livres sans exemplaire** — listes filtrées pour le guichet.
+
+- **Livres les plus empruntés**, **Emprunts par année**, **Livres par genre**,
+  **Effectifs par classe** — synthèses agrégées (regroupement + comptage).
+
+Elle livre aussi 4 pages définies dans `backend/apps/bibliotheque/structure/pages.yaml` :
+**Prêts et retours**, **Catalogue**, **Lecteurs et classes** (sélections en cascade) et
+**Tableau de bord** (grille de synthèses).
+
 ## Conventions du seed
 
 - ids entiers explicites (`1, 2, 3…`) ; toute clé étrangère vaut un `id` existant.

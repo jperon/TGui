@@ -58,8 +58,13 @@ execute_view = (source_space_ref, config_json, params) ->
       key = table.concat parts, '\t'
       
       unless groups[key]
-        groups[key] = { _d: rec.d, _vals: {} }
+        -- _g porte la valeur *résolue* (formule comprise) de chaque champ de
+        -- regroupement ; _d (données brutes) ne contient pas les colonnes
+        -- calculées, d'où des libellés nuls dans les vues agrégées.
+        groups[key] = { _d: rec.d, _g: {}, _vals: {} }
         table.insert group_keys, key
+        for f in *config.groupBy
+          groups[key]._g[f] = rec.proxy[f]
         if config.aggregates
           for agg in *config.aggregates
             groups[key]._vals[agg] = { count: 0, sum: 0, min: nil, max: nil }
@@ -82,7 +87,7 @@ execute_view = (source_space_ref, config_json, params) ->
       g = groups[key]
       row = {}
       for f in *config.groupBy
-        row[f] = g._d[f]
+        row[f] = g._g[f]
       if config.aggregates
         for agg in *config.aggregates
           alias = agg.as or (if agg.field then "#{agg.fn}_#{agg.field}" else "count")
