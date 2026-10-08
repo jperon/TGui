@@ -26,14 +26,101 @@
   //         widget:
   //           title: Personnes
   //           space: personnes
-  var CustomView,
+
+  // Parse a Data View `config`: the list GraphQL query returns the raw serialized
+  // JSON string (data_views.coffee), while the detail query decodes it. Accept both.
+  var CustomView, _dataViewColumns, _parseDataViewConfig,
     hasProp = {}.hasOwnProperty;
 
+  _parseDataViewConfig = function(raw) {
+    var e;
+    if (!raw) {
+      return {};
+    }
+    if (typeof raw === 'object') {
+      return raw;
+    }
+    try {
+      return JSON.parse(raw);
+    } catch (error1) {
+      e = error1;
+      return null;
+    }
+  };
+
+  // Output columns of a Data View, mirroring backend/core/data_views_executor.moon:
+  // groupBy names then aggregate aliases; explicit `columns`; otherwise the source
+  // space fields. Each entry is `{ name, fieldType }`, the type reused from the
+  // source space when it declares the column.
+  _dataViewColumns = function(config, dv, allSpaces) {
+    var agg, col, f, fields, i, j, k, l, len, len1, len2, len3, len4, m, name, names, ref, ref1, ref2, ref3, seen, source, typeFor;
+    source = null;
+    if (dv.sourceSpace && allSpaces) {
+      source = allSpaces.find(function(s) {
+        return s.id === dv.sourceSpace || s.name === dv.sourceSpace;
+      });
+    }
+    typeFor = function(name) {
+      var f;
+      if (source) {
+        f = (source.fields || []).find(function(sf) {
+          return sf.name === name;
+        });
+        if (f != null ? f.fieldType : void 0) {
+          return f.fieldType;
+        }
+      }
+      return 'String';
+    };
+    names = [];
+    if ((config.groupBy && config.groupBy.length > 0) || (config.aggregates && config.aggregates.length > 0)) {
+      ref = config.groupBy || [];
+      for (i = 0, len = ref.length; i < len; i++) {
+        name = ref[i];
+        names.push(name);
+      }
+      ref1 = config.aggregates || [];
+      for (j = 0, len1 = ref1.length; j < len1; j++) {
+        agg = ref1[j];
+        names.push(agg.as || (agg.field ? `${agg.fn}_${agg.field}` : 'count'));
+      }
+    } else if (config.columns && config.columns.length > 0) {
+      ref2 = config.columns;
+      for (k = 0, len2 = ref2.length; k < len2; k++) {
+        col = ref2[k];
+        names.push((typeof col === 'string' ? col : col.as || col.field));
+      }
+    } else if (source) {
+      ref3 = source.fields || [];
+      for (l = 0, len3 = ref3.length; l < len3; l++) {
+        f = ref3[l];
+        names.push(f.name);
+      }
+    }
+    fields = [];
+    seen = {};
+    for (m = 0, len4 = names.length; m < len4; m++) {
+      name = names[m];
+      if (!name) {
+        continue;
+      }
+      if (seen[name]) {
+        continue;
+      }
+      seen[name] = true;
+      fields.push({
+        name: name,
+        fieldType: typeFor(name)
+      });
+    }
+    return fields;
+  };
+
   window.CustomView = CustomView = class CustomView {
-    constructor(container1, yamlText, allSpaces, allDataViews = [], options = {}) {
+    constructor(container1, yamlText, allSpaces1, allDataViews = [], options = {}) {
       this.container = container1;
       this.yamlText = yamlText;
-      this.allSpaces = allSpaces;
+      this.allSpaces = allSpaces1;
       this.allDataViews = allDataViews;
       this.options = options;
       this._widgets = []; // list of { dataView, node, el }
@@ -530,7 +617,7 @@ transition: all 0.3s ease;`;
     }
 
     _findSpace(nameOrId) {
-      var dv, ref, ref1, sp;
+      var config, dv, fields, sp;
       if (!nameOrId) {
         return null;
       }
@@ -545,18 +632,15 @@ transition: all 0.3s ease;`;
         return v.name === nameOrId || v.id === nameOrId;
       });
       if (dv) {
+        config = _parseDataViewConfig(dv.config);
+        fields = config ? _dataViewColumns(config, dv, this.allSpaces) : [];
         return {
           // Create a virtual space object for DataView class compatibility
           id: dv.id,
           name: dv.name,
           isView: true,
           viewId: dv.id,
-          fields: (ref = dv.config) != null ? (ref1 = ref.columns) != null ? ref1.map(function(c) {
-            return {
-              name: c,
-              fieldType: 'String'
-            } || [];
-          }) : void 0 : void 0
+          fields: fields
         };
       }
       return null;
