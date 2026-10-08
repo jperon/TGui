@@ -36,16 +36,20 @@ delete_group = (group_id) ->
   for t in *perms
     box.space._tdb_permissions\delete t[1]
 
+-- Convert a _tdb_groups tuple to the public group shape.
+group_from_tuple = (t) ->
+  { id: t[1], name: t[2], description: t[3], createdAt: t[4] }
+
 list_groups = ->
   result = {}
   for t in *box.space._tdb_groups\select {}
-    table.insert result, { id: t[1], name: t[2], description: t[3], createdAt: t[4] }
+    table.insert result, group_from_tuple t
   result
 
 get_group = (id) ->
   t = box.space._tdb_groups\get id
   return nil unless t
-  { id: t[1], name: t[2], description: t[3], createdAt: t[4] }
+  group_from_tuple t
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- Membership

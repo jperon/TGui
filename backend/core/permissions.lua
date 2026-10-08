@@ -55,18 +55,22 @@ delete_group = function(group_id)
     box.space._tdb_permissions:delete(t[1])
   end
 end
+local group_from_tuple
+group_from_tuple = function(t)
+  return {
+    id = t[1],
+    name = t[2],
+    description = t[3],
+    createdAt = t[4]
+  }
+end
 local list_groups
 list_groups = function()
   local result = { }
   local _list_0 = box.space._tdb_groups:select({ })
   for _index_0 = 1, #_list_0 do
     local t = _list_0[_index_0]
-    table.insert(result, {
-      id = t[1],
-      name = t[2],
-      description = t[3],
-      createdAt = t[4]
-    })
+    table.insert(result, group_from_tuple(t))
   end
   return result
 end
@@ -76,12 +80,7 @@ get_group = function(id)
   if not (t) then
     return nil
   end
-  return {
-    id = t[1],
-    name = t[2],
-    description = t[3],
-    createdAt = t[4]
-  }
+  return group_from_tuple(t)
 end
 local add_member
 add_member = function(user_id, group_id)
