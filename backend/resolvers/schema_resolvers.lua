@@ -15,6 +15,19 @@ reinit_with_formula_cache_reset = function()
   executor.reinit_schema()
   return triggers.invalidate_formula_cache()
 end
+local relation_from_tuple
+relation_from_tuple = function(t)
+  return {
+    id = t[1],
+    fromSpaceId = t[2],
+    fromFieldId = t[3],
+    toSpaceId = t[4],
+    toFieldId = t[5],
+    name = t[6],
+    reprFormula = t[7] or '',
+    cardinality = t[8] or 'one'
+  }
+end
 local list_relations
 list_relations = function(space_id)
   local result = { }
@@ -23,16 +36,7 @@ list_relations = function(space_id)
   })
   for _index_0 = 1, #_list_0 do
     local t = _list_0[_index_0]
-    table.insert(result, {
-      id = t[1],
-      fromSpaceId = t[2],
-      fromFieldId = t[3],
-      toSpaceId = t[4],
-      toFieldId = t[5],
-      name = t[6],
-      reprFormula = t[7] or '',
-      cardinality = t[8] or 'one'
-    })
+    table.insert(result, relation_from_tuple(t))
   end
   return result
 end
@@ -106,16 +110,7 @@ update_relation = function(id, repr_formula, cardinality)
     box.space._tdb_relations:update(id, ops)
   end
   local t2 = box.space._tdb_relations:get(id)
-  return {
-    id = t2[1],
-    fromSpaceId = t2[2],
-    fromFieldId = t2[3],
-    toSpaceId = t2[4],
-    toFieldId = t2[5],
-    name = t2[6],
-    reprFormula = t2[7] or '',
-    cardinality = t2[8] or 'one'
-  }
+  return relation_from_tuple(t2)
 end
 local Query = {
   spaces = function(_, args, ctx)

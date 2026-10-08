@@ -18,19 +18,15 @@ reinit_with_formula_cache_reset = ->
 -- Relation helpers (stored in _tdb_relations)
 -- ────────────────────────────────────────────────────────────────────────────
 
+-- Convert a _tdb_relations tuple to the public relation shape.
+relation_from_tuple = (t) ->
+  { id: t[1], fromSpaceId: t[2], fromFieldId: t[3], toSpaceId: t[4],
+    toFieldId: t[5], name: t[6], reprFormula: t[7] or '', cardinality: t[8] or 'one' }
+
 list_relations = (space_id) ->
   result = {}
   for t in *box.space._tdb_relations.index.by_from\select { space_id }
-    table.insert result, {
-      id:           t[1]
-      fromSpaceId:  t[2]
-      fromFieldId:  t[3]
-      toSpaceId:    t[4]
-      toFieldId:    t[5]
-      name:         t[6]
-      reprFormula:  t[7] or ''
-      cardinality:  t[8] or 'one'
-    }
+    table.insert result, relation_from_tuple t
   result
 
 -- Declared cardinality of a relation: 'one' (default) or 'many'.
@@ -66,7 +62,7 @@ update_relation = (id, repr_formula, cardinality) ->
   table.insert ops, {'=', 8, card} if card != nil
   box.space._tdb_relations\update id, ops if #ops > 0
   t2 = box.space._tdb_relations\get id
-  { id: t2[1], fromSpaceId: t2[2], fromFieldId: t2[3], toSpaceId: t2[4], toFieldId: t2[5], name: t2[6], reprFormula: t2[7] or '', cardinality: t2[8] or 'one' }
+  relation_from_tuple t2
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- Resolvers map
