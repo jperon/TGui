@@ -578,7 +578,7 @@ R.describe("app_package — describe_local", function()
     R.eq(pkg.canonical(pkg.describe_local('space', key)), pkg.canonical(item.content))
     return R.eq(item.content.description, 'apkg books')
   end)
-  R.it("field: normalizes empty values (description, formula, triggerFields)", function()
+  R.it("field: normalizes empty values (description, formula) and keeps no trigger", function()
     local key = "field:" .. tostring(SP_BOOKS) .. ".total"
     local item = find_item(PKG, key)
     R.ok(item)
@@ -586,14 +586,13 @@ R.describe("app_package — describe_local", function()
     R.eq(pkg.canonical(local_content), pkg.canonical(item.content))
     R.eq(local_content.formula, '(self.qty or 0) * 2')
     R.eq(local_content.language, 'lua')
-    R.eq(#local_content.triggerFields, 0)
+    R.is_nil(local_content.triggerFields, 'computed column: no trigger, key absent')
     R.eq(local_content.description, '')
     return R.eq(pkg.canonical(local_content), pkg.canonical({
       fieldType = 'Int',
       notNull = false,
       description = '',
       formula = '(self.qty or 0) * 2',
-      triggerFields = { },
       language = 'lua'
     }))
   end)
@@ -960,7 +959,6 @@ return R.describe("app_package — normalize_content (T22)", function()
         notNull = false,
         description = '',
         formula = '',
-        triggerFields = { },
         language = 'lua'
       },
       relation = {
@@ -1000,14 +998,14 @@ return R.describe("app_package — normalize_content (T22)", function()
   R.it("normalizes a field content decoded by yaml (null optionals)", function()
     local raw = yaml.decode("fieldType: Int\nnotNull: ~\ndescription: null\nformula: ~\ntriggerFields: null\nlanguage: null\n")
     local c = pkg.normalize_content('field', pkg.strip_null(raw))
-    return R.eq(pkg.canonical(c), pkg.canonical({
+    R.eq(pkg.canonical(c), pkg.canonical({
       fieldType = 'Int',
       notNull = false,
       description = '',
       formula = '',
-      triggerFields = { },
       language = 'lua'
     }))
+    return R.is_nil(c.triggerFields, 'triggerFields: null means no trigger')
   end)
   R.it("is idempotent and does not mutate its argument", function()
     local original = {
@@ -1031,7 +1029,6 @@ return R.describe("app_package — normalize_content (T22)", function()
       notNull = false,
       description = '',
       formula = '',
-      triggerFields = { },
       language = 'lua'
     }
     return R.eq(pkg.fingerprint(c), pkg.fingerprint(built))

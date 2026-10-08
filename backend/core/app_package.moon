@@ -167,24 +167,31 @@ stable_key = (v) ->
 -- Content builders — shared by build_package and describe_local so that both
 -- always describe an element the same way.
 -- Empty values are normalized (nil → '', nil → {}) so that one reality always
--- yields one fingerprint.
+-- yields one fingerprint. Exception: triggerFields, whose ABSENCE is part of
+-- the reality (see field_content below).
 -- ────────────────────────────────────────────────────────────────────────────
 
 space_content = (sp) ->
   { description: sp.description or '' }
 
 -- Named row from core/spaces.list_fields (core/spaces.moon:422-447). No
--- position: package order follows creation order (list_fields is sorted by
+-- position: package order follows creation order (list_fields is sorted by the
 -- position).
+-- triggerFields semantics (T3b): an ABSENT key (nil) means "no trigger" (a
+-- column computed at read time, or a plain field); a table — even an empty one —
+-- means a trigger formula ({} = on creation only). list_fields returns nil for
+-- a stored "null" (or for a tuple without column 9), so the absence is
+-- preserved instead of being turned back into a create-only trigger.
 field_content = (f) ->
-  {
+  content = {
     fieldType: f.fieldType
     notNull: f.notNull == true
     description: f.description or ''
     formula: f.formula or ''
-    triggerFields: f.triggerFields or {}
     language: f.language or 'lua'
   }
+  content.triggerFields = f.triggerFields if f.triggerFields != nil
+  content
 
 -- Declared cardinality of a relation: 'many' only when explicitly declared,
 -- 'one' otherwise (missing or empty column 8, or an older package without the
@@ -287,14 +294,19 @@ _table_or_empty = (value) ->
 _normalize_space_content = (c) -> { description: c.description or '' }
 
 _normalize_field_content = (c) ->
-  {
+  content = {
     fieldType: c.fieldType
     notNull: c.notNull == true
     description: c.description or ''
     formula: c.formula or ''
-    triggerFields: _table_or_empty c.triggerFields
     language: _nonempty_or c.language, 'lua'
   }
+  -- triggerFields: an absent (or null, already stripped) key stays absent —
+  -- "no trigger"; only a table (even an empty one) is a trigger formula. A
+  -- non-table value is dropped rather than silently promoted to `{}` (which
+  -- would mean "trigger on creation").
+  content.triggerFields = c.triggerFields if type(c.triggerFields) == 'table'
+  content
 
 _normalize_relation_content = (c) ->
   {

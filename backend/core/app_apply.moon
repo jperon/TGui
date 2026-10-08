@@ -65,7 +65,13 @@ _split_scope = (key, prefix) ->
 -- box.NULL issus d'un parseur YAML standard (`description: null`, `~`, liste),
 -- puis normalize_content ramène le contenu à la forme canonique des builders
 -- app_package.*_content. L'empreinte du paquet redevient alors égale à celle de
--- l'état local identique, et formula/triggerFields ne sont jamais nil.
+-- l'état local identique, et formula ne devient jamais nil (→ '').
+-- triggerFields, lui, PEUT être nil : clé absente = pas de trigger (colonne
+-- calculée à la lecture, champ simple), tableau = trigger formula ({} = à la
+-- création seulement). C'est la sémantique de field_content
+-- (core/app_package.moon) : la normaliser en `{}` transformerait chaque
+-- colonne calculée en trigger d'écriture à l'installation (correctif T3b,
+-- tests/test_app_trigger_fields.moon).
 _normalize_item = (entry, errors) ->
   unless type(entry) == 'table'
     table.insert errors, 'package item must be a table'
@@ -435,7 +441,7 @@ _create_field = (entry) ->
   sid = _space_id sp_name
   c = entry.content
   f = spaces_mod.add_field sid, f_name, c.fieldType, c.notNull or false,
-    c.description or '', c.formula or '', c.triggerFields or {}, c.language or 'lua'
+    c.description or '', c.formula or '', c.triggerFields, c.language or 'lua'
   { id: f.id, space: sp_name }
 
 _update_field = (entry, old) ->
@@ -451,7 +457,10 @@ _update_field = (entry, old) ->
     notNull: c.notNull
     description: c.description
     formula: c.formula or ''
-    triggerFields: c.triggerFields or {}
+    -- Absent key = no trigger: spaces.update_field encodes nil as "null"
+    -- (core/spaces.moon: json.encode opts.triggerFields), which
+    -- triggers.register_space_trigger skips.
+    triggerFields: c.triggerFields
     language: c.language
   }
   { id: fid, space: sp_name }
