@@ -3,7 +3,7 @@ app:
   description: "Bibliothèque scolaire (démonstration et base de tests de TGui)."
   id: "org.tgui.bibliotheque"
   name: "Bibliothèque"
-  version: "1.0.0"
+  version: "1.1.0"
 items:
   - content:
       description: "Genres littéraires (hiérarchie)"
@@ -272,6 +272,22 @@ items:
   - content:
       description: ""
       fieldType: "String"
+      formula: "@auteur and @auteur.nom_complet"
+      language: "moonscript"
+      notNull: false
+    key: "field:Livres.auteur_nom"
+    type: "field"
+  - content:
+      description: ""
+      fieldType: "String"
+      formula: "@genre and @genre.chemin"
+      language: "moonscript"
+      notNull: false
+    key: "field:Livres.genre_nom"
+    type: "field"
+  - content:
+      description: ""
+      fieldType: "String"
       formula: "@titre .. ' (' .. (@auteur and @auteur.nom_complet or '?') .. ')'"
       language: "moonscript"
       notNull: false
@@ -360,6 +376,14 @@ items:
   - content:
       description: ""
       fieldType: "String"
+      formula: "@livre and @livre.titre"
+      language: "moonscript"
+      notNull: false
+    key: "field:Exemplaires.livre_titre"
+    type: "field"
+  - content:
+      description: ""
+      fieldType: "String"
       formula: "(@livre and @livre.descriptif or '?') .. (@cote and (' − ' .. @cote) or '')"
       language: "moonscript"
       notNull: false
@@ -415,6 +439,22 @@ items:
     type: "field"
   - content:
       description: ""
+      fieldType: "String"
+      formula: "@personne and @personne.descriptif"
+      language: "moonscript"
+      notNull: false
+    key: "field:Emprunts.lecteur"
+    type: "field"
+  - content:
+      description: ""
+      fieldType: "String"
+      formula: "@exemplaire and @exemplaire.descriptif"
+      language: "moonscript"
+      notNull: false
+    key: "field:Emprunts.ouvrage"
+    type: "field"
+  - content:
+      description: ""
       fieldType: "Int"
       formula: "@exemplaire and @exemplaire.livre and @exemplaire.livre.id"
       language: "moonscript"
@@ -444,6 +484,22 @@ items:
       language: "moonscript"
       notNull: false
     key: "field:Emprunts.annee_en_cours"
+    type: "field"
+  - content:
+      description: ""
+      fieldType: "String"
+      formula: "@exemplaire and @exemplaire.livre and @exemplaire.livre.titre"
+      language: "moonscript"
+      notNull: false
+    key: "field:Emprunts.livre_titre"
+    type: "field"
+  - content:
+      description: ""
+      fieldType: "String"
+      formula: "\n  n = tonumber @emprunt\\sub(1, 4)\n  m = tonumber @emprunt\\sub(6, 7)\n  if m >= 9\n    \"#{n} - #{n + 1}\"\n  else\n    \"#{n - 1} - #{n}\""
+      language: "moonscript"
+      notNull: false
+    key: "field:Emprunts.annee_scolaire"
     type: "field"
   - content:
       description: "Identifiant"
@@ -516,6 +572,22 @@ items:
       language: "lua"
       notNull: false
     key: "field:PersonnesCoordonnees.libelle"
+    type: "field"
+  - content:
+      description: ""
+      fieldType: "String"
+      formula: "@personne and @personne.descriptif"
+      language: "moonscript"
+      notNull: false
+    key: "field:PersonnesCoordonnees.personne_nom"
+    type: "field"
+  - content:
+      description: ""
+      fieldType: "String"
+      formula: "@coordonnee and @coordonnee.valeur"
+      language: "moonscript"
+      notNull: false
+    key: "field:PersonnesCoordonnees.coordonnee_valeur"
     type: "field"
   - content:
       description: "Identifiant"
@@ -983,6 +1055,22 @@ items:
     type: "field"
   - content:
       description: ""
+      fieldType: "String"
+      formula: "@eleve and @eleve.descriptif"
+      language: "moonscript"
+      notNull: false
+    key: "field:ClassesEleves.eleve_nom"
+    type: "field"
+  - content:
+      description: ""
+      fieldType: "String"
+      formula: "@classe and @classe.descriptif_complet"
+      language: "moonscript"
+      notNull: false
+    key: "field:ClassesEleves.classe_nom"
+    type: "field"
+  - content:
+      description: ""
       fieldType: "Int"
       formula: "@classe and @classe.annee and @classe.annee.id"
       language: "moonscript"
@@ -1197,6 +1285,164 @@ items:
       toSpace: "Personnes"
     key: "relation:ClassesEleves.eleve"
     type: "relation"
+  - content:
+      description: "Suivi quotidien des prêts et retours au guichet."
+      name: "Prêts et retours"
+      yaml: "layout:\n  direction: vertical\n  children:\n  - widget:\n      id: emprunts_en_cours\n      title: Emprunts en cours\n      space: Emprunts en cours\n  - layout:\n      direction: horizontal\n      children:\n      - widget:\n          id: lecteurs\n          title: Lecteurs\n          space: Personnes\n          columns: [descriptif, classe_actuelle, emprunts_en_cours]\n      - widget:\n          id: emprunts_lecteur\n          title: Emprunts du lecteur sélectionné\n          space: Emprunts\n          depends_on:\n            widget: lecteurs\n            field: personne\n            from_field: id\n          columns: [ouvrage, emprunt, retour]\n"
+    key: "page:Prêts et retours"
+    type: "page"
+  - content:
+      description: "Exploration du catalogue : livres, exemplaires et emprunts."
+      name: "Catalogue"
+      yaml: "layout:\n  direction: vertical\n  children:\n  - widget:\n      id: livres\n      title: Livres\n      space: Livres\n      columns: [titre, auteur_nom, genre_nom, n_exemplaires, note]\n  - layout:\n      direction: horizontal\n      children:\n      - widget:\n          id: exemplaires\n          title: Exemplaires\n          space: Exemplaires\n          depends_on:\n            widget: livres\n            field: livre\n            from_field: id\n          columns: [cote, emprunteur, suppression]\n      - widget:\n          id: emprunts_exemplaire\n          title: Emprunts de l'exemplaire sélectionné\n          space: Emprunts\n          depends_on:\n            widget: exemplaires\n            field: exemplaire\n            from_field: id\n          columns: [lecteur, emprunt, retour]\n"
+    key: "page:Catalogue"
+    type: "page"
+  - content:
+      description: "Élèves d'une classe et leurs emprunts."
+      name: "Lecteurs et classes"
+      yaml: "layout:\n  direction: vertical\n  children:\n  - widget:\n      id: classes\n      title: Classes\n      space: Classes\n      columns: [descriptif_complet, effectif]\n  - layout:\n      direction: horizontal\n      children:\n      - widget:\n          id: classes_eleves\n          title: Élèves de la classe sélectionnée\n          space: ClassesEleves\n          depends_on:\n            widget: classes\n            field: classe\n            from_field: id\n          columns: [eleve_nom, entree, depart]\n      - widget:\n          id: emprunts_eleve\n          title: Emprunts de l'élève sélectionné\n          space: Emprunts\n          depends_on:\n            widget: classes_eleves\n            field: personne\n            from_field: eleve\n          columns: [ouvrage, emprunt, retour]\n"
+    key: "page:Lecteurs et classes"
+    type: "page"
+  - content:
+      description: "Vue synthétique en grille des indicateurs de la bibliothèque."
+      name: "Tableau de bord"
+      yaml: "layout:\n  direction: vertical\n  children:\n  - layout:\n      direction: horizontal\n      children:\n      - widget:\n          id: dv_emprunts_en_cours\n          title: Emprunts en cours\n          space: Emprunts en cours\n      - widget:\n          id: dv_livres_plus_empruntes\n          title: Livres les plus empruntés\n          space: Livres les plus empruntés\n  - layout:\n      direction: horizontal\n      children:\n      - widget:\n          id: dv_emprunts_par_annee\n          title: Emprunts par année\n          space: Emprunts par année\n      - widget:\n          id: dv_livres_par_genre\n          title: Livres par genre\n          space: Livres par genre\n  - layout:\n      direction: horizontal\n      children:\n      - widget:\n          id: dv_effectifs_par_classe\n          title: Effectifs par classe\n          space: Effectifs par classe\n"
+    key: "page:Tableau de bord"
+    type: "page"
+  - content:
+      config:
+        columns:
+          - "lecteur"
+          - "ouvrage"
+          - "emprunt"
+        filter:
+          field: "retour"
+          op: "EQ"
+          value: ""
+        orderBy:
+          - desc: false
+            field: "emprunt"
+      description: "Emprunts non rendus, triés par date d'emprunt."
+      name: "Emprunts en cours"
+      sourceSpace: "Emprunts"
+    key: "dataview:Emprunts en cours"
+    type: "dataview"
+  - content:
+      config:
+        columns:
+          - "cote"
+          - "descriptif"
+        filter:
+          and:
+            - field: "emprunteur"
+              op: "EQ"
+              value: ""
+            - field: "suppression"
+              op: "EQ"
+              value: ""
+        orderBy:
+          - desc: false
+            field: "cote"
+      description: "Exemplaires non empruntés et non supprimés, triés par cote."
+      name: "Exemplaires disponibles"
+      sourceSpace: "Exemplaires"
+    key: "dataview:Exemplaires disponibles"
+    type: "dataview"
+  - content:
+      config:
+        columns:
+          - "cote"
+          - "descriptif"
+          - "emprunteur"
+        filter:
+          field: "emprunteur"
+          op: "NEQ"
+          value: ""
+      description: "Exemplaires actuellement prêtés."
+      name: "Exemplaires prêtés"
+      sourceSpace: "Exemplaires"
+    key: "dataview:Exemplaires prêtés"
+    type: "dataview"
+  - content:
+      config:
+        columns:
+          - "titre"
+          - "auteur_nom"
+          - "genre_nom"
+        filter:
+          field: "n_exemplaires"
+          op: "EQ"
+          value: "0"
+      description: "Livres dont aucun exemplaire n'est en rayon."
+      name: "Livres sans exemplaire"
+      sourceSpace: "Livres"
+    key: "dataview:Livres sans exemplaire"
+    type: "dataview"
+  - content:
+      config:
+        aggregates:
+          - as: "nb_emprunts"
+            fn: "count"
+        groupBy:
+          - "livre_titre"
+        limit: 10
+        orderBy:
+          - desc: true
+            field: "nb_emprunts"
+      description: "Nombre d'emprunts par titre, du plus emprunté au moins emprunté."
+      name: "Livres les plus empruntés"
+      sourceSpace: "Emprunts"
+    key: "dataview:Livres les plus empruntés"
+    type: "dataview"
+  - content:
+      config:
+        aggregates:
+          - as: "nb_emprunts"
+            fn: "count"
+        groupBy:
+          - "annee_scolaire"
+        orderBy:
+          - desc: false
+            field: "annee_scolaire"
+      description: "Nombre d'emprunts par année scolaire."
+      name: "Emprunts par année"
+      sourceSpace: "Emprunts"
+    key: "dataview:Emprunts par année"
+    type: "dataview"
+  - content:
+      config:
+        aggregates:
+          - as: "nb_livres"
+            fn: "count"
+        groupBy:
+          - "genre_nom"
+        orderBy:
+          - desc: true
+            field: "nb_livres"
+      description: "Nombre de livres par genre, du plus fourni au moins fourni."
+      name: "Livres par genre"
+      sourceSpace: "Livres"
+    key: "dataview:Livres par genre"
+    type: "dataview"
+  - content:
+      config:
+        aggregates:
+          - as: "effectif"
+            fn: "count"
+        filter:
+          field: "annee_en_cours"
+          op: "EQ"
+          value: "true"
+        groupBy:
+          - "classe_nom"
+        orderBy:
+          - desc: false
+            field: "classe_nom"
+      description: "Nombre d'élèves par classe de l'année en cours."
+      name: "Effectifs par classe"
+      sourceSpace: "ClassesEleves"
+    key: "dataview:Effectifs par classe"
+    type: "dataview"
   - content:
       data:
         abrege: "M."
