@@ -128,7 +128,7 @@ R.describe("app_builder.expand", function()
     return R.eq(pkg.seed_keys.Livres, 'id')
   end)
 end)
-return R.describe("app_builder.emit", function()
+R.describe("app_builder.emit", function()
   R.it("round-trips accented and punctuated text through yaml.decode", function()
     local pkg = B.expand(STRUCT)
     B.add_seed(pkg, 'Auteurs', {
@@ -170,5 +170,275 @@ return R.describe("app_builder.emit", function()
     local a = out:find('description', 1, true)
     local f = out:find('items', 1, true)
     return R.ok(a and f and a < f)
+  end)
+end)
+local fio = require('fio')
+local _deep_eq
+_deep_eq = function(a, b)
+  if a == b then
+    return true
+  end
+  if not (type(a) == 'table' and type(b) == 'table') then
+    return false
+  end
+  for k, v in pairs(a) do
+    if not (_deep_eq(v, b[k])) then
+      return false
+    end
+  end
+  for k in pairs(b) do
+    if a[k] == nil then
+      return false
+    end
+  end
+  return true
+end
+local DV_CONFIG = {
+  columns = {
+    'id',
+    'retour'
+  },
+  filter = {
+    field = 'retour',
+    op = 'EQ',
+    value = ''
+  },
+  aggregates = {
+    {
+      fn = 'count',
+      as = 'n'
+    }
+  },
+  sort = {
+    field = 'n',
+    order = 'desc'
+  },
+  limit = 10
+}
+local PAGE_YAML = "titre: Accueil\ntexte: \"a: b\"\nliste:\n  - 1\n  - 2\n"
+local STRUCT_VIEWS = {
+  app = {
+    id = 'org.test.views',
+    name = 'Views',
+    version = '1.0.0',
+    description = 'd'
+  },
+  spaces = {
+    {
+      name = 'Auteurs',
+      description = '',
+      fields = {
+        {
+          name = 'nom',
+          type = 'String'
+        }
+      }
+    },
+    {
+      name = 'Emprunts',
+      description = '',
+      fields = {
+        {
+          name = 'auteur',
+          type = 'Int',
+          ref = 'Auteurs.id'
+        },
+        {
+          name = 'retour',
+          type = 'Datetime'
+        },
+        {
+          name = 'n',
+          type = 'Int'
+        }
+      }
+    }
+  },
+  pages = {
+    {
+      name = 'Accueil.principal',
+      description = 'page',
+      yaml = PAGE_YAML
+    }
+  },
+  dataviews = {
+    {
+      name = 'Emprunts en cours',
+      description = 'dv',
+      sourceSpace = 'Emprunts',
+      config = DV_CONFIG
+    },
+    {
+      name = 'Suivi: retards',
+      sourceSpace = 'Emprunts',
+      config = {
+        limit = 3
+      }
+    }
+  }
+}
+R.describe("app_builder.expand — dataviews et pages", function()
+  local pkg = B.expand(STRUCT_VIEWS)
+  local by_key = { }
+  local _list_0 = pkg.items
+  for _index_0 = 1, #_list_0 do
+    local it = _list_0[_index_0]
+    by_key[it.key] = it
+  end
+  R.it("produit les items page et dataview avec clés et contenus", function()
+    local pg = by_key['page:Accueil%2Eprincipal']
+    R.ok(pg, 'page présente')
+    R.eq(pg.content.name, 'Accueil.principal')
+    R.eq(pg.content.description, 'page')
+    R.eq(pg.content.yaml, PAGE_YAML)
+    local dv = by_key['dataview:Emprunts en cours']
+    R.ok(dv, 'dataview présente (espaces préservés)')
+    R.eq(dv.content.name, 'Emprunts en cours')
+    R.eq(dv.content.description, 'dv')
+    R.eq(dv.content.sourceSpace, 'Emprunts')
+    R.eq(dv.content.config.limit, 10)
+    R.eq(dv.content.config.filter.value, '')
+    R.ok(by_key['dataview:Suivi%3A retards'], 'deux-points encodés')
+    return R.eq(by_key['dataview:Suivi%3A retards'].content.description, '')
+  end)
+  R.it("émet les groupes dans l'ordre space, field, relation, page, dataview", function()
+    local rank = {
+      space = 1,
+      field = 2,
+      relation = 3,
+      page = 4,
+      dataview = 5
+    }
+    local last = 0
+    local _list_1 = pkg.items
+    for _index_0 = 1, #_list_1 do
+      local it = _list_1[_index_0]
+      local r = rank[it.type]
+      R.ok(r, "type connu: " .. tostring(it.type))
+      R.ok(r >= last, "ordre: " .. tostring(it.type) .. " après rang " .. tostring(last))
+      last = r
+    end
+  end)
+  return R.it("conserve le comportement d'une structure sans vue ni page", function()
+    local p = B.expand(STRUCT)
+    local extra
+    do
+      local _accum_0 = { }
+      local _len_0 = 1
+      local _list_1 = p.items
+      for _index_0 = 1, #_list_1 do
+        local it = _list_1[_index_0]
+        if it.type == 'page' or it.type == 'dataview' then
+          _accum_0[_len_0] = it
+          _len_0 = _len_0 + 1
+        end
+      end
+      extra = _accum_0
+    end
+    R.eq(#extra, 0)
+    return R.eq(B.emit(p), B.emit(B.expand(STRUCT)))
+  end)
+end)
+R.describe("app_builder.emit — aller-retour vues et pages", function()
+  return R.it("préserve une config de vue et un YAML de page multi-ligne", function()
+    local pkg = B.expand(STRUCT_VIEWS)
+    local back = yaml.decode(B.emit(pkg))
+    local pages
+    do
+      local _accum_0 = { }
+      local _len_0 = 1
+      local _list_0 = back.items
+      for _index_0 = 1, #_list_0 do
+        local it = _list_0[_index_0]
+        if it.type == 'page' then
+          _accum_0[_len_0] = it
+          _len_0 = _len_0 + 1
+        end
+      end
+      pages = _accum_0
+    end
+    local dvs
+    do
+      local _accum_0 = { }
+      local _len_0 = 1
+      local _list_0 = back.items
+      for _index_0 = 1, #_list_0 do
+        local it = _list_0[_index_0]
+        if it.type == 'dataview' then
+          _accum_0[_len_0] = it
+          _len_0 = _len_0 + 1
+        end
+      end
+      dvs = _accum_0
+    end
+    R.eq(#pages, 1)
+    R.eq(#dvs, 2)
+    R.eq(pages[1].key, 'page:Accueil%2Eprincipal')
+    R.eq(pages[1].content.yaml, PAGE_YAML)
+    local dv = ((function()
+      local _accum_0 = { }
+      local _len_0 = 1
+      for _index_0 = 1, #dvs do
+        local d = dvs[_index_0]
+        if d.content.name == 'Emprunts en cours' then
+          _accum_0[_len_0] = d
+          _len_0 = _len_0 + 1
+        end
+      end
+      return _accum_0
+    end)())[1]
+    R.ok(dv, 'dataview retrouvée')
+    R.ok(_deep_eq(dv.content.config, DV_CONFIG), 'config identique')
+    R.eq(dv.content.config.filter.value, '')
+    R.eq(dv.content.config.aggregates[1].fn, 'count')
+    R.eq(dv.content.config.sort.order, 'desc')
+    return R.eq(dv.content.config.limit, 10)
+  end)
+end)
+return R.describe("app_builder.load_structure — dataviews et pages", function()
+  local dir = "/tmp/tgui_t15_" .. tostring(tostring(math.random(100000, 999999)))
+  local write
+  write = function(rel, text)
+    local fh = fio.open(fio.pathjoin(dir, rel), {
+      'O_WRONLY',
+      'O_CREAT',
+      'O_TRUNC'
+    })
+    fh:write(text)
+    return fh:close()
+  end
+  R.it("concatène spaces, dataviews et pages de chaque fichier", function()
+    fio.mktree(dir)
+    fio.mktree(fio.pathjoin(dir, 'structure'))
+    write('app.yaml', "app:\n  id: org.test.ls\n  name: LS\n  version: 1.0.0\n  description: d\n")
+    write('structure/a.yaml', "spaces:\n- {name: A, description: a, fields: [{name: x, type: String}]}\ndataviews:\n- {name: D1, sourceSpace: A, config: {limit: 1}}\n")
+    write('structure/b.yaml', "pages:\n- {name: P1, yaml: \"hi\"}\ndataviews:\n- {name: D2, sourceSpace: A, config: {limit: 2}}\n")
+    local s = B.load_structure(dir)
+    R.eq(#s.spaces, 1)
+    R.eq(s.spaces[1].name, 'A')
+    R.eq(#s.dataviews, 2)
+    R.eq(s.dataviews[1].name, 'D1')
+    R.eq(s.dataviews[2].name, 'D2')
+    R.eq(#s.pages, 1)
+    return R.eq(s.pages[1].name, 'P1')
+  end)
+  R.it("listes absentes → listes vides", function()
+    write('structure/a.yaml', "spaces:\n- {name: A, description: a, fields: [{name: x, type: String}]}\n")
+    local fh = fio.open(fio.pathjoin(dir, 'structure', 'b.yaml'), {
+      'O_RDONLY'
+    })
+    if fh then
+      fh:close()
+      fio.unlink(fio.pathjoin(dir, 'structure', 'b.yaml'))
+    end
+    local s = B.load_structure(dir)
+    R.eq(#s.dataviews, 0)
+    return R.eq(#s.pages, 0)
+  end)
+  return R.it("nettoie", function()
+    if fio.stat(dir) then
+      fio.rmtree(dir)
+    end
+    return R.nok(fio.stat(dir), 'répertoire temporaire supprimé')
   end)
 end)

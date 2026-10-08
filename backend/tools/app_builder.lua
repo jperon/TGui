@@ -72,10 +72,35 @@ _all_fields = function(sp)
   end
   return fields
 end
+local _page_item
+_page_item = function(p)
+  return {
+    type = 'page',
+    key = "page:" .. tostring(key_part(p.name)),
+    content = {
+      name = p.name,
+      description = p.description or '',
+      yaml = p.yaml
+    }
+  }
+end
+local _dataview_item
+_dataview_item = function(d)
+  return {
+    type = 'dataview',
+    key = "dataview:" .. tostring(key_part(d.name)),
+    content = {
+      name = d.name,
+      description = d.description or '',
+      sourceSpace = d.sourceSpace,
+      config = d.config
+    }
+  }
+end
 local expand
 expand = function(structure)
   local a = structure.app
-  local spaces, fields, rels, seed_keys = { }, { }, { }, { }
+  local spaces, fields, rels, pages, dataviews, seed_keys = { }, { }, { }, { }, { }, { }
   local _list_0 = structure.spaces
   for _index_0 = 1, #_list_0 do
     local sp = _list_0[_index_0]
@@ -96,14 +121,26 @@ expand = function(structure)
       end
     end
   end
+  local _list_1 = (structure.pages or { })
+  for _index_0 = 1, #_list_1 do
+    local p = _list_1[_index_0]
+    table.insert(pages, _page_item(p))
+  end
+  local _list_2 = (structure.dataviews or { })
+  for _index_0 = 1, #_list_2 do
+    local d = _list_2[_index_0]
+    table.insert(dataviews, _dataview_item(d))
+  end
   local items = { }
-  local _list_1 = {
+  local _list_3 = {
     spaces,
     fields,
-    rels
+    rels,
+    pages,
+    dataviews
   }
-  for _index_0 = 1, #_list_1 do
-    local group = _list_1[_index_0]
+  for _index_0 = 1, #_list_3 do
+    local group = _list_3[_index_0]
     for _index_1 = 1, #group do
       local it = group[_index_1]
       table.insert(items, it)
@@ -226,16 +263,29 @@ local load_structure
 load_structure = function(dir)
   local structure = {
     app = (_read_yaml(fio.pathjoin(dir, 'app.yaml'))).app,
-    spaces = { }
+    spaces = { },
+    dataviews = { },
+    pages = { }
   }
   local names = fio.glob(fio.pathjoin(dir, 'structure', '*.yaml'))
   table.sort(names)
   for _index_0 = 1, #names do
     local path = names[_index_0]
-    local _list_0 = (_read_yaml(path)).spaces
+    local doc = _read_yaml(path)
+    local _list_0 = (doc.spaces or { })
     for _index_1 = 1, #_list_0 do
       local sp = _list_0[_index_1]
       table.insert(structure.spaces, sp)
+    end
+    local _list_1 = (doc.dataviews or { })
+    for _index_1 = 1, #_list_1 do
+      local d = _list_1[_index_1]
+      table.insert(structure.dataviews, d)
+    end
+    local _list_2 = (doc.pages or { })
+    for _index_1 = 1, #_list_2 do
+      local p = _list_2[_index_1]
+      table.insert(structure.pages, p)
     end
   end
   return structure
