@@ -71,18 +71,24 @@ _hide = ->
   _overlay.classList.add 'hidden'
   _input.value = ''
 
+# Retire le handler keydown puis cache la modale. Utilisé par TOUS les chemins
+# de fermeture (clic OK, clic Annuler, Échap, Entrée) : sans cela, fermer par
+# clic laissait le handler attaché (fuite d'écouteurs + handler périmé).
+_close = (handler) ->
+  document.removeEventListener 'keydown', handler
+  _hide()
+
 # alert-like: shows a message and resolves when the user clicks OK.
 window.tdbAlert = (msg, type = 'info') ->
   new Promise (resolve) ->
     _show msg, type, false, '', false
     _okBtn.onclick = ->
-      _hide()
+      _close handler
       resolve()
     # Also close on Escape.
     handler = (e) ->
       if e.key == 'Escape' or e.key == 'Enter'
-        document.removeEventListener 'keydown', handler
-        _hide()
+        _close handler
         resolve()
     document.addEventListener 'keydown', handler
 
@@ -91,19 +97,17 @@ window.tdbConfirm = (msg, type = 'warn') ->
   new Promise (resolve) ->
     _show msg, type, false, '', true
     _okBtn.onclick = ->
-      _hide()
+      _close handler
       resolve true
     _cancelBtn.onclick = ->
-      _hide()
+      _close handler
       resolve false
     handler = (e) ->
       if e.key == 'Escape'
-        document.removeEventListener 'keydown', handler
-        _hide()
+        _close handler
         resolve false
       else if e.key == 'Enter'
-        document.removeEventListener 'keydown', handler
-        _hide()
+        _close handler
         resolve true
     document.addEventListener 'keydown', handler
 
@@ -113,19 +117,17 @@ window.tdbPrompt = (msg, defaultVal = '', type = 'info') ->
     _show msg, type, true, defaultVal, true
     _okBtn.onclick = ->
       val = _input.value
-      _hide()
+      _close handler
       resolve if val.trim() then val else null
     _cancelBtn.onclick = ->
-      _hide()
+      _close handler
       resolve null
     handler = (e) ->
       if e.key == 'Escape'
-        document.removeEventListener 'keydown', handler
-        _hide()
+        _close handler
         resolve null
       else if e.key == 'Enter'
-        document.removeEventListener 'keydown', handler
         val = _input.value
-        _hide()
+        _close handler
         resolve if val.trim() then val else null
     document.addEventListener 'keydown', handler
