@@ -432,7 +432,7 @@ R.describe "app_apply — failure in the middle rolls back everything", ->
         { type: 'space', key: "space:#{SP_BAD}", content: { description: 'bad' } }
         { type: 'field', key: "field:#{SP_BAD}.name",
           content: { fieldType: 'String', notNull: false, description: '',
-                     formula: '', triggerFields: {}, language: 'lua' } }
+                     formula: '', language: 'lua' } }
         { type: 'relation', key: "relation:#{SP_BAD}.name",
           content: { fromSpace: SP_BAD, fromField: 'name',
                      toSpace: "no_such_space_#{SUFFIX}", toField: 'x' } }
@@ -466,7 +466,7 @@ rel_content = (from_field, card) ->
 rel_field = (name) ->
   { type: 'field', key: "field:#{SP_RB}.#{name}",
     content: { fieldType: 'Int', notNull: false, description: '',
-               formula: '', triggerFields: {}, language: 'lua' } }
+               formula: '', language: 'lua' } }
 
 rel_pkg = (version, author_card) ->
   {
@@ -478,7 +478,7 @@ rel_pkg = (version, author_card) ->
       rel_field 'editor_id'
       { type: 'field', key: "field:#{SP_RA}.seq_id",
         content: { fieldType: 'Sequence', notNull: false, description: '',
-                   formula: '', triggerFields: {}, language: 'lua' } }
+                   formula: '', language: 'lua' } }
       { type: 'relation', key: REL_RB_KEY, content: rel_content('author_id', author_card) }
       { type: 'relation', key: REL_RB_EDITOR, content: rel_content('editor_id', nil) }
     }
@@ -589,7 +589,6 @@ R.describe "app_apply — field without formula in package (DÉFAUT 2)", ->
             fieldType: 'String'
             notNull: false
             description: 'delivered desc'
-            triggerFields: {}
             language: 'lua'
           }
         }

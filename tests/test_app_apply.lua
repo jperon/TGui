@@ -625,7 +625,6 @@ R.describe("app_apply — failure in the middle rolls back everything", function
             notNull = false,
             description = '',
             formula = '',
-            triggerFields = { },
             language = 'lua'
           }
         },
@@ -681,7 +680,6 @@ rel_field = function(name)
       notNull = false,
       description = '',
       formula = '',
-      triggerFields = { },
       language = 'lua'
     }
   }
@@ -720,7 +718,6 @@ rel_pkg = function(version, author_card)
           notNull = false,
           description = '',
           formula = '',
-          triggerFields = { },
           language = 'lua'
         }
       },
@@ -906,7 +903,6 @@ R.describe("app_apply — field without formula in package (DÉFAUT 2)", functio
             fieldType = 'String',
             notNull = false,
             description = 'delivered desc',
-            triggerFields = { },
             language = 'lua'
           }
         })

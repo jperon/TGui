@@ -187,14 +187,17 @@ space_content = function(sp)
 end
 local field_content
 field_content = function(f)
-  return {
+  local content = {
     fieldType = f.fieldType,
     notNull = f.notNull == true,
     description = f.description or '',
     formula = f.formula or '',
-    triggerFields = f.triggerFields or { },
     language = f.language or 'lua'
   }
+  if f.triggerFields ~= nil then
+    content.triggerFields = f.triggerFields
+  end
+  return content
 end
 local relation_cardinality
 relation_cardinality = function(value)
@@ -320,14 +323,17 @@ _normalize_space_content = function(c)
 end
 local _normalize_field_content
 _normalize_field_content = function(c)
-  return {
+  local content = {
     fieldType = c.fieldType,
     notNull = c.notNull == true,
     description = c.description or '',
     formula = c.formula or '',
-    triggerFields = _table_or_empty(c.triggerFields),
     language = _nonempty_or(c.language, 'lua')
   }
+  if type(c.triggerFields) == 'table' then
+    content.triggerFields = c.triggerFields
+  end
+  return content
 end
 local _normalize_relation_content
 _normalize_relation_content = function(c)

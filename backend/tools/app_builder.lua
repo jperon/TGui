@@ -36,7 +36,6 @@ _field_item = function(space, f)
       notNull = f.notNull == true,
       description = f.description or '',
       formula = _formula(f.formula),
-      triggerFields = { },
       language = language
     }
   }

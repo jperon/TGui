@@ -34,7 +34,9 @@ _field_item = (space, f) ->
     content: {
       fieldType: f.type, notNull: f.notNull == true
       description: f.description or '', formula: _formula f.formula
-      triggerFields: {}, language: language
+      -- Pas de clé triggerFields : la structure ne décrit jamais de trigger
+      -- (clé absente = pas de trigger, cf. core/app_package.moon field_content).
+      language: language
     }
   }
 

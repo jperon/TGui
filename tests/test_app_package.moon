@@ -359,7 +359,7 @@ R.describe "app_package — describe_local", ->
     R.eq(pkg.canonical(pkg.describe_local('space', key)), pkg.canonical(item.content))
     R.eq item.content.description, 'apkg books'
 
-  R.it "field: normalizes empty values (description, formula, triggerFields)", ->
+  R.it "field: normalizes empty values (description, formula) and keeps no trigger", ->
     key = "field:#{SP_BOOKS}.total"
     item = find_item PKG, key
     R.ok item
@@ -367,14 +367,13 @@ R.describe "app_package — describe_local", ->
     R.eq(pkg.canonical(local_content), pkg.canonical(item.content))
     R.eq local_content.formula, '(self.qty or 0) * 2'
     R.eq local_content.language, 'lua'
-    R.eq #local_content.triggerFields, 0
+    R.is_nil local_content.triggerFields, 'computed column: no trigger, key absent'
     R.eq local_content.description, ''
     R.eq pkg.canonical(local_content), pkg.canonical({
       fieldType: 'Int'
       notNull: false
       description: ''
       formula: '(self.qty or 0) * 2'
-      triggerFields: {}
       language: 'lua'
     })
 
@@ -661,7 +660,8 @@ R.describe "app_package — normalize_content (T22)", ->
   R.it "reproduces each builder's defaults for absent optional keys", ->
     expected = {
       space: { description: '' }
-      field: { notNull: false, description: '', formula: '', triggerFields: {}, language: 'lua' }
+      -- triggerFields has no default: the key must stay absent (no trigger).
+      field: { notNull: false, description: '', formula: '', language: 'lua' }
       relation: { cardinality: 'one' }
       view: {}
       page: { description: '', yaml: '' }
@@ -684,9 +684,9 @@ R.describe "app_package — normalize_content (T22)", ->
       notNull: false
       description: ''
       formula: ''
-      triggerFields: {}
       language: 'lua'
     }
+    R.is_nil c.triggerFields, 'triggerFields: null means no trigger'
 
   R.it "is idempotent and does not mutate its argument", ->
     original = { fieldType: 'Int', description: 'x' }
@@ -701,6 +701,6 @@ R.describe "app_package — normalize_content (T22)", ->
     c = pkg.normalize_content 'field', pkg.strip_null(raw)
     built = {
       fieldType: 'String', notNull: false, description: '', formula: '',
-      triggerFields: {}, language: 'lua'
+      language: 'lua'
     }
     R.eq pkg.fingerprint(c), pkg.fingerprint(built)

@@ -690,7 +690,7 @@ _create_field = function(entry)
   end
   local sid = _space_id(sp_name)
   local c = entry.content
-  local f = spaces_mod.add_field(sid, f_name, c.fieldType, c.notNull or false, c.description or '', c.formula or '', c.triggerFields or { }, c.language or 'lua')
+  local f = spaces_mod.add_field(sid, f_name, c.fieldType, c.notNull or false, c.description or '', c.formula or '', c.triggerFields, c.language or 'lua')
   return {
     id = f.id,
     space = sp_name
@@ -713,7 +713,7 @@ _update_field = function(entry, old)
     notNull = c.notNull,
     description = c.description,
     formula = c.formula or '',
-    triggerFields = c.triggerFields or { },
+    triggerFields = c.triggerFields,
     language = c.language
   })
   return {
