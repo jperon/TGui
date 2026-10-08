@@ -107,32 +107,8 @@ local delete_view
 delete_view = function(view_id)
   return box.space._tdb_views:delete(view_id)
 end
-local list_views
-list_views = function(space_id)
-  local result = { }
-  local _list_0 = box.space._tdb_views.index.by_space:select({
-    space_id
-  })
-  for _index_0 = 1, #_list_0 do
-    local t = _list_0[_index_0]
-    table.insert(result, {
-      id = t[1],
-      spaceId = t[2],
-      name = t[3],
-      viewType = t[4],
-      config = t[5],
-      createdAt = t[6],
-      updatedAt = t[7]
-    })
-  end
-  return result
-end
-local get_view
-get_view = function(view_id)
-  local t = box.space._tdb_views:get(view_id)
-  if not (t) then
-    return nil
-  end
+local view_from_tuple
+view_from_tuple = function(t)
   return {
     id = t[1],
     spaceId = t[2],
@@ -142,6 +118,26 @@ get_view = function(view_id)
     createdAt = t[6],
     updatedAt = t[7]
   }
+end
+local list_views
+list_views = function(space_id)
+  local result = { }
+  local _list_0 = box.space._tdb_views.index.by_space:select({
+    space_id
+  })
+  for _index_0 = 1, #_list_0 do
+    local t = _list_0[_index_0]
+    table.insert(result, view_from_tuple(t))
+  end
+  return result
+end
+local get_view
+get_view = function(view_id)
+  local t = box.space._tdb_views:get(view_id)
+  if not (t) then
+    return nil
+  end
+  return view_from_tuple(t)
 end
 return {
   create_view = create_view,
