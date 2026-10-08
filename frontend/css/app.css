@@ -196,17 +196,18 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   font-size: 1rem; cursor: pointer; line-height: 1;
 }
 
-#space-list, #custom-view-list {
+#space-list, #page-list, #data-view-list {
   list-style: none; padding: 0;
 }
-#space-list li, #custom-view-list .leaf-item {
+#space-list li, #page-list .leaf-item, #data-view-list li {
   padding: .4rem 1rem .4rem 1.25rem; cursor: pointer;
   border-radius: 4px; transition: background .15s;
   font-size: .875rem; display: flex; align-items: center; gap: .4rem;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 #space-list li:hover, #space-list li.active,
-#custom-view-list .leaf-item:hover, #custom-view-list .leaf-item.active {
+#page-list .leaf-item:hover, #page-list .leaf-item.active,
+#data-view-list li:hover, #data-view-list li.active {
   background: rgba(255,255,255,.1);
 }
 

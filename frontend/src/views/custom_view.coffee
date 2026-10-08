@@ -26,6 +26,51 @@
 #           title: Personnes
 #           space: personnes
 
+# Parse a Data View `config`: the list GraphQL query returns the raw serialized
+# JSON string (data_views.coffee), while the detail query decodes it. Accept both.
+_parseDataViewConfig = (raw) ->
+  return {} unless raw
+  return raw if typeof raw == 'object'
+  try
+    JSON.parse raw
+  catch e
+    null
+
+# Output columns of a Data View, mirroring backend/core/data_views_executor.moon:
+# groupBy names then aggregate aliases; explicit `columns`; otherwise the source
+# space fields. Each entry is `{ name, fieldType }`, the type reused from the
+# source space when it declares the column.
+_dataViewColumns = (config, dv, allSpaces) ->
+  source = null
+  if dv.sourceSpace and allSpaces
+    source = allSpaces.find (s) -> s.id == dv.sourceSpace or s.name == dv.sourceSpace
+
+  typeFor = (name) ->
+    if source
+      f = (source.fields or []).find (sf) -> sf.name == name
+      return f.fieldType if f?.fieldType
+    'String'
+
+  names = []
+  if (config.groupBy and config.groupBy.length > 0) or (config.aggregates and config.aggregates.length > 0)
+    names.push name for name in (config.groupBy or [])
+    for agg in (config.aggregates or [])
+      names.push agg.as or (if agg.field then "#{agg.fn}_#{agg.field}" else 'count')
+  else if config.columns and config.columns.length > 0
+    for col in config.columns
+      names.push (if typeof col == 'string' then col else (col.as or col.field))
+  else if source
+    names.push f.name for f in (source.fields or [])
+
+  fields = []
+  seen = {}
+  for name in names
+    continue unless name
+    continue if seen[name]
+    seen[name] = true
+    fields.push { name: name, fieldType: typeFor name }
+  fields
+
 window.CustomView = class CustomView
   constructor: (@container, @yamlText, @allSpaces, @allDataViews = [], @options = {}) ->
     @_widgets   = []   # list of { dataView, node, el }
@@ -422,13 +467,15 @@ window.CustomView = class CustomView
     # Search in Data Views if not found in regular spaces
     dv = @allDataViews.find (v) -> v.name == nameOrId or v.id == nameOrId
     if dv
+      config = _parseDataViewConfig dv.config
+      fields = if config then _dataViewColumns config, dv, @allSpaces else []
       # Create a virtual space object for DataView class compatibility
       return {
         id: dv.id
         name: dv.name
         isView: true
         viewId: dv.id
-        fields: dv.config?.columns?.map (c) -> { name: c, fieldType: 'String' } or []
+        fields: fields
       }
     null
 
