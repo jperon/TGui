@@ -186,3 +186,10 @@ Vérification par exécution réelle (installation + `make test`), pas par relec
 Notes, cours et évaluations de l'école ; géocodage ; import de l'ancien fichier Grist ;
 migration des tests existants vers cette application ; interface dédiée (pages YAML)
 — à envisager dans une étape ultérieure.
+
+## 10. Amendements décidés à la rédaction du plan (2026-10-08)
+
+Voir `docs/superpowers/plans/2026-10-08-bibliotheque.md`, section « Amendements au spec » :
+risque 2 (séquences) **confirmé par mesure** ; `Annee.en_cours` stocké ; `age`,
+`precedente`, `anciennete` retirés ; `Prefectures.nom` ajouté ; volume réel ≈ 760 lignes ;
+dates en chaînes ISO, valeurs absentes omises.
