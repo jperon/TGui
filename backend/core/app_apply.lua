@@ -1260,7 +1260,9 @@ _seed_create = function(ctx, entry)
     json.encode(c.data)
   })
   _record(ctx.pkg.app.id, ctx.pkg.app.version, 'seed', entry.key, id, entry.fingerprint, 'actif')
-  return table.insert(ctx.report.created, entry.key)
+  table.insert(ctx.report.created, entry.key)
+  ctx.seed_spaces = ctx.seed_spaces or { }
+  ctx.seed_spaces[c.space] = true
 end
 local _seed_update
 _seed_update = function(ctx, entry, old)
@@ -1283,7 +1285,9 @@ _seed_update = function(ctx, entry, old)
     })
   end
   _record(ctx.pkg.app.id, ctx.pkg.app.version, 'seed', entry.key, id, entry.fingerprint, 'actif')
-  return table.insert(ctx.report.updated, entry.key)
+  table.insert(ctx.report.updated, entry.key)
+  ctx.seed_spaces = ctx.seed_spaces or { }
+  ctx.seed_spaces[c.space] = true
 end
 local _seed_keep
 _seed_keep = function(ctx, entry, old)
@@ -1297,6 +1301,47 @@ _seed_unchanged = function(ctx, entry)
   local id = (old and old.local_id) or _find_seed_id(ctx, entry)
   _record(ctx.pkg.app.id, ctx.pkg.app.version, 'seed', entry.key, id or '', entry.fingerprint, 'actif')
   return table.insert(ctx.report.unchanged, entry.key)
+end
+local _bump_sequences
+_bump_sequences = function(space_name)
+  local meta = spaces_mod.get_space_by_name(space_name)
+  local data_sp = box.space["data_" .. tostring(space_name)]
+  if not (meta and data_sp) then
+    return 
+  end
+  local _list_0 = spaces_mod.list_fields(meta.id)
+  for _index_0 = 1, #_list_0 do
+    local _continue_0 = false
+    repeat
+      local f = _list_0[_index_0]
+      if not (f.fieldType == 'Sequence') then
+        _continue_0 = true
+        break
+      end
+      local seq = box.sequence["_tdb_seq_" .. tostring(f.id)]
+      if not (seq) then
+        _continue_0 = true
+        break
+      end
+      local max_val = 0
+      local _list_1 = data_sp:select({ })
+      for _index_1 = 1, #_list_1 do
+        local t = _list_1[_index_1]
+        local v = _decode(t[2])[f.name]
+        if type(v) == 'number' and v > max_val then
+          max_val = v
+        end
+      end
+      local n = seq:next()
+      if n <= max_val then
+        seq:set(max_val)
+      end
+      _continue_0 = true
+    until true
+    if not _continue_0 then
+      break
+    end
+  end
 end
 local _do_seeds
 _do_seeds = function(ctx)
@@ -1335,6 +1380,9 @@ _do_seeds = function(ctx)
     if item and item.type == 'seed' then
       _seed_unchanged(ctx, item)
     end
+  end
+  for space_name, _ in pairs((ctx.seed_spaces or { })) do
+    _bump_sequences(space_name)
   end
 end
 local _remap_child_key

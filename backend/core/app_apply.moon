@@ -714,6 +714,8 @@ _seed_create = (ctx, entry) ->
   sp\insert { id, json.encode c.data }
   _record ctx.pkg.app.id, ctx.pkg.app.version, 'seed', entry.key, id, entry.fingerprint, 'actif'
   table.insert ctx.report.created, entry.key
+  ctx.seed_spaces or= {}
+  ctx.seed_spaces[c.space] = true
 
 _seed_update = (ctx, entry, old) ->
   c = entry.content
@@ -727,6 +729,8 @@ _seed_update = (ctx, entry, old) ->
     sp\insert { id, json.encode c.data }
   _record ctx.pkg.app.id, ctx.pkg.app.version, 'seed', entry.key, id, entry.fingerprint, 'actif'
   table.insert ctx.report.updated, entry.key
+  ctx.seed_spaces or= {}
+  ctx.seed_spaces[c.space] = true
 
 _seed_keep = (ctx, entry, old) ->
   id = _seed_local_id ctx, entry, old
@@ -738,6 +742,24 @@ _seed_unchanged = (ctx, entry) ->
   id = (old and old.local_id) or _find_seed_id(ctx, entry)
   _record ctx.pkg.app.id, ctx.pkg.app.version, 'seed', entry.key, id or '', entry.fingerprint, 'actif'
   table.insert ctx.report.unchanged, entry.key
+
+-- Les lignes seed portent des `id` explicites : faire passer chaque séquence de
+-- l'espace au-dessus du plus grand id stocké. `next!` consomme une valeur (écart
+-- inoffensif, exécuté seulement pour les espaces dont un seed vient d'être écrit).
+_bump_sequences = (space_name) ->
+  meta = spaces_mod.get_space_by_name space_name
+  data_sp = box.space["data_#{space_name}"]
+  return unless meta and data_sp
+  for f in *spaces_mod.list_fields meta.id
+    continue unless f.fieldType == 'Sequence'
+    seq = box.sequence["_tdb_seq_#{f.id}"]
+    continue unless seq
+    max_val = 0
+    for t in *data_sp\select {}
+      v = _decode(t[2])[f.name]
+      max_val = v if type(v) == 'number' and v > max_val
+    n = seq\next!
+    seq\set max_val if n <= max_val
 
 _do_seeds = (ctx) ->
   for entry in *_order ctx.plan.create
@@ -751,6 +773,8 @@ _do_seeds = (ctx) ->
   for key in *ctx.plan.unchanged
     item = ctx.pkg_map[key]
     _seed_unchanged ctx, item if item and item.type == 'seed'
+  for space_name, _ in pairs (ctx.seed_spaces or {})
+    _bump_sequences space_name
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- PARTIE 3 (V3b) : renommages sur place
