@@ -1190,19 +1190,23 @@ remove_field = function(field_id)
   box.space._tdb_fields:delete(field_id)
   return true
 end
+local space_from_tuple
+space_from_tuple = function(t)
+  return {
+    id = t[1],
+    name = t[2],
+    description = t[3],
+    createdAt = t[4],
+    updatedAt = t[5]
+  }
+end
 local list_spaces
 list_spaces = function()
   local result = { }
   local _list_0 = box.space._tdb_spaces:select({ })
   for _index_0 = 1, #_list_0 do
     local t = _list_0[_index_0]
-    table.insert(result, {
-      id = t[1],
-      name = t[2],
-      description = t[3],
-      createdAt = t[4],
-      updatedAt = t[5]
-    })
+    table.insert(result, space_from_tuple(t))
   end
   return result
 end
@@ -1212,13 +1216,7 @@ get_space = function(id)
   if not (t) then
     return nil
   end
-  return {
-    id = t[1],
-    name = t[2],
-    description = t[3],
-    createdAt = t[4],
-    updatedAt = t[5]
-  }
+  return space_from_tuple(t)
 end
 local get_space_by_name
 get_space_by_name = function(name)
@@ -1226,13 +1224,7 @@ get_space_by_name = function(name)
   if not (t) then
     return nil
   end
-  return {
-    id = t[1],
-    name = t[2],
-    description = t[3],
-    createdAt = t[4],
-    updatedAt = t[5]
-  }
+  return space_from_tuple(t)
 end
 local list_fields
 list_fields = function(space_id)
