@@ -1,10 +1,18 @@
 // Global setup for Playwright tests — runs once before all suites.
 // Ramène l'instance de test à une base déterministe : seuls les espaces de
-// démo subsistent, et aucune vue / data view. Ainsi les suites ne s'appuient
-// pas sur des données accumulées par des exécutions précédentes (isolation).
+// l'application Bibliothèque subsistent, et aucune vue / data view. Ainsi les
+// suites ne s'appuient pas sur des données accumulées par des exécutions
+// précédentes (isolation).
 
 const BASE = 'http://localhost:8081';
-const DEMO_SPACES = ['Auteurs', 'Livres', 'Emprunts', 'Categories'];
+// Espaces de l'application Bibliothèque, dans l'ordre des fichiers de structure
+// ecole.yaml, bibliotheque.yaml, coordonnees.yaml (backend/apps/bibliotheque).
+const DEMO_SPACES = [
+  'Titres', 'Sections', 'Annee', 'Niveaux', 'Personnes', 'Prefectures',
+  'Classes', 'ClassesEleves', 'Genres', 'Auteurs', 'MotsCles', 'Livres',
+  'LivresMotsCles', 'Exemplaires', 'Emprunts', 'TypesCoordonnees',
+  'Coordonnees', 'PersonnesCoordonnees',
+];
 
 async function gql(query, token) {
   const headers = { 'Content-Type': 'application/json' };
@@ -27,7 +35,7 @@ module.exports = async function(config) {
     process.exit(1);
   }
 
-  console.log('🧹 Réinitialisation de la base de test (baseline démo)...');
+  console.log('🧹 Réinitialisation de la base de test (baseline Bibliothèque)...');
   try {
     const login = await gql('mutation { login(username:"admin", password:"adminadmin") { token } }');
     const token = login?.data?.login?.token;
@@ -40,7 +48,7 @@ module.exports = async function(config) {
     const cvs = (await gql('{ customViews { id } }', token))?.data?.customViews || [];
     for (const cv of cvs) await gql(`mutation { deleteCustomView(id: "${cv.id}") }`, token);
 
-    // Supprime tout espace utilisateur hors du jeu de démo
+    // Supprime tout espace utilisateur hors de l'application Bibliothèque
     const spaces = (await gql('{ spaces { id name } }', token))?.data?.spaces || [];
     let removed = 0;
     for (const sp of spaces) {
