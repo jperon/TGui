@@ -172,6 +172,11 @@ local CLASSES = by_id(raw_rows('Classes'))
 local ANNEES_ROWS = raw_rows('Annee')
 local ANNEES = by_id(ANNEES_ROWS)
 local NIVEAUX = by_id(raw_rows('Niveaux'))
+local LIVRES = by_id(LIVRES_ROWS)
+local EX = by_id(EX_ROWS)
+local COORD_ROWS = raw_rows('Coordonnees')
+local PERS_COORD_ROWS = raw_rows('PersonnesCoordonnees')
+local COORDS = by_id(COORD_ROWS)
 local OPEN_LOANS
 do
   local _accum_0 = { }
@@ -262,6 +267,12 @@ livre_descriptif = function(l)
   local name = a and nom_complet(a) or '?'
   return tostring(l.titre) .. " (" .. tostring(name) .. ")"
 end
+local ex_descriptif
+ex_descriptif = function(ex)
+  local l = ex.livre and LIVRES[ex.livre]
+  local base = l and livre_descriptif(l) or '?'
+  return base .. (ex.cote and (" " .. tostring(MINUS) .. " " .. ex.cote) or '')
+end
 local emprunteur_of
 emprunteur_of = function(ex_id)
   local e = OPEN_BY_EX[ex_id]
@@ -314,6 +325,12 @@ local classes_descriptif
 classes_descriptif = function(c)
   local n = NIVEAUX[c.niveau]
   return tostring(n and n.abrege or '') .. tostring(c.precision or '')
+end
+local classes_descriptif_complet
+classes_descriptif_complet = function(c)
+  local a = c and ANNEES[c.annee]
+  local n = a and tonumber(a.debut:sub(1, 4))
+  return tostring(n or '?') .. " " .. tostring(classes_descriptif(c))
 end
 local annee_label
 annee_label = function(a)
@@ -414,6 +431,34 @@ check_field = function(space_name, field_name, expected_fn)
     end
   end
   return R.eq(n, 0, tostring(space_name) .. "." .. tostring(field_name) .. " — " .. tostring(n) .. " écart(s) " .. tostring(table.concat(bad, ' | ')))
+end
+local check_relation_label
+check_relation_label = function(space_name, field_name, expected_fn)
+  local rows = items_of(space_name)
+  R.ok((#rows >= 20), tostring(space_name) .. ": " .. tostring(#rows) .. " ligne(s) (< 20)")
+  local empty, errs, mism = 0, 0, 0
+  local bad = { }
+  for _index_0 = 1, #rows do
+    local it = rows[_index_0]
+    tick()
+    local got = it.proxy[field_name]
+    if got == nil or got == '' then
+      empty = empty + 1
+    elseif is_formula_error(got) then
+      errs = errs + 1
+    else
+      local exp = expected_fn(it.raw)
+      if exp ~= got then
+        mism = mism + 1
+        if #bad < 3 then
+          table.insert(bad, "id " .. tostring(_show(it.raw.id)) .. ": attendu " .. tostring(_show(exp)) .. ", obtenu " .. tostring(_show(got)))
+        end
+      end
+    end
+  end
+  R.eq(empty, 0, tostring(space_name) .. "." .. tostring(field_name) .. ": " .. tostring(empty) .. " valeur(s) vide(s)")
+  R.eq(errs, 0, tostring(space_name) .. "." .. tostring(field_name) .. ": " .. tostring(errs) .. " erreur(s) de formule")
+  return R.eq(mism, 0, tostring(space_name) .. "." .. tostring(field_name) .. ": " .. tostring(mism) .. " écart(s) " .. tostring(table.concat(bad, ' | ')))
 end
 local assert_proxy
 assert_proxy = function(space_name, key_field, key_value, field_name, expected, label)
@@ -819,7 +864,7 @@ R.describe("bibliotheque install — formules (data_r.Query.records)", function(
     R.raises(insert_without_valeur, 'not_null', 'valeur required')
     return R.eq(coord_sp:len(), nb_before, 'aucune ligne écrite')
   end)
-  return R.it("T9b — Emprunts.annee_en_cours is true for exactly 30 emprunts", function()
+  R.it("T9b — Emprunts.annee_en_cours is true for exactly 30 emprunts", function()
     tick()
     check_field('Emprunts', 'annee_en_cours', function(e)
       return emprunt_annee_en_cours(e)
@@ -861,8 +906,96 @@ R.describe("bibliotheque install — formules (data_r.Query.records)", function(
     end
     return R.eq(total, 30, "somme de Personnes.emprunts_en_cours (" .. tostring(errs) .. " valeur(s) en erreur de formule)")
   end)
+  R.it("T16a — relation labels match the raw seed", function()
+    tick()
+    check_relation_label('Emprunts', 'lecteur', function(e)
+      return personne_descriptif(PERSONNES[e.personne])
+    end)
+    check_relation_label('Emprunts', 'ouvrage', function(e)
+      return ex_descriptif(EX[e.exemplaire])
+    end)
+    check_relation_label('Exemplaires', 'livre_titre', function(e)
+      return LIVRES[e.livre].titre
+    end)
+    check_relation_label('Livres', 'auteur_nom', function(l)
+      return nom_complet(AUTEURS[l.auteur])
+    end)
+    check_relation_label('Livres', 'genre_nom', function(l)
+      return chemin_of(l.genre)
+    end)
+    check_relation_label('ClassesEleves', 'eleve_nom', function(ce)
+      return personne_descriptif(PERSONNES[ce.eleve])
+    end)
+    check_relation_label('ClassesEleves', 'classe_nom', function(ce)
+      return classes_descriptif_complet(CLASSES[ce.classe])
+    end)
+    check_relation_label('PersonnesCoordonnees', 'personne_nom', function(pc)
+      return personne_descriptif(PERSONNES[pc.personne])
+    end)
+    return check_relation_label('PersonnesCoordonnees', 'coordonnee_valeur', function(pc)
+      return COORDS[pc.coordonnee].valeur
+    end)
+  end)
+  return R.it("T16a — the package gained the nine label formulas", function()
+    local names = formula_field_names()
+    local total = 0
+    for _, lst in pairs(names) do
+      total = total + #lst
+    end
+    R.eq(total, 38, "nombre total de champs calculés (29 avant T16a + 9)")
+    local wanted = {
+      {
+        'Emprunts',
+        'lecteur'
+      },
+      {
+        'Emprunts',
+        'ouvrage'
+      },
+      {
+        'Exemplaires',
+        'livre_titre'
+      },
+      {
+        'Livres',
+        'auteur_nom'
+      },
+      {
+        'Livres',
+        'genre_nom'
+      },
+      {
+        'ClassesEleves',
+        'eleve_nom'
+      },
+      {
+        'ClassesEleves',
+        'classe_nom'
+      },
+      {
+        'PersonnesCoordonnees',
+        'personne_nom'
+      },
+      {
+        'PersonnesCoordonnees',
+        'coordonnee_valeur'
+      }
+    }
+    for _index_0 = 1, #wanted do
+      local w = wanted[_index_0]
+      local found = false
+      local _list_0 = (names[w[1]] or { })
+      for _index_1 = 1, #_list_0 do
+        local f = _list_0[_index_1]
+        if f == w[2] then
+          found = true
+        end
+      end
+      R.ok(found, "champ calculé manquant " .. tostring(w[1]) .. "." .. tostring(w[2]))
+    end
+  end)
 end)
-return R.describe("bibliotheque install — contrat applicatif", function()
+R.describe("bibliotheque install — contrat applicatif", function()
   R.it("apply_update of the same package creates and updates nothing", function()
     require('fiber').yield()
     local report = apply.apply_update(pkg(), { }, { })
@@ -947,3 +1080,4 @@ return R.describe("bibliotheque install — contrat applicatif", function()
     return R.ok((a == b), "emit(build()) diffère (" .. tostring(#a) .. " vs " .. tostring(#b) .. " octets)")
   end)
 end)
+return require('fiber').yield()

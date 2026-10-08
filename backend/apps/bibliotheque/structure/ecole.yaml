@@ -99,6 +99,12 @@ spaces:
   - {name: entree, type: Datetime}
   - {name: depart, type: Datetime}
   - {name: redoublement, type: Boolean}
+  - name: eleve_nom
+    type: String
+    formula: "@eleve and @eleve.descriptif"
+  - name: classe_nom
+    type: String
+    formula: "@classe and @classe.descriptif_complet"
   - name: annee
     type: Int
     formula: "@classe and @classe.annee and @classe.annee.id"

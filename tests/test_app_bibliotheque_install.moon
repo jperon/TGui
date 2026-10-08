@@ -108,6 +108,11 @@ CLASSES = by_id raw_rows 'Classes'
 ANNEES_ROWS = raw_rows 'Annee'
 ANNEES = by_id ANNEES_ROWS
 NIVEAUX = by_id raw_rows 'Niveaux'
+LIVRES = by_id LIVRES_ROWS
+EX = by_id EX_ROWS
+COORD_ROWS = raw_rows 'Coordonnees'
+PERS_COORD_ROWS = raw_rows 'PersonnesCoordonnees'
+COORDS = by_id COORD_ROWS
 
 OPEN_LOANS = [e for e in *EMPRUNTS_ROWS when (e.retour or '') == '']
 OPEN_BY_EX = {}
@@ -160,6 +165,13 @@ livre_descriptif = (l) ->
   name = a and nom_complet(a) or '?'
   "#{l.titre} (#{name})"
 
+-- T16a — « libellé » d'un exemplaire : descriptif du livre + cote, même
+-- séparateur U+2212 que la formule Exemplaires.descriptif.
+ex_descriptif = (ex) ->
+  l = ex.livre and LIVRES[ex.livre]
+  base = l and livre_descriptif(l) or '?'
+  base .. (ex.cote and (" #{MINUS} " .. ex.cote) or '')
+
 emprunteur_of = (ex_id) ->
   e = OPEN_BY_EX[ex_id]
   return nil unless e
@@ -190,6 +202,12 @@ effectif_of = (class_id) ->
 classes_descriptif = (c) ->
   n = NIVEAUX[c.niveau]
   "#{n and n.abrege or ''}#{c.precision or ''}"
+
+-- T16a — Classes.descriptif_complet = « <n de l'année> <descriptif> ».
+classes_descriptif_complet = (c) ->
+  a = c and ANNEES[c.annee]
+  n = a and tonumber(a.debut\sub(1, 4))
+  "#{n or '?'} #{classes_descriptif c}"
 
 annee_label = (a) ->
   n = tonumber a.debut\sub(1, 4)
@@ -255,6 +273,30 @@ check_field = (space_name, field_name, expected_fn) ->
       if #bad < 3
         table.insert bad, "id #{_show it.raw.id}: attendu #{_show exp}, obtenu #{_show got}"
   R.eq n, 0, "#{space_name}.#{field_name} — #{n} écart(s) #{table.concat bad, ' | '}"
+
+-- T16a — contrôle générique d'une colonne « libellé » : >= 20 lignes, aucune
+-- valeur vide, aucune valeur en erreur de formule, et égalité avec la valeur
+-- recalculée en Lua à partir des lignes brutes.
+check_relation_label = (space_name, field_name, expected_fn) ->
+  rows = items_of space_name
+  R.ok (#rows >= 20), "#{space_name}: #{#rows} ligne(s) (< 20)"
+  empty, errs, mism = 0, 0, 0
+  bad = {}
+  for it in *rows
+    tick!
+    got = it.proxy[field_name]
+    if got == nil or got == ''
+      empty += 1
+    elseif is_formula_error got
+      errs += 1
+    else
+      exp = expected_fn it.raw
+      if exp != got
+        mism += 1
+        table.insert bad, "id #{_show it.raw.id}: attendu #{_show exp}, obtenu #{_show got}" if #bad < 3
+  R.eq empty, 0, "#{space_name}.#{field_name}: #{empty} valeur(s) vide(s)"
+  R.eq errs, 0, "#{space_name}.#{field_name}: #{errs} erreur(s) de formule"
+  R.eq mism, 0, "#{space_name}.#{field_name}: #{mism} écart(s) #{table.concat bad, ' | '}"
 
 -- Assertion littérale sur une ligne identifiée par un champ de valeur.
 assert_proxy = (space_name, key_field, key_value, field_name, expected, label) ->
@@ -509,6 +551,37 @@ R.describe "bibliotheque install — formules (data_r.Query.records)", ->
         errs += 1
     R.eq total, 30, "somme de Personnes.emprunts_en_cours (#{errs} valeur(s) en erreur de formule)"
 
+  -- T16a — colonnes calculées « libellé » : noms lisibles à la place des ids.
+  R.it "T16a — relation labels match the raw seed", ->
+    tick!
+    check_relation_label 'Emprunts', 'lecteur', (e) -> personne_descriptif PERSONNES[e.personne]
+    check_relation_label 'Emprunts', 'ouvrage', (e) -> ex_descriptif EX[e.exemplaire]
+    check_relation_label 'Exemplaires', 'livre_titre', (e) -> LIVRES[e.livre].titre
+    check_relation_label 'Livres', 'auteur_nom', (l) -> nom_complet AUTEURS[l.auteur]
+    check_relation_label 'Livres', 'genre_nom', (l) -> chemin_of l.genre
+    check_relation_label 'ClassesEleves', 'eleve_nom', (ce) -> personne_descriptif PERSONNES[ce.eleve]
+    check_relation_label 'ClassesEleves', 'classe_nom', (ce) -> classes_descriptif_complet CLASSES[ce.classe]
+    check_relation_label 'PersonnesCoordonnees', 'personne_nom', (pc) -> personne_descriptif PERSONNES[pc.personne]
+    check_relation_label 'PersonnesCoordonnees', 'coordonnee_valeur', (pc) -> COORDS[pc.coordonnee].valeur
+
+  R.it "T16a — the package gained the nine label formulas", ->
+    names = formula_field_names!
+    total = 0
+    for _, lst in pairs names
+      total += #lst
+    R.eq total, 38, "nombre total de champs calculés (29 avant T16a + 9)"
+    wanted = {
+      { 'Emprunts', 'lecteur' }, { 'Emprunts', 'ouvrage' }
+      { 'Exemplaires', 'livre_titre' }
+      { 'Livres', 'auteur_nom' }, { 'Livres', 'genre_nom' }
+      { 'ClassesEleves', 'eleve_nom' }, { 'ClassesEleves', 'classe_nom' }
+      { 'PersonnesCoordonnees', 'personne_nom' }, { 'PersonnesCoordonnees', 'coordonnee_valeur' }
+    }
+    for w in *wanted
+      found = false
+      found = true for f in *(names[w[1]] or {}) when f == w[2]
+      R.ok found, "champ calculé manquant #{w[1]}.#{w[2]}"
+
 -- ────────────────────────────────────────────────────────────────────────────
 R.describe "bibliotheque install — contrat applicatif", ->
 
@@ -555,3 +628,9 @@ R.describe "bibliotheque install — contrat applicatif", ->
     a = B.emit pkg!
     b = B.emit require('tools.bibliotheque_app').build!
     R.ok (a == b), "emit(build()) diffère (#{#a} vs #{#b} octets)"
+
+-- Le package de T16a ajoute neuf colonnes calculées : la construction ci-dessus
+-- consomme une tranche de fibre notable sans rendement. On rend la main une
+-- dernière fois pour que les modules suivants repartent d'une tranche neuve
+-- (même raison que le ponctuage `tick!` ci-dessus).
+require('fiber').yield!
