@@ -155,10 +155,14 @@ ensure_space = (fk_cache, s_name, to_field_name) ->
     sc = run_unguarded load_space_records, s_name
     fk_cache.spaces[s_name] = sc
 
-  -- Always build _id index for primary lookup
+  -- Always build _id index for primary lookup. Numeric loop over the ordered
+  -- list (not pairs): under the formula count hook every pairs()/next() step
+  -- is charged ~FORMULA_HOOK_INTERVAL instructions, which made honest FK
+  -- traversals trip the guard (T12).
   unless sc.by_field['_id']
     idx = {}
-    for _, d in pairs sc.records
+    for i = 1, #sc.list
+      d = sc.list[i]
       if d._id ~= nil
         key = tostring(d._id)
         idx[key] = d
@@ -167,7 +171,8 @@ ensure_space = (fk_cache, s_name, to_field_name) ->
   -- Build specific field index if needed and different from _id
   if to_field_name != '_id' and not sc.by_field[to_field_name]
     idx = {}
-    for _, d in pairs sc.records
+    for i = 1, #sc.list
+      d = sc.list[i]
       if d[to_field_name] ~= nil
         key = tostring(d[to_field_name])
         idx[key] = d
@@ -235,6 +240,11 @@ make_self_proxy = (record, fk_def_map, fk_cache, space_name) ->
           rawset t, k, nested
           return nested
         return nil
+      -- Cache the plain stored value in the proxy itself: otherwise every
+      -- `@field` in a formula re-enters __index AND runs eval_computed_formula
+      -- again, each call costing a count-hook event under the formula guard
+      -- (T12: repeated @id in a nested comprehension tripped the guard).
+      rawset t, k, v
       v
   }
   proxy
@@ -253,8 +263,11 @@ make_self_proxy_extended = (record, single_fk_map, multiple_fk_map, fk_cache, sp
     sc = ensure_space fk_cache, relation_def.toSpaceName, relation_def.toFieldName
     results = {}
 
-    -- Find all records in target space that reference the source record
-    for _, d in pairs sc.records
+    -- Find all records in target space that reference the source record.
+    -- Numeric loop over the ordered list (not pairs): each pairs()/next() step
+    -- is charged a count-hook event under the formula guard (T12).
+    for i = 1, #sc.list
+      d = sc.list[i]
       if d[relation_def.toFieldName] == source_id
         -- Create a nested proxy for each found record
         nested = make_self_proxy_extended d, single_fk_map, multiple_fk_map, fk_cache, relation_def.toSpaceName
@@ -308,6 +321,8 @@ make_self_proxy_extended = (record, single_fk_map, multiple_fk_map, fk_cache, sp
           rawset t, k, nested
           return nested
         return nil
+      -- Cache plain stored values in the proxy (see make_self_proxy).
+      rawset t, k, v
       v
   }
   proxy
