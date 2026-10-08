@@ -175,9 +175,9 @@ Vérification par exécution réelle (installation + `make test`), pas par relec
    formule simple ; options (a) vue de données avec filtre sur `chemin`, (b) espace de
    fermeture transitive `GenresAncetres(genre, ancetre)` maintenu par le seed et un
    trigger. Par défaut : (a), (b) seulement si (a) est insuffisant.
-3. Conflit de noms avec `fixtures.moon` (`Auteurs`, `Livres`, `Emprunts` existent déjà
-   dans l'instance de test) : installer la bibliothèque dans une base vide dédiée, ou
-   renommer l'un des deux jeux ?
+3. ~~Conflit de noms avec `fixtures.moon`~~ — **tranché (utilisateur, 2026-10-08)** :
+   `fixtures.moon` sera abandonné rapidement au profit de cette application. D'ici là,
+   le paquet s'installe dans une base vide dédiée ; aucun renommage des espaces.
 4. Groupes/droits livrés par le paquet (lecteur, bibliothécaire) : hors périmètre de
    cette étape sauf demande contraire.
 
