@@ -7,10 +7,17 @@
 -- formula evaluation through the module-level helpers below (T14 step 4), with
 -- no observable change. The `fk_cache.can_read` read guard is enforced in both
 -- make_space_helper (space() calls) and ensure_space (FK target loading).
+--
+-- T10: the host work done FOR a formula (space() select + decode, relation
+-- maps, formula compilation) runs through config.run_unguarded so it is not
+-- charged to the formula's 20M-instruction guard budget; only the formula's
+-- own code stays guarded. Per-request caches live in fk_cache (keyed by space
+-- name); without an fk_cache (write-time triggers) nothing is memoized and
+-- the loading stays under the guard.
 
 json                   = require 'json'
 log                    = require 'log'
-{ :safe_formula_call } = require 'core.config'
+{ :safe_formula_call, :run_unguarded } = require 'core.config'
 { :compile_formula }   = require 'core.formula_sandbox'
 { :build_fk_def_map }  = require 'core.relation_maps'
 
@@ -71,7 +78,8 @@ ensure_formulas = (space_name) ->
       formula = field[8]
       language = field[10] or 'lua'
 
-      compiled = compile_formula formula, field_name, language
+      -- Compilation is host work: unguarded (already cached below).
+      compiled = run_unguarded compile_formula, formula, field_name, language
       if compiled
         formulas[field_name] = compiled
 
@@ -86,17 +94,47 @@ decode_tuple = (t) ->
   d._id = tostring t[1]
   d
 
+-- Load a whole data space once: records indexed by _id (FK lookups) plus the
+-- select-ordered list (space() calls). Shared entry for fk_cache.spaces.
+load_space_records = (s_name) ->
+  sc = { records: {}, by_field: {}, list: {} }
+  tb = box.space["data_#{s_name}"]
+  if tb
+    for tup in *tb\select {}
+      d = decode_tuple tup
+      sc.records[d._id] = d
+      table.insert sc.list, d
+  sc
+
 -- fk_cache: optional per-request cache carrying a `can_read(space_name)`
 -- predicate (set by resolvers.utils.fk_cache_for for user-facing reads). When
 -- present and refusing a target space, space(name) returns an empty list so a
 -- formula cannot read a space the user has no `read` grant on. Absent for
 -- write-time triggers, which then keep full access.
+--
+-- With an fk_cache, the space is loaded once per request into
+-- fk_cache.spaces (unguarded host work, T10) and every call returns a fresh
+-- shallow copy of the row list: a formula that sorts or rewrites the list
+-- cannot contaminate the cache or another formula (the rows themselves stay
+-- shared). can_read is re-checked on EVERY call, so a refusal is never served
+-- from the cache. Without an fk_cache (long-lived trigger helper,
+-- core/triggers.moon) nothing is memoized — the data must stay fresh between
+-- writes — and the loading stays under the formula guard, otherwise
+-- `while true do space('X') end` in a trigger would reload X on every
+-- iteration and become a denial of service.
 make_space_helper = (fk_cache) ->
   (sname) ->
     return {} if fk_cache and fk_cache.can_read and not fk_cache.can_read sname
-    sp = box.space["data_#{sname}"]
-    return {} unless sp
-    [decode_tuple t for t in *sp\select {}]
+    unless fk_cache
+      sp = box.space["data_#{sname}"]
+      return {} unless sp
+      return [decode_tuple t for t in *sp\select {}]
+    fk_cache.spaces = fk_cache.spaces or {}
+    sc = fk_cache.spaces[sname]
+    unless sc
+      sc = run_unguarded load_space_records, sname
+      fk_cache.spaces[sname] = sc
+    [r for r in *sc.list]
 
 -- Ensure the shared caches exist on an fk_cache table (created when absent).
 prepare_cache = (fk_cache) ->
@@ -113,12 +151,8 @@ ensure_space = (fk_cache, s_name, to_field_name) ->
     return { records: {}, by_field: {} }
   sc = fk_cache.spaces[s_name]
   unless sc
-    sc = { records: {}, by_field: {} }
-    tb = box.space["data_#{s_name}"]
-    if tb
-      for tup in *tb\select {}
-        d = decode_tuple tup
-        sc.records[d._id] = d
+    -- Tuple loading is host work: unguarded (result cached below, T10).
+    sc = run_unguarded load_space_records, s_name
     fk_cache.spaces[s_name] = sc
 
   -- Always build _id index for primary lookup
@@ -144,7 +178,8 @@ ensure_space = (fk_cache, s_name, to_field_name) ->
 -- Get or build a nested fk_def_map (cached, avoids repeated metadata scans).
 ensure_fk_def_map = (fk_cache, space_id) ->
   return fk_cache.fk_def_maps[space_id] if fk_cache.fk_def_maps[space_id]
-  fk_def_map = build_fk_def_map space_id
+  -- Building the map is host work: unguarded (cached below, T10).
+  fk_def_map = run_unguarded build_fk_def_map, space_id
   fk_cache.fk_def_maps[space_id] = fk_def_map
   fk_def_map
 

@@ -58,6 +58,33 @@ FORMULA_INSTRUCTION_LIMIT = 20 * 1000 * 1000
 FORMULA_HOOK_INTERVAL = 10000
 
 -- ────────────────────────────────────────────────────────────────────────────
+-- Instruction-guard escape hatch
+-- ────────────────────────────────────────────────────────────────────────────
+
+-- Run host-side work outside the formula instruction guard.
+-- The guard (safe_formula_call) bounds the formula's own code (infinite
+-- loops): that is what the 20M-instruction budget is for. The work the host
+-- performs FOR the formula — decoding every tuple of a space for space(),
+-- building a relation map, compiling a formula — is not the formula's own
+-- cost and must not be charged to its budget: a single space() call on a
+-- 150-line space already costs far more than FORMULA_INSTRUCTION_LIMIT, which
+-- made honest formulas fail with "instruction limit exceeded".
+-- Reads the current hook, disarms it, runs fn in a pcall, restores the hook
+-- that was in place (or none), then re-raises the error untouched if fn
+-- failed, otherwise returns fn's results.
+run_unguarded = (fn, ...) ->
+  prev_hook, prev_mask, prev_count = debug.gethook!
+  debug.sethook!
+  packed = { pcall(fn, ...) }
+  if prev_hook
+    debug.sethook prev_hook, prev_mask, prev_count
+  else
+    debug.sethook!
+  unless packed[1]
+    error packed[2], 0
+  return unpack(packed, 2)
+
+-- ────────────────────────────────────────────────────────────────────────────
 -- Utility helpers
 -- ────────────────────────────────────────────────────────────────────────────
 
@@ -166,4 +193,5 @@ validate_input = (type, value, context) ->
   :LIMITS, :safe_call, :validate_input
   :safe_formula_call, :get_formula_metrics, :clear_formula_metrics
   :FORMULA_INSTRUCTION_LIMIT, :FORMULA_HOOK_INTERVAL
+  :run_unguarded
 }

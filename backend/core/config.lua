@@ -23,6 +23,23 @@ local LIMITS = {
 }
 local FORMULA_INSTRUCTION_LIMIT = 20 * 1000 * 1000
 local FORMULA_HOOK_INTERVAL = 10000
+local run_unguarded
+run_unguarded = function(fn, ...)
+  local prev_hook, prev_mask, prev_count = debug.gethook()
+  debug.sethook()
+  local packed = {
+    pcall(fn, ...)
+  }
+  if prev_hook then
+    debug.sethook(prev_hook, prev_mask, prev_count)
+  else
+    debug.sethook()
+  end
+  if not (packed[1]) then
+    error(packed[2], 0)
+  end
+  return unpack(packed, 2)
+end
 local safe_call
 safe_call = function(fn, context, default_value, record_id)
   if default_value == nil then
@@ -150,5 +167,6 @@ return {
   get_formula_metrics = get_formula_metrics,
   clear_formula_metrics = clear_formula_metrics,
   FORMULA_INSTRUCTION_LIMIT = FORMULA_INSTRUCTION_LIMIT,
-  FORMULA_HOOK_INTERVAL = FORMULA_HOOK_INTERVAL
+  FORMULA_HOOK_INTERVAL = FORMULA_HOOK_INTERVAL,
+  run_unguarded = run_unguarded
 }
