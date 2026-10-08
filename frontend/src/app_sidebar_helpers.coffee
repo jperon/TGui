@@ -56,7 +56,10 @@ window.AppSidebarHelpers =
       name = await tdbPrompt app._t('ui.prompts.newSpace')
       return unless name?.trim()
       Spaces.create(name.trim())
-        .then -> app._loadAll()
+        .then (created) ->
+          app._loadAll().then ->
+            sp = (app._allSpaces or []).find (s) -> s.id == created.id
+            app.selectSpace sp if sp
         .catch (err) -> tdbAlert app._err(err), 'error'
 
     app.el.newPageBtn().addEventListener 'click', ->
