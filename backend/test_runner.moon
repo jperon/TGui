@@ -11,6 +11,12 @@ box.cfg {
 -- Add /app/backend to the Lua path so all backend modules are reachable
 package.path = '/app/?.lua;/app/backend/?.lua;/app/backend/?/init.lua;' .. package.path
 
+-- Raise the default fiber slice before the tests run: the whole suite executes
+-- in the single main fiber and accumulates seconds of formula/grid work without
+-- yielding, so the Tarantool default ({warn = 0.5, err = 1}) aborts a legitimate
+-- read with "fiber slice is exceeded". Same value as backend/init.moon.
+require('fiber').set_max_slice { warn: 2, err: 20 }
+
 -- Bootstrap system
 system = require('core.spaces')
 system.bootstrap!

@@ -6,11 +6,6 @@ local spaces = require('core.spaces')
 local triggers = require('core.triggers')
 local auth = require('core.auth')
 local data_r = require('resolvers.data_resolvers')
-local fiber = require('fiber')
-local tick
-tick = function()
-  return fiber.yield()
-end
 local admin = auth.get_user_by_username('admin')
 local CTX = {
   user_id = admin and admin.id
@@ -420,7 +415,6 @@ check_field = function(space_name, field_name, expected_fn)
   local bad = { }
   for _index_0 = 1, #rows do
     local it = rows[_index_0]
-    tick()
     local exp = expected_fn(it.raw)
     local got = it.proxy[field_name]
     if not (exp == got) then
@@ -440,7 +434,6 @@ check_relation_label = function(space_name, field_name, expected_fn)
   local bad = { }
   for _index_0 = 1, #rows do
     local it = rows[_index_0]
-    tick()
     local got = it.proxy[field_name]
     if got == nil or got == '' then
       empty = empty + 1
@@ -492,7 +485,6 @@ warm_fk = function()
   local touched = 0
   for _index_0 = 1, #LIB_NAMES do
     local name = LIB_NAMES[_index_0]
-    tick()
     local rows = items_of(name)
     local _list_0 = (fk_by_space()[name] or { })
     for _index_1 = 1, #_list_0 do
@@ -580,7 +572,6 @@ check_formulas = function()
             _continue_1 = true
             break
           end
-          tick()
           local fn = triggers.compile_formula(f.formula, tostring(name) .. "." .. tostring(f.name), f.language)
           R.ok((type(fn) == 'function'), "formule non compilable " .. tostring(name) .. "." .. tostring(f.name))
           checked = checked + 1
@@ -669,15 +660,12 @@ R.describe("bibliotheque install — état livré par les fixtures", function()
 end)
 R.describe("bibliotheque install — formules (data_r.Query.records)", function()
   R.it("warms the foreign-key metadata caches", function()
-    tick()
     return R.ok((warm_fk() > 0), 'aucun champ de clé étrangère résolu')
   end)
   R.it("compiles every formula of the installed spaces (anciens tests T3/T4)", function()
-    tick()
     return R.ok((check_formulas() > 0), 'aucune formule dans les espaces installés')
   end)
   R.it("T3 — ecole formulas recomputed from the installed seed", function()
-    tick()
     check_field('Annee', 'annee', function(a)
       return annee_label(a)
     end)
@@ -707,14 +695,12 @@ R.describe("bibliotheque install — formules (data_r.Query.records)", function(
     end)
   end)
   R.it("T3 — literal school values", function()
-    tick()
     assert_proxy('Annee', 'id', 3, 'annee', '2026 - 2027', 'Annee.annee de l’année en cours')
     assert_proxy('Niveaux', 'id', 1, 'descriptif', "01 " .. tostring(MINUS) .. " CP", 'Niveaux.descriptif du CP')
     assert_proxy('Classes', 'id', 6, 'effectif', 12, 'Classes.effectif de la classe 6')
     return assert_proxy('Personnes', 'id', 1, 'classe_actuelle', nil, 'classe_actuelle d’un adulte (cas 4)')
   end)
   R.it("T3 — a level-1 student has classe_actuelle = 6", function()
-    tick()
     local sid = nil
     for _index_0 = 1, #CE_ROWS do
       local ce = CE_ROWS[_index_0]
@@ -731,7 +717,6 @@ R.describe("bibliotheque install — formules (data_r.Query.records)", function(
     end
   end)
   R.it("T4 — library formulas recomputed from the installed seed", function()
-    tick()
     check_field('Genres', 'niveau', function(g)
       return niveau_of(g.id)
     end)
@@ -758,7 +743,6 @@ R.describe("bibliotheque install — formules (data_r.Query.records)", function(
     end)
   end)
   R.it("T4 — literal library values", function()
-    tick()
     assert_proxy('Genres', 'id', 3, 'chemin', 'Fiction › Roman › Policier', 'Genres.chemin du genre 3')
     assert_proxy('Genres', 'id', 1, 'niveau', 1, 'Genres.niveau du genre racine')
     assert_proxy('Genres', 'id', 1, 'chemin', 'Fiction', 'Genres.chemin du genre racine')
@@ -766,7 +750,6 @@ R.describe("bibliotheque install — formules (data_r.Query.records)", function(
     local _list_0 = items_of('Auteurs')
     for _index_0 = 1, #_list_0 do
       local it = _list_0[_index_0]
-      tick()
       local v = it.proxy.n_ouvrages
       if type(v) == 'number' then
         total = total + v
@@ -783,7 +766,6 @@ R.describe("bibliotheque install — formules (data_r.Query.records)", function(
     local _list_1 = items_of('Livres')
     for _index_0 = 1, #_list_1 do
       local it = _list_1[_index_0]
-      tick()
       local d = it.proxy.doublon
       if d == true then
         dbl_t = dbl_t + 1
@@ -801,7 +783,6 @@ R.describe("bibliotheque install — formules (data_r.Query.records)", function(
     return R.ok(zero_ex > 0, 'au moins un livre sans exemplaire (cas 3)')
   end)
   R.it("T5 — contact types, N-N shared coordonnée, notNull refusal", function()
-    tick()
     local types = { }
     local _list_0 = raw_rows('TypesCoordonnees')
     for _index_0 = 1, #_list_0 do
@@ -865,7 +846,6 @@ R.describe("bibliotheque install — formules (data_r.Query.records)", function(
     return R.eq(coord_sp:len(), nb_before, 'aucune ligne écrite')
   end)
   R.it("T9b — Emprunts.annee_en_cours is true for exactly 30 emprunts", function()
-    tick()
     check_field('Emprunts', 'annee_en_cours', function(e)
       return emprunt_annee_en_cours(e)
     end)
@@ -873,7 +853,6 @@ R.describe("bibliotheque install — formules (data_r.Query.records)", function(
     local _list_0 = items_of('Emprunts')
     for _index_0 = 1, #_list_0 do
       local it = _list_0[_index_0]
-      tick()
       if it.proxy.annee_en_cours then
         n = n + 1
       end
@@ -883,7 +862,6 @@ R.describe("bibliotheque install — formules (data_r.Query.records)", function(
     local _list_1 = items_of('Exemplaires')
     for _index_0 = 1, #_list_1 do
       local it = _list_1[_index_0]
-      tick()
       local v = it.proxy.emprunteur
       if type(v) == 'string' and not is_formula_error(v) then
         open = open + 1
@@ -896,7 +874,6 @@ R.describe("bibliotheque install — formules (data_r.Query.records)", function(
     local _list_2 = items_of('Personnes')
     for _index_0 = 1, #_list_2 do
       local it = _list_2[_index_0]
-      tick()
       local v = it.proxy.emprunts_en_cours
       if type(v) == 'number' then
         total = total + v
@@ -907,7 +884,6 @@ R.describe("bibliotheque install — formules (data_r.Query.records)", function(
     return R.eq(total, 30, "somme de Personnes.emprunts_en_cours (" .. tostring(errs) .. " valeur(s) en erreur de formule)")
   end)
   R.it("T16a — relation labels match the raw seed", function()
-    tick()
     check_relation_label('Emprunts', 'lecteur', function(e)
       return personne_descriptif(PERSONNES[e.personne])
     end)
@@ -995,9 +971,8 @@ R.describe("bibliotheque install — formules (data_r.Query.records)", function(
     end
   end)
 end)
-R.describe("bibliotheque install — contrat applicatif", function()
+return R.describe("bibliotheque install — contrat applicatif", function()
   R.it("apply_update of the same package creates and updates nothing", function()
-    require('fiber').yield()
     local report = apply.apply_update(pkg(), { }, { })
     R.ok(report.ok, "apply_update: " .. tostring(report.error))
     R.is_nil(report.reinit_error, 'reinit_schema')
@@ -1005,7 +980,6 @@ R.describe("bibliotheque install — contrat applicatif", function()
     return R.eq(#(report.updated or { }), 0, 'updated')
   end)
   R.it("insertRecord gets an id above every seed id, then restores the row counts", function()
-    tick()
     local specs = {
       {
         'Livres',
@@ -1074,10 +1048,8 @@ R.describe("bibliotheque install — contrat applicatif", function()
     end
   end)
   return R.it("emit(build()) is byte-identical on two calls", function()
-    tick()
     local a = B.emit(pkg())
     local b = B.emit(require('tools.bibliotheque_app').build())
     return R.ok((a == b), "emit(build()) diffère (" .. tostring(#a) .. " vs " .. tostring(#b) .. " octets)")
   end)
 end)
-return require('fiber').yield()
