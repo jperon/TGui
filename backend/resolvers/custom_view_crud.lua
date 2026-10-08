@@ -1,18 +1,22 @@
 local uuid_mod = require('uuid')
+local custom_view_from_tuple
+custom_view_from_tuple = function(t)
+  return {
+    id = t[1],
+    name = t[2],
+    description = t[3],
+    yaml = t[4],
+    createdAt = tostring(t[5]),
+    updatedAt = tostring(t[6])
+  }
+end
 local list_custom_views
 list_custom_views = function()
   local result = { }
   local _list_0 = box.space._tdb_custom_views:select({ })
   for _index_0 = 1, #_list_0 do
     local t = _list_0[_index_0]
-    table.insert(result, {
-      id = t[1],
-      name = t[2],
-      description = t[3],
-      yaml = t[4],
-      createdAt = tostring(t[5]),
-      updatedAt = tostring(t[6])
-    })
+    table.insert(result, custom_view_from_tuple(t))
   end
   return result
 end
@@ -22,14 +26,7 @@ get_custom_view = function(id)
   if not (t) then
     return nil
   end
-  return {
-    id = t[1],
-    name = t[2],
-    description = t[3],
-    yaml = t[4],
-    createdAt = tostring(t[5]),
-    updatedAt = tostring(t[6])
-  }
+  return custom_view_from_tuple(t)
 end
 local create_custom_view
 create_custom_view = function(name, description, yaml)
