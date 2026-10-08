@@ -8,6 +8,8 @@ do
   local _obj_0 = require('resolvers.utils')
   require_perm, perm_ok, fk_cache_for = _obj_0.require_perm, _obj_0.perm_ok, _obj_0.fk_cache_for
 end
+local make_space_helper
+make_space_helper = require('core.formula_proxy').make_space_helper
 local gql_name
 gql_name = function(name)
   local s = name:gsub('[^%w]', '_')
@@ -397,29 +399,11 @@ generate = function()
                 return raw_val
               end
               ctx._fk_cache = ctx._fk_cache or fk_cache_for(ctx)
+              ctx._fk_cache.space_helper = ctx._fk_cache.space_helper or make_space_helper(ctx._fk_cache)
               local proxy = triggers.make_self_proxy(obj, fk_nm_cap, ctx._fk_cache, sp_name_cap)
-              local space_helper
-              space_helper = function(sname)
-                if ctx._fk_cache.can_read and not ctx._fk_cache.can_read(sname) then
-                  return { }
-                end
-                local sp_box = box.space["data_" .. tostring(sname)]
-                if not (sp_box) then
-                  return { }
-                end
-                local _accum_0 = { }
-                local _len_0 = 1
-                local _list_5 = sp_box:select({ })
-                for _index_2 = 1, #_list_5 do
-                  local t = _list_5[_index_2]
-                  _accum_0[_len_0] = decode_tuple(t)
-                  _len_0 = _len_0 + 1
-                end
-                return _accum_0
-              end
               local val, err = config.safe_formula_call(fn_cap, "formula " .. tostring(sp_name_cap) .. "." .. tostring(f.name), nil, obj and obj._id, {
                 proxy,
-                space_helper
+                ctx._fk_cache.space_helper
               })
               if err then
                 return triggers.format_formula_error(err)

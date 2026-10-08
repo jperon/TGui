@@ -8,6 +8,7 @@ config     = require 'core.config'
 spaces_mod = require 'core.spaces'
 triggers   = require 'core.triggers'
 { :require_perm, :perm_ok, :fk_cache_for } = require 'resolvers.utils'
+{ :make_space_helper } = require 'core.formula_proxy'
 
 -- Sanitize a name to a valid GraphQL identifier
 gql_name = (name) ->
@@ -261,13 +262,12 @@ generate = ->
               -- Reuse the per-request FK cache set up by the query resolver
               -- (fresh readability map) instead of rebuilding it per record.
               ctx._fk_cache = ctx._fk_cache or fk_cache_for ctx
+              -- Memoized per request (T10 make_space_helper): the space is
+              -- loaded once and every call returns a copy of that cache;
+              -- can_read is still re-checked on EVERY call.
+              ctx._fk_cache.space_helper = ctx._fk_cache.space_helper or make_space_helper ctx._fk_cache
               proxy = triggers.make_self_proxy obj, fk_nm_cap, ctx._fk_cache, sp_name_cap
-              space_helper = (sname) ->
-                return {} if ctx._fk_cache.can_read and not ctx._fk_cache.can_read sname
-                sp_box = box.space["data_#{sname}"]
-                return {} unless sp_box
-                [decode_tuple t for t in *sp_box\select {}]
-              val, err = config.safe_formula_call fn_cap, "formula #{sp_name_cap}.#{f.name}", nil, obj and obj._id, { proxy, space_helper }
+              val, err = config.safe_formula_call fn_cap, "formula #{sp_name_cap}.#{f.name}", nil, obj and obj._id, { proxy, ctx._fk_cache.space_helper }
               if err
                 return triggers.format_formula_error err
               return val
