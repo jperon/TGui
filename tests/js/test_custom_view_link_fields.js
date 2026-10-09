@@ -473,12 +473,7 @@
       });
     });
     it('(e) a link field missing from the space warns and does not crash', function() {
-      var layout, oldWarn, warns;
-      warns = [];
-      oldWarn = console.warn;
-      console.warn = function(m) {
-        return warns.push(String(m));
-      };
+      var cv, layout, oldWarn, warns;
       layout = {
         layout: {
           direction: 'vertical',
@@ -505,8 +500,18 @@
           ]
         }
       };
-      return mountPage(DEFAULT_ROWS, layout).then(function(cv) {
-        console.warn = oldWarn;
+      SEED_ROWS.livres = DEFAULT_ROWS.livres;
+      SEED_ROWS.exemplaires = DEFAULT_ROWS.exemplaires;
+      SEED_ROWS.emprunts = DEFAULT_ROWS.emprunts;
+      warns = [];
+      oldWarn = console.warn;
+      console.warn = function(m) {
+        return warns.push(String(m));
+      };
+      cv = new CV(makeContainer(), yamlJSON(layout), makeSpaces());
+      cv.mount();
+      console.warn = oldWarn;
+      return flush().then(function() {
         assert(cv._widgetsById['ex'].dataView != null, 'dependent must still mount');
         return assert(warns.some(function(w) {
           return w.indexOf('inexistant') >= 0;
@@ -514,19 +519,18 @@
       });
     });
     it('(f) an undefined link value yields none, never the string undefined', function() {
-      var oldWarn, warns;
-      warns = [];
-      oldWarn = console.warn;
-      console.warn = function(m) {
-        return warns.push(String(m));
-      };
       return mountPage(DEFAULT_ROWS).then(function(cv) {
-        var entry;
+        var entry, oldWarn, warns;
         entry = cv._widgetsById['ex'];
-        console.warn = oldWarn;
+        warns = [];
+        oldWarn = console.warn;
+        console.warn = function(m) {
+          return warns.push(String(m));
+        };
         cv._applyDependencySelection(entry, entry.node.depends_on, {
           titre: 'no id'
         });
+        console.warn = oldWarn;
         assert(entry.dataView.filter.none === true, 'filter must be none');
         assert(entry.dataView.filter.value !== 'undefined', 'never the string undefined');
         eq(entry.dataView._currentData.length, 0);

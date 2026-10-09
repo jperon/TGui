@@ -189,9 +189,6 @@ describe 'T21 — link fields are always loaded', ->
       eq em._currentData.length, 2          # row 100 + sentinel
 
   it '(e) a link field missing from the space warns and does not crash', ->
-    warns = []
-    oldWarn = console.warn
-    console.warn = (m) -> warns.push String(m)
     layout =
       layout:
         direction: 'vertical'
@@ -200,19 +197,27 @@ describe 'T21 — link fields are always loaded', ->
           { widget: { id: 'ex', space: 'exemplaires', columns: ['cote']
               depends_on: { widget: 'livres', field: 'inexistant', from_field: 'id' } } }
         ]
-    mountPage(DEFAULT_ROWS, layout).then (cv) ->
-      console.warn = oldWarn
+    SEED_ROWS.livres      = DEFAULT_ROWS.livres
+    SEED_ROWS.exemplaires = DEFAULT_ROWS.exemplaires
+    SEED_ROWS.emprunts    = DEFAULT_ROWS.emprunts
+    warns = []
+    oldWarn = console.warn
+    console.warn = (m) -> warns.push String(m)
+    cv = new CV makeContainer(), yamlJSON(layout), makeSpaces()
+    cv.mount()
+    console.warn = oldWarn
+    flush().then ->
       assert cv._widgetsById['ex'].dataView?, 'dependent must still mount'
       assert warns.some((w) -> w.indexOf('inexistant') >= 0), 'expected a warning naming the field'
 
   it '(f) an undefined link value yields none, never the string undefined', ->
-    warns = []
-    oldWarn = console.warn
-    console.warn = (m) -> warns.push String(m)
     mountPage(DEFAULT_ROWS).then (cv) ->
       entry = cv._widgetsById['ex']
-      console.warn = oldWarn
+      warns = []
+      oldWarn = console.warn
+      console.warn = (m) -> warns.push String(m)
       cv._applyDependencySelection entry, entry.node.depends_on, { titre: 'no id' }
+      console.warn = oldWarn
       assert entry.dataView.filter.none is true, 'filter must be none'
       assert entry.dataView.filter.value isnt 'undefined', 'never the string undefined'
       eq entry.dataView._currentData.length, 0
