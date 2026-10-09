@@ -733,6 +733,66 @@
     });
   });
 
+  describe('DataView.load computed path selection', function() {
+    it('uses the dynamic space query when the only computed field is a trigger (triggerFields = [])', async function() {
+      var dv, oldQuery, queries, sp;
+      oldQuery = global.GQL.query;
+      queries = [];
+      global.GQL.query = function(q, vars) {
+        queries.push(q);
+        return Promise.resolve({
+          test_space: {
+            items: []
+          },
+          records: {
+            items: [],
+            total: 0
+          }
+        });
+      };
+      sp = makeSpace({
+        fields: [
+          {
+            id: 'f1',
+            name: 'eleve_nom',
+            fieldType: 'Str',
+            formula: '@first',
+            triggerFields: []
+          }
+        ]
+      });
+      dv = new DV(container(), sp);
+      dv._mounted = true;
+      await dv.load();
+      global.GQL.query = oldQuery;
+      assert(queries.length > 0, 'no GraphQL query issued');
+      return assert(queries[0].indexOf('query { test_space(limit: 2000)') >= 0, `expected the dynamic space query, got: ${queries[0].substring(0, 60)}`);
+    });
+    return it('still uses the plain records query for a space without computed fields', async function() {
+      var dv, oldQuery, queries;
+      oldQuery = global.GQL.query;
+      queries = [];
+      global.GQL.query = function(q, vars) {
+        queries.push(q);
+        return Promise.resolve({
+          test_space: {
+            items: []
+          },
+          records: {
+            items: [],
+            total: 0
+          }
+        });
+      };
+      dv = new DV(container(), makeSpace());
+      dv._mounted = true;
+      await dv.load();
+      global.GQL.query = oldQuery;
+      assert(queries.length > 0, 'no GraphQL query issued');
+      return assert(queries[0].indexOf('query Records') >= 0, `expected the plain records query, got: ${queries[0].substring(0, 60)}`);
+    });
+  });
+
   // Freeze the public prototype surface so the data_view / data_view_helpers split
   // cannot silently drop or rename a method.
   describe('DataView prototype surface (frozen)', function() {
