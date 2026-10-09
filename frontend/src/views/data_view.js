@@ -125,7 +125,7 @@
     }
 
     async mount() {
-      var allCols, boolNames, col, columns, editableCols, editableSet, escapeHtml, f, fields, fkMap, fkOptions, fmtError, formulaNames, moveTo, ref, saved, seqNames, setFocusedColumn, toBool, wrapper;
+      var allCols, boolNames, col, columns, editableCols, editableSet, escapeHtml, f, fields, fkMap, fkOptions, fmtError, formulaNames, moveTo, navColumns, ref, saved, seqNames, setFocusedColumn, toBool, wrapper;
       this._mounted = true;
       this.container.innerHTML = '';
       wrapper = document.createElement('div');
@@ -275,6 +275,12 @@
               })(f.name);
             }
           }
+          if (f.hidden) {
+            // Champ de liaison chargé mais non affiché (T21) : la colonne reste dans
+            // la grille et dans la requête, mais Toast UI Grid la masque (en-tête,
+            // panneau de largeurs) ; elle est aussi exclue de la navigation Tab.
+            col.hidden = true;
+          }
           results1.push(col);
         }
         return results1;
@@ -360,12 +366,15 @@
       // boundaries. Start editing only if the target cell is editable.
       // Listener on document (capture) so it fires even when focus is on wrapper
       // itself (non-editable cell); guarded by wrapper.contains(activeElement).
-      editableCols = columns.filter(function(c) {
+      navColumns = columns.filter(function(c) {
+        return !c.hidden;
+      });
+      editableCols = navColumns.filter(function(c) {
         return c.editor;
       }).map(function(c) {
         return c.name;
       });
-      allCols = columns.map(function(c) {
+      allCols = navColumns.map(function(c) {
         return c.name;
       });
       editableSet = new Set(editableCols);
