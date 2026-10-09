@@ -766,7 +766,7 @@
       await dv.load();
       global.GQL.query = oldQuery;
       assert(queries.length > 0, 'no GraphQL query issued');
-      return assert(queries[0].indexOf('query { test_space(limit: 2000)') >= 0, `expected the dynamic space query, got: ${queries[0].substring(0, 60)}`);
+      return assert(queries[0].indexOf('test_space(limit: 2000') >= 0, `expected the dynamic space query, got: ${queries[0].substring(0, 60)}`);
     });
     return it('still uses the plain records query for a space without computed fields', async function() {
       var dv, oldQuery, queries;
@@ -790,6 +790,127 @@
       global.GQL.query = oldQuery;
       assert(queries.length > 0, 'no GraphQL query issued');
       return assert(queries[0].indexOf('query Records') >= 0, `expected the plain records query, got: ${queries[0].substring(0, 60)}`);
+    });
+  });
+
+  // An active formula filter must not push a computed space onto the plain
+  // records query: read-computed columns have no stored value, so the dynamic
+  // space query (which accepts a RecordFilter) has to serve the filtered rows.
+  describe('DataView.load with formula filter', function() {
+    var computedSpace;
+    computedSpace = function() {
+      return makeSpace({
+        fields: [
+          {
+            id: 'f1',
+            name: 'nom',
+            fieldType: 'Str',
+            formula: null,
+            triggerFields: null
+          },
+          {
+            id: 'f2',
+            name: 'eleve_nom',
+            fieldType: 'Str',
+            formula: '@eleve and @eleve.descriptif',
+            triggerFields: null
+          }
+        ]
+      });
+    };
+    it('routes an active filter through the dynamic query with a $filter variable', async function() {
+      var dv, oldQuery, queries, varBodies;
+      oldQuery = global.GQL.query;
+      queries = [];
+      varBodies = [];
+      global.GQL.query = function(q, vars) {
+        queries.push(q);
+        varBodies.push(vars);
+        return Promise.resolve({
+          test_space: {
+            items: []
+          },
+          records: {
+            items: [],
+            total: 0
+          }
+        });
+      };
+      dv = new DV(container(), computedSpace());
+      dv._mounted = true;
+      dv._formulaFilter = '@x';
+      await dv.load();
+      global.GQL.query = oldQuery;
+      assert(queries.length > 0, 'no GraphQL query issued');
+      assert(queries[0].indexOf('query') >= 0, `not a GraphQL query: ${queries[0].substring(0, 60)}`);
+      assert(queries[0].indexOf('test_space(limit: 2000') >= 0, `expected the dynamic space query, got: ${queries[0].substring(0, 80)}`);
+      assert(queries[0].indexOf('$filter') >= 0, `expected a $filter variable, got: ${queries[0].substring(0, 80)}`);
+      return deepEq(varBodies[0].filter, {
+        formula: '@x',
+        language: 'moonscript'
+      });
+    });
+    it('still uses the plain records query with an active filter on a space without computed fields', async function() {
+      var dv, oldQuery, queries;
+      oldQuery = global.GQL.query;
+      queries = [];
+      global.GQL.query = function(q, vars) {
+        queries.push(q);
+        return Promise.resolve({
+          test_space: {
+            items: []
+          },
+          records: {
+            items: [],
+            total: 0
+          }
+        });
+      };
+      dv = new DV(container(), makeSpace());
+      dv._mounted = true;
+      dv._formulaFilter = '@x';
+      await dv.load();
+      global.GQL.query = oldQuery;
+      assert(queries.length > 0, 'no GraphQL query issued');
+      return assert(queries[0].indexOf('query Records') >= 0, `expected the plain records query, got: ${queries[0].substring(0, 60)}`);
+    });
+    return it('flags the formula inputs on a failing filtered query and clears them on success', async function() {
+      var byId, dv, failing, input, oldQuery;
+      oldQuery = global.GQL.query;
+      input = global.document.createElement('input');
+      byId = global.document.createElement('div');
+      global.document._setById('formula-filter-input', byId);
+      failing = true;
+      global.GQL.query = function() {
+        if (failing) {
+          return Promise.reject(new Error('bad formula'));
+        } else {
+          return Promise.resolve({
+            test_space: {
+              items: []
+            },
+            records: {
+              items: [],
+              total: 0
+            }
+          });
+        }
+      };
+      dv = new DV(container(), computedSpace());
+      dv._mounted = true;
+      dv._formulaFilter = '@x';
+      dv._formulaInputEl = input;
+      await dv.load();
+      clearTimeout(dv._errorTimer);
+      assert(input.classList.contains('input-error'), 'input-error missing on @_formulaInputEl');
+      assert(byId.classList.contains('input-error'), 'input-error missing on #formula-filter-input');
+      eq(dv._rows.length, 0);
+      failing = false;
+      await dv.load();
+      assert(!input.classList.contains('input-error'), 'input-error not cleared on @_formulaInputEl');
+      assert(!byId.classList.contains('input-error'), 'input-error not cleared on #formula-filter-input');
+      global.GQL.query = oldQuery;
+      return global.document._setById('formula-filter-input', null);
     });
   });
 

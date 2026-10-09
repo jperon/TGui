@@ -403,7 +403,7 @@ window.DataView = class DataView
       catch e
         @_showError "Erreur d'exécution de la vue : #{e.message}"
         @_rows = []
-    else if (computedNames.size > 0 or reprNames.size > 0) and not @_formulaFilter
+    else if computedNames.size > 0 or reprNames.size > 0
       # Use the space-specific dynamic resolver so formula fields are evaluated.
       tname      = gqlName @space.name
       fieldList  = for f in fields
@@ -413,16 +413,25 @@ window.DataView = class DataView
         else
           nm
       fieldList = fieldList.join(' ')
-      spaceQuery = "query { #{tname}(limit: 2000) { items { _id #{fieldList} } } }"
+      # The dynamic space query also accepts a RecordFilter (dynamic.moon), so an
+      # active formula filter no longer forces the plain records query — which
+      # would drop read-computed columns (no stored value for them).
+      spaceFilter = if @_formulaFilter then { formula: @_formulaFilter, language: 'moonscript' } else undefined
+      spaceQuery = "query($filter: RecordFilter) { #{tname}(limit: 2000, filter: $filter) { items { _id #{fieldList} } } }"
       try
-        data = await GQL.query spaceQuery, {}
+        data = await GQL.query spaceQuery, { filter: spaceFilter }
         return unless @_mounted
         @_rows = data[tname].items.map (item) ->
           row           = Object.assign {}, item
           row.__rowId   = item._id
           row
+        @_formulaInputEl?.classList.remove 'input-error'
+        document.getElementById('formula-filter-input')?.classList.remove 'input-error'
       catch e
         @_showError "Erreur de colonne calculée : #{e.message}"
+        if @_formulaFilter
+          @_formulaInputEl?.classList.add 'input-error'
+          document.getElementById('formula-filter-input')?.classList.add 'input-error'
         @_rows = []
     else
       gqlFilter = if @_formulaFilter then { formula: @_formulaFilter, language: 'moonscript' } else undefined
