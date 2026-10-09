@@ -611,7 +611,7 @@
     }
 
     async load() {
-      var data, e, f, fieldList, fields, focus, focusedRow, formulaNames, gqlFilter, nm, ref, ref1, ref2, ref3, ref4, reprNames, spaceQuery, tname;
+      var computedNames, data, e, f, fieldList, fields, focus, focusedRow, gqlFilter, nm, ref, ref1, ref2, ref3, ref4, reprNames, spaceQuery, tname;
       if (!this._mounted) {
         return;
       }
@@ -628,12 +628,14 @@
         }
       }
       fields = this.space.fields || [];
-      formulaNames = new Set((function() {
+      // Every field carrying a formula (trigger or not) must be read through the
+      // dynamic space query: a trigger formula may have no stored value yet.
+      computedNames = new Set((function() {
         var j, len, results1;
         results1 = [];
         for (j = 0, len = fields.length; j < len; j++) {
           f = fields[j];
-          if (f.formula && f.formula !== '' && !f.triggerFields) {
+          if (f.formula && f.formula !== '') {
             results1.push(f.name);
           }
         }
@@ -668,7 +670,7 @@
           this._showError(`Erreur d'exécution de la vue : ${e.message}`);
           this._rows = [];
         }
-      } else if ((formulaNames.size > 0 || reprNames.size > 0) && !this._formulaFilter) {
+      } else if ((computedNames.size > 0 || reprNames.size > 0) && !this._formulaFilter) {
         // Use the space-specific dynamic resolver so formula fields are evaluated.
         tname = gqlName(this.space.name);
         fieldList = (function() {

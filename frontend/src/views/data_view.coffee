@@ -386,7 +386,9 @@ window.DataView = class DataView
           columnName: focus.columnName
 
     fields       = @space.fields or []
-    formulaNames = new Set (f.name for f in fields when f.formula and f.formula != '' and not f.triggerFields)
+    # Every field carrying a formula (trigger or not) must be read through the
+    # dynamic space query: a trigger formula may have no stored value yet.
+    computedNames = new Set (f.name for f in fields when f.formula and f.formula != '')
     reprNames    = new Set (f.name for f in fields when f.reprFormula and f.reprFormula != '')
 
     if @space.isView
@@ -401,7 +403,7 @@ window.DataView = class DataView
       catch e
         @_showError "Erreur d'exécution de la vue : #{e.message}"
         @_rows = []
-    else if (formulaNames.size > 0 or reprNames.size > 0) and not @_formulaFilter
+    else if (computedNames.size > 0 or reprNames.size > 0) and not @_formulaFilter
       # Use the space-specific dynamic resolver so formula fields are evaluated.
       tname      = gqlName @space.name
       fieldList  = for f in fields
