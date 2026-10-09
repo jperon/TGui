@@ -282,6 +282,8 @@ describe 'CustomView — surface API', ->
       'mount'
       '_renderZoneOrWidget'
       '_renderWidget'
+      '_collectWidgetNodes'
+      '_widgetLinkFields'
       '_renderAggregate'
       '_wireDepends'
       '_applyDependencySelection'

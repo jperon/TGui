@@ -462,6 +462,50 @@
     });
   });
 
+  describe('DataView hidden link columns', function() {
+    return it('transmits a hidden field to tui.Grid as a hidden column', async function() {
+      var cols, dv, hidden, nom, sp;
+      sp = makeSpace({
+        fields: [
+          {
+            id: 'f1',
+            name: 'nom',
+            fieldType: 'String',
+            formula: null,
+            triggerFields: null
+          },
+          {
+            id: 'f2',
+            name: 'livre',
+            fieldType: 'Int',
+            formula: null,
+            triggerFields: null,
+            hidden: true
+          }
+        ]
+      });
+      dv = new DV(container(), sp);
+      dv._loadColWidths = function() {
+        return Promise.resolve({});
+      };
+      dv.load = function() {
+        return Promise.resolve([]);
+      };
+      await dv.mount();
+      cols = dv._grid.getColumns();
+      hidden = cols.find(function(c) {
+        return c.name === 'livre';
+      });
+      assert(hidden, 'hidden field must keep a grid column');
+      assert(hidden.hidden === true, 'hidden column must carry hidden:true');
+      nom = cols.find(function(c) {
+        return c.name === 'nom';
+      });
+      assert(!nom.hidden, 'visible column must not be hidden');
+      return dv.unmount();
+    });
+  });
+
   describe('DataView FK fuzzy autocomplete editor', function() {
     return it('supports fuzzy search and maps label -> id', async function() {
       var Editor, dv, editor, el, fkCol, matches, ref, rels, sp;

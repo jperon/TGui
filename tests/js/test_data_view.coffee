@@ -239,6 +239,27 @@ describe 'DataView editable columns formatter regression', ->
 
     dv.unmount()
 
+describe 'DataView hidden link columns', ->
+  it 'transmits a hidden field to tui.Grid as a hidden column', ->
+    sp = makeSpace
+      fields: [
+        { id: 'f1', name: 'nom',   fieldType: 'String', formula: null, triggerFields: null }
+        { id: 'f2', name: 'livre', fieldType: 'Int',    formula: null, triggerFields: null, hidden: true }
+      ]
+    dv = new DV container(), sp
+    dv._loadColWidths = -> Promise.resolve {}
+    dv.load = -> Promise.resolve []
+    await dv.mount()
+
+    cols = dv._grid.getColumns()
+    hidden = cols.find (c) -> c.name == 'livre'
+    assert hidden, 'hidden field must keep a grid column'
+    assert hidden.hidden is true, 'hidden column must carry hidden:true'
+    nom = cols.find (c) -> c.name == 'nom'
+    assert not nom.hidden, 'visible column must not be hidden'
+
+    dv.unmount()
+
 describe 'DataView FK fuzzy autocomplete editor', ->
   it 'supports fuzzy search and maps label -> id', ->
     sp = makeSpace
