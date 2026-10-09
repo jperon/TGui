@@ -611,7 +611,7 @@
     }
 
     async load() {
-      var computedNames, data, e, f, fieldList, fields, focus, focusedRow, gqlFilter, nm, ref, ref1, ref2, ref3, ref4, reprNames, spaceQuery, tname;
+      var computedNames, data, e, f, fieldList, fields, focus, focusedRow, gqlFilter, nm, ref, ref1, ref2, ref3, ref4, ref5, ref6, ref7, ref8, reprNames, spaceFilter, spaceQuery, tname;
       if (!this._mounted) {
         return;
       }
@@ -670,7 +670,7 @@
           this._showError(`Erreur d'exécution de la vue : ${e.message}`);
           this._rows = [];
         }
-      } else if ((computedNames.size > 0 || reprNames.size > 0) && !this._formulaFilter) {
+      } else if (computedNames.size > 0 || reprNames.size > 0) {
         // Use the space-specific dynamic resolver so formula fields are evaluated.
         tname = gqlName(this.space.name);
         fieldList = (function() {
@@ -688,9 +688,18 @@
           return results1;
         })();
         fieldList = fieldList.join(' ');
-        spaceQuery = `query { ${tname}(limit: 2000) { items { _id ${fieldList} } } }`;
+        // The dynamic space query also accepts a RecordFilter (dynamic.moon), so an
+        // active formula filter no longer forces the plain records query — which
+        // would drop read-computed columns (no stored value for them).
+        spaceFilter = this._formulaFilter ? {
+          formula: this._formulaFilter,
+          language: 'moonscript'
+        } : void 0;
+        spaceQuery = `query($filter: RecordFilter) { ${tname}(limit: 2000, filter: $filter) { items { _id ${fieldList} } } }`;
         try {
-          data = (await GQL.query(spaceQuery, {}));
+          data = (await GQL.query(spaceQuery, {
+            filter: spaceFilter
+          }));
           if (!this._mounted) {
             return;
           }
@@ -700,9 +709,23 @@
             row.__rowId = item._id;
             return row;
           });
+          if ((ref1 = this._formulaInputEl) != null) {
+            ref1.classList.remove('input-error');
+          }
+          if ((ref2 = document.getElementById('formula-filter-input')) != null) {
+            ref2.classList.remove('input-error');
+          }
         } catch (error) {
           e = error;
           this._showError(`Erreur de colonne calculée : ${e.message}`);
+          if (this._formulaFilter) {
+            if ((ref3 = this._formulaInputEl) != null) {
+              ref3.classList.add('input-error');
+            }
+            if ((ref4 = document.getElementById('formula-filter-input')) != null) {
+              ref4.classList.add('input-error');
+            }
+          }
           this._rows = [];
         }
       } else {
@@ -726,19 +749,19 @@
             row.__rowId = r.id;
             return row;
           });
-          if ((ref1 = this._formulaInputEl) != null) {
-            ref1.classList.remove('input-error');
+          if ((ref5 = this._formulaInputEl) != null) {
+            ref5.classList.remove('input-error');
           }
-          if ((ref2 = document.getElementById('formula-filter-input')) != null) {
-            ref2.classList.remove('input-error');
+          if ((ref6 = document.getElementById('formula-filter-input')) != null) {
+            ref6.classList.remove('input-error');
           }
         } catch (error) {
           e = error;
-          if ((ref3 = this._formulaInputEl) != null) {
-            ref3.classList.add('input-error');
+          if ((ref7 = this._formulaInputEl) != null) {
+            ref7.classList.add('input-error');
           }
-          if ((ref4 = document.getElementById('formula-filter-input')) != null) {
-            ref4.classList.add('input-error');
+          if ((ref8 = document.getElementById('formula-filter-input')) != null) {
+            ref8.classList.add('input-error');
           }
           this._rows = [];
           this._rows = [];
