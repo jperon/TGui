@@ -275,6 +275,15 @@ window.CustomView = class CustomView
       @container.innerHTML = "<p style='color:#888;padding:1rem'>Pas de section <code>layout</code> dans le YAML.</p>"
       return
 
+    # Index des `from_field` requis par chaque widget source, pour que les
+    # champs de liaison soient chargés même s'ils sont absents de `columns`.
+    @_linkFieldsByWidgetId = {}
+    for w in @_collectWidgetNodes root
+      dep = w.depends_on
+      continue unless dep?.widget
+      ff = dep.from_field or 'id'
+      (@_linkFieldsByWidgetId[dep.widget] ?= []).push ff
+
      el = @_renderZoneOrWidget root
      @container.style.cssText = 'display:flex;flex-direction:column;height:100%;'
      @container.appendChild el
@@ -516,12 +525,27 @@ window.CustomView = class CustomView
       @_widgetsById[wNode.id] = entry if wNode.id
       return wrapper
 
-    # Apply column filter/order if specified
+    # Apply column filter/order if specified. Les champs de liaison requis par
+    # la chaîne depends_on (le `depends_on.field` du widget, et le `from_field`
+    # de chaque widget qui dépend de lui) sont ajoutés en COPIE marquée
+    # `hidden: true` : ils doivent être chargés (la requête GraphQL se construit
+    # depuis sp.fields) mais pas affichés.
     if wNode.columns and wNode.columns.length > 0
       fieldMap = {}
       fieldMap[f.name] = f for f in (sp.fields or [])
       sp = Object.assign {}, sp
-      sp.fields = (fieldMap[col] for col in wNode.columns when fieldMap[col])
+      visible = (fieldMap[col] for col in wNode.columns when fieldMap[col])
+      present = {}
+      present[f.name] = true for f in visible
+      extras = []
+      for lf in @_widgetLinkFields wNode when not present[lf]
+        srcField = fieldMap[lf]
+        unless srcField
+          console.warn "depends_on: champ de liaison '#{lf}' absent de l'espace/vue '#{wNode.space}' (widget '#{wNode.id}')"
+          continue
+        extras.push Object.assign {}, srcField, { hidden: true }
+        present[lf] = true
+      sp.fields = visible.concat extras
 
     dv = new DataView body, sp
     filterFormula = ''
@@ -562,6 +586,29 @@ window.CustomView = class CustomView
     @_widgetsById[wNode.id] = entry if wNode.id
     wrapper
 
+  # Liste à plat des mappings `widget` d'un arbre de layout, dans l'ordre de
+  # rendu. Sert à connaître les dépendances avant de rendre les widgets.
+  _collectWidgetNodes: (node, out = []) ->
+    zone = if node.layout then node.layout else node
+    if zone.widget
+      out.push zone.widget
+    else
+      @_collectWidgetNodes child, out for child in (zone.children or [])
+    out
+
+  # Champs de liaison obligatoires d'un widget : son propre `depends_on.field`,
+  # puis le `from_field` (défaut `id`) de chaque widget qui dépend de lui.
+  # Dédoublonnés, dans cet ordre.
+  _widgetLinkFields: (wNode) ->
+    out = []
+    add = (name) ->
+      return unless name
+      out.push name unless name in out
+    add wNode.depends_on?.field
+    for ff in (@_linkFieldsByWidgetId?[wNode.id] or [])
+      add ff
+    out
+
   _wireDepends: ->
     for entry in @_widgets
       dep = entry.node.depends_on
@@ -591,7 +638,19 @@ window.CustomView = class CustomView
             @_applyDependencySelection entry, dep, rows[0]
 
   _applyDependencySelection: (entry, dep, rowData, seen = new WeakSet) ->
-    filterVal = String(rowData[dep.from_field or 'id'])
+    key = dep.from_field or 'id'
+    raw = rowData?[key]
+    # Garde-fou : le champ de liaison est absent de la ligne source (widget
+    # source dépourvu de ce champ, vue agrégée, …). Ne jamais filtrer sur la
+    # chaîne "undefined" (qui laisserait tout passer) : aucun résultat.
+    if raw is undefined or raw is null or raw is ''
+      console.warn "depends_on: champ de liaison '#{key}' absent de la ligne source du widget '#{dep.widget}' (widget cible '#{entry.node?.id}')"
+      if entry.dataView?
+        entry.dataView.setDefaultValues {}
+        entry.dataView.setFilter { field: dep.field, value: null, none: true }
+        @_cascadeNone entry, seen
+      return
+    filterVal = String raw
     defaults = {}
     defaults[dep.field] = filterVal
     if entry.dataView?

@@ -30,6 +30,7 @@
   // Parse a Data View `config`: the list GraphQL query returns the raw serialized
   // JSON string (data_views.coffee), while the detail query decodes it. Accept both.
   var CustomView, _dataViewColumns, _nodeFactor, _parseDataViewConfig,
+    indexOf = [].indexOf,
     hasProp = {}.hasOwnProperty;
 
   _parseDataViewConfig = function(raw) {
@@ -356,7 +357,7 @@ transition: all 0.3s ease;`;
     }
 
     mount() {
-      var e, el, parsed, ref, root;
+      var base, dep, e, el, ff, j, len, name1, parsed, ref, ref1, root, w;
       this.container.innerHTML = '';
       this._widgets = [];
       this._widgetsById = {};
@@ -381,6 +382,19 @@ transition: all 0.3s ease;`;
         this.container.innerHTML = "<p style='color:#888;padding:1rem'>Pas de section <code>layout</code> dans le YAML.</p>";
         return;
       }
+      // Index des `from_field` requis par chaque widget source, pour que les
+      // champs de liaison soient chargés même s'ils sont absents de `columns`.
+      this._linkFieldsByWidgetId = {};
+      ref = this._collectWidgetNodes(root);
+      for (j = 0, len = ref.length; j < len; j++) {
+        w = ref[j];
+        dep = w.depends_on;
+        if (!(dep != null ? dep.widget : void 0)) {
+          continue;
+        }
+        ff = dep.from_field || 'id';
+        ((base = this._linkFieldsByWidgetId)[name1 = dep.widget] != null ? base[name1] : base[name1] = []).push(ff);
+      }
       el = this._renderZoneOrWidget(root);
       this.container.style.cssText = 'display:flex;flex-direction:column;height:100%;';
       this.container.appendChild(el);
@@ -401,9 +415,9 @@ transition: all 0.3s ease;`;
       // Initialiser le DragDropManager avec support des zones (Phase 3)
       // Disabled in presentation mode
       if (this.pageId && !this.presentationMode) {
-        if ((ref = this._dragDropManager) != null) {
-          if (typeof ref.destroy === "function") {
-            ref.destroy();
+        if ((ref1 = this._dragDropManager) != null) {
+          if (typeof ref1.destroy === "function") {
+            ref1.destroy();
           }
         }
         // Vérifier si DragDropManager est disponible
@@ -631,7 +645,7 @@ transition: all 0.3s ease;`;
     }
 
     _renderWidget(wNode) {
-      var body, col, delBtn, dv, entry, f, fieldMap, filterFormula, filterInput, filterLabel, filterTimer, filterWrap, j, lang, len, ref, runtimeWidgetId, sp, titleBar, titleText, wrapper;
+      var body, col, delBtn, dv, entry, extras, f, fieldMap, filterFormula, filterInput, filterLabel, filterTimer, filterWrap, j, k, l, lang, len, len1, len2, lf, present, ref, ref1, runtimeWidgetId, sp, srcField, titleBar, titleText, visible, wrapper;
       wrapper = document.createElement('div');
       wrapper.className = 'cv-widget';
       // Ajouter les attributs pour le drag & drop
@@ -699,7 +713,11 @@ transition: all 0.3s ease;`;
         }
         return wrapper;
       }
-      // Apply column filter/order if specified
+      // Apply column filter/order if specified. Les champs de liaison requis par
+      // la chaîne depends_on (le `depends_on.field` du widget, et le `from_field`
+      // de chaque widget qui dépend de lui) sont ajoutés en COPIE marquée
+      // `hidden: true` : ils doivent être chargés (la requête GraphQL se construit
+      // depuis sp.fields) mais pas affichés.
       if (wNode.columns && wNode.columns.length > 0) {
         fieldMap = {};
         ref = sp.fields || [];
@@ -708,7 +726,7 @@ transition: all 0.3s ease;`;
           fieldMap[f.name] = f;
         }
         sp = Object.assign({}, sp);
-        sp.fields = (function() {
+        visible = (function() {
           var k, len1, ref1, results;
           ref1 = wNode.columns;
           results = [];
@@ -720,6 +738,29 @@ transition: all 0.3s ease;`;
           }
           return results;
         })();
+        present = {};
+        for (k = 0, len1 = visible.length; k < len1; k++) {
+          f = visible[k];
+          present[f.name] = true;
+        }
+        extras = [];
+        ref1 = this._widgetLinkFields(wNode);
+        for (l = 0, len2 = ref1.length; l < len2; l++) {
+          lf = ref1[l];
+          if (!(!present[lf])) {
+            continue;
+          }
+          srcField = fieldMap[lf];
+          if (!srcField) {
+            console.warn(`depends_on: champ de liaison '${lf}' absent de l'espace/vue '${wNode.space}' (widget '${wNode.id}')`);
+            continue;
+          }
+          extras.push(Object.assign({}, srcField, {
+            hidden: true
+          }));
+          present[lf] = true;
+        }
+        sp.fields = visible.concat(extras);
       }
       dv = new DataView(body, sp);
       filterFormula = '';
@@ -771,6 +812,46 @@ transition: all 0.3s ease;`;
         this._widgetsById[wNode.id] = entry;
       }
       return wrapper;
+    }
+
+    // Liste à plat des mappings `widget` d'un arbre de layout, dans l'ordre de
+    // rendu. Sert à connaître les dépendances avant de rendre les widgets.
+    _collectWidgetNodes(node, out = []) {
+      var child, j, len, ref, zone;
+      zone = node.layout ? node.layout : node;
+      if (zone.widget) {
+        out.push(zone.widget);
+      } else {
+        ref = zone.children || [];
+        for (j = 0, len = ref.length; j < len; j++) {
+          child = ref[j];
+          this._collectWidgetNodes(child, out);
+        }
+      }
+      return out;
+    }
+
+    // Champs de liaison obligatoires d'un widget : son propre `depends_on.field`,
+    // puis le `from_field` (défaut `id`) de chaque widget qui dépend de lui.
+    // Dédoublonnés, dans cet ordre.
+    _widgetLinkFields(wNode) {
+      var add, ff, j, len, out, ref, ref1, ref2;
+      out = [];
+      add = function(name) {
+        if (!name) {
+          return;
+        }
+        if (indexOf.call(out, name) < 0) {
+          return out.push(name);
+        }
+      };
+      add((ref = wNode.depends_on) != null ? ref.field : void 0);
+      ref2 = ((ref1 = this._linkFieldsByWidgetId) != null ? ref1[wNode.id] : void 0) || [];
+      for (j = 0, len = ref2.length; j < len; j++) {
+        ff = ref2[j];
+        add(ff);
+      }
+      return out;
     }
 
     _wireDepends() {
@@ -828,8 +909,26 @@ transition: all 0.3s ease;`;
     }
 
     _applyDependencySelection(entry, dep, rowData, seen = new WeakSet()) {
-      var defaults, filterVal, first, targetWidgetId;
-      filterVal = String(rowData[dep.from_field || 'id']);
+      var defaults, filterVal, first, key, raw, ref, targetWidgetId;
+      key = dep.from_field || 'id';
+      raw = rowData != null ? rowData[key] : void 0;
+      // Garde-fou : le champ de liaison est absent de la ligne source (widget
+      // source dépourvu de ce champ, vue agrégée, …). Ne jamais filtrer sur la
+      // chaîne "undefined" (qui laisserait tout passer) : aucun résultat.
+      if (raw === void 0 || raw === null || raw === '') {
+        console.warn(`depends_on: champ de liaison '${key}' absent de la ligne source du widget '${dep.widget}' (widget cible '${(ref = entry.node) != null ? ref.id : void 0}')`);
+        if (entry.dataView != null) {
+          entry.dataView.setDefaultValues({});
+          entry.dataView.setFilter({
+            field: dep.field,
+            value: null,
+            none: true
+          });
+          this._cascadeNone(entry, seen);
+        }
+        return;
+      }
+      filterVal = String(raw);
       defaults = {};
       defaults[dep.field] = filterVal;
       if (entry.dataView != null) {

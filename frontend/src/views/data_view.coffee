@@ -169,6 +169,10 @@ window.DataView = class DataView
             return err if err
             safe = escapeHtml String(displayVal ? '')
             "<span class=\"tdb-cell-text\" data-full-text=\"#{safe}\">#{safe}</span>"
+      # Champ de liaison chargé mais non affiché (T21) : la colonne reste dans
+      # la grille et dans la requête, mais Toast UI Grid la masque (en-tête,
+      # panneau de largeurs) ; elle est aussi exclue de la navigation Tab.
+      col.hidden = true if f.hidden
       col
 
     @_grid = new tui.Grid
@@ -228,8 +232,9 @@ window.DataView = class DataView
     # boundaries. Start editing only if the target cell is editable.
     # Listener on document (capture) so it fires even when focus is on wrapper
     # itself (non-editable cell); guarded by wrapper.contains(activeElement).
-    editableCols = columns.filter((c) -> c.editor).map((c) -> c.name)
-    allCols      = columns.map (c) -> c.name
+    navColumns   = columns.filter (c) -> not c.hidden
+    editableCols = navColumns.filter((c) -> c.editor).map((c) -> c.name)
+    allCols      = navColumns.map (c) -> c.name
     editableSet  = new Set editableCols
 
     moveTo = (rowKey, colName) =>
