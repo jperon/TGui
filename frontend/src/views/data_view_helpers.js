@@ -10,6 +10,22 @@
       this.filter = filter;
       return this._applyData();
     },
+    // Marque une ligne comme active (classe CSS) sans voler le focus clavier ni
+    // ouvrir l'édition d'une cellule. Une seule ligne active par grille.
+    setActiveRow: function(rowKey) {
+      if (!this._grid) {
+        return;
+      }
+      if ((this._activeRowKey != null) && this._activeRowKey !== rowKey) {
+        this._grid.removeRowClassName(this._activeRowKey, 'tdb-selected-row');
+      }
+      this._activeRowKey = null;
+      if (rowKey == null) {
+        return;
+      }
+      this._grid.addRowClassName(rowKey, 'tdb-selected-row');
+      return this._activeRowKey = rowKey;
+    },
     setFormulaFilter: function(formula) {
       this._formulaFilter = formula || '';
       return this.load();

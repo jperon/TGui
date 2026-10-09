@@ -299,6 +299,71 @@ describe 'DataView.unmount', ->
     eq dv._rows.length, 0
     eq dv._currentData.length, 0
 
+describe 'DataView.setActiveRow', ->
+  makeGrid = ->
+    classes = {}
+    grid =
+      resetData: -> @_data = arguments[0]
+      getRowAt: -> null
+      addRowClassName: (key, cls) ->
+        (classes[String key] ?= {})[cls] = true
+      removeRowClassName: (key, cls) ->
+        delete classes[String key]?[cls]
+      hasClass: (key, cls) -> !! classes[String key]?[cls]
+      countClass: (cls) ->
+        n = 0
+        n += 1 for _k, v of classes when v[cls]
+        n
+    { grid, classes }
+
+  it 'marks the given row and clears the previous one', ->
+    dv = new DV container(), makeSpace()
+    { grid } = makeGrid()
+    dv._grid = grid
+    dv.setActiveRow 0
+    assert grid.hasClass(0, 'tdb-selected-row'), 'row 0 not marked'
+    dv.setActiveRow 1
+    assert grid.hasClass(1, 'tdb-selected-row'), 'row 1 not marked'
+    assert not grid.hasClass(0, 'tdb-selected-row'), 'row 0 should be cleared'
+    eq grid.countClass('tdb-selected-row'), 1
+
+  it 'clears the active row when rowKey is null', ->
+    dv = new DV container(), makeSpace()
+    { grid } = makeGrid()
+    dv._grid = grid
+    dv.setActiveRow 2
+    dv.setActiveRow null
+    eq grid.countClass('tdb-selected-row'), 0
+    eq dv._activeRowKey, null
+
+describe 'DataView filter none', ->
+  it 'setFilter {none:true} shows zero rows (no sentinel)', ->
+    dv = new DV container(), makeSpace()
+    gridData = []
+    dv._grid =
+      resetData: (d) -> gridData = d
+      getRowAt: -> null
+      addRowClassName: ->
+      removeRowClassName: ->
+    dv._rows = [ { __rowId: '1', nom: 'Alice' }, { __rowId: '2', nom: 'Bob' } ]
+    dv.setFilter { field: 'nom', value: null, none: true }
+    eq gridData.length, 0
+    eq dv._currentData.length, 0
+
+  it 'a normal setFilter still works after a none filter', ->
+    dv = new DV container(), makeSpace()
+    gridData = []
+    dv._grid =
+      resetData: (d) -> gridData = d
+      getRowAt: -> null
+      addRowClassName: ->
+      removeRowClassName: ->
+    dv._rows = [ { __rowId: '1', nom: 'Alice' } ]
+    dv.setFilter { field: 'nom', value: null, none: true }
+    dv.setFilter { field: 'nom', value: 'Alice' }
+    eq gridData.length, 2   # Alice + sentinel
+    assert gridData[1].__isNew
+
 # Freeze the public prototype surface so the data_view / data_view_helpers split
 # cannot silently drop or rename a method.
 describe 'DataView prototype surface (frozen)', ->
@@ -310,7 +375,7 @@ describe 'DataView prototype surface (frozen)', ->
       '_loadColWidths', '_lsKey', '_saveColWidths', '_sentinel',
       '_serializeRowForMutation', '_showError', '_toBoolean', 'constructor',
       'deleteSelected', 'getFocusedColumnName', 'insertBlank', 'load', 'mount',
-      'setDefaultValues', 'setFilter', 'setFormulaFilter', 'unmount'
+      'setActiveRow', 'setDefaultValues', 'setFilter', 'setFormulaFilter', 'unmount'
     ]
     deepEq Object.getOwnPropertyNames(DV.prototype).sort(), expected
 

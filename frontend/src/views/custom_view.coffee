@@ -282,6 +282,9 @@ window.CustomView = class CustomView
      # Wire depends_on after all DataView grids are ready (mount is async)
      Promise.all(@_mountPromises).then =>
        @_wireDepends()
+       # Initial cascade: activate the first row of each root widget and
+       # propagate down the depends_on chain (once per mount).
+       @_initializeCascade()
        # Refresh grid layouts now that elements are in the live DOM
        setTimeout (=> @_refreshGridLayouts()), 0
        # Une tuile redimensionnée change la taille de sa grille : on rafraîchit
@@ -563,6 +566,8 @@ window.CustomView = class CustomView
     for entry in @_widgets
       dep = entry.node.depends_on
       continue unless dep
+      # Un widget plugin dépendant n'est pas rempli automatiquement.
+      continue if entry.plugin
       src = @_widgetsById[dep.widget]
       unless src
         console.warn "depends_on: widget id '#{dep.widget}' introuvable"
@@ -585,13 +590,21 @@ window.CustomView = class CustomView
             return unless rows.length > 0
             @_applyDependencySelection entry, dep, rows[0]
 
-  _applyDependencySelection: (entry, dep, rowData) ->
+  _applyDependencySelection: (entry, dep, rowData, seen = new WeakSet) ->
     filterVal = String(rowData[dep.from_field or 'id'])
     defaults = {}
     defaults[dep.field] = filterVal
     if entry.dataView?
       entry.dataView.setDefaultValues defaults
       entry.dataView.setFilter { field: dep.field, value: filterVal }
+      # Cascade : activer la première ligne affichée de ce widget et propager à
+      # ses propres dépendants, ou passer en « aucun résultat » si vide.
+      seen.add entry
+      first = @_firstRow entry
+      if first?
+        @_selectRow entry, first.rowKey, seen
+      else
+        @_cascadeNone entry, seen
     else if entry.plugin
       targetWidgetId = entry.runtimeWidgetId or entry.node.id
       return unless targetWidgetId
@@ -602,6 +615,71 @@ window.CustomView = class CustomView
           byField: defaults
         }
       }
+
+  # ── Sélection en cascade des widgets dépendants ─────────────────────────────
+
+  # Entrées widgets dépendant directement de `entry` (via depends_on.widget).
+  _dependentEntries: (entry) ->
+    depId = entry?.node?.id
+    return [] unless depId
+    (e for e in @_widgets when e.node?.depends_on?.widget == depId)
+
+  # Première ligne affichée (hors sentinelle __isNew) d'une entrée, ou null.
+  _firstRow: (entry) ->
+    grid = entry?.dataView?._grid
+    return null unless grid
+    data = entry.dataView._currentData or []
+    for row, i in data
+      continue if row.__isNew
+      return grid.getRowAt(i) or row
+    null
+
+  # Marque `rowKey` active sur un widget dataView, puis propage la ligne à ses
+  # dépendants (récursion). Ne vole pas le focus ni n'ouvre l'édition.
+  _selectRow: (entry, rowKey, seen = new WeakSet) ->
+    return unless entry?.dataView?
+    rowData = entry.dataView._grid?.getRow rowKey
+    return unless rowData? and not rowData.__isNew
+    entry.dataView.setActiveRow rowKey
+    seen.add entry
+    @_cascadeToDependents entry, rowData, seen
+
+  # Propage `rowData` de `entry` à ses dépendants dataView. Les widgets plugin
+  # dépendants ne sont pas remplis automatiquement.
+  _cascadeToDependents: (entry, rowData, seen = new WeakSet) ->
+    for child in @_dependentEntries entry
+      continue if child.plugin
+      if seen.has child
+        console.warn "depends_on: cycle détecté autour du widget '#{child.node?.id}'"
+        continue
+      @_applyDependencySelection child, child.node.depends_on, rowData, seen
+
+  # Aucune ligne disponible : les dépendants (et descendants) passent en
+  # « aucun résultat », sans reliquat de l'ancienne sélection.
+  _cascadeNone: (entry, seen = new WeakSet) ->
+    seen.add entry
+    for child in @_dependentEntries entry
+      continue if child.plugin
+      if seen.has child
+        console.warn "depends_on: cycle détecté autour du widget '#{child.node?.id}'"
+        continue
+      seen.add child
+      child.dataView?.setFilter { field: child.node.depends_on?.field, value: null, none: true }
+      @_cascadeNone child, seen
+
+  # Au montage : chaque widget racine pourvu de dépendants active sa première
+  # ligne et lance la cascade. Les widgets sans dépendants ne sont pas modifiés.
+  _initializeCascade: ->
+    for entry in @_widgets
+      continue if entry.plugin
+      continue if entry.node?.depends_on
+      continue unless entry.dataView?
+      continue unless @_dependentEntries(entry).length > 0
+      first = @_firstRow entry
+      if first?
+        @_selectRow entry, first.rowKey
+      else
+        @_cascadeNone entry
 
   _findSpace: (nameOrId) ->
     return null unless nameOrId

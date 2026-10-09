@@ -387,6 +387,9 @@ transition: all 0.3s ease;`;
       // Wire depends_on after all DataView grids are ready (mount is async)
       Promise.all(this._mountPromises).then(() => {
         this._wireDepends();
+        // Initial cascade: activate the first row of each root widget and
+        // propagate down the depends_on chain (once per mount).
+        this._initializeCascade();
         // Refresh grid layouts now that elements are in the live DOM
         setTimeout((() => {
           return this._refreshGridLayouts();
@@ -780,6 +783,10 @@ transition: all 0.3s ease;`;
         if (!dep) {
           continue;
         }
+        if (entry.plugin) {
+          // Un widget plugin dépendant n'est pas rempli automatiquement.
+          continue;
+        }
         src = this._widgetsById[dep.widget];
         if (!src) {
           console.warn(`depends_on: widget id '${dep.widget}' introuvable`);
@@ -820,17 +827,26 @@ transition: all 0.3s ease;`;
       return results;
     }
 
-    _applyDependencySelection(entry, dep, rowData) {
-      var defaults, filterVal, targetWidgetId;
+    _applyDependencySelection(entry, dep, rowData, seen = new WeakSet()) {
+      var defaults, filterVal, first, targetWidgetId;
       filterVal = String(rowData[dep.from_field || 'id']);
       defaults = {};
       defaults[dep.field] = filterVal;
       if (entry.dataView != null) {
         entry.dataView.setDefaultValues(defaults);
-        return entry.dataView.setFilter({
+        entry.dataView.setFilter({
           field: dep.field,
           value: filterVal
         });
+        // Cascade : activer la première ligne affichée de ce widget et propager à
+        // ses propres dépendants, ou passer en « aucun résultat » si vide.
+        seen.add(entry);
+        first = this._firstRow(entry);
+        if (first != null) {
+          return this._selectRow(entry, first.rowKey, seen);
+        } else {
+          return this._cascadeNone(entry, seen);
+        }
       } else if (entry.plugin) {
         targetWidgetId = entry.runtimeWidgetId || entry.node.id;
         if (!targetWidgetId) {
@@ -844,6 +860,139 @@ transition: all 0.3s ease;`;
           }
         });
       }
+    }
+
+    // ── Sélection en cascade des widgets dépendants ─────────────────────────────
+
+      // Entrées widgets dépendant directement de `entry` (via depends_on.widget).
+    _dependentEntries(entry) {
+      var depId, e, j, len, ref, ref1, ref2, ref3, results;
+      depId = entry != null ? (ref = entry.node) != null ? ref.id : void 0 : void 0;
+      if (!depId) {
+        return [];
+      }
+      ref1 = this._widgets;
+      results = [];
+      for (j = 0, len = ref1.length; j < len; j++) {
+        e = ref1[j];
+        if (((ref2 = e.node) != null ? (ref3 = ref2.depends_on) != null ? ref3.widget : void 0 : void 0) === depId) {
+          results.push(e);
+        }
+      }
+      return results;
+    }
+
+    // Première ligne affichée (hors sentinelle __isNew) d'une entrée, ou null.
+    _firstRow(entry) {
+      var data, grid, i, j, len, ref, row;
+      grid = entry != null ? (ref = entry.dataView) != null ? ref._grid : void 0 : void 0;
+      if (!grid) {
+        return null;
+      }
+      data = entry.dataView._currentData || [];
+      for (i = j = 0, len = data.length; j < len; i = ++j) {
+        row = data[i];
+        if (row.__isNew) {
+          continue;
+        }
+        return grid.getRowAt(i) || row;
+      }
+      return null;
+    }
+
+    // Marque `rowKey` active sur un widget dataView, puis propage la ligne à ses
+    // dépendants (récursion). Ne vole pas le focus ni n'ouvre l'édition.
+    _selectRow(entry, rowKey, seen = new WeakSet()) {
+      var ref, rowData;
+      if ((entry != null ? entry.dataView : void 0) == null) {
+        return;
+      }
+      rowData = (ref = entry.dataView._grid) != null ? ref.getRow(rowKey) : void 0;
+      if (!((rowData != null) && !rowData.__isNew)) {
+        return;
+      }
+      entry.dataView.setActiveRow(rowKey);
+      seen.add(entry);
+      return this._cascadeToDependents(entry, rowData, seen);
+    }
+
+    // Propage `rowData` de `entry` à ses dépendants dataView. Les widgets plugin
+    // dépendants ne sont pas remplis automatiquement.
+    _cascadeToDependents(entry, rowData, seen = new WeakSet()) {
+      var child, j, len, ref, ref1, results;
+      ref = this._dependentEntries(entry);
+      results = [];
+      for (j = 0, len = ref.length; j < len; j++) {
+        child = ref[j];
+        if (child.plugin) {
+          continue;
+        }
+        if (seen.has(child)) {
+          console.warn(`depends_on: cycle détecté autour du widget '${(ref1 = child.node) != null ? ref1.id : void 0}'`);
+          continue;
+        }
+        results.push(this._applyDependencySelection(child, child.node.depends_on, rowData, seen));
+      }
+      return results;
+    }
+
+    // Aucune ligne disponible : les dépendants (et descendants) passent en
+    // « aucun résultat », sans reliquat de l'ancienne sélection.
+    _cascadeNone(entry, seen = new WeakSet()) {
+      var child, j, len, ref, ref1, ref2, ref3, results;
+      seen.add(entry);
+      ref = this._dependentEntries(entry);
+      results = [];
+      for (j = 0, len = ref.length; j < len; j++) {
+        child = ref[j];
+        if (child.plugin) {
+          continue;
+        }
+        if (seen.has(child)) {
+          console.warn(`depends_on: cycle détecté autour du widget '${(ref1 = child.node) != null ? ref1.id : void 0}'`);
+          continue;
+        }
+        seen.add(child);
+        if ((ref2 = child.dataView) != null) {
+          ref2.setFilter({
+            field: (ref3 = child.node.depends_on) != null ? ref3.field : void 0,
+            value: null,
+            none: true
+          });
+        }
+        results.push(this._cascadeNone(child, seen));
+      }
+      return results;
+    }
+
+    // Au montage : chaque widget racine pourvu de dépendants active sa première
+    // ligne et lance la cascade. Les widgets sans dépendants ne sont pas modifiés.
+    _initializeCascade() {
+      var entry, first, j, len, ref, ref1, results;
+      ref = this._widgets;
+      results = [];
+      for (j = 0, len = ref.length; j < len; j++) {
+        entry = ref[j];
+        if (entry.plugin) {
+          continue;
+        }
+        if ((ref1 = entry.node) != null ? ref1.depends_on : void 0) {
+          continue;
+        }
+        if (entry.dataView == null) {
+          continue;
+        }
+        if (!(this._dependentEntries(entry).length > 0)) {
+          continue;
+        }
+        first = this._firstRow(entry);
+        if (first != null) {
+          results.push(this._selectRow(entry, first.rowKey));
+        } else {
+          results.push(this._cascadeNone(entry));
+        }
+      }
+      return results;
     }
 
     _findSpace(nameOrId) {

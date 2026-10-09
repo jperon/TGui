@@ -63,9 +63,11 @@
       this._focusedColumnName = null;
       this._colWidthsCache = {};
       this._saveWidthsTimer = null;
+      this._activeRowKey = null; // rowKey of the row highlighted by depends_on cascade
     }
 
-    // Build FK display maps for all relation fields.
+    
+      // Build FK display maps for all relation fields.
     async _buildFkMaps() {
       var data, display, e, field, fkId, formula, j, l, len, len1, map, options, rec, records, ref, ref1, ref2, ref3, ref4, ref5, ref6, rel, results1;
       ref = this._relations;
@@ -328,7 +330,10 @@
       });
       this._grid.on('click', (ev) => {
         if (ev != null ? ev.columnName : void 0) {
-          return setFocusedColumn(ev.columnName);
+          setFocusedColumn(ev.columnName);
+        }
+        if ((ev != null ? ev.rowKey : void 0) != null) {
+          return this.setActiveRow(ev.rowKey);
         }
       });
       this._grid.on('mouseover', (ev) => {
@@ -737,6 +742,14 @@
       if (!this._grid) {
         return;
       }
+      // « aucun résultat » : un widget dépendant dont la source n'a aucune ligne
+      // correspondante n'affiche aucune ligne (ni donnée, ni sentinelle).
+      if (this.filter && this.filter.none) {
+        this._currentData = [];
+        this._activeRowKey = null;
+        this._grid.resetData(this._currentData);
+        return;
+      }
       rows = this._rows;
       if (this.filter) {
         rows = rows.filter((r) => {
@@ -783,6 +796,8 @@
         }
       }
       this._grid.resetData(this._currentData);
+      // resetData rebuilds rows: the highlighted row key is no longer tracked.
+      this._activeRowKey = null;
       // Restore focus if we have saved it
       if (this._lastFocus) {
         ({rowId, isNew, columnName} = this._lastFocus);
@@ -956,6 +971,7 @@
       this._grid = null;
       this._currentData = [];
       this._rows = [];
+      this._activeRowKey = null;
       return this.container.innerHTML = '';
     }
 

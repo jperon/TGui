@@ -9,6 +9,17 @@ Object.assign window.DataView::,
     @filter = filter
     @_applyData()
 
+  # Marque une ligne comme active (classe CSS) sans voler le focus clavier ni
+  # ouvrir l'édition d'une cellule. Une seule ligne active par grille.
+  setActiveRow: (rowKey) ->
+    return unless @_grid
+    if @_activeRowKey? and @_activeRowKey != rowKey
+      @_grid.removeRowClassName @_activeRowKey, 'tdb-selected-row'
+    @_activeRowKey = null
+    return unless rowKey?
+    @_grid.addRowClassName rowKey, 'tdb-selected-row'
+    @_activeRowKey = rowKey
+
   setFormulaFilter: (formula) ->
     @_formulaFilter = formula or ''
     @load()
