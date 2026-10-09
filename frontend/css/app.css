@@ -394,6 +394,23 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   transform: scale(1.2);
 }
 
+/* Séparateurs glissables entre tuiles (mode tuile des pages) */
+.cv-splitter {
+  flex: 0 0 5px;
+  align-self: stretch;
+  background: transparent;
+  transition: background 0.15s ease;
+  z-index: 5;
+}
+
+.cv-splitter:hover,
+.cv-splitter:active {
+  background: var(--color-accent);
+}
+
+.cv-splitter--horizontal { cursor: col-resize; }
+.cv-splitter--vertical { cursor: row-resize; }
+
 /* Tooltip de redimensionnement */
 .resize-tooltip {
   pointer-events: none;
@@ -637,6 +654,7 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
 .presentation-mode .cv-widget-title { cursor: default; }
 .presentation-mode .cv-widget-delete-btn,
 .presentation-mode .resize-handle,
+.presentation-mode .cv-splitter,
 .presentation-mode .cv-widget-filter { display: none !important; }
 .presentation-mode .drop-zone { border: none !important; }
 .presentation-mode .cv-widget-title::after { display: none; }

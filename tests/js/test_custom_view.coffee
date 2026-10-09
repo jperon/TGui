@@ -277,6 +277,8 @@ describe 'CustomView — surface API', ->
       '_setMessage'
       '_refreshGridLayouts'
       '_setupResizeObserver'
+      '_createSplitter'
+      '_saveChildFactors'
       'mount'
       '_renderZoneOrWidget'
       '_renderWidget'

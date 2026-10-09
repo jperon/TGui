@@ -71,6 +71,15 @@ _dataViewColumns = (config, dv, allSpaces) ->
     fields.push { name: name, fieldType: typeFor name }
   fields
 
+# Facteur de répartition d'un nœud. Lu sur le mapping `widget`/`layout` (forme
+# documentée de doc/fr/get-started.md), puis sur l'entrée elle-même (ancienne
+# forme). Défaut : 1. L'écriture (setChildFactors) vise le mapping.
+_nodeFactor = (node) ->
+  return node.widget.factor if node.widget and node.widget.factor?
+  return node.layout.factor if node.layout and node.layout.factor?
+  return node.factor if node.factor?
+  1
+
 window.CustomView = class CustomView
   constructor: (@container, @yamlText, @allSpaces, @allDataViews = [], @options = {}) ->
     @_widgets   = []   # list of { dataView, node, el }
@@ -196,6 +205,35 @@ window.CustomView = class CustomView
     p.textContent = String(text ? '')
     container.appendChild p
 
+  # Répartit `sizeA + sizeB` px entre deux tuiles voisines après un glisser de
+  # `delta` px, en respectant un minimum `min` pour chacune. Fonction pure.
+  @redistribute: (sizeA, sizeB, delta, min) ->
+    total = sizeA + sizeB
+    return [sizeA, sizeB] if total < 2 * min
+    a = Math.max(min, Math.min(total - min, sizeA + delta))
+    [a, total - a]
+
+  # Réécrit le YAML d'une page en mettant à jour le `factor` des enfants voulus.
+  # `path` = indices d'enfants depuis `layout` jusqu'à la zone parente.
+  # `factors` = liste de `{ index, factor }` (index dans les enfants de la zone).
+  # Le facteur est écrit dans le mapping `widget`/`layout` de l'enfant.
+  @setChildFactors: (yamlText, path, factors) ->
+    parsed = jsyaml.load yamlText
+    return yamlText unless parsed?.layout
+    parent = parsed.layout
+    for idx in (path or [])
+      entry = parent?.children?[idx]
+      return yamlText unless entry
+      parent = if entry.layout then entry.layout else entry
+    return yamlText unless parent?.children?
+    for f in (factors or [])
+      child = parent.children[f.index]
+      continue unless child
+      mapping = if child.widget then child.widget else if child.layout then child.layout else child
+      mapping.factor = Math.round(f.factor * 100) / 100
+      delete child.factor if child.widget or child.layout
+    jsyaml.dump parsed
+
   # Anti-rebond : une seule passe de rafraîchissement par salve de changements.
   _refreshGridLayouts: ->
     for entry in @_widgets
@@ -296,7 +334,9 @@ window.CustomView = class CustomView
   # Renders either a zone (direction+children) or a widget node.
   # Applies `factor` (flex proportion) when specified (default: 1).
   # Supports both inline zone keys (direction/children) and wrapped "- layout:" syntax.
-  _renderZoneOrWidget: (node) ->
+  # `path` = indices des enfants depuis `layout` (racine) jusqu'à la zone parente ;
+  # sert à réécrire le bon emplacement du YAML lors d'un glisser de séparateur.
+  _renderZoneOrWidget: (node, path = []) ->
     zone = if node.layout then node.layout else node
     if zone.widget
       el = @_renderWidget zone.widget
@@ -322,8 +362,19 @@ window.CustomView = class CustomView
       zoneContent = document.createElement 'div'
       zoneContent.className = 'cv-zone-content'
 
-      for child in (zone.children or [])
-        zoneContent.appendChild @_renderZoneOrWidget child
+      children = zone.children or []
+      childEls = []
+      for child, i in children
+        childEls.push @_renderZoneOrWidget child, path.concat([i])
+
+      # Séparateurs glissables : uniquement sur une page éditable, hors mode
+      # présentation, et pas dans une zone qui a déjà sa poignée (id+factor).
+      canSplit = children.length > 1 and @pageId and not @presentationMode
+      canSplit = canSplit and not (zone.id and zone.factor)
+      for childEl, i in childEls
+        zoneContent.appendChild childEl
+        if canSplit and i < childEls.length - 1
+          zoneContent.appendChild @_createSplitter zone.direction, childEl, childEls[i + 1], path, i
 
       el.appendChild zoneContent
 
@@ -331,8 +382,84 @@ window.CustomView = class CustomView
       if zone.factor
         @_addResizeHandle el, zone
 
-    el.style.flex = if node.factor? then String(node.factor) else '1'
+    el.style.flex = String(_nodeFactor node)
     el
+
+  # Séparateur glissable entre deux enfants consécutifs d'une zone. Le glisser
+  # redistribue l'espace des DEUX voisins (minimum 80 px chacun) ; un double-clic
+  # les remet à parts égales.
+  _createSplitter: (direction, a, b, path, index) ->
+    horizontal = direction == 'horizontal'
+    dir = if horizontal then 'horizontal' else 'vertical'
+    axis = if horizontal then 'width' else 'height'
+    sp = document.createElement 'div'
+    sp.className = "cv-splitter cv-splitter--#{dir}"
+
+    dragging = false
+    startPos = 0
+    startA = 0
+    startB = 0
+
+    sp.addEventListener 'mousedown', (ev) =>
+      dragging = true
+      startPos = if horizontal then ev.clientX else ev.clientY
+      ra = a.getBoundingClientRect()
+      rb = b.getBoundingClientRect()
+      startA = ra[axis] or 0
+      startB = rb[axis] or 0
+      document.body.style.cursor = if horizontal then 'col-resize' else 'row-resize'
+      ev.preventDefault?()
+
+    document.addEventListener 'mousemove', (ev) =>
+      return unless dragging
+      pos = if horizontal then ev.clientX else ev.clientY
+      [na, nb] = CustomView.redistribute startA, startB, pos - startPos, 80
+      a.style.flex = String na
+      b.style.flex = String nb
+
+    document.addEventListener 'mouseup', (ev) =>
+      return unless dragging
+      dragging = false
+      document.body.style.cursor = ''
+      na = parseFloat a.style.flex
+      nb = parseFloat b.style.flex
+      total = na + nb
+      return if total <= 0
+      fa = Math.round((2 * na / total) * 100) / 100
+      fb = Math.round((2 * nb / total) * 100) / 100
+      @_saveChildFactors path, [
+        { index: index, factor: fa }
+        { index: index + 1, factor: fb }
+      ]
+
+    sp.addEventListener 'dblclick', =>
+      a.style.flex = '1'
+      b.style.flex = '1'
+      @_saveChildFactors path, [
+        { index: index, factor: 1 }
+        { index: index + 1, factor: 1 }
+      ]
+    sp
+
+  # Persiste les facteurs d'une paire de voisins dans le YAML de la page, puis
+  # recharge le rendu. Réutilise la mutation existante updateCustomView.
+  _saveChildFactors: (path, factors) ->
+    return unless @pageId
+    newYaml = null
+    try
+      newYaml = CustomView.setChildFactors @yamlText, path, factors
+    catch e
+      return
+    return unless newYaml
+    @yamlText = newYaml
+    app = window.App
+    return unless app and typeof GQL != 'undefined'
+    GQL.mutate(app._updateCustomViewMutation, { id: @pageId, input: { yaml: newYaml } })
+      .then (data) =>
+        app._currentCustomView = data.updateCustomView if data?.updateCustomView?
+        window.AppViewHelpers?._renderCustomViewPreview? app, newYaml
+      .catch (err) ->
+        tdbAlert app._err(err), 'error' if typeof tdbAlert != 'undefined'
 
   _renderWidget: (wNode) ->
     wrapper = document.createElement 'div'
