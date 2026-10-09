@@ -315,6 +315,14 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   opacity: 0.5;
   border-top: 1px dashed #b0b8c8 !important;
 }
+/* Row highlighted by the depends_on cascade (one active row per grid). */
+.tui-grid-row.tdb-selected-row td {
+  background: rgba(137, 180, 250, 0.28) !important;
+  color: var(--color-text, #333) !important;
+}
+.tui-grid-row.tdb-selected-row:hover td {
+  background: rgba(137, 180, 250, 0.38) !important;
+}
 
 /* ── Custom view container ────────────────────────────────────────────────── */
 #custom-view-container { flex: 1; overflow: hidden; padding: 0; display: flex; flex-direction: column; }

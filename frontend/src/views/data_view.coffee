@@ -60,6 +60,7 @@ window.DataView = class DataView
     @_focusedColumnName = null
     @_colWidthsCache = {}
     @_saveWidthsTimer = null
+    @_activeRowKey = null   # rowKey of the row highlighted by depends_on cascade
 
    # Build FK display maps for all relation fields.
   _buildFkMaps: ->
@@ -209,6 +210,7 @@ window.DataView = class DataView
 
     @_grid.on 'click', (ev) =>
       setFocusedColumn ev.columnName if ev?.columnName
+      @setActiveRow ev.rowKey if ev?.rowKey?
 
     @_grid.on 'mouseover', (ev) =>
       return unless ev?.targetType == 'cell'
@@ -438,6 +440,13 @@ window.DataView = class DataView
 
   _applyData: ->
     return unless @_grid
+    # « aucun résultat » : un widget dépendant dont la source n'a aucune ligne
+    # correspondante n'affiche aucune ligne (ni donnée, ni sentinelle).
+    if @filter and @filter.none
+      @_currentData = []
+      @_activeRowKey = null
+      @_grid.resetData @_currentData
+      return
     rows = @_rows
     if @filter
       rows = rows.filter (r) => String(r[@filter.field]) == String(@filter.value)
@@ -466,6 +475,8 @@ window.DataView = class DataView
               row._attributes.className.column[f.name].push 'cell-formula-error-internal'
 
     @_grid.resetData @_currentData
+    # resetData rebuilds rows: the highlighted row key is no longer tracked.
+    @_activeRowKey = null
 
     # Restore focus if we have saved it
     if @_lastFocus
@@ -558,5 +569,6 @@ window.DataView = class DataView
     @_grid = null
     @_currentData = []
     @_rows = []
+    @_activeRowKey = null
     @container.innerHTML = ''
 
