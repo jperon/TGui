@@ -29,7 +29,7 @@
 
   // Parse a Data View `config`: the list GraphQL query returns the raw serialized
   // JSON string (data_views.coffee), while the detail query decodes it. Accept both.
-  var CustomView, _dataViewColumns, _parseDataViewConfig,
+  var CustomView, _dataViewColumns, _nodeFactor, _parseDataViewConfig,
     hasProp = {}.hasOwnProperty;
 
   _parseDataViewConfig = function(raw) {
@@ -53,7 +53,7 @@
   // space fields. Each entry is `{ name, fieldType }`, the type reused from the
   // source space when it declares the column.
   _dataViewColumns = function(config, dv, allSpaces) {
-    var agg, col, f, fields, i, j, k, l, len, len1, len2, len3, len4, m, name, names, ref, ref1, ref2, ref3, seen, source, typeFor;
+    var agg, col, f, fields, j, k, l, len, len1, len2, len3, len4, m, n, name, names, ref, ref1, ref2, ref3, seen, source, typeFor;
     source = null;
     if (dv.sourceSpace && allSpaces) {
       source = allSpaces.find(function(s) {
@@ -75,32 +75,32 @@
     names = [];
     if ((config.groupBy && config.groupBy.length > 0) || (config.aggregates && config.aggregates.length > 0)) {
       ref = config.groupBy || [];
-      for (i = 0, len = ref.length; i < len; i++) {
-        name = ref[i];
+      for (j = 0, len = ref.length; j < len; j++) {
+        name = ref[j];
         names.push(name);
       }
       ref1 = config.aggregates || [];
-      for (j = 0, len1 = ref1.length; j < len1; j++) {
-        agg = ref1[j];
+      for (k = 0, len1 = ref1.length; k < len1; k++) {
+        agg = ref1[k];
         names.push(agg.as || (agg.field ? `${agg.fn}_${agg.field}` : 'count'));
       }
     } else if (config.columns && config.columns.length > 0) {
       ref2 = config.columns;
-      for (k = 0, len2 = ref2.length; k < len2; k++) {
-        col = ref2[k];
+      for (l = 0, len2 = ref2.length; l < len2; l++) {
+        col = ref2[l];
         names.push((typeof col === 'string' ? col : col.as || col.field));
       }
     } else if (source) {
       ref3 = source.fields || [];
-      for (l = 0, len3 = ref3.length; l < len3; l++) {
-        f = ref3[l];
+      for (m = 0, len3 = ref3.length; m < len3; m++) {
+        f = ref3[m];
         names.push(f.name);
       }
     }
     fields = [];
     seen = {};
-    for (m = 0, len4 = names.length; m < len4; m++) {
-      name = names[m];
+    for (n = 0, len4 = names.length; n < len4; n++) {
+      name = names[n];
       if (!name) {
         continue;
       }
@@ -116,10 +116,26 @@
     return fields;
   };
 
+  // Facteur de répartition d'un nœud. Lu sur le mapping `widget`/`layout` (forme
+  // documentée de doc/fr/get-started.md), puis sur l'entrée elle-même (ancienne
+  // forme). Défaut : 1. L'écriture (setChildFactors) vise le mapping.
+  _nodeFactor = function(node) {
+    if (node.widget && (node.widget.factor != null)) {
+      return node.widget.factor;
+    }
+    if (node.layout && (node.layout.factor != null)) {
+      return node.layout.factor;
+    }
+    if (node.factor != null) {
+      return node.factor;
+    }
+    return 1;
+  };
+
   window.CustomView = CustomView = class CustomView {
-    constructor(container1, yamlText, allSpaces1, allDataViews = [], options = {}) {
+    constructor(container1, yamlText1, allSpaces1, allDataViews = [], options = {}) {
       this.container = container1;
-      this.yamlText = yamlText;
+      this.yamlText = yamlText1;
       this.allSpaces = allSpaces1;
       this.allDataViews = allDataViews;
       this.options = options;
@@ -127,6 +143,8 @@
       this._widgetsById = {}; // id -> entry
       this._pluginStateByWidgetId = {};
       this._pluginSelectionListenersByWidgetId = {};
+      this._resizeObserver = null;
+      this._resizeTimer = null;
       this.pageId = this.container.getAttribute('data-page-id') || null;
       this.presentationMode = this.options.presentationMode || false;
     }
@@ -253,6 +271,90 @@ transition: all 0.3s ease;`;
       return container.appendChild(p);
     }
 
+    // Répartit `sizeA + sizeB` px entre deux tuiles voisines après un glisser de
+    // `delta` px, en respectant un minimum `min` pour chacune. Fonction pure.
+    static redistribute(sizeA, sizeB, delta, min) {
+      var a, total;
+      total = sizeA + sizeB;
+      if (total < 2 * min) {
+        return [sizeA, sizeB];
+      }
+      a = Math.max(min, Math.min(total - min, sizeA + delta));
+      return [a, total - a];
+    }
+
+    // Réécrit le YAML d'une page en mettant à jour le `factor` des enfants voulus.
+    // `path` = indices d'enfants depuis `layout` jusqu'à la zone parente.
+    // `factors` = liste de `{ index, factor }` (index dans les enfants de la zone).
+    // Le facteur est écrit dans le mapping `widget`/`layout` de l'enfant.
+    static setChildFactors(yamlText, path, factors) {
+      var child, entry, f, idx, j, k, len, len1, mapping, parent, parsed, ref, ref1, ref2;
+      parsed = jsyaml.load(yamlText);
+      if (!(parsed != null ? parsed.layout : void 0)) {
+        return yamlText;
+      }
+      parent = parsed.layout;
+      ref = path || [];
+      for (j = 0, len = ref.length; j < len; j++) {
+        idx = ref[j];
+        entry = parent != null ? (ref1 = parent.children) != null ? ref1[idx] : void 0 : void 0;
+        if (!entry) {
+          return yamlText;
+        }
+        parent = entry.layout ? entry.layout : entry;
+      }
+      if ((parent != null ? parent.children : void 0) == null) {
+        return yamlText;
+      }
+      ref2 = factors || [];
+      for (k = 0, len1 = ref2.length; k < len1; k++) {
+        f = ref2[k];
+        child = parent.children[f.index];
+        if (!child) {
+          continue;
+        }
+        mapping = child.widget ? child.widget : child.layout ? child.layout : child;
+        mapping.factor = Math.round(f.factor * 100) / 100;
+        if (child.widget || child.layout) {
+          delete child.factor;
+        }
+      }
+      return jsyaml.dump(parsed);
+    }
+
+    // Anti-rebond : une seule passe de rafraîchissement par salve de changements.
+    _refreshGridLayouts() {
+      var entry, j, len, ref, ref1, ref2, results;
+      ref = this._widgets;
+      results = [];
+      for (j = 0, len = ref.length; j < len; j++) {
+        entry = ref[j];
+        results.push((ref1 = entry.dataView) != null ? (ref2 = ref1._grid) != null ? ref2.refreshLayout() : void 0 : void 0);
+      }
+      return results;
+    }
+
+    // Recalcule la taille des grilles quand la surface d'une tuile change
+    // (séparateurs, réouverture de la page, redimensionnement de la fenêtre).
+    _setupResizeObserver() {
+      var ref;
+      if (typeof ResizeObserver === 'undefined') {
+        return;
+      }
+      if ((ref = this._resizeObserver) != null) {
+        if (typeof ref.disconnect === "function") {
+          ref.disconnect();
+        }
+      }
+      this._resizeObserver = new ResizeObserver((entries) => {
+        clearTimeout(this._resizeTimer);
+        return this._resizeTimer = setTimeout((() => {
+          return this._refreshGridLayouts();
+        }), 50);
+      });
+      return this._resizeObserver.observe(this.container);
+    }
+
     mount() {
       var e, el, parsed, ref, root;
       this.container.innerHTML = '';
@@ -286,16 +388,12 @@ transition: all 0.3s ease;`;
       Promise.all(this._mountPromises).then(() => {
         this._wireDepends();
         // Refresh grid layouts now that elements are in the live DOM
-        return setTimeout(() => {
-          var entry, i, len, ref, ref1, ref2, results;
-          ref = this._widgets;
-          results = [];
-          for (i = 0, len = ref.length; i < len; i++) {
-            entry = ref[i];
-            results.push((ref1 = entry.dataView) != null ? (ref2 = ref1._grid) != null ? ref2.refreshLayout() : void 0 : void 0);
-          }
-          return results;
-        }, 0);
+        setTimeout((() => {
+          return this._refreshGridLayouts();
+        }), 0);
+        // Une tuile redimensionnée change la taille de sa grille : on rafraîchit
+        // les layouts (avec anti-rebond) à chaque changement de taille.
+        return this._setupResizeObserver();
       });
       // Initialiser le DragDropManager avec support des zones (Phase 3)
       // Disabled in presentation mode
@@ -357,8 +455,10 @@ transition: all 0.3s ease;`;
     // Renders either a zone (direction+children) or a widget node.
     // Applies `factor` (flex proportion) when specified (default: 1).
     // Supports both inline zone keys (direction/children) and wrapped "- layout:" syntax.
-    _renderZoneOrWidget(node) {
-      var child, el, i, len, ref, zone, zoneContent, zoneHeader;
+    // `path` = indices des enfants depuis `layout` (racine) jusqu'à la zone parente ;
+    // sert à réécrire le bon emplacement du YAML lors d'un glisser de séparateur.
+    _renderZoneOrWidget(node, path = []) {
+      var canSplit, child, childEl, childEls, children, el, i, j, k, len, len1, zone, zoneContent, zoneHeader;
       zone = node.layout ? node.layout : node;
       if (zone.widget) {
         el = this._renderWidget(zone.widget);
@@ -382,10 +482,22 @@ transition: all 0.3s ease;`;
         // Container pour les widgets de la zone
         zoneContent = document.createElement('div');
         zoneContent.className = 'cv-zone-content';
-        ref = zone.children || [];
-        for (i = 0, len = ref.length; i < len; i++) {
-          child = ref[i];
-          zoneContent.appendChild(this._renderZoneOrWidget(child));
+        children = zone.children || [];
+        childEls = [];
+        for (i = j = 0, len = children.length; j < len; i = ++j) {
+          child = children[i];
+          childEls.push(this._renderZoneOrWidget(child, path.concat([i])));
+        }
+        // Séparateurs glissables : uniquement sur une page éditable, hors mode
+        // présentation, et pas dans une zone qui a déjà sa poignée (id+factor).
+        canSplit = children.length > 1 && this.pageId && !this.presentationMode;
+        canSplit = canSplit && !(zone.id && zone.factor);
+        for (i = k = 0, len1 = childEls.length; k < len1; i = ++k) {
+          childEl = childEls[i];
+          zoneContent.appendChild(childEl);
+          if (canSplit && i < childEls.length - 1) {
+            zoneContent.appendChild(this._createSplitter(zone.direction, childEl, childEls[i + 1], path, i));
+          }
         }
         el.appendChild(zoneContent);
         // Ajouter les poignées de redimensionnement si factor est défini
@@ -393,12 +505,130 @@ transition: all 0.3s ease;`;
           this._addResizeHandle(el, zone);
         }
       }
-      el.style.flex = node.factor != null ? String(node.factor) : '1';
+      el.style.flex = String(_nodeFactor(node));
       return el;
     }
 
+    // Séparateur glissable entre deux enfants consécutifs d'une zone. Le glisser
+    // redistribue l'espace des DEUX voisins (minimum 80 px chacun) ; un double-clic
+    // les remet à parts égales.
+    _createSplitter(direction, a, b, path, index) {
+      var axis, dir, dragging, horizontal, sp, startA, startB, startPos;
+      horizontal = direction === 'horizontal';
+      dir = horizontal ? 'horizontal' : 'vertical';
+      axis = horizontal ? 'width' : 'height';
+      sp = document.createElement('div');
+      sp.className = `cv-splitter cv-splitter--${dir}`;
+      dragging = false;
+      startPos = 0;
+      startA = 0;
+      startB = 0;
+      sp.addEventListener('mousedown', (ev) => {
+        var ra, rb;
+        dragging = true;
+        startPos = horizontal ? ev.clientX : ev.clientY;
+        ra = a.getBoundingClientRect();
+        rb = b.getBoundingClientRect();
+        startA = ra[axis] || 0;
+        startB = rb[axis] || 0;
+        document.body.style.cursor = horizontal ? 'col-resize' : 'row-resize';
+        return typeof ev.preventDefault === "function" ? ev.preventDefault() : void 0;
+      });
+      document.addEventListener('mousemove', (ev) => {
+        var na, nb, pos;
+        if (!dragging) {
+          return;
+        }
+        pos = horizontal ? ev.clientX : ev.clientY;
+        [na, nb] = CustomView.redistribute(startA, startB, pos - startPos, 80);
+        a.style.flex = String(na);
+        return b.style.flex = String(nb);
+      });
+      document.addEventListener('mouseup', (ev) => {
+        var fa, fb, na, nb, total;
+        if (!dragging) {
+          return;
+        }
+        dragging = false;
+        document.body.style.cursor = '';
+        na = parseFloat(a.style.flex);
+        nb = parseFloat(b.style.flex);
+        total = na + nb;
+        if (total <= 0) {
+          return;
+        }
+        fa = Math.round((2 * na / total) * 100) / 100;
+        fb = Math.round((2 * nb / total) * 100) / 100;
+        return this._saveChildFactors(path, [
+          {
+            index: index,
+            factor: fa
+          },
+          {
+            index: index + 1,
+            factor: fb
+          }
+        ]);
+      });
+      sp.addEventListener('dblclick', () => {
+        a.style.flex = '1';
+        b.style.flex = '1';
+        return this._saveChildFactors(path, [
+          {
+            index: index,
+            factor: 1
+          },
+          {
+            index: index + 1,
+            factor: 1
+          }
+        ]);
+      });
+      return sp;
+    }
+
+    // Persiste les facteurs d'une paire de voisins dans le YAML de la page, puis
+    // recharge le rendu. Réutilise la mutation existante updateCustomView.
+    _saveChildFactors(path, factors) {
+      var app, e, newYaml;
+      if (!this.pageId) {
+        return;
+      }
+      newYaml = null;
+      try {
+        newYaml = CustomView.setChildFactors(this.yamlText, path, factors);
+      } catch (error1) {
+        e = error1;
+        return;
+      }
+      if (!newYaml) {
+        return;
+      }
+      this.yamlText = newYaml;
+      app = window.App;
+      if (!(app && typeof GQL !== 'undefined')) {
+        return;
+      }
+      return GQL.mutate(app._updateCustomViewMutation, {
+        id: this.pageId,
+        input: {
+          yaml: newYaml
+        }
+      }).then((data) => {
+        var ref;
+        if ((data != null ? data.updateCustomView : void 0) != null) {
+          app._currentCustomView = data.updateCustomView;
+        }
+        return (ref = window.AppViewHelpers) != null ? typeof ref._renderCustomViewPreview === "function" ? ref._renderCustomViewPreview(app, newYaml) : void 0 : void 0;
+      }).catch(function(err) {
+        if (typeof tdbAlert !== 'undefined') {
+          return tdbAlert(app._err(err), 'error');
+        }
+      });
+    }
+
     _renderWidget(wNode) {
-      var body, col, delBtn, dv, entry, f, fieldMap, filterFormula, filterInput, filterLabel, filterTimer, filterWrap, i, lang, len, ref, runtimeWidgetId, sp, titleBar, titleText, wrapper;
+      var body, col, delBtn, dv, entry, f, fieldMap, filterFormula, filterInput, filterLabel, filterTimer, filterWrap, j, lang, len, ref, runtimeWidgetId, sp, titleBar, titleText, wrapper;
       wrapper = document.createElement('div');
       wrapper.className = 'cv-widget';
       // Ajouter les attributs pour le drag & drop
@@ -470,17 +700,17 @@ transition: all 0.3s ease;`;
       if (wNode.columns && wNode.columns.length > 0) {
         fieldMap = {};
         ref = sp.fields || [];
-        for (i = 0, len = ref.length; i < len; i++) {
-          f = ref[i];
+        for (j = 0, len = ref.length; j < len; j++) {
+          f = ref[j];
           fieldMap[f.name] = f;
         }
         sp = Object.assign({}, sp);
         sp.fields = (function() {
-          var j, len1, ref1, results;
+          var k, len1, ref1, results;
           ref1 = wNode.columns;
           results = [];
-          for (j = 0, len1 = ref1.length; j < len1; j++) {
-            col = ref1[j];
+          for (k = 0, len1 = ref1.length; k < len1; k++) {
+            col = ref1[k];
             if (fieldMap[col]) {
               results.push(fieldMap[col]);
             }
@@ -541,11 +771,11 @@ transition: all 0.3s ease;`;
     }
 
     _wireDepends() {
-      var dep, entry, i, len, ref, results, src;
+      var dep, entry, j, len, ref, results, src;
       ref = this._widgets;
       results = [];
-      for (i = 0, len = ref.length; i < len; i++) {
-        entry = ref[i];
+      for (j = 0, len = ref.length; j < len; j++) {
+        entry = ref[j];
         dep = entry.node.depends_on;
         if (!dep) {
           continue;
@@ -647,7 +877,7 @@ transition: all 0.3s ease;`;
     }
 
     unmount() {
-      var entry, i, id, len, ref, ref1, ref2, st;
+      var entry, id, j, len, ref, ref1, ref2, ref3, st;
       ref = this._pluginStateByWidgetId;
       for (id in ref) {
         if (!hasProp.call(ref, id)) continue;
@@ -656,12 +886,19 @@ transition: all 0.3s ease;`;
           window.removeEventListener('message', st.onMessage);
         }
       }
-      ref1 = this._widgets;
-      for (i = 0, len = ref1.length; i < len; i++) {
-        entry = ref1[i];
-        if ((ref2 = entry.dataView) != null) {
-          if (typeof ref2.unmount === "function") {
-            ref2.unmount();
+      if ((ref1 = this._resizeObserver) != null) {
+        if (typeof ref1.disconnect === "function") {
+          ref1.disconnect();
+        }
+      }
+      this._resizeObserver = null;
+      clearTimeout(this._resizeTimer);
+      ref2 = this._widgets;
+      for (j = 0, len = ref2.length; j < len; j++) {
+        entry = ref2[j];
+        if ((ref3 = entry.dataView) != null) {
+          if (typeof ref3.unmount === "function") {
+            ref3.unmount();
           }
         }
       }
