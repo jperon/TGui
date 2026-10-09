@@ -77,6 +77,8 @@ window.CustomView = class CustomView
     @_widgetsById = {} # id -> entry
     @_pluginStateByWidgetId = {}
     @_pluginSelectionListenersByWidgetId = {}
+    @_resizeObserver = null
+    @_resizeTimer = null
     @pageId = @container.getAttribute('data-page-id') or null
     @presentationMode = @options.presentationMode or false
 
@@ -194,6 +196,21 @@ window.CustomView = class CustomView
     p.textContent = String(text ? '')
     container.appendChild p
 
+  # Anti-rebond : une seule passe de rafraîchissement par salve de changements.
+  _refreshGridLayouts: ->
+    for entry in @_widgets
+      entry.dataView?._grid?.refreshLayout()
+
+  # Recalcule la taille des grilles quand la surface d'une tuile change
+  # (séparateurs, réouverture de la page, redimensionnement de la fenêtre).
+  _setupResizeObserver: ->
+    return unless typeof ResizeObserver != 'undefined'
+    @_resizeObserver?.disconnect?()
+    @_resizeObserver = new ResizeObserver (entries) =>
+      clearTimeout @_resizeTimer
+      @_resizeTimer = setTimeout (=> @_refreshGridLayouts()), 50
+    @_resizeObserver.observe @container
+
   mount: ->
     @container.innerHTML = ''
     @_widgets     = []
@@ -228,10 +245,10 @@ window.CustomView = class CustomView
      Promise.all(@_mountPromises).then =>
        @_wireDepends()
        # Refresh grid layouts now that elements are in the live DOM
-       setTimeout =>
-         for entry in @_widgets
-           entry.dataView?._grid?.refreshLayout()
-       , 0
+       setTimeout (=> @_refreshGridLayouts()), 0
+       # Une tuile redimensionnée change la taille de sa grille : on rafraîchit
+       # les layouts (avec anti-rebond) à chaque changement de taille.
+       @_setupResizeObserver()
 
       # Initialiser le DragDropManager avec support des zones (Phase 3)
       # Disabled in presentation mode
@@ -482,6 +499,9 @@ window.CustomView = class CustomView
   unmount: ->
     for own id, st of @_pluginStateByWidgetId
       window.removeEventListener 'message', st.onMessage if st.onMessage
+    @_resizeObserver?.disconnect?()
+    @_resizeObserver = null
+    clearTimeout @_resizeTimer
     for entry in @_widgets
       entry.dataView?.unmount?()
     @container.innerHTML = ''

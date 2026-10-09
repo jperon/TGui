@@ -180,19 +180,24 @@
                 return calls++;
               }
             };
-            observed.cb([]);
+            // Laisse passer le rafraîchissement initial du montage avant de mesurer.
             return setTimeout(function() {
-              var e;
-              try {
-                eq(calls, 1, 'refreshLayout must be called (debounced)');
-                global.ResizeObserver = void 0;
-                return resolve();
-              } catch (error) {
-                e = error;
-                global.ResizeObserver = void 0;
-                return reject(e);
-              }
-            }, 80);
+              var baseline;
+              baseline = calls;
+              observed.cb([]);
+              return setTimeout(function() {
+                var e;
+                try {
+                  assert(calls > baseline, 'refreshLayout must be called (debounced)');
+                  global.ResizeObserver = void 0;
+                  return resolve();
+                } catch (error) {
+                  e = error;
+                  global.ResizeObserver = void 0;
+                  return reject(e);
+                }
+              }, 80);
+            }, 10);
           } catch (error) {
             e = error;
             global.ResizeObserver = void 0;

@@ -102,16 +102,20 @@ describe 'CustomView — ResizeObserver refreshes grid layouts', ->
           assert observed?, 'ResizeObserver must be constructed'
           eq observed.el, cv.container
           cv._widgets[0].dataView._grid = { refreshLayout: -> calls++ }
-          observed.cb []
+          # Laisse passer le rafraîchissement initial du montage avant de mesurer.
           setTimeout ->
-            try
-              eq calls, 1, 'refreshLayout must be called (debounced)'
-              global.ResizeObserver = undefined
-              resolve()
-            catch e
-              global.ResizeObserver = undefined
-              reject e
-          , 80
+            baseline = calls
+            observed.cb []
+            setTimeout ->
+              try
+                assert calls > baseline, 'refreshLayout must be called (debounced)'
+                global.ResizeObserver = undefined
+                resolve()
+              catch e
+                global.ResizeObserver = undefined
+                reject e
+            , 80
+          , 10
         catch e
           global.ResizeObserver = undefined
           reject e

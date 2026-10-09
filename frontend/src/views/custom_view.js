@@ -127,6 +127,8 @@
       this._widgetsById = {}; // id -> entry
       this._pluginStateByWidgetId = {};
       this._pluginSelectionListenersByWidgetId = {};
+      this._resizeObserver = null;
+      this._resizeTimer = null;
       this.pageId = this.container.getAttribute('data-page-id') || null;
       this.presentationMode = this.options.presentationMode || false;
     }
@@ -253,6 +255,39 @@ transition: all 0.3s ease;`;
       return container.appendChild(p);
     }
 
+    // Anti-rebond : une seule passe de rafraîchissement par salve de changements.
+    _refreshGridLayouts() {
+      var entry, i, len, ref, ref1, ref2, results;
+      ref = this._widgets;
+      results = [];
+      for (i = 0, len = ref.length; i < len; i++) {
+        entry = ref[i];
+        results.push((ref1 = entry.dataView) != null ? (ref2 = ref1._grid) != null ? ref2.refreshLayout() : void 0 : void 0);
+      }
+      return results;
+    }
+
+    // Recalcule la taille des grilles quand la surface d'une tuile change
+    // (séparateurs, réouverture de la page, redimensionnement de la fenêtre).
+    _setupResizeObserver() {
+      var ref;
+      if (typeof ResizeObserver === 'undefined') {
+        return;
+      }
+      if ((ref = this._resizeObserver) != null) {
+        if (typeof ref.disconnect === "function") {
+          ref.disconnect();
+        }
+      }
+      this._resizeObserver = new ResizeObserver((entries) => {
+        clearTimeout(this._resizeTimer);
+        return this._resizeTimer = setTimeout((() => {
+          return this._refreshGridLayouts();
+        }), 50);
+      });
+      return this._resizeObserver.observe(this.container);
+    }
+
     mount() {
       var e, el, parsed, ref, root;
       this.container.innerHTML = '';
@@ -286,16 +321,12 @@ transition: all 0.3s ease;`;
       Promise.all(this._mountPromises).then(() => {
         this._wireDepends();
         // Refresh grid layouts now that elements are in the live DOM
-        return setTimeout(() => {
-          var entry, i, len, ref, ref1, ref2, results;
-          ref = this._widgets;
-          results = [];
-          for (i = 0, len = ref.length; i < len; i++) {
-            entry = ref[i];
-            results.push((ref1 = entry.dataView) != null ? (ref2 = ref1._grid) != null ? ref2.refreshLayout() : void 0 : void 0);
-          }
-          return results;
-        }, 0);
+        setTimeout((() => {
+          return this._refreshGridLayouts();
+        }), 0);
+        // Une tuile redimensionnée change la taille de sa grille : on rafraîchit
+        // les layouts (avec anti-rebond) à chaque changement de taille.
+        return this._setupResizeObserver();
       });
       // Initialiser le DragDropManager avec support des zones (Phase 3)
       // Disabled in presentation mode
@@ -647,7 +678,7 @@ transition: all 0.3s ease;`;
     }
 
     unmount() {
-      var entry, i, id, len, ref, ref1, ref2, st;
+      var entry, i, id, len, ref, ref1, ref2, ref3, st;
       ref = this._pluginStateByWidgetId;
       for (id in ref) {
         if (!hasProp.call(ref, id)) continue;
@@ -656,12 +687,19 @@ transition: all 0.3s ease;`;
           window.removeEventListener('message', st.onMessage);
         }
       }
-      ref1 = this._widgets;
-      for (i = 0, len = ref1.length; i < len; i++) {
-        entry = ref1[i];
-        if ((ref2 = entry.dataView) != null) {
-          if (typeof ref2.unmount === "function") {
-            ref2.unmount();
+      if ((ref1 = this._resizeObserver) != null) {
+        if (typeof ref1.disconnect === "function") {
+          ref1.disconnect();
+        }
+      }
+      this._resizeObserver = null;
+      clearTimeout(this._resizeTimer);
+      ref2 = this._widgets;
+      for (i = 0, len = ref2.length; i < len; i++) {
+        entry = ref2[i];
+        if ((ref3 = entry.dataView) != null) {
+          if (typeof ref3.unmount === "function") {
+            ref3.unmount();
           }
         }
       }

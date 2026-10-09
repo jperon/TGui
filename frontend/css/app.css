@@ -325,6 +325,12 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   position: relative; /* Pour les poignées de redimensionnement */
   border: 1px solid transparent;
   transition: border-color 0.2s ease;
+  /* Les zones de page portent la classe générique .drop-zone (glisser-déposer) :
+     on neutralise ici ce qui centre et rétrécit les tuiles. */
+  align-items: stretch;
+  justify-content: flex-start;
+  color: inherit;
+  font-style: normal;
 }
 
 .cv-zone.vertical { flex-direction: column; }
@@ -350,6 +356,8 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   flex: 1;
   display: flex;
   min-height: 0;
+  min-width: 0;
+  align-items: stretch;
 }
 
 .cv-zone.vertical > .cv-zone-content {
@@ -407,11 +415,22 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   background-size: 50px 50px;
 }
 
-/* Styles pour les widgets dans les zones */
+/* Styles pour les widgets dans les zones — mode tuile : les widgets remplissent
+   la surface et se touchent, séparés par un unique filet de 1 px. */
 .cv-zone .cv-widget {
-  margin: 2px;
-  border-radius: 4px;
+  margin: 0;
+  border-radius: 0;
   overflow: hidden;
+  min-width: 0;
+}
+
+/* Évite la double bordure entre deux tuiles voisines. */
+.cv-zone.horizontal > .cv-zone-content > .cv-widget + .cv-widget {
+  border-left-width: 0;
+}
+
+.cv-zone.vertical > .cv-zone-content > .cv-widget + .cv-widget {
+  border-top-width: 0;
 }
 
 /* Zone toolbar (Phase 3) */

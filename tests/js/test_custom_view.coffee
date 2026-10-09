@@ -275,6 +275,8 @@ describe 'CustomView — surface API', ->
     expected = [
       'constructor'
       '_setMessage'
+      '_refreshGridLayouts'
+      '_setupResizeObserver'
       'mount'
       '_renderZoneOrWidget'
       '_renderWidget'
