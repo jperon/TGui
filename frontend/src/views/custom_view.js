@@ -999,20 +999,38 @@ transition: all 0.3s ease;`;
       return results;
     }
 
-    // Première ligne affichée (hors sentinelle __isNew) d'une entrée, ou null.
+    // Première ligne VISUELLE (hors sentinelle `__isNew`) d'une entrée, ou null.
+    // L'index dans `_currentData` suit l'ordre de chargement alors que la grille
+    // peut être triée : on parcourt donc les lignes affichées par la grille (qui
+    // portent leur `rowKey`) au lieu de relier un index à `getRowAt`.
     _firstRow(entry) {
-      var data, grid, i, j, len, ref, row;
+      var found, grid, i, j, k, len, len1, ref, ref1, row, rows;
       grid = entry != null ? (ref = entry.dataView) != null ? ref._grid : void 0 : void 0;
       if (!grid) {
         return null;
       }
-      data = entry.dataView._currentData || [];
-      for (i = j = 0, len = data.length; j < len; i = ++j) {
-        row = data[i];
-        if (row.__isNew) {
+      rows = typeof grid.getData === 'function' ? grid.getData() || [] : [];
+      for (j = 0, len = rows.length; j < len; j++) {
+        row = rows[j];
+        if (row != null ? row.__isNew : void 0) {
           continue;
         }
-        return grid.getRowAt(i) || row;
+        found = ((row != null ? row.rowKey : void 0) != null) && typeof grid.getRow === 'function' ? grid.getRow(row.rowKey) : row;
+        if ((found != null) && !found.__isNew) {
+          return found;
+        }
+      }
+      ref1 = entry.dataView._currentData || [];
+      // Repli (grille sans getData, double de test minimal) : ordre de chargement.
+      for (i = k = 0, len1 = ref1.length; k < len1; i = ++k) {
+        row = ref1[i];
+        if (row != null ? row.__isNew : void 0) {
+          continue;
+        }
+        found = typeof grid.getRowAt === "function" ? grid.getRowAt(i) : void 0;
+        if ((found != null) && !found.__isNew) {
+          return found;
+        }
       }
       return null;
     }

@@ -693,14 +693,23 @@ window.CustomView = class CustomView
     return [] unless depId
     (e for e in @_widgets when e.node?.depends_on?.widget == depId)
 
-  # Première ligne affichée (hors sentinelle __isNew) d'une entrée, ou null.
+  # Première ligne VISUELLE (hors sentinelle `__isNew`) d'une entrée, ou null.
+  # L'index dans `_currentData` suit l'ordre de chargement alors que la grille
+  # peut être triée : on parcourt donc les lignes affichées par la grille (qui
+  # portent leur `rowKey`) au lieu de relier un index à `getRowAt`.
   _firstRow: (entry) ->
     grid = entry?.dataView?._grid
     return null unless grid
-    data = entry.dataView._currentData or []
-    for row, i in data
-      continue if row.__isNew
-      return grid.getRowAt(i) or row
+    rows = if typeof grid.getData == 'function' then (grid.getData() or []) else []
+    for row in rows
+      continue if row?.__isNew
+      found = if row?.rowKey? and typeof grid.getRow == 'function' then grid.getRow(row.rowKey) else row
+      return found if found? and not found.__isNew
+    # Repli (grille sans getData, double de test minimal) : ordre de chargement.
+    for row, i in (entry.dataView._currentData or [])
+      continue if row?.__isNew
+      found = grid.getRowAt? i
+      return found if found? and not found.__isNew
     null
 
   # Marque `rowKey` active sur un widget dataView, puis propage la ligne à ses
