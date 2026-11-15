@@ -72,6 +72,7 @@
     applySortEntries: function(entries) {
       this._sortState = normalizeSortEntries(entries);
       this._applySortState();
+      this._pinSentinelLast();
       return this._sortState;
     },
     _sortEntriesFromGrid: function() {
@@ -117,10 +118,59 @@
         return;
       }
       this._sortState = this._sortEntriesFromGrid();
+      this._pinSentinelLast();
       if (typeof this._onSortChanged === "function") {
         this._onSortChanged();
       }
       return this._sortState;
+    },
+    // Toast UI Grid trie TOUTES les lignes, sentinelle comprise, et inverse même le
+    // résultat d'un comparateur en tri descendant : aucun comparateur ne peut donc
+    // la maintenir en fin de grille. On réinjecte l'ordre obtenu par la grille en
+    // terminant par la sentinelle. Le `sortState` transmis à `resetData` ne sert
+    // qu'à réafficher les flèches d'en-tête : il ne réordonne pas les lignes (cf.
+    // la documentation de `resetData` dans Toast UI Grid, options.sortState).
+    _pinSentinelLast: function() {
+      var data, first, grid, options, ordered, ref, row, sentinel;
+      grid = this._grid;
+      if (!(grid && typeof grid.getData === 'function')) {
+        return;
+      }
+      data = grid.getData() || [];
+      sentinel = data.find(function(row) {
+        return row != null ? row.__isNew : void 0;
+      });
+      if (!sentinel) {
+        return;
+      }
+      // Déjà en dernière position : rien à réordonner (cas sans tri).
+      if ((ref = data[data.length - 1]) != null ? ref.__isNew : void 0) {
+        return;
+      }
+      ordered = (function() {
+        var j, len, results1;
+        results1 = [];
+        for (j = 0, len = data.length; j < len; j++) {
+          row = data[j];
+          if (!(row != null ? row.__isNew : void 0)) {
+            results1.push(row);
+          }
+        }
+        return results1;
+      })();
+      ordered.push(sentinel);
+      options = {};
+      first = (this._sortState || [])[0];
+      if (first) {
+        options.sortState = {
+          columnName: first.column,
+          ascending: first.ascending,
+          multiple: (this._sortState || []).length > 1
+        };
+      }
+      grid.resetData(ordered, options);
+      this._currentData = ordered;
+      return this._activeRowKey = null;
     },
     // ── Error display ─────────────────────────────────────────────────────────────
     _showError: function(msg) {

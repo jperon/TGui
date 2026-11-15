@@ -504,7 +504,11 @@ window.DataView = class DataView
     @_grid.resetData @_currentData
     # resetData remet le tri de Toast UI Grid à zéro : réapplique celui demandé
     # (préréglage ou tri manuel mémorisé) pour qu'il persiste après un load.
-    @_applySortState() if @_sortState?.length
+    # Le tri porte sur TOUTES les lignes, sentinelle comprise : on la remet
+    # ensuite en dernière position (cf. _pinSentinelLast).
+    if @_sortState?.length
+      @_applySortState()
+      @_pinSentinelLast()
     # resetData rebuilds rows: the highlighted row key is no longer tracked.
     @_activeRowKey = null
 
@@ -525,9 +529,12 @@ window.DataView = class DataView
         # Small delay to ensure TUI has finished DOM updates
         setTimeout (=> @_grid.focus targetRow.rowKey, columnName), 0
 
-    # Find the actual rowKey tui.Grid assigned to the sentinel (last visual row)
-    lastIdx = @_currentData.length - 1
-    sentinelRow = @_grid.getRowAt lastIdx
+    # La sentinelle se repère par `__isNew`, jamais par son index : le tri peut
+    # avoir changé l'ordre visuel. Repli par index pour une grille sans getData.
+    sentinelRow = if typeof @_grid.getData == 'function'
+      (@_grid.getData() or []).find (row) -> row?.__isNew
+    else
+      @_grid.getRowAt @_currentData.length - 1
     if sentinelRow?
       @_grid.addRowClassName sentinelRow.rowKey, 'tdb-new-row'
 
