@@ -12,22 +12,17 @@
   _relCache = {}; // spaceId -> Promise([relations])
 
   
-  // Displayed space: read from the DataView; others: fetched once, then cached.
-  _fieldsOf = function(dv, sid) {
-    var ref, ref1;
-    if (((ref = dv.space) != null ? ref.id : void 0) === sid) {
-      return Promise.resolve(((ref1 = dv.space) != null ? ref1.fields : void 0) || []);
-    }
+  // Every space — the displayed one included — is fetched once, then cached.
+  // A DataView cannot be trusted for this: a page widget builds its own with no
+  // relations (`_relations: []`) and with `space.fields` reduced to the visible
+  // columns, so `@relation.` would propose nothing there.
+  _fieldsOf = function(sid) {
     return _fieldCache[sid] != null ? _fieldCache[sid] : _fieldCache[sid] = Promise.resolve(Spaces.getWithFields(sid)).then(function(s) {
       return (s != null ? s.fields : void 0) || [];
     });
   };
 
-  _relsOf = function(dv, sid) {
-    var ref;
-    if (((ref = dv.space) != null ? ref.id : void 0) === sid) {
-      return Promise.resolve(dv._relations || []);
-    }
+  _relsOf = function(sid) {
     return _relCache[sid] != null ? _relCache[sid] : _relCache[sid] = Promise.resolve(Spaces.listRelations(sid)).then(function(rels) {
       return rels || [];
     });
@@ -48,19 +43,21 @@
     };
   };
 
-  // Resolve `path` from the displayed space → { fields, relations } of the space
-  // reached; an unknown or non-relation segment gives empty fields.
+  // Resolve `path` from the DataView's start space (id only) → { fields,
+  // relations } of the space reached; an unknown or non-relation segment gives
+  // empty fields.
   _resolve = function(dv, path) {
-    var empty, ref, step;
+    var empty, ref, start, step;
     empty = {
       fields: [],
       relations: []
     };
-    if (!(dv != null ? (ref = dv.space) != null ? ref.id : void 0 : void 0)) {
+    start = dv != null ? (ref = dv.space) != null ? ref.id : void 0 : void 0;
+    if (!start) {
       return Promise.resolve(empty);
     }
     step = function(sid, rest) {
-      return Promise.all([_fieldsOf(dv, sid), _relsOf(dv, sid)]).then(function([fields, rels]) {
+      return Promise.all([_fieldsOf(sid), _relsOf(sid)]).then(function([fields, rels]) {
         var f, rel;
         if (rest.length === 0) {
           return {
@@ -83,7 +80,7 @@
         return step(rel.toSpaceId, rest.slice(1));
       });
     };
-    return step(dv.space.id, path || []);
+    return step(start, path || []);
   };
 
   // Name-prefix filter (case-insensitive), alphabetical, at most MAX_ITEMS.
