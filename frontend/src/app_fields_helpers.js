@@ -144,7 +144,7 @@
       return app._startEditField(field, relation);
     },
     onFieldTypeChange: function(app) {
-      var formulaSection, i, isRelation, len, opt, ref, ref1, ref2, results, sel, sp, type;
+      var i, isRelation, len, opt, ref, ref1, ref2, results, sel, sp, type;
       type = app.el.fieldType().value;
       isRelation = type === 'Relation';
       app.el.relTargetRow().classList.toggle('hidden', !isRelation);
@@ -152,10 +152,8 @@
       if ((ref = app.el.fieldNotNull().closest('label')) != null) {
         ref.classList.toggle('hidden', isRelation);
       }
-      formulaSection = app.el.formulaBody().closest('.formula-section');
-      if (formulaSection != null) {
-        formulaSection.classList.toggle('hidden', isRelation);
-      }
+      // La section formule reste visible pour une Relation : un champ relation
+      // peut être CALCULÉ (formule de lecture renvoyant l'id de la cible).
       if ((ref1 = document.getElementById('field-repr-section')) != null) {
         ref1.classList.toggle('hidden', isRelation);
       }
@@ -243,8 +241,28 @@
       }
       return opts;
     },
-    startEditField: function(app, field, relation = null) {
+    applyFieldFormulaState: function(app, field) {
       var tf;
+      if (field.formula && field.formula !== '') {
+        if (field.triggerFields) {
+          document.querySelector('input[name="formula-type"][value="trigger"]').checked = true;
+          app.el.triggerFieldsRow().classList.remove('hidden');
+          tf = field.triggerFields;
+          app.el.fieldTriggerFields().value = tf.length === 0 ? '' : tf[0] === '*' ? '*' : tf.join(', ');
+        } else {
+          document.querySelector('input[name="formula-type"][value="formula"]').checked = true;
+        }
+        app.el.formulaBody().classList.remove('hidden');
+        app.el.fieldFormula().value = field.formula;
+        if (app.el.formulaLanguage()) {
+          return app.el.formulaLanguage().value = field.language || 'lua';
+        }
+      } else {
+        document.querySelector('input[name="formula-type"][value="none"]').checked = true;
+        return app.el.formulaBody().classList.add('hidden');
+      }
+    },
+    startEditField: function(app, field, relation = null) {
       app._editingFieldId = field.id;
       app._editingRelation = relation || null;
       app.el.fieldAddBtn().textContent = app._t('ui.fields.update');
@@ -259,6 +277,9 @@
         if (app.el.fieldReprFormula()) {
           app.el.fieldReprFormula().value = '';
         }
+        // Une relation peut porter une formule (champ relation calculé) : elle
+        // doit être affichée pour pouvoir être éditée.
+        this.applyFieldFormulaState(app, field);
       } else {
         app.el.fieldType().value = field.fieldType;
         app._onFieldTypeChange();
@@ -266,24 +287,7 @@
         if (app.el.fieldReprFormula()) {
           app.el.fieldReprFormula().value = field.reprFormula || '';
         }
-        if (field.formula && field.formula !== '') {
-          if (field.triggerFields) {
-            document.querySelector('input[name="formula-type"][value="trigger"]').checked = true;
-            app.el.triggerFieldsRow().classList.remove('hidden');
-            tf = field.triggerFields;
-            app.el.fieldTriggerFields().value = tf.length === 0 ? '' : tf[0] === '*' ? '*' : tf.join(', ');
-          } else {
-            document.querySelector('input[name="formula-type"][value="formula"]').checked = true;
-          }
-          app.el.formulaBody().classList.remove('hidden');
-          app.el.fieldFormula().value = field.formula;
-          if (app.el.formulaLanguage()) {
-            app.el.formulaLanguage().value = field.language || 'lua';
-          }
-        } else {
-          document.querySelector('input[name="formula-type"][value="none"]').checked = true;
-          app.el.formulaBody().classList.add('hidden');
-        }
+        this.applyFieldFormulaState(app, field);
       }
       return app.el.fieldName().focus();
     },
@@ -521,7 +525,11 @@
         if (type !== originalType) {
           conversionFormula = null;
           conversionLang = 'lua';
-          if (formulaType !== 'none') {
+          // Pour une Relation, la formule saisie est la formule de LECTURE du
+          // champ relation calculé, pas une formule de conversion de type : rien
+          // à convertir vers un id Int, elle est enregistrée sur le champ après
+          // le changement de type (updateFieldProperties ci-dessous).
+          if (formulaType !== 'none' && type !== 'Relation') {
             conversionFormula = app.el.fieldFormula().value.trim() || null;
             conversionLang = ((ref1 = app.el.formulaLanguage()) != null ? ref1.value : void 0) || 'lua';
           }
@@ -542,7 +550,9 @@
                   tdbAlert(app._t('ui.alerts.targetNoSequence'), 'warn');
                   return;
                 }
-                return Spaces.createRelation(`${app._currentSpace.name}_${app.el.fieldName().value}_rel`, app._currentSpace.id, app._editingFieldId, toSpaceId, idField.id, reprFormula);
+                return Spaces.createRelation(`${app._currentSpace.name}_${app.el.fieldName().value}_rel`, app._currentSpace.id, app._editingFieldId, toSpaceId, idField.id, reprFormula).then(function() {
+                  return app.updateFieldProperties(app._editingFieldId, opts, formulaType);
+                });
               });
             } else {
               return app.updateFieldProperties(app._editingFieldId, opts, formulaType);
@@ -559,6 +569,8 @@
         if (!toSpaceId) {
           return;
         }
+        formulaType = document.querySelector('input[name="formula-type"]:checked').value;
+        formulaOpts = window.AppFieldsHelpers.applyFormulaOptions(app, {}, formulaType, null);
         Spaces.getWithFields(toSpaceId).then(function(targetSpace) {
           var idField;
           idField = (targetSpace.fields || []).find(function(f) {
@@ -568,7 +580,9 @@
             tdbAlert(app._t('ui.alerts.targetNoSequence'), 'warn');
             return;
           }
-          return Spaces.addField(app._currentSpace.id, name, 'Int', notNull, '').then(function(newField) {
+          // La formule (si « Colonne calculée » est choisie) est transmise au
+          // champ Int : la relation porte alors sur un champ calculé.
+          return Spaces.addField(app._currentSpace.id, name, 'Int', notNull, '', formulaOpts.formula, formulaOpts.triggerFields, formulaOpts.language).then(function(newField) {
             return Spaces.createRelation(name, app._currentSpace.id, newField.id, toSpaceId, idField.id, reprFormula).then(function() {
               return Spaces.getWithFields(app._currentSpace.id).then(function(full) {
                 app._currentSpace = full;
