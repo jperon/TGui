@@ -221,6 +221,37 @@ eval_computed_formula = function(t, k, v, space_name, fk_cache)
   end
   return v, false
 end
+local relation_field_value
+relation_field_value = function(record, field_name, space_name, fk_cache)
+  return eval_computed_formula(record, field_name, record[field_name], space_name, prepare_cache(fk_cache))
+end
+local fill_computed_relation_values
+fill_computed_relation_values = function(record, field_names, space_name, fk_cache)
+  if not (space_name and field_names) then
+    return record
+  end
+  fk_cache = prepare_cache(fk_cache)
+  for _index_0 = 1, #field_names do
+    local _continue_0 = false
+    repeat
+      local field_name = field_names[_index_0]
+      local v = record[field_name]
+      if not (v == nil or v == '') then
+        _continue_0 = true
+        break
+      end
+      local val, is_err = eval_computed_formula(record, field_name, v, space_name, fk_cache)
+      if is_err and val ~= nil then
+        record[field_name] = val
+      end
+      _continue_0 = true
+    until true
+    if not _continue_0 then
+      break
+    end
+  end
+  return record
+end
 local make_self_proxy
 make_self_proxy = function(record, fk_def_map, fk_cache, space_name)
   fk_cache = prepare_cache(fk_cache)
@@ -376,5 +407,7 @@ return {
   make_self_proxy_extended = make_self_proxy_extended,
   make_space_helper = make_space_helper,
   format_formula_error = format_formula_error,
-  invalidate_formula_cache = invalidate_formula_cache
+  invalidate_formula_cache = invalidate_formula_cache,
+  relation_field_value = relation_field_value,
+  fill_computed_relation_values = fill_computed_relation_values
 }

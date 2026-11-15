@@ -9,6 +9,8 @@ do
 end
 local config_mod = require('core.config')
 local validation_mod = require('core.validation')
+local fill_computed_relation_values
+fill_computed_relation_values = require('core.formula_proxy').fill_computed_relation_values
 local data_space
 data_space = function(space_id)
   local meta = box.space._tdb_spaces:get(space_id)
@@ -404,12 +406,16 @@ local Query = {
     local repr_uses_self_repr = args.reprFormula == '@_repr' or args.reprFormula == 'self._repr' or args.reprFormula == '_repr'
     local field_reprs = { }
     local field_repr_errors = { }
+    local computed_fk_names = { }
     if sp_meta then
       local fields = box.space._tdb_fields.index.by_space_pos:select({
         args.spaceId
       })
       for _index_0 = 1, #fields do
         local f = fields[_index_0]
+        if f[8] and f[8] ~= '' and fk_def_map[f[3]] then
+          table.insert(computed_fk_names, f[3])
+        end
         if f[11] and f[11] ~= '' then
           local lang = f[10] or 'lua'
           local ok_c, fn = pcall(triggers_mod.compile_formula, f[11], "repr_" .. tostring(f[3]), lang)
@@ -428,6 +434,9 @@ local Query = {
       local t = _list_0[_index_0]
       local parsed = json.decode(t[2])
       parsed._id = tostring(t[1])
+      if #computed_fk_names > 0 then
+        fill_computed_relation_values(parsed, computed_fk_names, space_name, ctx._fk_cache)
+      end
       local self_proxy = triggers_mod.make_self_proxy(parsed, fk_def_map, ctx._fk_cache, space_name)
       if repr_compile_error then
         parsed._repr = repr_compile_error
