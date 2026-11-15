@@ -5,6 +5,7 @@ local spaces_mod = require('core.spaces')
 local views_mod = require('core.views')
 local perms_mod = require('core.permissions')
 local data_views = require('core.data_views')
+local view_presets = require('core.view_presets')
 local app_package = require('core.app_package')
 local plan_update
 plan_update = require('core.app_plan').plan_update
@@ -15,6 +16,7 @@ local TYPE_ORDER = {
   'view',
   'page',
   'dataview',
+  'preset',
   'plugin',
   'group',
   'perm',
@@ -212,8 +214,77 @@ _space_renames = function(package, installed)
   end
   return map
 end
+local _page_renames
+_page_renames = function(package, installed)
+  local map = { }
+  local _list_0 = package.items
+  for _index_0 = 1, #_list_0 do
+    local _continue_0 = false
+    repeat
+      local it = _list_0[_index_0]
+      if not (it.type == 'page' and it.renamed_from) then
+        _continue_0 = true
+        break
+      end
+      if not (installed[it.renamed_from]) then
+        _continue_0 = true
+        break
+      end
+      local new_name = _after(it.key, 'page:')
+      local old_name = _after(it.renamed_from, 'page:')
+      if new_name then
+        new_name = app_package.unkey_part(new_name)
+      end
+      if old_name then
+        old_name = app_package.unkey_part(old_name)
+      end
+      if new_name and old_name then
+        map[new_name] = old_name
+      end
+      _continue_0 = true
+    until true
+    if not _continue_0 then
+      break
+    end
+  end
+  return map
+end
+local _preset_key_parts
+_preset_key_parts = function(key)
+  local rest = _after(key, 'preset:')
+  if not (rest) then
+    return nil
+  end
+  local idx = rest:find('|')
+  if not (idx) then
+    return nil
+  end
+  return {
+    scope = app_package.unkey_part(rest:sub(1, idx - 1)),
+    name = app_package.unkey_part(rest:sub(idx + 1))
+  }
+end
+local _preset_key
+_preset_key = function(scope, name)
+  return "preset:" .. tostring(app_package.key_part(scope)) .. "|" .. tostring(app_package.key_part(name))
+end
+local _renamed_preset_scope
+_renamed_preset_scope = function(scope, kind, from_name, to_name)
+  local page_name, widget_id = scope:match('^widget:(.*):([^:]+)$')
+  if page_name then
+    if not (kind == 'widget' and page_name == from_name) then
+      return nil
+    end
+    return "widget:" .. tostring(to_name) .. ":" .. tostring(widget_id)
+  end
+  local space_name = scope:match('^space:(.+)$')
+  if not (kind == 'space' and space_name == from_name) then
+    return nil
+  end
+  return "space:" .. tostring(to_name)
+end
 local _child_old_key
-_child_old_key = function(key, space_renames)
+_child_old_key = function(key, space_renames, page_renames)
   local _list_0 = {
     'field:',
     'relation:',
@@ -237,11 +308,25 @@ _child_old_key = function(key, space_renames)
       end
     end
   end
+  local parts = _preset_key_parts(key)
+  if not (parts) then
+    return nil
+  end
+  local page_name, widget_id = parts.scope:match('^widget:(.*):([^:]+)$')
+  if page_name and page_renames[page_name] then
+    local old_scope = "widget:" .. tostring(page_renames[page_name]) .. ":" .. tostring(widget_id)
+    return _preset_key(old_scope, parts.name)
+  end
+  local space_name = parts.scope:match('^space:(.+)$')
+  if space_name and space_renames[space_name] then
+    return _preset_key("space:" .. tostring(space_renames[space_name]), parts.name)
+  end
   return nil
 end
 local _expand_renames
 _expand_renames = function(package, installed)
   local space_renames = _space_renames(package, installed)
+  local page_renames = _page_renames(package, installed)
   local items = { }
   local _list_0 = package.items
   for _index_0 = 1, #_list_0 do
@@ -263,7 +348,7 @@ _expand_renames = function(package, installed)
         _continue_0 = true
         break
       end
-      local old_key = _child_old_key(it.key, space_renames)
+      local old_key = _child_old_key(it.key, space_renames, page_renames)
       if old_key and installed[old_key] then
         table.insert(items, {
           type = it.type,
@@ -606,6 +691,22 @@ _resolve_dataview_id = function(key)
   local v = name and data_views.get_view_by_name(app_package.unkey_part(name))
   return v and v.id
 end
+local _resolve_preset_id
+_resolve_preset_id = function(key)
+  local parts = _preset_key_parts(key)
+  if not (parts) then
+    return nil
+  end
+  local local_scope = app_package.preset_scope_local(parts.scope)
+  if not (local_scope) then
+    return nil
+  end
+  local row = box.space._tdb_view_presets.index.by_scope_name:get({
+    local_scope,
+    parts.name
+  })
+  return row and row[1]
+end
 local _resolve_plugin_id
 _resolve_plugin_id = function(key)
   local name = _after(key, 'plugin:')
@@ -642,6 +743,9 @@ _resolve_local_id = function(item_type, key)
   end
   if item_type == 'dataview' then
     return _resolve_dataview_id(key)
+  end
+  if item_type == 'preset' then
+    return _resolve_preset_id(key)
   end
   if item_type == 'plugin' then
     return _resolve_plugin_id(key)
@@ -893,6 +997,53 @@ _update_dataview = function(entry, old)
     id = old.local_id
   }
 end
+local _preset_scope
+_preset_scope = function(scope)
+  if not (type(scope) == 'string') then
+    return scope
+  end
+  local page_name, widget_id = scope:match('^widget:(.*):([^:]+)$')
+  if page_name then
+    local row = _page_by_name(page_name)
+    if not (row) then
+      error("unknown page '" .. tostring(page_name) .. "'")
+    end
+    return "widget:" .. tostring(row[1]) .. ":" .. tostring(widget_id)
+  end
+  local space_name = scope:match('^space:(.+)$')
+  if not (space_name) then
+    return scope
+  end
+  return "space:" .. tostring(_space_id(space_name))
+end
+local _sort_json
+_sort_json = function(sort)
+  if sort == nil then
+    return '[]'
+  end
+  if type(sort) == 'string' then
+    return sort
+  end
+  return json.encode(sort)
+end
+local _save_preset
+_save_preset = function(entry)
+  local c = entry.content
+  local scope = _preset_scope(c.scope)
+  local sid = _space_id(c.space)
+  local p = view_presets.save_preset(scope, sid, c.name, c.filter or '', _sort_json(c.sort))
+  return {
+    id = p.id
+  }
+end
+local _create_preset
+_create_preset = function(entry)
+  return _save_preset(entry)
+end
+local _update_preset
+_update_preset = function(entry, old)
+  return _save_preset(entry)
+end
 local _create_plugin
 _create_plugin = function(entry)
   local c = entry.content
@@ -1017,6 +1168,10 @@ local EXECUTORS = {
   dataview = {
     create = _create_dataview,
     update = _update_dataview
+  },
+  preset = {
+    create = _create_preset,
+    update = _update_preset
   },
   plugin = {
     create = _create_plugin,
@@ -1403,7 +1558,55 @@ _remap_child_key = function(key, old_name, new_name)
   if rest then
     return "seed:" .. tostring(app_package.key_part(new_name)) .. "|" .. tostring(rest)
   end
-  return nil
+  local parts = _preset_key_parts(key)
+  if not (parts) then
+    return nil
+  end
+  local scope = _renamed_preset_scope(parts.scope, 'space', old_name, new_name)
+  return scope and _preset_key(scope, parts.name)
+end
+local _remap_page_tracking
+_remap_page_tracking = function(app_id, old_name, new_name)
+  local rows = box.space._tdb_app_items.index.by_app:select({
+    app_id
+  })
+  for _index_0 = 1, #rows do
+    local _continue_0 = false
+    repeat
+      local t = rows[_index_0]
+      if not (t[3] == 'preset') then
+        _continue_0 = true
+        break
+      end
+      local parts = _preset_key_parts(t[2])
+      if not (parts) then
+        _continue_0 = true
+        break
+      end
+      local scope = _renamed_preset_scope(parts.scope, 'widget', old_name, new_name)
+      if not (scope) then
+        _continue_0 = true
+        break
+      end
+      box.space._tdb_app_items:delete({
+        t[1],
+        t[2]
+      })
+      box.space._tdb_app_items:replace({
+        t[1],
+        _preset_key(scope, parts.name),
+        t[3],
+        t[4],
+        t[5],
+        t[6],
+        t[7]
+      })
+      _continue_0 = true
+    until true
+    if not _continue_0 then
+      break
+    end
+  end
 end
 local _remap_child_tracking
 _remap_child_tracking = function(app_id, old_name, new_name)
@@ -1538,8 +1741,12 @@ end
 local _rename_page
 _rename_page = function(ctx, from_key, to_key)
   local name = app_package.unkey_part(_after(to_key, 'page:'))
+  local old_name = app_package.unkey_part(_after(from_key, 'page:'))
   local old = ctx.installed[from_key]
   _rename_row_name('_tdb_custom_views', old and old.local_id, 2, name)
+  if old_name and name and old_name ~= name then
+    _remap_page_tracking(ctx.pkg.app.id, old_name, name)
+  end
   return _delete_tracking(ctx.pkg.app.id, from_key)
 end
 local _rename_dataview
@@ -1547,6 +1754,32 @@ _rename_dataview = function(ctx, from_key, to_key)
   local name = app_package.unkey_part(_after(to_key, 'dataview:'))
   local old = ctx.installed[from_key]
   _rename_row_name('_tdb_data_views', old and old.local_id, 2, name)
+  return _delete_tracking(ctx.pkg.app.id, from_key)
+end
+local _rename_preset
+_rename_preset = function(ctx, from_key, to_key)
+  local parts = _preset_key_parts(to_key)
+  local old = ctx.installed[from_key]
+  if old and old.local_id and parts and box.space._tdb_view_presets:get(old.local_id) then
+    local scope = _preset_scope(parts.scope)
+    box.space._tdb_view_presets:update(old.local_id, {
+      {
+        '=',
+        2,
+        scope
+      },
+      {
+        '=',
+        4,
+        parts.name
+      },
+      {
+        '=',
+        8,
+        clock.time()
+      }
+    })
+  end
   return _delete_tracking(ctx.pkg.app.id, from_key)
 end
 local _rename_plugin
@@ -1580,6 +1813,8 @@ _do_rename = function(ctx, from_key, to_key)
     return _rename_page(ctx, from_key, to_key)
   elseif 'dataview' == _exp_0 then
     return _rename_dataview(ctx, from_key, to_key)
+  elseif 'preset' == _exp_0 then
+    return _rename_preset(ctx, from_key, to_key)
   elseif 'plugin' == _exp_0 then
     return _rename_plugin(ctx, from_key, to_key)
   elseif 'group' == _exp_0 then
@@ -1909,6 +2144,33 @@ _delete_space_children = function(app_id, name)
     end
   end
 end
+local _delete_space_preset_tracking
+_delete_space_preset_tracking = function(app_id, name)
+  local sp = spaces_mod.get_space_by_name(name)
+  if not (sp) then
+    return 
+  end
+  local ids = { }
+  local _list_0 = box.space._tdb_view_presets.index.by_space:select({
+    sp.id
+  })
+  for _index_0 = 1, #_list_0 do
+    local t = _list_0[_index_0]
+    ids[t[1]] = true
+  end
+  local _list_1 = box.space._tdb_app_items.index.by_app:select({
+    app_id
+  })
+  for _index_0 = 1, #_list_1 do
+    local t = _list_1[_index_0]
+    if t[3] == 'preset' and ids[t[4]] then
+      box.space._tdb_app_items:delete({
+        t[1],
+        t[2]
+      })
+    end
+  end
+end
 local _remove_record_key
 _remove_record_key = function(sp, field_name)
   local _list_0 = sp:select({ })
@@ -1939,6 +2201,7 @@ local _purge_space
 _purge_space = function(ctx, row)
   local name = app_package.unkey_part(_after(row.key, 'space:'))
   if name then
+    _delete_space_preset_tracking(ctx.app_id, name)
     spaces_mod.delete_user_space(name)
   end
   if name then
@@ -1978,6 +2241,8 @@ _purge_one = function(ctx, row)
     return box.space._tdb_custom_views:delete(row.local_id)
   elseif 'dataview' == _exp_0 then
     return box.space._tdb_data_views:delete(row.local_id)
+  elseif 'preset' == _exp_0 then
+    return view_presets.delete_preset(row.local_id)
   elseif 'plugin' == _exp_0 then
     return box.space._tdb_widget_plugins:delete(row.local_id)
   elseif 'group' == _exp_0 then

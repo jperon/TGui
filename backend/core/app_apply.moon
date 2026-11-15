@@ -12,9 +12,11 @@
 --   relation : même insertion que do_import (resolvers/export_resolvers.moon:373-400),
 --              colonnes de _tdb_relations (core/spaces.moon:135-148)
 --   view     : core.views.create_view (32-38), update_view (40-50)
---   page     : insertion de do_import (export_resolvers.moon:412-415)
+--   page     : insertion de do_import (export_resolvers.moon:420-434)
 --   dataview : core.data_views.create_view (24-43), update_view (53-73)
---   plugin   : insertion de do_import (export_resolvers.moon:441-454)
+--   preset   : core.view_presets.save_preset (59-91), an upsert keyed by
+--              (scope, name): creating and updating are the same call
+--   plugin   : insertion de do_import (export_resolvers.moon:469-489)
 --   group    : core.permissions.create_group (20-23)
 --   perm     : core.permissions.grant (78-82)
 -- Le reinit de fin suit reinit_with_formula_cache_reset! (schema_resolvers.moon:13-15)
@@ -24,19 +26,21 @@
 -- annule create_user_space + add_field String/Sequence + insert _tdb_apps,
 -- _tdb_app_items, _tdb_custom_views, _tdb_data_views, _tdb_widget_plugins ;
 -- box.commit les persiste). L'application est donc encadrée par box.begin/commit
--- avec rollback sur erreur.
+-- avec rollback sur erreur. Les préréglages (_tdb_view_presets) sont des
+-- insertions memtx ordinaires, annulées par le même rollback.
 
-json        = require 'json'
-uuid_mod    = require 'uuid'
-clock       = require 'clock'
-spaces_mod  = require 'core.spaces'
-views_mod   = require 'core.views'
-perms_mod   = require 'core.permissions'
-data_views  = require 'core.data_views'
-app_package = require 'core.app_package'
+json         = require 'json'
+uuid_mod     = require 'uuid'
+clock        = require 'clock'
+spaces_mod   = require 'core.spaces'
+views_mod    = require 'core.views'
+perms_mod    = require 'core.permissions'
+data_views   = require 'core.data_views'
+view_presets = require 'core.view_presets'
+app_package  = require 'core.app_package'
 { :plan_update } = require 'core.app_plan'
 
-TYPE_ORDER = { 'space', 'field', 'relation', 'view', 'page', 'dataview', 'plugin', 'group', 'perm', 'seed' }
+TYPE_ORDER = { 'space', 'field', 'relation', 'view', 'page', 'dataview', 'preset', 'plugin', 'group', 'perm', 'seed' }
 TYPE_RANK = { t, i for i, t in ipairs TYPE_ORDER }
 
 -- ────────────────────────────────────────────────────────────────────────────
@@ -172,7 +176,48 @@ _space_renames = (package, installed) ->
     map[new_name] = old_name if new_name and old_name
   map
 
-_child_old_key = (key, space_renames) ->
+-- Same for pages: a preset scope names its page, so renaming the page moves
+-- every preset key of that page (map new name → old name, like _space_renames).
+_page_renames = (package, installed) ->
+  map = {}
+  for it in *package.items
+    continue unless it.type == 'page' and it.renamed_from
+    continue unless installed[it.renamed_from]
+    new_name = _after it.key, 'page:'
+    old_name = _after it.renamed_from, 'page:'
+    new_name = app_package.unkey_part new_name if new_name
+    old_name = app_package.unkey_part old_name if old_name
+    map[new_name] = old_name if new_name and old_name
+  map
+
+-- 'preset:<key_part portable scope>|<key_part name>' (app_package.collect_presets).
+_preset_key_parts = (key) ->
+  rest = _after key, 'preset:'
+  return nil unless rest
+  idx = rest\find '|'
+  return nil unless idx
+  {
+    scope: app_package.unkey_part rest\sub(1, idx - 1)
+    name: app_package.unkey_part rest\sub(idx + 1)
+  }
+
+_preset_key = (scope, name) ->
+  "preset:#{app_package.key_part scope}|#{app_package.key_part name}"
+
+-- A portable scope naming `from_name` as `kind` ('widget' = page, 'space'),
+-- rewritten to name `to_name`. Callers pass the direction they need: new → old
+-- to find the installed key of a renamed element, old → new to move a tracking
+-- row after the rename.
+_renamed_preset_scope = (scope, kind, from_name, to_name) ->
+  page_name, widget_id = scope\match '^widget:(.*):([^:]+)$'
+  if page_name
+    return nil unless kind == 'widget' and page_name == from_name
+    return "widget:#{to_name}:#{widget_id}"
+  space_name = scope\match '^space:(.+)$'
+  return nil unless kind == 'space' and space_name == from_name
+  "space:#{to_name}"
+
+_child_old_key = (key, space_renames, page_renames) ->
   for prefix in *{ 'field:', 'relation:', 'view:' }
     scope, name = _split_scope key, prefix
     old_scope = scope and space_renames[scope]
@@ -184,10 +229,20 @@ _child_old_key = (key, space_renames) ->
       scope = app_package.unkey_part rest\sub(1, sep - 1)
       if space_renames[scope]
         return "seed:#{app_package.key_part(space_renames[scope])}#{rest\sub sep}"
+  parts = _preset_key_parts key
+  return nil unless parts
+  page_name, widget_id = parts.scope\match '^widget:(.*):([^:]+)$'
+  if page_name and page_renames[page_name]
+    old_scope = "widget:#{page_renames[page_name]}:#{widget_id}"
+    return _preset_key old_scope, parts.name
+  space_name = parts.scope\match '^space:(.+)$'
+  if space_name and space_renames[space_name]
+    return _preset_key "space:#{space_renames[space_name]}", parts.name
   nil
 
 _expand_renames = (package, installed) ->
   space_renames = _space_renames package, installed
+  page_renames = _page_renames package, installed
   items = {}
   for it in *package.items
     -- Renommage déjà appliqué lors d'une mise à jour précédente : l'ancienne
@@ -200,7 +255,7 @@ _expand_renames = (package, installed) ->
     if it.renamed_from or it.type == 'space'
       table.insert items, it
       continue
-    old_key = _child_old_key it.key, space_renames
+    old_key = _child_old_key it.key, space_renames, page_renames
     if old_key and installed[old_key]
       table.insert items, { type: it.type, key: it.key, content: it.content,
                             fingerprint: it.fingerprint, renamed_from: old_key }
@@ -391,6 +446,16 @@ _resolve_dataview_id = (key) ->
   v = name and data_views.get_view_by_name(app_package.unkey_part name)
   v and v.id
 
+-- A preset row is keyed by (local scope, name): both components are decoded
+-- from the key, then the portable scope is resolved to local ids.
+_resolve_preset_id = (key) ->
+  parts = _preset_key_parts key
+  return nil unless parts
+  local_scope = app_package.preset_scope_local parts.scope
+  return nil unless local_scope
+  row = box.space._tdb_view_presets.index.by_scope_name\get { local_scope, parts.name }
+  row and row[1]
+
 _resolve_plugin_id = (key) ->
   name = _after key, 'plugin:'
   row = name and box.space._tdb_widget_plugins.index.by_name\get app_package.unkey_part name
@@ -414,6 +479,7 @@ _resolve_local_id = (item_type, key) ->
   return _resolve_view_id key if item_type == 'view'
   return _resolve_page_id key if item_type == 'page'
   return _resolve_dataview_id key if item_type == 'dataview'
+  return _resolve_preset_id key if item_type == 'preset'
   return _resolve_plugin_id key if item_type == 'plugin'
   return _resolve_group_id key if item_type == 'group'
   return _resolve_perm_id key if item_type == 'perm'
@@ -556,6 +622,39 @@ _update_dataview = (entry, old) ->
   }
   { id: old.local_id }
 
+-- Portable scope → local scope: a page is resolved by name, a space by name. An
+-- unknown name is an explicit error, like _space_id for every other type
+-- (miroir de app_package.preset_scope_local, which returns nil instead).
+_preset_scope = (scope) ->
+  return scope unless type(scope) == 'string'
+  page_name, widget_id = scope\match '^widget:(.*):([^:]+)$'
+  if page_name
+    row = _page_by_name page_name
+    error "unknown page '#{page_name}'" unless row
+    return "widget:#{row[1]}:#{widget_id}"
+  space_name = scope\match '^space:(.+)$'
+  return scope unless space_name
+  "space:#{_space_id space_name}"
+
+-- A sort is packaged as a table (app_package.preset_sort) and stored as JSON
+-- text (core/view_presets.validate_sort).
+_sort_json = (sort) ->
+  return '[]' if sort == nil
+  return sort if type(sort) == 'string'
+  json.encode sort
+
+-- save_preset is an upsert keyed by (scope, name): a create and an update of
+-- the same preset are the same write.
+_save_preset = (entry) ->
+  c = entry.content
+  scope = _preset_scope c.scope
+  sid = _space_id c.space
+  p = view_presets.save_preset scope, sid, c.name, c.filter or '', _sort_json(c.sort)
+  { id: p.id }
+
+_create_preset = (entry) -> _save_preset entry
+_update_preset = (entry, old) -> _save_preset entry
+
 _create_plugin = (entry) ->
   c = entry.content
   id = tostring uuid_mod.new!
@@ -606,6 +705,7 @@ EXECUTORS =
   view:     { create: _create_view,     update: _update_view }
   page:     { create: _create_page,     update: _update_page }
   dataview: { create: _create_dataview, update: _update_dataview }
+  preset:   { create: _create_preset,   update: _update_preset }
   plugin:   { create: _create_plugin,   update: _update_plugin }
   group:    { create: _create_group,    update: _update_group }
   perm:     { create: _create_perm }
@@ -798,7 +898,24 @@ _remap_child_key = (key, old_name, new_name) ->
     return "#{prefix}#{app_package.key_part new_name}.#{rest}" if rest
   rest = _after key, "seed:#{app_package.key_part old_name}|"
   return "seed:#{app_package.key_part new_name}|#{rest}" if rest
-  nil
+  parts = _preset_key_parts key
+  return nil unless parts
+  scope = _renamed_preset_scope parts.scope, 'space', old_name, new_name
+  scope and _preset_key scope, parts.name
+
+-- Presets attached to a renamed page: their tracking key names the page
+-- (portable scope) while their local row keeps the page id — only the key
+-- moves. Runs in the same transaction as _rename_page.
+_remap_page_tracking = (app_id, old_name, new_name) ->
+  rows = box.space._tdb_app_items.index.by_app\select { app_id }
+  for t in *rows
+    continue unless t[3] == 'preset'
+    parts = _preset_key_parts t[2]
+    continue unless parts
+    scope = _renamed_preset_scope parts.scope, 'widget', old_name, new_name
+    continue unless scope
+    box.space._tdb_app_items\delete { t[1], t[2] }
+    box.space._tdb_app_items\replace { t[1], _preset_key(scope, parts.name), t[3], t[4], t[5], t[6], t[7] }
 
 _remap_child_tracking = (app_id, old_name, new_name) ->
   rows = box.space._tdb_app_items.index.by_app\select { app_id }
@@ -858,14 +975,31 @@ _rename_view = (ctx, from_key, to_key) ->
 
 _rename_page = (ctx, from_key, to_key) ->
   name = app_package.unkey_part _after to_key, 'page:'
+  old_name = app_package.unkey_part _after from_key, 'page:'
   old = ctx.installed[from_key]
   _rename_row_name '_tdb_custom_views', old and old.local_id, 2, name
+  if old_name and name and old_name != name
+    _remap_page_tracking ctx.pkg.app.id, old_name, name
   _delete_tracking ctx.pkg.app.id, from_key
 
 _rename_dataview = (ctx, from_key, to_key) ->
   name = app_package.unkey_part _after to_key, 'dataview:'
   old = ctx.installed[from_key]
   _rename_row_name '_tdb_data_views', old and old.local_id, 2, name
+  _delete_tracking ctx.pkg.app.id, from_key
+
+-- A preset is keyed by (scope, name): both columns are rewritten in place, the
+-- row keeps its id and its created_at (updated_at is bumped, like save_preset).
+_rename_preset = (ctx, from_key, to_key) ->
+  parts = _preset_key_parts to_key
+  old = ctx.installed[from_key]
+  if old and old.local_id and parts and box.space._tdb_view_presets\get old.local_id
+    scope = _preset_scope parts.scope
+    box.space._tdb_view_presets\update old.local_id, {
+      { '=', 2, scope }
+      { '=', 4, parts.name }
+      { '=', 8, clock.time! }
+    }
   _delete_tracking ctx.pkg.app.id, from_key
 
 _rename_plugin = (ctx, from_key, to_key) ->
@@ -889,6 +1023,7 @@ _do_rename = (ctx, from_key, to_key) ->
     when 'view' then _rename_view ctx, from_key, to_key
     when 'page' then _rename_page ctx, from_key, to_key
     when 'dataview' then _rename_dataview ctx, from_key, to_key
+    when 'preset' then _rename_preset ctx, from_key, to_key
     when 'plugin' then _rename_plugin ctx, from_key, to_key
     when 'group' then _rename_group ctx, from_key, to_key
     else _delete_tracking ctx.pkg.app.id, from_key
@@ -1057,6 +1192,19 @@ _delete_space_children = (app_id, name) ->
   for t in *rows
     box.space._tdb_app_items\delete { t[1], t[2] } if _is_child_of_space t[2], name
 
+-- Presets attached to a space are cascade-deleted with it (core/spaces.moon:
+-- 763-767): their tracking rows must go too, otherwise a stale local_id would
+-- be recorded for a row that no longer exists.
+_delete_space_preset_tracking = (app_id, name) ->
+  sp = spaces_mod.get_space_by_name name
+  return unless sp
+  ids = {}
+  for t in *box.space._tdb_view_presets.index.by_space\select { sp.id }
+    ids[t[1]] = true
+  for t in *box.space._tdb_app_items.index.by_app\select { app_id }
+    if t[3] == 'preset' and ids[t[4]]
+      box.space._tdb_app_items\delete { t[1], t[2] }
+
 _remove_record_key = (sp, field_name) ->
   for t in *sp\select {}
     d = _decode t[2]
@@ -1073,7 +1221,9 @@ _purge_field = (row) ->
 
 _purge_space = (ctx, row) ->
   name = app_package.unkey_part _after row.key, 'space:'
-  spaces_mod.delete_user_space name if name
+  if name
+    _delete_space_preset_tracking ctx.app_id, name
+    spaces_mod.delete_user_space name
   _delete_space_children ctx.app_id, name if name
 
 _purge_seed = (row) ->
@@ -1094,6 +1244,7 @@ _purge_one = (ctx, row) ->
     when 'view' then box.space._tdb_views\delete row.local_id
     when 'page' then box.space._tdb_custom_views\delete row.local_id
     when 'dataview' then box.space._tdb_data_views\delete row.local_id
+    when 'preset' then view_presets.delete_preset row.local_id
     when 'plugin' then box.space._tdb_widget_plugins\delete row.local_id
     when 'group' then perms_mod.delete_group row.local_id
     when 'perm' then box.space._tdb_permissions\delete row.local_id

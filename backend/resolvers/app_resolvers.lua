@@ -6,7 +6,8 @@ require_admin = require('resolvers.utils').require_admin
 local CODE_TYPES = {
   plugin = true,
   page = true,
-  dataview = true
+  dataview = true,
+  preset = true
 }
 local SEMVER_PATTERN = '^%d+%.%d+%.%d+$'
 local parse_yaml
