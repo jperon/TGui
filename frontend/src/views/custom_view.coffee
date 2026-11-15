@@ -556,7 +556,7 @@ window.CustomView = class CustomView
       dv._formulaFilter = filterFormula if filterFormula
 
     filterWrap = document.createElement 'div'
-    filterWrap.className = 'cv-widget-filter toolbar-filter'
+    filterWrap.className = 'cv-widget-filter toolbar-filter no-drag'
     filterLabel = document.createElement 'span'
     filterLabel.className = 'toolbar-filter-label'
     filterLabel.textContent = 'λ'
@@ -579,6 +579,15 @@ window.CustomView = class CustomView
       clearTimeout filterTimer
       filterTimer = setTimeout (=> dv.setFormulaFilter val), 400
     dv._formulaInputEl = filterInput
+
+    # Même menu que la grille principale, avec la portée du widget de page.
+    if @pageId and wNode.id
+      window.ViewPresetsMenu?.attach filterWrap, {
+        getDataView: -> dv
+        scope: "widget:#{@pageId}:#{wNode.id}"
+        spaceId: sp.id
+        filterInput: filterInput
+      }
 
     @_mountPromises.push dv.mount()
     delBtn.addEventListener 'click', => dv.deleteSelected()

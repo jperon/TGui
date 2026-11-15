@@ -645,7 +645,7 @@ transition: all 0.3s ease;`;
     }
 
     _renderWidget(wNode) {
-      var body, col, delBtn, dv, entry, extras, f, fieldMap, filterFormula, filterInput, filterLabel, filterTimer, filterWrap, j, k, l, lang, len, len1, len2, lf, present, ref, ref1, ref2, runtimeWidgetId, sp, srcField, titleBar, titleText, visible, wrapper;
+      var body, col, delBtn, dv, entry, extras, f, fieldMap, filterFormula, filterInput, filterLabel, filterTimer, filterWrap, j, k, l, lang, len, len1, len2, lf, present, ref, ref1, ref2, ref3, runtimeWidgetId, sp, srcField, titleBar, titleText, visible, wrapper;
       wrapper = document.createElement('div');
       wrapper.className = 'cv-widget';
       // Ajouter les attributs pour le drag & drop
@@ -773,7 +773,7 @@ transition: all 0.3s ease;`;
         }
       }
       filterWrap = document.createElement('div');
-      filterWrap.className = 'cv-widget-filter toolbar-filter';
+      filterWrap.className = 'cv-widget-filter toolbar-filter no-drag';
       filterLabel = document.createElement('span');
       filterLabel.className = 'toolbar-filter-label';
       filterLabel.textContent = 'λ';
@@ -803,6 +803,19 @@ transition: all 0.3s ease;`;
         }), 400);
       });
       dv._formulaInputEl = filterInput;
+      // Même menu que la grille principale, avec la portée du widget de page.
+      if (this.pageId && wNode.id) {
+        if ((ref3 = window.ViewPresetsMenu) != null) {
+          ref3.attach(filterWrap, {
+            getDataView: function() {
+              return dv;
+            },
+            scope: `widget:${this.pageId}:${wNode.id}`,
+            spaceId: sp.id,
+            filterInput: filterInput
+          });
+        }
+      }
       this._mountPromises.push(dv.mount());
       delBtn.addEventListener('click', () => {
         return dv.deleteSelected();
