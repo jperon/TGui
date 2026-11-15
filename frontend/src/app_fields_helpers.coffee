@@ -3,7 +3,9 @@
 window.AppFieldsHelpers =
   bindFormulaFilter: (app) ->
     app._formulaTimer = null
-    app.el.formulaFilterInput().addEventListener 'input', (e) ->
+    input = app.el.formulaFilterInput()
+    window.FieldAutocomplete?.attach input, -> app._activeDataView
+    input.addEventListener 'input', (e) ->
       clearTimeout app._formulaTimer
       val = e.target.value.trim()
       e.target.classList.toggle 'active', val != ''

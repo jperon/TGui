@@ -29,6 +29,16 @@ makeElement = (tag) ->
     appendChild: (child) ->
       el._children.push child
       el.children.push child
+      # Non énumérable pour ne pas casser JSON.stringify(el) dans les tests.
+      Object.defineProperty child, 'parentNode',
+        value: el, configurable: true, writable: true, enumerable: false
+      child
+    removeChild: (child) ->
+      i = el._children.indexOf child
+      el._children.splice i, 1 if i != -1
+      j = el.children.indexOf child
+      el.children.splice j, 1 if j != -1
+      child.parentNode = null
       child
     insertBefore: (child, _ref) ->
       el._children.unshift child

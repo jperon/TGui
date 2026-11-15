@@ -1243,6 +1243,30 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
 .toolbar-filter:has(.toolbar-filter-input.active) .toolbar-filter-label {
   background: #e0e7ff; border-right-color: #c7d2fe; color: #4338ca;
 }
+
+/* Autocomplete des noms de champs dans les filtres formule (« λ »).
+   La liste est attachée à document.body, en position fixed sous l'input. */
+.field-ac {
+  position: fixed;
+  z-index: 3000;
+  max-height: 14rem;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, .12);
+  font-family: monospace;
+  font-size: .8rem;
+}
+.field-ac-item {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 1rem;
+  padding: .2rem .5rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.field-ac-item.selected { background: #eef2ff; }
+.field-ac-type { color: #9ca3af; font-size: .72rem; }
 /* L'erreur prime sur l'état actif : règle après celle de `.active`. */
 .toolbar-filter:has(.toolbar-filter-input.input-error) {
   border-color: #ef4444; background: #fef2f2;
