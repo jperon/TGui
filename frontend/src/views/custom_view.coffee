@@ -572,6 +572,7 @@ window.CustomView = class CustomView
     titleBar.appendChild delBtn
 
     filterTimer = null
+    window.FieldAutocomplete?.attach filterInput, -> dv
     filterInput.addEventListener 'input', (ev) =>
       val = ev.target.value.trim()
       ev.target.classList.toggle 'active', val != ''

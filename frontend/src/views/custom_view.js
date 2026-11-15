@@ -645,7 +645,7 @@ transition: all 0.3s ease;`;
     }
 
     _renderWidget(wNode) {
-      var body, col, delBtn, dv, entry, extras, f, fieldMap, filterFormula, filterInput, filterLabel, filterTimer, filterWrap, j, k, l, lang, len, len1, len2, lf, present, ref, ref1, runtimeWidgetId, sp, srcField, titleBar, titleText, visible, wrapper;
+      var body, col, delBtn, dv, entry, extras, f, fieldMap, filterFormula, filterInput, filterLabel, filterTimer, filterWrap, j, k, l, lang, len, len1, len2, lf, present, ref, ref1, ref2, runtimeWidgetId, sp, srcField, titleBar, titleText, visible, wrapper;
       wrapper = document.createElement('div');
       wrapper.className = 'cv-widget';
       // Ajouter les attributs pour le drag & drop
@@ -788,6 +788,11 @@ transition: all 0.3s ease;`;
       titleBar.appendChild(filterWrap);
       titleBar.appendChild(delBtn);
       filterTimer = null;
+      if ((ref2 = window.FieldAutocomplete) != null) {
+        ref2.attach(filterInput, function() {
+          return dv;
+        });
+      }
       filterInput.addEventListener('input', (ev) => {
         var val;
         val = ev.target.value.trim();

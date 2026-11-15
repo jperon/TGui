@@ -2,15 +2,22 @@
   // app_fields_helpers.coffee — small UI helpers extracted from app.coffee
   window.AppFieldsHelpers = {
     bindFormulaFilter: function(app) {
+      var input, ref;
       app._formulaTimer = null;
-      return app.el.formulaFilterInput().addEventListener('input', function(e) {
+      input = app.el.formulaFilterInput();
+      if ((ref = window.FieldAutocomplete) != null) {
+        ref.attach(input, function() {
+          return app._activeDataView;
+        });
+      }
+      return input.addEventListener('input', function(e) {
         var val;
         clearTimeout(app._formulaTimer);
         val = e.target.value.trim();
         e.target.classList.toggle('active', val !== '');
         return app._formulaTimer = setTimeout(function() {
-          var ref;
-          return (ref = app._activeDataView) != null ? ref.setFormulaFilter(val) : void 0;
+          var ref1;
+          return (ref1 = app._activeDataView) != null ? ref1.setFormulaFilter(val) : void 0;
         }, 400);
       });
     },
