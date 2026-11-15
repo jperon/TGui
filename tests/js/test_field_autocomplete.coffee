@@ -6,9 +6,17 @@
 require './dom_stub'
 { describe, it, eq, assert, deepEq, summary } = require './runner'
 
-# Stubs des appels réseau utilisés pour les espaces autres que celui affiché.
+# Stubs des appels réseau : l'autocomplete ne lit plus le DataView, il passe
+# par le cache pour TOUS les espaces, y compris celui de départ.
 calls = { get: 0, rels: 0, getIds: [] }
 SPACES = {
+  's1':
+    id: 's1'
+    fields: [
+      { id: 'f1', name: 'eleve', fieldType: 'Relation' }
+      { id: 'f2', name: 'eleves', fieldType: 'Relation' }
+      { id: 'f3', name: 'date',  fieldType: 'Date' }
+    ]
   's2':
     id: 's2'
     fields: [
@@ -20,13 +28,17 @@ SPACES = {
     id: 's3'
     fields: [{ id: 'h1', name: 'niveau', fieldType: 'String' }]
   # Espaces dédiés au test de cache, non touchés par les autres tests.
+  's5':
+    id: 's5'
+    fields: [{ id: 'fc', name: 'ref', fieldType: 'Relation' }]
   's6':
     id: 's6'
     fields: [{ id: 'i1', name: 'cache_field', fieldType: 'String' }]
 }
 RELS = {
+  's1': [{ id: 'r1', fromFieldId: 'f1', toSpaceId: 's2' }]
   's2': [{ id: 'r2', fromFieldId: 'g1', toSpaceId: 's3' }]
-  's1': []
+  's3': []
   's5': [{ id: 'r5', fromFieldId: 'fc', toSpaceId: 's6' }]
   's6': []
 }
@@ -116,6 +128,28 @@ describe 'FieldAutocomplete._resolve', ->
       FA._resolve(cacheDv(), ['ref']).then (res) ->
         deepEq (f.name for f in res.fields), ['cache_field']
         eq (calls.getIds.filter((id) -> id == 's6')).length, 1
+
+  # Un widget de page construit son DataView avec `new DataView body, sp` : pas
+  # de relations du tout et `sp.fields` réduit aux colonnes visibles. Seul
+  # `space.id` est fiable — c'est le bug constaté (`@rel.` ne proposait rien).
+  widgetDv = ->
+    space:
+      id: 's1'
+      fields: [{ id: 'f1', name: 'eleve', fieldType: 'Relation' }]
+    _relations: []
+
+  it 'DataView de widget : @rel. résout les champs de l\'espace cible', ->
+    FA._resolve(widgetDv(), ['eleve']).then (res) ->
+      deepEq (f.name for f in res.fields), ['classe', 'nom', 'age']
+      eq res.relations.length, 1
+
+  it 'DataView de widget : profondeur 2 depuis l\'espace cible', ->
+    FA._resolve(widgetDv(), ['eleve', 'classe']).then (res) ->
+      deepEq (f.name for f in res.fields), ['niveau']
+
+  it 'DataView de widget : niveau 0 propose tous les champs de l\'espace', ->
+    FA._resolve(widgetDv(), []).then (res) ->
+      deepEq (f.name for f in res.fields), ['eleve', 'eleves', 'date']
 
 describe 'FieldAutocomplete._insert', ->
   it 'remplace le préfixe par le nom et place le curseur après', ->

@@ -9,7 +9,8 @@
 
   ({describe, it, eq, assert, deepEq, summary} = require('./runner'));
 
-  // Stubs des appels réseau utilisés pour les espaces autres que celui affiché.
+  // Stubs des appels réseau : l'autocomplete ne lit plus le DataView, il passe
+  // par le cache pour TOUS les espaces, y compris celui de départ.
   calls = {
     get: 0,
     rels: 0,
@@ -17,6 +18,26 @@
   };
 
   SPACES = {
+    's1': {
+      id: 's1',
+      fields: [
+        {
+          id: 'f1',
+          name: 'eleve',
+          fieldType: 'Relation'
+        },
+        {
+          id: 'f2',
+          name: 'eleves',
+          fieldType: 'Relation'
+        },
+        {
+          id: 'f3',
+          name: 'date',
+          fieldType: 'Date'
+        }
+      ]
+    },
     's2': {
       id: 's2',
       fields: [
@@ -48,6 +69,16 @@
       ]
     },
     // Espaces dédiés au test de cache, non touchés par les autres tests.
+    's5': {
+      id: 's5',
+      fields: [
+        {
+          id: 'fc',
+          name: 'ref',
+          fieldType: 'Relation'
+        }
+      ]
+    },
     's6': {
       id: 's6',
       fields: [
@@ -61,6 +92,13 @@
   };
 
   RELS = {
+    's1': [
+      {
+        id: 'r1',
+        fromFieldId: 'f1',
+        toSpaceId: 's2'
+      }
+    ],
     's2': [
       {
         id: 'r2',
@@ -68,7 +106,7 @@
         toSpaceId: 's3'
       }
     ],
-    's1': [],
+    's3': [],
     's5': [
       {
         id: 'r5',
@@ -214,6 +252,7 @@
   });
 
   describe('FieldAutocomplete._resolve', function() {
+    var widgetDv;
     it('niveau 1 : propose les champs de l\'espace cible', function() {
       return FA._resolve(makeDv(), ['eleve']).then(function(res) {
         var f;
@@ -255,7 +294,7 @@
         return deepEq(res.fields, []);
       });
     });
-    return it('met les champs d\'un espace en cache', function() {
+    it('met les champs d\'un espace en cache', function() {
       var cacheDv;
       cacheDv = function() {
         return {
@@ -297,6 +336,70 @@
             return id === 's6';
           })).length, 1);
         });
+      });
+    });
+    // Un widget de page construit son DataView avec `new DataView body, sp` : pas
+    // de relations du tout et `sp.fields` réduit aux colonnes visibles. Seul
+    // `space.id` est fiable — c'est le bug constaté (`@rel.` ne proposait rien).
+    widgetDv = function() {
+      return {
+        space: {
+          id: 's1',
+          fields: [
+            {
+              id: 'f1',
+              name: 'eleve',
+              fieldType: 'Relation'
+            }
+          ]
+        },
+        _relations: []
+      };
+    };
+    it('DataView de widget : @rel. résout les champs de l\'espace cible', function() {
+      return FA._resolve(widgetDv(), ['eleve']).then(function(res) {
+        var f;
+        deepEq((function() {
+          var j, len, ref, results;
+          ref = res.fields;
+          results = [];
+          for (j = 0, len = ref.length; j < len; j++) {
+            f = ref[j];
+            results.push(f.name);
+          }
+          return results;
+        })(), ['classe', 'nom', 'age']);
+        return eq(res.relations.length, 1);
+      });
+    });
+    it('DataView de widget : profondeur 2 depuis l\'espace cible', function() {
+      return FA._resolve(widgetDv(), ['eleve', 'classe']).then(function(res) {
+        var f;
+        return deepEq((function() {
+          var j, len, ref, results;
+          ref = res.fields;
+          results = [];
+          for (j = 0, len = ref.length; j < len; j++) {
+            f = ref[j];
+            results.push(f.name);
+          }
+          return results;
+        })(), ['niveau']);
+      });
+    });
+    return it('DataView de widget : niveau 0 propose tous les champs de l\'espace', function() {
+      return FA._resolve(widgetDv(), []).then(function(res) {
+        var f;
+        return deepEq((function() {
+          var j, len, ref, results;
+          ref = res.fields;
+          results = [];
+          for (j = 0, len = ref.length; j < len; j++) {
+            f = ref[j];
+            results.push(f.name);
+          }
+          return results;
+        })(), ['eleve', 'eleves', 'date']);
       });
     });
   });

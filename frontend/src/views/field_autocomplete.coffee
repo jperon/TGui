@@ -6,13 +6,14 @@ MAX_ITEMS = 12
 _fieldCache = {}   # spaceId -> Promise([fields])
 _relCache   = {}   # spaceId -> Promise([relations])
 
-# Displayed space: read from the DataView; others: fetched once, then cached.
-_fieldsOf = (dv, sid) ->
-  return Promise.resolve(dv.space?.fields or []) if dv.space?.id == sid
+# Every space — the displayed one included — is fetched once, then cached.
+# A DataView cannot be trusted for this: a page widget builds its own with no
+# relations (`_relations: []`) and with `space.fields` reduced to the visible
+# columns, so `@relation.` would propose nothing there.
+_fieldsOf = (sid) ->
   _fieldCache[sid] ?= Promise.resolve(Spaces.getWithFields sid).then (s) -> s?.fields or []
 
-_relsOf = (dv, sid) ->
-  return Promise.resolve(dv._relations or []) if dv.space?.id == sid
+_relsOf = (sid) ->
   _relCache[sid] ?= Promise.resolve(Spaces.listRelations sid).then (rels) -> rels or []
 # `@a.b.pre` under the caret → { path: ['a', 'b'], prefix: 'pre' }, else null.
 _token = (text) ->
@@ -22,20 +23,22 @@ _token = (text) ->
   path = if raw == '' then [] else raw.slice(0, -1).split '.'
   { path, prefix: m[2] or '' }
 
-# Resolve `path` from the displayed space → { fields, relations } of the space
-# reached; an unknown or non-relation segment gives empty fields.
+# Resolve `path` from the DataView's start space (id only) → { fields,
+# relations } of the space reached; an unknown or non-relation segment gives
+# empty fields.
 _resolve = (dv, path) ->
   empty = { fields: [], relations: [] }
-  return Promise.resolve(empty) unless dv?.space?.id
+  start = dv?.space?.id
+  return Promise.resolve(empty) unless start
   step = (sid, rest) ->
-    Promise.all([_fieldsOf(dv, sid), _relsOf(dv, sid)]).then ([fields, rels]) ->
+    Promise.all([_fieldsOf(sid), _relsOf(sid)]).then ([fields, rels]) ->
       return { fields, relations: rels } if rest.length == 0
       f = fields.find (x) -> x.name == rest[0]
       return empty unless f
       rel = rels.find (r) -> r.fromFieldId == f.id
       return empty unless rel
       step rel.toSpaceId, rest[1..]
-  step dv.space.id, (path or [])
+  step start, (path or [])
 # Name-prefix filter (case-insensitive), alphabetical, at most MAX_ITEMS.
 _filter = (fields, prefix) ->
   p = String(prefix or '').toLowerCase()
