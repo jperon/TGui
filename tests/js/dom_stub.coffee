@@ -52,6 +52,10 @@ makeElement = (tag) ->
       el._qsCache[sel] ?= makeElement 'div'
     querySelectorAll:   -> []
     getBoundingClientRect: -> { top: 0, left: 0, width: 100, height: 100 }
+    contains: (node) ->
+      return false unless node?
+      return true if node is el
+      el._children.indexOf(node) != -1
   el
 
 _elementsById = {}
@@ -83,6 +87,7 @@ global.document =
   querySelectorAll:      -> []
   addEventListener:      ->
   removeEventListener:   ->
+  activeElement:         null
   _setById: (id, el) -> _elementsById[id] = el   # helper for tests
 
 module.exports = { makeElement, localStorageStub }

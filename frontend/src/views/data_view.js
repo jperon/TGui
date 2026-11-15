@@ -611,12 +611,18 @@
     }
 
     async load() {
-      var computedNames, data, e, f, fieldList, fields, focus, focusedRow, gqlFilter, nm, ref, ref1, ref2, ref3, ref4, ref5, ref6, ref7, ref8, reprNames, spaceFilter, spaceQuery, tname;
+      var computedNames, data, e, f, fieldList, fields, focus, focusedRow, gqlFilter, gridHasFocus, nm, ref, ref1, ref2, ref3, ref4, ref5, ref6, ref7, ref8, ref9, reprNames, spaceFilter, spaceQuery, tname;
       if (!this._mounted) {
         return;
       }
-      // Save current focus to restore it after resetData
-      focus = (ref = this._grid) != null ? ref.getFocusedCell() : void 0;
+      // Save current focus to restore it after resetData — but only when the browser
+      // focus is actually inside the grid. A reload triggered from an input outside
+      // the grid (e.g. the live formula filter) must not steal the focus back.
+      this._lastFocus = null;
+      gridHasFocus = (ref = this.container) != null ? ref.contains(document.activeElement) : void 0;
+      if (gridHasFocus) {
+        focus = (ref1 = this._grid) != null ? ref1.getFocusedCell() : void 0;
+      }
       if (((focus != null ? focus.rowKey : void 0) != null) && focus.columnName) {
         focusedRow = this._grid.getRow(focus.rowKey);
         if (focusedRow) {
@@ -709,21 +715,21 @@
             row.__rowId = item._id;
             return row;
           });
-          if ((ref1 = this._formulaInputEl) != null) {
-            ref1.classList.remove('input-error');
-          }
-          if ((ref2 = document.getElementById('formula-filter-input')) != null) {
+          if ((ref2 = this._formulaInputEl) != null) {
             ref2.classList.remove('input-error');
+          }
+          if ((ref3 = document.getElementById('formula-filter-input')) != null) {
+            ref3.classList.remove('input-error');
           }
         } catch (error) {
           e = error;
           this._showError(`Erreur de colonne calculée : ${e.message}`);
           if (this._formulaFilter) {
-            if ((ref3 = this._formulaInputEl) != null) {
-              ref3.classList.add('input-error');
-            }
-            if ((ref4 = document.getElementById('formula-filter-input')) != null) {
+            if ((ref4 = this._formulaInputEl) != null) {
               ref4.classList.add('input-error');
+            }
+            if ((ref5 = document.getElementById('formula-filter-input')) != null) {
+              ref5.classList.add('input-error');
             }
           }
           this._rows = [];
@@ -749,19 +755,19 @@
             row.__rowId = r.id;
             return row;
           });
-          if ((ref5 = this._formulaInputEl) != null) {
-            ref5.classList.remove('input-error');
-          }
-          if ((ref6 = document.getElementById('formula-filter-input')) != null) {
+          if ((ref6 = this._formulaInputEl) != null) {
             ref6.classList.remove('input-error');
+          }
+          if ((ref7 = document.getElementById('formula-filter-input')) != null) {
+            ref7.classList.remove('input-error');
           }
         } catch (error) {
           e = error;
-          if ((ref7 = this._formulaInputEl) != null) {
-            ref7.classList.add('input-error');
-          }
-          if ((ref8 = document.getElementById('formula-filter-input')) != null) {
+          if ((ref8 = this._formulaInputEl) != null) {
             ref8.classList.add('input-error');
+          }
+          if ((ref9 = document.getElementById('formula-filter-input')) != null) {
+            ref9.classList.add('input-error');
           }
           this._rows = [];
           this._rows = [];

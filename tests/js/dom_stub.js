@@ -90,6 +90,15 @@
           width: 100,
           height: 100
         };
+      },
+      contains: function(node) {
+        if (node == null) {
+          return false;
+        }
+        if (node === el) {
+          return true;
+        }
+        return el._children.indexOf(node) !== -1;
       }
     };
     return el;
@@ -166,6 +175,7 @@
     },
     addEventListener: function() {},
     removeEventListener: function() {},
+    activeElement: null,
     _setById: function(id, el) {
       return _elementsById[id] = el; // helper for tests
     }
