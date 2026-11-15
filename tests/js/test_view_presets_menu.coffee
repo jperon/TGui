@@ -144,6 +144,27 @@ describe 'ViewPresetsMenu — application d’un préréglage', ->
       eq rows[0].classList.contains('active'), false
       eq rows[1].classList.contains('active'), true
 
+  it 'retire la mise en évidence quand le tri change à la main', ->
+    h = makeHarness()
+    h.api.applyPreset P_SORTED
+    eq h.api.button.textContent, 'Trier / Filtrer · Récents'
+    h.dv._state.sort = [{ column: 'titre', ascending: true }]
+    h.dv._onSortChanged()
+    eq h.api.button.textContent, 'Trier / Filtrer'
+
+  it 'permet de retirer un critère de tri', ->
+    h = makeHarness 'widget:page1:w1', 's1', [
+      { column: 'titre', ascending: true }
+      { column: 'note', ascending: false }
+    ]
+    h.api.open()
+    rows = h.api.elements.sortList.children
+    eq rows.length, 2
+    removeBtn = rows[0].children[1]
+    removeBtn._listeners.click[0]()
+    deepEq h.dv._state.sort, [{ column: 'note', ascending: false }]
+    eq h.api.elements.sortList.children.length, 1
+
 describe 'ViewPresetsMenu — enregistrement et suppression', ->
   it '« Enregistrer sous… » envoie la portée du widget, le filtre et le tri', ->
     h = makeHarness 'widget:page1:w1', 's1', [{ column: 'nom', ascending: true }]
