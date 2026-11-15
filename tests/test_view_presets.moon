@@ -5,6 +5,9 @@
 R = require 'tests.runner'
 spaces_mod = require 'core.spaces'
 presets = require 'core.view_presets'
+resolvers = require 'resolvers.view_preset_resolvers'
+executor = require 'graphql.executor'
+{ :trusted_ctx } = require 'resolvers.utils'
 
 SUFFIX = tostring math.random 100000, 999999
 SP_NAME = "vp_space_#{SUFFIX}"
@@ -85,6 +88,48 @@ R.describe "ViewPresets — storage and scopes", ->
     R.ok presets.delete_preset p.id
     R.is_nil presets.get_preset p.id
     R.nok presets.delete_preset p.id
+
+  R.it "keeps presets of another space out of a readable spaceId", ->
+    other = presets.save_preset scope_other, other_id, 'Other', '', '[]'
+    R.ok other.id
+    ctx = trusted_ctx 'admin'
+    -- The scope exists and belongs to other_id: asking for sp_id must yield
+    -- nothing, otherwise the caller would read presets of a space it may not.
+    via_resolver = resolvers.Query.viewPresets nil, { scope: scope_other, spaceId: sp_id }, ctx
+    R.eq #via_resolver, 0
+
+  R.it "exposes presets through GraphQL with the same isolation", ->
+    require('resolvers.init').reinit!
+    ctx = trusted_ctx 'admin'
+
+    q = 'query($s: String!, $id: ID!) { viewPresets(scope: $s, spaceId: $id) { id name scope spaceId filter sort createdAt } }'
+    res = executor.execute { query: q, variables: { s: SCOPE_W, id: sp_id }, context: ctx }
+    R.nok res.errors, 'viewPresets query must succeed'
+    R.eq #res.data.viewPresets, 2
+    R.eq res.data.viewPresets[1].name, 'Alpha'
+    R.eq res.data.viewPresets[1].scope, SCOPE_W
+    R.eq res.data.viewPresets[1].spaceId, sp_id
+    R.ok res.data.viewPresets[1].createdAt
+
+    res_iso = executor.execute { query: q, variables: { s: scope_other, id: sp_id }, context: ctx }
+    R.nok res_iso.errors, 'isolated viewPresets query must succeed'
+    R.eq #res_iso.data.viewPresets, 0
+
+    m = 'mutation($s: String!, $id: ID!, $n: String!, $f: String, $o: String) { saveViewPreset(scope: $s, spaceId: $id, name: $n, filter: $f, sort: $o) { id name filter sort spaceId } }'
+    mres = executor.execute {
+      query: m
+      variables: { s: SCOPE_W, id: sp_id, n: 'Gamma', f: 'self.n > 0', o: '[{"column":"n","ascending":true}]' }
+      context: ctx
+    }
+    R.nok mres.errors, 'saveViewPreset mutation must succeed'
+    R.eq mres.data.saveViewPreset.name, 'Gamma'
+    R.eq mres.data.saveViewPreset.filter, 'self.n > 0'
+    R.eq mres.data.saveViewPreset.spaceId, sp_id
+
+    d = 'mutation($id: ID!) { deleteViewPreset(id: $id) }'
+    dres = executor.execute { query: d, variables: { id: mres.data.saveViewPreset.id }, context: ctx }
+    R.nok dres.errors, 'deleteViewPreset mutation must succeed'
+    R.eq dres.data.deleteViewPreset, true
 
   R.it "cascades preset deletion when the space is deleted", ->
     other = presets.save_preset scope_other, other_id, 'Other', '', '[]'

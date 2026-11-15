@@ -1,6 +1,10 @@
 local R = require('tests.runner')
 local spaces_mod = require('core.spaces')
 local presets = require('core.view_presets')
+local resolvers = require('resolvers.view_preset_resolvers')
+local executor = require('graphql.executor')
+local trusted_ctx
+trusted_ctx = require('resolvers.utils').trusted_ctx
 local SUFFIX = tostring(math.random(100000, 999999))
 local SP_NAME = "vp_space_" .. tostring(SUFFIX)
 local OTHER_NAME = "vp_other_" .. tostring(SUFFIX)
@@ -89,6 +93,71 @@ return R.describe("ViewPresets — storage and scopes", function()
     R.ok(presets.delete_preset(p.id))
     R.is_nil(presets.get_preset(p.id))
     return R.nok(presets.delete_preset(p.id))
+  end)
+  R.it("keeps presets of another space out of a readable spaceId", function()
+    local other = presets.save_preset(scope_other, other_id, 'Other', '', '[]')
+    R.ok(other.id)
+    local ctx = trusted_ctx('admin')
+    local via_resolver = resolvers.Query.viewPresets(nil, {
+      scope = scope_other,
+      spaceId = sp_id
+    }, ctx)
+    return R.eq(#via_resolver, 0)
+  end)
+  R.it("exposes presets through GraphQL with the same isolation", function()
+    require('resolvers.init').reinit()
+    local ctx = trusted_ctx('admin')
+    local q = 'query($s: String!, $id: ID!) { viewPresets(scope: $s, spaceId: $id) { id name scope spaceId filter sort createdAt } }'
+    local res = executor.execute({
+      query = q,
+      variables = {
+        s = SCOPE_W,
+        id = sp_id
+      },
+      context = ctx
+    })
+    R.nok(res.errors, 'viewPresets query must succeed')
+    R.eq(#res.data.viewPresets, 2)
+    R.eq(res.data.viewPresets[1].name, 'Alpha')
+    R.eq(res.data.viewPresets[1].scope, SCOPE_W)
+    R.eq(res.data.viewPresets[1].spaceId, sp_id)
+    R.ok(res.data.viewPresets[1].createdAt)
+    local res_iso = executor.execute({
+      query = q,
+      variables = {
+        s = scope_other,
+        id = sp_id
+      },
+      context = ctx
+    })
+    R.nok(res_iso.errors, 'isolated viewPresets query must succeed')
+    R.eq(#res_iso.data.viewPresets, 0)
+    local m = 'mutation($s: String!, $id: ID!, $n: String!, $f: String, $o: String) { saveViewPreset(scope: $s, spaceId: $id, name: $n, filter: $f, sort: $o) { id name filter sort spaceId } }'
+    local mres = executor.execute({
+      query = m,
+      variables = {
+        s = SCOPE_W,
+        id = sp_id,
+        n = 'Gamma',
+        f = 'self.n > 0',
+        o = '[{"column":"n","ascending":true}]'
+      },
+      context = ctx
+    })
+    R.nok(mres.errors, 'saveViewPreset mutation must succeed')
+    R.eq(mres.data.saveViewPreset.name, 'Gamma')
+    R.eq(mres.data.saveViewPreset.filter, 'self.n > 0')
+    R.eq(mres.data.saveViewPreset.spaceId, sp_id)
+    local d = 'mutation($id: ID!) { deleteViewPreset(id: $id) }'
+    local dres = executor.execute({
+      query = d,
+      variables = {
+        id = mres.data.saveViewPreset.id
+      },
+      context = ctx
+    })
+    R.nok(dres.errors, 'deleteViewPreset mutation must succeed')
+    return R.eq(dres.data.deleteViewPreset, true)
   end)
   R.it("cascades preset deletion when the space is deleted", function()
     local other = presets.save_preset(scope_other, other_id, 'Other', '', '[]')
