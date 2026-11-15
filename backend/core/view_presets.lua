@@ -42,9 +42,6 @@ list_presets = function(scope)
     local t = _list_0[_index_0]
     table.insert(result, tuple_to_preset(t))
   end
-  table.sort(result, function(a, b)
-    return a.name < b.name
-  end)
   return result
 end
 local validate_sort
@@ -108,12 +105,10 @@ save_preset = function(scope, space_id, name, filter, sort)
     clean_name
   })
   if existing then
+    if existing[3] ~= space_id then
+      error("Preset '" .. tostring(clean_name) .. "' belongs to another space")
+    end
     box.space._tdb_view_presets:update(existing[1], {
-      {
-        '=',
-        3,
-        space_id
-      },
       {
         '=',
         5,

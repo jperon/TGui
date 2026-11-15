@@ -29,13 +29,13 @@ get_preset = (id) ->
   return nil unless id
   tuple_to_preset box.space._tdb_view_presets\get { id }
 
--- Presets of one scope, sorted by name (index by_scope_name is {scope, name}).
+-- Presets of one scope, sorted by name: index by_scope_name is {scope, name},
+-- so its range scan already returns the rows ordered by name.
 list_presets = (scope) ->
   result = {}
   return result unless scope and scope != ''
   for t in *box.space._tdb_view_presets.index.by_scope_name\select { scope }
     table.insert result, tuple_to_preset t
-  table.sort result, (a, b) -> a.name < b.name
   result
 
 -- A sort is a JSON array of {column: String, ascending: Boolean} entries.
@@ -54,7 +54,8 @@ validate_sort = (sort_json) ->
   raw
 
 -- Create a preset, or overwrite the one already stored under (scope, name):
--- "save as" on an existing name replaces its filter, sort and space.
+-- "save as" on an existing name replaces its filter and sort. A preset never
+-- changes space: its permissions were granted for the space that owns it.
 save_preset = (scope, space_id, name, filter, sort) ->
   scope = tostring(scope or '')
   error "Preset scope cannot be empty" unless scope\match '%S'
@@ -72,8 +73,11 @@ save_preset = (scope, space_id, name, filter, sort) ->
 
   existing = box.space._tdb_view_presets.index.by_scope_name\get { scope, clean_name }
   if existing
+    -- The caller proved 'write' on the NEW space only: re-attaching an existing
+    -- preset to it would hijack a preset owned by another space.
+    if existing[3] != space_id
+      error "Preset '#{clean_name}' belongs to another space"
     box.space._tdb_view_presets\update existing[1], {
-      { '=', 3, space_id }
       { '=', 5, filter_src }
       { '=', 6, sort_json }
       { '=', 8, now }

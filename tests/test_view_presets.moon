@@ -71,6 +71,13 @@ R.describe "ViewPresets — storage and scopes", ->
     R.eq saved.sort, '[{"column":"x","ascending":true}]'
     R.eq #presets.list_presets(SCOPE_W), 2
 
+  R.it "refuses to move an existing preset to another space", ->
+    R.raises (-> presets.save_preset SCOPE_W, other_id, 'Alpha', 'self.y == 2', '[]'), 'belongs to another space'
+    kept = presets.get_preset alpha_id
+    R.eq kept.spaceId, sp_id
+    R.eq kept.filter, 'self.x == 1'
+    R.eq kept.sort, '[{"column":"x","ascending":true}]'
+
   R.it "rejects an invalid sort", ->
     R.raises (-> presets.save_preset SCOPE_W, sp_id, 'Bad1', '', 'not-json'), 'Invalid sort JSON'
     R.raises (-> presets.save_preset SCOPE_W, sp_id, 'Bad2', '', '{"column":"x"}'), 'Invalid sort'
