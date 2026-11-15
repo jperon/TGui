@@ -8,7 +8,7 @@ config     = require 'core.config'
 spaces_mod = require 'core.spaces'
 triggers   = require 'core.triggers'
 { :require_perm, :perm_ok, :fk_cache_for } = require 'resolvers.utils'
-{ :make_space_helper } = require 'core.formula_proxy'
+{ :make_space_helper, :relation_field_value, :fill_computed_relation_values } = require 'core.formula_proxy'
 
 -- Sanitize a name to a valid GraphQL identifier
 gql_name = (name) ->
@@ -122,6 +122,12 @@ generate = ->
     fk_sp    = fk_map[sp.id] or {}
     backrefs = backref_map[sp.id] or {}
 
+    -- Relation fields whose Int value comes from a read-time formula: they have
+    -- no stored column, so the value is computed before the records are handed
+    -- to the resolvers (grid raw value, back-references). Filled below, in the
+    -- FK loop; the closures of this space capture the same table.
+    computed_fk_names = {}
+
     -- ── SDL ────────────────────────────────────────────────────────────────
     fields_sdl = { '  _id: ID!' }
     for f in *(sp.fields or {})
@@ -147,7 +153,7 @@ generate = ->
     -- so sp, tname, fk_sp, backrefs are all properly captured by closures.
 
     -- Query resolver for this space
-    query_resolvers[tname] = ((sp_cap, tname_cap, fk_sp_cap, backrefs_cap) ->
+    query_resolvers[tname] = ((sp_cap, tname_cap, fk_sp_cap, backrefs_cap, cfk_cap) ->
       (_, args, ctx) ->
         require_perm ctx, 'space', sp_cap.id, 'read'
         sp_box = box.space["data_#{sp_cap.name}"]
@@ -160,12 +166,16 @@ generate = ->
         ok_fk, fk_def_map = pcall triggers.build_fk_def_map, sp_cap.id
         fk_def_map = if ok_fk then fk_def_map else {}
         ctx._fk_cache = fk_cache_for ctx
+        -- Computed relation fields: materialize their Int so a raw read
+        -- (grid FK column requested without sub-selection) gets a value.
+        if #cfk_cap > 0
+          all = [fill_computed_relation_values(r, cfk_cap, sp_cap.name, ctx._fk_cache) for r in *all]
         all    = apply_filter all, args.filter, fk_def_map, ctx._fk_cache, sp_cap.name
         total  = #all
         items  = [all[i] for i = offset + 1, math.min(offset + limit, total)]
         log.info "tdb dynamic: for #{tname}, returning #{#items} items, total: #{total}, offset: #{offset}, limit: #{limit}"
         { :items, :total, :offset, :limit }
-    )(sp, tname, fk_sp, backrefs)
+    )(sp, tname, fk_sp, backrefs, computed_fk_names)
 
     -- Type resolvers for this space's _record type
     tr = {}
@@ -174,10 +184,20 @@ generate = ->
     for f in *(sp.fields or {})
       rel = fk_sp[f.id]
       if rel and space_by_id[rel.toSpaceId]
-        tr[gql_name f.name] = ((fn_cap, to_sp_cap, to_fn_cap) ->
+        -- A relation may be declared on a computed (read-time formula) field:
+        -- the target record must then be resolved from the computed Int.
+        has_formula = f.formula != nil and f.formula != ''
+        table.insert computed_fk_names, f.name if has_formula
+        tr[gql_name f.name] = ((fn_cap, to_sp_cap, to_fn_cap, sp_name_cap, has_formula_cap) ->
           (obj, a, ctx) ->
             return nil unless perm_ok ctx, 'space', to_sp_cap.id, 'read'
             raw = obj[fn_cap]
+            if has_formula_cap and (raw == nil or raw == '')
+              -- No stored value: compute it with the field's read-time formula
+              -- (same evaluation as a computed column, reused).
+              ctx._fk_cache = ctx._fk_cache or fk_cache_for ctx
+              raw, is_err = relation_field_value obj, fn_cap, sp_name_cap, ctx._fk_cache
+              return nil if is_err
             return nil if raw == nil
             tb  = box.space["data_#{to_sp_cap.name}"]
             return nil unless tb
@@ -197,12 +217,17 @@ generate = ->
         )(
           gql_name(f.name),
           space_by_id[rel.toSpaceId],
-          (field_by_id[rel.toFieldId] and field_by_id[rel.toFieldId].name) or 'id'
+          (field_by_id[rel.toFieldId] and field_by_id[rel.toFieldId].name) or 'id',
+          sp.name,
+          has_formula
         )
 
     -- Back-reference resolvers
     for ref in *backrefs
-      tr[gql_name ref.rel.name] = ((rel_fn_cap, to_fn_cap, from_fn_cap, from_sp_name_cap, from_sp_id_cap) ->
+      -- The source field may be computed: its Int then has no stored value and
+      -- must be evaluated per source record before the comparison.
+      from_has_formula = ref.fromField != nil and ref.fromField.formula != nil and ref.fromField.formula != ''
+      tr[gql_name ref.rel.name] = ((rel_fn_cap, to_fn_cap, from_fn_cap, from_sp_name_cap, from_sp_id_cap, from_has_formula_cap) ->
         (obj, args, ctx) ->
           unless perm_ok ctx, 'space', from_sp_id_cap, 'read'
             return { items: {}, total: 0, offset: 0, limit: 0 }
@@ -213,11 +238,15 @@ generate = ->
 
           limit  = (args and args.limit)  or 100
           offset = (args and args.offset) or 0
+          ctx._fk_cache = ctx._fk_cache or fk_cache_for ctx if from_has_formula_cap
 
           -- Find all matching records
           all = {}
           for t in *tb\select {}
             d = decode_tuple t
+            if from_has_formula_cap and (d[from_fn_cap] == nil or d[from_fn_cap] == '')
+              v, is_err = relation_field_value d, from_fn_cap, from_sp_name_cap, ctx._fk_cache
+              d[from_fn_cap] = v if not is_err
             if from_fn_cap and tostring(d[from_fn_cap]) == filter_val
               table.insert all, d
 
@@ -236,7 +265,8 @@ generate = ->
         (ref.toField  and ref.toField.name)  or 'id',
         ref.fromField and ref.fromField.name,
         ref.fromSpace.name,
-        ref.fromSpace.id
+        ref.fromSpace.id,
+        from_has_formula
       )
 
     -- Formula field resolvers (pre-compiled at schema build time)
@@ -251,7 +281,11 @@ generate = ->
           toFieldName: (field_by_id[rel.toFieldId] and field_by_id[rel.toFieldId].name) or 'id'
 
     for f in *(sp.fields or {})
-      if f.formula and f.formula != ''
+      -- A computed field that is also a relation is resolved by its FK resolver
+      -- (compute the Int, then the target record): do not overwrite it here.
+      rel_fk = fk_sp[f.id]
+      is_computed_relation = rel_fk != nil and space_by_id[rel_fk.toSpaceId] != nil
+      if f.formula and f.formula != '' and not is_computed_relation
         formula_fn = triggers.compile_formula f.formula, f.name, (f.language or 'moonscript')
         if formula_fn
           tr[gql_name f.name] = ((fn_cap, fk_nm_cap, raw_name_cap, sp_name_cap) ->

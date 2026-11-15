@@ -8,6 +8,7 @@ spaces_mod = require 'core.spaces'
 { :require_auth, :require_perm, :safe_call, :fk_cache_for } = require 'resolvers.utils'
 config_mod = require 'core.config'
 validation_mod = require 'core.validation'
+{ :fill_computed_relation_values } = require 'core.formula_proxy'
 
 -- Retrieve the Tarantool space for user data
 data_space = (space_id) ->
@@ -241,9 +242,14 @@ Query =
     -- Compile per-field reprFormulas
     field_reprs = {}
     field_repr_errors = {}
+    -- Relation fields backed by a read-time formula: their Int has no stored
+    -- value and must be computed for the raw payload (grid, custom views).
+    computed_fk_names = {}
     if sp_meta
       fields = box.space._tdb_fields.index.by_space_pos\select { args.spaceId }
       for f in *fields
+        if f[8] and f[8] != '' and fk_def_map[f[3]]
+          table.insert computed_fk_names, f[3]
         if f[11] and f[11] != ''
           lang = f[10] or 'lua'
           ok_c, fn = pcall triggers_mod.compile_formula, f[11], "repr_#{f[3]}", lang
@@ -258,6 +264,8 @@ Query =
     for t in *sp\select {}
       parsed = json.decode t[2]
       parsed._id = tostring t[1]
+      if #computed_fk_names > 0
+        fill_computed_relation_values parsed, computed_fk_names, space_name, ctx._fk_cache
 
       -- Create proxy for FK resolution (needed for repr)
       self_proxy = triggers_mod.make_self_proxy parsed, fk_def_map, ctx._fk_cache, space_name

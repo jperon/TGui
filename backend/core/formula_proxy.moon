@@ -206,6 +206,33 @@ eval_computed_formula = (t, k, v, space_name, fk_cache) ->
     return val, false
   return v, false
 
+-- ── Relation fields backed by a read-time formula ──────────────────────────────
+
+-- Value of a relation (FK source) field on read: the stored value when there is
+-- one, otherwise the read-time formula's result. A relation may be declared on
+-- a COMPUTED Int field, which has no stored column at all.
+-- Returns (value, is_error): is_error=true means `value` is the formatted error
+-- string of a broken formula.
+relation_field_value = (record, field_name, space_name, fk_cache) ->
+  eval_computed_formula record, field_name, record[field_name], space_name, prepare_cache(fk_cache)
+
+-- Fill, on `record`, the computed relation fields listed in `field_names`
+-- (relation fields of the space that carry a read-time formula). Consumers that
+-- only read the raw record — the executor's raw FK value for a grid column,
+-- Query.records, back-references — then see the same Int a stored relation
+-- would provide, instead of a missing column.
+fill_computed_relation_values = (record, field_names, space_name, fk_cache) ->
+  return record unless space_name and field_names
+  fk_cache = prepare_cache fk_cache
+  for field_name in *field_names
+    v = record[field_name]
+    continue unless v == nil or v == ''
+    val, is_err = eval_computed_formula record, field_name, v, space_name, fk_cache
+    -- Surface a broken formula on the record (the grid renders the [ERROR|…]
+    -- text); eval_computed_formula only stores successful values.
+    record[field_name] = val if is_err and val != nil
+  record
+
 -- ── Self proxy ────────────────────────────────────────────────────────────────
 
 -- Build a self proxy that resolves FK fields lazily, with recursive chaining.
@@ -327,4 +354,4 @@ make_self_proxy_extended = (record, single_fk_map, multiple_fk_map, fk_cache, sp
   }
   proxy
 
-{ :make_self_proxy, :make_self_proxy_extended, :make_space_helper, :format_formula_error, :invalidate_formula_cache }
+{ :make_self_proxy, :make_self_proxy_extended, :make_space_helper, :format_formula_error, :invalidate_formula_cache, :relation_field_value, :fill_computed_relation_values }

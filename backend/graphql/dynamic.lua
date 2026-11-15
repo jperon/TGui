@@ -8,8 +8,11 @@ do
   local _obj_0 = require('resolvers.utils')
   require_perm, perm_ok, fk_cache_for = _obj_0.require_perm, _obj_0.perm_ok, _obj_0.fk_cache_for
 end
-local make_space_helper
-make_space_helper = require('core.formula_proxy').make_space_helper
+local make_space_helper, relation_field_value, fill_computed_relation_values
+do
+  local _obj_0 = require('core.formula_proxy')
+  make_space_helper, relation_field_value, fill_computed_relation_values = _obj_0.make_space_helper, _obj_0.relation_field_value, _obj_0.fill_computed_relation_values
+end
 local gql_name
 gql_name = function(name)
   local s = name:gsub('[^%w]', '_')
@@ -197,6 +200,7 @@ generate = function()
     local tname = gql_name(sp.name)
     local fk_sp = fk_map[sp.id] or { }
     local backrefs = backref_map[sp.id] or { }
+    local computed_fk_names = { }
     local fields_sdl = {
       '  _id: ID!'
     }
@@ -221,7 +225,7 @@ generate = function()
     table.insert(sdl_parts, "type " .. tostring(tname) .. "_record {\n" .. tostring(table.concat(fields_sdl, '\n')) .. "\n}")
     table.insert(sdl_parts, "type " .. tostring(tname) .. "_page {\n  items: [" .. tostring(tname) .. "_record!]!\n  total: Int!\n  offset: Int!\n  limit: Int!\n}")
     table.insert(query_fields, "  " .. tostring(tname) .. "(limit: Int, offset: Int, filter: RecordFilter): " .. tostring(tname) .. "_page!")
-    query_resolvers[tname] = (function(sp_cap, tname_cap, fk_sp_cap, backrefs_cap)
+    query_resolvers[tname] = (function(sp_cap, tname_cap, fk_sp_cap, backrefs_cap, cfk_cap)
       return function(_, args, ctx)
         require_perm(ctx, 'space', sp_cap.id, 'read')
         local sp_box = box.space["data_" .. tostring(sp_cap.name)]
@@ -254,6 +258,18 @@ generate = function()
           fk_def_map = { }
         end
         ctx._fk_cache = fk_cache_for(ctx)
+        if #cfk_cap > 0 then
+          do
+            local _accum_0 = { }
+            local _len_0 = 1
+            for _index_1 = 1, #all do
+              local r = all[_index_1]
+              _accum_0[_len_0] = fill_computed_relation_values(r, cfk_cap, sp_cap.name, ctx._fk_cache)
+              _len_0 = _len_0 + 1
+            end
+            all = _accum_0
+          end
+        end
         all = apply_filter(all, args.filter, fk_def_map, ctx._fk_cache, sp_cap.name)
         local total = #all
         local items
@@ -274,19 +290,31 @@ generate = function()
           limit = limit
         }
       end
-    end)(sp, tname, fk_sp, backrefs)
+    end)(sp, tname, fk_sp, backrefs, computed_fk_names)
     local tr = { }
     local _list_2 = (sp.fields or { })
     for _index_1 = 1, #_list_2 do
       local f = _list_2[_index_1]
       local rel = fk_sp[f.id]
       if rel and space_by_id[rel.toSpaceId] then
-        tr[gql_name(f.name)] = (function(fn_cap, to_sp_cap, to_fn_cap)
+        local has_formula = f.formula ~= nil and f.formula ~= ''
+        if has_formula then
+          table.insert(computed_fk_names, f.name)
+        end
+        tr[gql_name(f.name)] = (function(fn_cap, to_sp_cap, to_fn_cap, sp_name_cap, has_formula_cap)
           return function(obj, a, ctx)
             if not (perm_ok(ctx, 'space', to_sp_cap.id, 'read')) then
               return nil
             end
             local raw = obj[fn_cap]
+            if has_formula_cap and (raw == nil or raw == '') then
+              ctx._fk_cache = ctx._fk_cache or fk_cache_for(ctx)
+              local is_err
+              raw, is_err = relation_field_value(obj, fn_cap, sp_name_cap, ctx._fk_cache)
+              if is_err then
+                return nil
+              end
+            end
             if raw == nil then
               return nil
             end
@@ -308,12 +336,13 @@ generate = function()
             end
             return nil
           end
-        end)(gql_name(f.name), space_by_id[rel.toSpaceId], (field_by_id[rel.toFieldId] and field_by_id[rel.toFieldId].name) or 'id')
+        end)(gql_name(f.name), space_by_id[rel.toSpaceId], (field_by_id[rel.toFieldId] and field_by_id[rel.toFieldId].name) or 'id', sp.name, has_formula)
       end
     end
     for _index_1 = 1, #backrefs do
       local ref = backrefs[_index_1]
-      tr[gql_name(ref.rel.name)] = (function(rel_fn_cap, to_fn_cap, from_fn_cap, from_sp_name_cap, from_sp_id_cap)
+      local from_has_formula = ref.fromField ~= nil and ref.fromField.formula ~= nil and ref.fromField.formula ~= ''
+      tr[gql_name(ref.rel.name)] = (function(rel_fn_cap, to_fn_cap, from_fn_cap, from_sp_name_cap, from_sp_id_cap, from_has_formula_cap)
         return function(obj, args, ctx)
           if not (perm_ok(ctx, 'space', from_sp_id_cap, 'read')) then
             return {
@@ -335,11 +364,20 @@ generate = function()
           end
           local limit = (args and args.limit) or 100
           local offset = (args and args.offset) or 0
+          if from_has_formula_cap then
+            ctx._fk_cache = ctx._fk_cache or fk_cache_for(ctx)
+          end
           local all = { }
           local _list_3 = tb:select({ })
           for _index_2 = 1, #_list_3 do
             local t = _list_3[_index_2]
             local d = decode_tuple(t)
+            if from_has_formula_cap and (d[from_fn_cap] == nil or d[from_fn_cap] == '') then
+              local v, is_err = relation_field_value(d, from_fn_cap, from_sp_name_cap, ctx._fk_cache)
+              if not is_err then
+                d[from_fn_cap] = v
+              end
+            end
             if from_fn_cap and tostring(d[from_fn_cap]) == filter_val then
               table.insert(all, d)
             end
@@ -372,7 +410,7 @@ generate = function()
             limit = limit
           }
         end
-      end)(gql_name(ref.rel.name), (ref.toField and ref.toField.name) or 'id', ref.fromField and ref.fromField.name, ref.fromSpace.name, ref.fromSpace.id)
+      end)(gql_name(ref.rel.name), (ref.toField and ref.toField.name) or 'id', ref.fromField and ref.fromField.name, ref.fromSpace.name, ref.fromSpace.id, from_has_formula)
     end
     local fk_name_map = { }
     local _list_3 = (sp.fields or { })
@@ -389,7 +427,9 @@ generate = function()
     local _list_4 = (sp.fields or { })
     for _index_1 = 1, #_list_4 do
       local f = _list_4[_index_1]
-      if f.formula and f.formula ~= '' then
+      local rel_fk = fk_sp[f.id]
+      local is_computed_relation = rel_fk ~= nil and space_by_id[rel_fk.toSpaceId] ~= nil
+      if f.formula and f.formula ~= '' and not is_computed_relation then
         local formula_fn = triggers.compile_formula(f.formula, f.name, (f.language or 'moonscript'))
         if formula_fn then
           tr[gql_name(f.name)] = (function(fn_cap, fk_nm_cap, raw_name_cap, sp_name_cap)
