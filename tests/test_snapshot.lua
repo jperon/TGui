@@ -1,6 +1,7 @@
 local R = require('tests.runner')
 local auth = require('core.auth')
 local spaces = require('core.spaces')
+local view_presets = require('core.view_presets')
 local export_r = require('resolvers.export_resolvers')
 local data_res = require('resolvers.data_resolvers')
 local yaml = require('yaml')
@@ -268,6 +269,122 @@ R.describe("importSnapshot — widget plugins", function()
     if tuple then
       return box.space._tdb_widget_plugins:delete(tuple[1])
     end
+  end)
+end)
+R.describe("snapshot — view presets", function()
+  local SP_P = "snap_preset_" .. tostring(SUFFIX)
+  local PAGE_P = "snap_preset_page_" .. tostring(SUFFIX)
+  local PAGE_ID = "snap_preset_page_id_" .. tostring(SUFFIX)
+  local PRESET_P = "snap:preset_" .. tostring(SUFFIX)
+  local WIDGET_P = 'w_0000e1'
+  R.it("exports presets with a portable scope and space name", function()
+    local sp = spaces.create_user_space(SP_P, 'presets')
+    R.ok(sp)
+    box.space._tdb_custom_views:insert({
+      PAGE_ID,
+      PAGE_P,
+      '',
+      'layout: {}',
+      os.time(),
+      os.time()
+    })
+    view_presets.save_preset("widget:" .. tostring(PAGE_ID) .. ":" .. tostring(WIDGET_P), sp.id, PRESET_P, 'self.a > 1', '[{"column":"a","ascending":true}]')
+    local snap = yaml.decode(export_r.Query.exportSnapshot(nil, {
+      includeData = false
+    }, ADMIN_CTX))
+    R.ok(type(snap.schema.view_presets) == 'table')
+    local found = nil
+    local _list_0 = snap.schema.view_presets
+    for _index_0 = 1, #_list_0 do
+      local vp = _list_0[_index_0]
+      if vp.name == PRESET_P then
+        found = vp
+      end
+    end
+    R.ok(found, 'preset exported')
+    R.eq(found.scope, "widget:" .. tostring(PAGE_P) .. ":" .. tostring(WIDGET_P))
+    R.eq(found.space, SP_P)
+    R.eq(found.filter, 'self.a > 1')
+    R.eq(found.sort, '[{"column":"a","ascending":true}]')
+    R.is_nil(found.scope:find(PAGE_ID, 1, true), 'no local page id in the scope')
+    return R.is_nil(found.space:find(sp.id, 1, true), 'no local space id in the space')
+  end)
+  R.it("re-importing the same snapshot skips the existing preset", function()
+    local snap_yaml = export_r.Query.exportSnapshot(nil, {
+      includeData = false
+    }, ADMIN_CTX)
+    local result = export_r.Mutation.importSnapshot(nil, {
+      yaml = snap_yaml,
+      mode = 'merge'
+    }, ADMIN_CTX)
+    R.ok(result)
+    R.ok(result.ok, table.concat(result.errors, '; '))
+    local n = 0
+    local _list_0 = box.space._tdb_view_presets:select({ })
+    for _index_0 = 1, #_list_0 do
+      local vp = _list_0[_index_0]
+      if vp[4] == PRESET_P then
+        n = n + 1
+      end
+    end
+    return R.eq(n, 1, 'one preset row, not a duplicate')
+  end)
+  R.it("recreates the preset from the snapshot on a cleaned base", function()
+    local snap_yaml = export_r.Query.exportSnapshot(nil, {
+      includeData = false
+    }, ADMIN_CTX)
+    local _list_0 = box.space._tdb_view_presets:select({ })
+    for _index_0 = 1, #_list_0 do
+      local vp = _list_0[_index_0]
+      if vp[4] == PRESET_P then
+        view_presets.delete_preset(vp[1])
+      end
+    end
+    box.space._tdb_custom_views:delete(PAGE_ID)
+    spaces.delete_user_space(SP_P)
+    R.is_nil(spaces.get_space_by_name(SP_P))
+    local result = export_r.Mutation.importSnapshot(nil, {
+      yaml = snap_yaml,
+      mode = 'merge'
+    }, ADMIN_CTX)
+    R.ok(result)
+    R.ok(result.ok, table.concat(result.errors, '; '))
+    local new_sp = spaces.get_space_by_name(SP_P)
+    local new_page = box.space._tdb_custom_views.index.by_name:get(PAGE_P)
+    R.ok(new_sp, 'space recreated')
+    R.ok(new_page, 'page recreated')
+    local row = box.space._tdb_view_presets.index.by_scope_name:get({
+      "widget:" .. tostring(new_page[1]) .. ":" .. tostring(WIDGET_P),
+      PRESET_P
+    })
+    R.ok(row, 'preset recreated')
+    R.eq(row[3], new_sp.id, 'attached to the recreated space')
+    R.eq(row[5], 'self.a > 1')
+    return R.eq(json.decode(row[6])[1].column, 'a')
+  end)
+  return R.it("cleanup the preset fixture", function()
+    local _list_0 = box.space._tdb_view_presets:select({ })
+    for _index_0 = 1, #_list_0 do
+      local vp = _list_0[_index_0]
+      if vp[4] == PRESET_P then
+        view_presets.delete_preset(vp[1])
+      end
+    end
+    local page = box.space._tdb_custom_views.index.by_name:get(PAGE_P)
+    if page then
+      box.space._tdb_custom_views:delete(page[1])
+    end
+    spaces.delete_user_space(SP_P)
+    R.is_nil(spaces.get_space_by_name(SP_P))
+    local n = 0
+    local _list_1 = box.space._tdb_view_presets:select({ })
+    for _index_0 = 1, #_list_1 do
+      local vp = _list_1[_index_0]
+      if vp[4] == PRESET_P then
+        n = n + 1
+      end
+    end
+    return R.eq(n, 0)
   end)
 end)
 R.describe("importSnapshot — mode replace", function()
