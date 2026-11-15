@@ -4,6 +4,7 @@
 
 log = require 'log'
 { :validate_input, :safe_formula_call } = require 'core.config'
+widget_ids = require 'core.widget_ids'
 
 -- Field type constants (mirrors GraphQL scalar names)
 FIELD_TYPES = { 'String', 'Int', 'Float', 'Boolean', 'ID', 'UUID', 'Sequence', 'Any', 'Map', 'Array', 'Datetime', 'Relation' }
@@ -397,6 +398,14 @@ bootstrap = ->
     if flagged > 0
       log.warn "tdb_v4: #{flagged} user(s) still use the default password — change required"
 
+  -- Widget ids: every widget of a page carries a stable id, which is the key of
+  -- the widget-scoped records (named view presets: 'widget:<pageId>:<widgetId>').
+  -- Tarantool does not persist before_replace triggers, so it is registered on
+  -- every start; pages written before this module are normalized once here.
+  widget_ids.install_trigger!
+  normalized = widget_ids.migrate_stored_pages!
+  log.info "tdb widget ids: #{normalized} page(s) normalized" if normalized > 0
+
 -- ────────────────────────────────────────────────────────────────────────────
 -- Runtime space management
 -- ────────────────────────────────────────────────────────────────────────────
@@ -718,6 +727,10 @@ migrate = ->
   -- Ensure all system spaces added after initial bootstrap exist
   for name, desc in pairs SYSTEM_SPACES
     create_space name, desc
+
+  -- A system space (re)created above has no trigger yet; before_replace
+  -- replaces the previous trigger, so the bootstrap call is not duplicated.
+  widget_ids.install_trigger!
 
   -- Ensure sequences exist for all Sequence-type fields
   for t in *box.space._tdb_fields\select {}
