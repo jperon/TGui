@@ -581,7 +581,9 @@ window.CustomView = class CustomView
     dv._formulaInputEl = filterInput
 
     # Même menu que la grille principale, avec la portée du widget de page.
-    if @pageId and wNode.id
+    # Jamais pour un widget dont la source est une Data View : `sp.id` est alors
+    # l'id de la vue, et `saveViewPreset` le refuse (« Space not found »).
+    if @pageId and wNode.id and not sp.isView
       window.ViewPresetsMenu?.attach filterWrap, {
         getDataView: -> dv
         scope: "widget:#{@pageId}:#{wNode.id}"

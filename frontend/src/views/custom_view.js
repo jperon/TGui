@@ -804,7 +804,9 @@ transition: all 0.3s ease;`;
       });
       dv._formulaInputEl = filterInput;
       // Même menu que la grille principale, avec la portée du widget de page.
-      if (this.pageId && wNode.id) {
+      // Jamais pour un widget dont la source est une Data View : `sp.id` est alors
+      // l'id de la vue, et `saveViewPreset` le refuse (« Space not found »).
+      if (this.pageId && wNode.id && !sp.isView) {
         if ((ref3 = window.ViewPresetsMenu) != null) {
           ref3.attach(filterWrap, {
             getDataView: function() {
