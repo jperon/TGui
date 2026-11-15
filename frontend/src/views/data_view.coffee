@@ -375,8 +375,12 @@ window.DataView = class DataView
   load: ->
     return unless @_mounted
 
-    # Save current focus to restore it after resetData
-    focus = @_grid?.getFocusedCell()
+    # Save current focus to restore it after resetData — but only when the browser
+    # focus is actually inside the grid. A reload triggered from an input outside
+    # the grid (e.g. the live formula filter) must not steal the focus back.
+    @_lastFocus = null
+    gridHasFocus = @container?.contains document.activeElement
+    focus = @_grid?.getFocusedCell() if gridHasFocus
     if focus?.rowKey? and focus.columnName
       focusedRow = @_grid.getRow focus.rowKey
       if focusedRow
