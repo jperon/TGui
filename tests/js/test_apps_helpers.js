@@ -220,7 +220,7 @@
         ]
       }));
     });
-    it('vrai si le type est plugin/page/dataview', function() {
+    it('vrai si le type est plugin/page/dataview/preset', function() {
       assert(EH.hasCodeChanges({
         update: [
           {
@@ -229,11 +229,19 @@
           }
         ]
       }));
-      return assert(EH.hasCodeChanges({
+      assert(EH.hasCodeChanges({
         conflict: [
           {
             key: 'a',
             type: 'page'
+          }
+        ]
+      }));
+      return assert(EH.hasCodeChanges({
+        create: [
+          {
+            key: 'a',
+            type: 'preset'
           }
         ]
       }));
