@@ -398,8 +398,11 @@ window.CustomView = class CustomView
     el
 
   # Séparateur glissable entre deux enfants consécutifs d'une zone. Le glisser
-  # redistribue l'espace des DEUX voisins (minimum 80 px chacun) ; un double-clic
-  # les remet à parts égales.
+  # redistribue l'espace des DEUX voisins (minimum 80 px chacun) en conservant
+  # la SOMME de leurs facteurs : les autres enfants de la zone ne changent donc
+  # pas de taille. Un double-clic les remet à parts égales. Les écouteurs
+  # `document` ne vivent que pendant le glisser (posés au mousedown, retirés au
+  # mouseup) et un clic sans déplacement n'écrit rien dans le YAML.
   _createSplitter: (direction, a, b, path, index) ->
     horizontal = direction == 'horizontal'
     dir = if horizontal then 'horizontal' else 'vertical'
@@ -411,6 +414,48 @@ window.CustomView = class CustomView
     startPos = 0
     startA = 0
     startB = 0
+    startFactorA = 1
+    startFactorB = 1
+    sumFactors = 2
+
+    # Facteur courant d'un enfant : le flex rendu est un simple nombre.
+    factorOf = (el) ->
+      f = parseFloat el.style.flex
+      if isNaN(f) then 1 else f
+
+    onMouseMove = (ev) =>
+      return unless dragging
+      pos = if horizontal then ev.clientX else ev.clientY
+      delta = pos - startPos
+      return if delta == 0
+      [na, nb] = CustomView.redistribute startA, startB, delta, 80
+      total = na + nb
+      return if total <= 0
+      # Pixels → facteurs, à somme constante : les voisins hors de la paire,
+      # dont le flex reste inchangé, gardent leur taille.
+      fa = Math.round((sumFactors * na / total) * 100) / 100
+      fb = Math.round((sumFactors - fa) * 100) / 100
+      a.style.flex = String fa
+      b.style.flex = String fb
+
+    onMouseUp = =>
+      return unless dragging
+      stopDrag()
+      fa = factorOf a
+      fb = factorOf b
+      # Aucun déplacement : ne pas réécrire le YAML (jsyaml.dump y perdrait
+      # les commentaires) ni redimensionner quoi que ce soit.
+      return if fa == startFactorA and fb == startFactorB
+      @_saveChildFactors path, [
+        { index: index, factor: fa }
+        { index: index + 1, factor: fb }
+      ]
+
+    stopDrag = ->
+      dragging = false
+      document.removeEventListener? 'mousemove', onMouseMove
+      document.removeEventListener? 'mouseup', onMouseUp
+      document.body?.style.cursor = ''
 
     sp.addEventListener 'mousedown', (ev) =>
       dragging = true
@@ -419,30 +464,13 @@ window.CustomView = class CustomView
       rb = b.getBoundingClientRect()
       startA = ra[axis] or 0
       startB = rb[axis] or 0
-      document.body.style.cursor = if horizontal then 'col-resize' else 'row-resize'
+      startFactorA = factorOf a
+      startFactorB = factorOf b
+      sumFactors = startFactorA + startFactorB
+      document.body?.style.cursor = if horizontal then 'col-resize' else 'row-resize'
+      document.addEventListener? 'mousemove', onMouseMove
+      document.addEventListener? 'mouseup', onMouseUp
       ev.preventDefault?()
-
-    document.addEventListener 'mousemove', (ev) =>
-      return unless dragging
-      pos = if horizontal then ev.clientX else ev.clientY
-      [na, nb] = CustomView.redistribute startA, startB, pos - startPos, 80
-      a.style.flex = String na
-      b.style.flex = String nb
-
-    document.addEventListener 'mouseup', (ev) =>
-      return unless dragging
-      dragging = false
-      document.body.style.cursor = ''
-      na = parseFloat a.style.flex
-      nb = parseFloat b.style.flex
-      total = na + nb
-      return if total <= 0
-      fa = Math.round((2 * na / total) * 100) / 100
-      fb = Math.round((2 * nb / total) * 100) / 100
-      @_saveChildFactors path, [
-        { index: index, factor: fa }
-        { index: index + 1, factor: fb }
-      ]
 
     sp.addEventListener 'dblclick', =>
       a.style.flex = '1'
