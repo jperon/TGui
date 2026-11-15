@@ -3,6 +3,7 @@ local pkg = require('core.app_package')
 local spaces = require('core.spaces')
 local views = require('core.views')
 local perms = require('core.permissions')
+local view_presets = require('core.view_presets')
 local schema_r = require('resolvers.schema_resolvers')
 local cvr = require('resolvers.custom_view_resolvers')
 local wpr = require('resolvers.widget_plugin_resolvers')
@@ -21,6 +22,9 @@ local PLUGIN_NAME = "apkg_plugin_" .. tostring(SUFFIX)
 local GROUP_NAME = "apkg_group_" .. tostring(SUFFIX)
 local REL_NAME = "apkg_rel_" .. tostring(SUFFIX)
 local SP_SEED = "apkg_seed_" .. tostring(SUFFIX)
+local PRESET_W = "apkg:preset_" .. tostring(SUFFIX)
+local PRESET_S = "apkg|preset_" .. tostring(SUFFIX)
+local WIDGET_ID = 'w_0000abcd'
 local SP_ESP = "apkg_esp.ace_" .. tostring(SUFFIX)
 local FLD_ESP = 'a.b|c:d%e'
 local FLDN_ESP = 'plain_field'
@@ -59,6 +63,10 @@ find_item = function(package, key)
     end
   end
   return nil
+end
+local preset_key
+preset_key = function(scope, name)
+  return "preset:" .. tostring(pkg.key_part(scope)) .. "|" .. tostring(pkg.key_part(name))
 end
 local seed_error
 seed_error = function(seed_config)
@@ -379,6 +387,19 @@ R.describe("app_package — fixture", function()
     R.ok(res)
     FIX.plugin_id = res.id
   end)
+  R.it("creates named view presets on a widget and on a space", function()
+    local widget_preset = view_presets.save_preset("widget:" .. tostring(FIX.page_id) .. ":" .. tostring(WIDGET_ID), FIX.books_id, PRESET_W, 'self.qty > 1', json.encode({
+      {
+        column = 'qty',
+        ascending = true
+      }
+    }))
+    local space_preset = view_presets.save_preset("space:" .. tostring(FIX.books_id), FIX.books_id, PRESET_S, '', '[]')
+    FIX.preset_w = widget_preset.id
+    FIX.preset_s = space_preset.id
+    R.ok(widget_preset)
+    return R.ok(space_preset)
+  end)
   R.it("creates a group with permissions", function()
     local g = perms.create_group(GROUP_NAME, 'apkg group')
     FIX.group_id = g.id
@@ -440,7 +461,7 @@ R.describe("app_package — build_package", function()
     end
     return R.eq(bad, 0)
   end)
-  R.it("covers the ten item types", function()
+  R.it("covers the eleven item types", function()
     local seen
     do
       local _tbl_0 = { }
@@ -458,6 +479,7 @@ R.describe("app_package — build_package", function()
       'view',
       'page',
       'dataview',
+      'preset',
       'plugin',
       'group',
       'perm',
@@ -638,6 +660,30 @@ R.describe("app_package — describe_local", function()
     R.eq(local_content.sourceSpace, SP_BOOKS)
     return R.eq(local_content.description, 'apkg data view')
   end)
+  R.it("preset: names the page and the space, and decodes the sort", function()
+    local key = preset_key("widget:" .. tostring(PAGE_NAME) .. ":" .. tostring(WIDGET_ID), PRESET_W)
+    local item = find_item(PKG, key)
+    R.ok(item, "missing " .. tostring(key))
+    R.is_nil(key:find(FIX.page_id, 1, true), 'the key carries no local page id')
+    local local_content = pkg.describe_local('preset', key)
+    R.eq(pkg.canonical(local_content), pkg.canonical(item.content))
+    R.eq(local_content.scope, "widget:" .. tostring(PAGE_NAME) .. ":" .. tostring(WIDGET_ID))
+    R.eq(local_content.space, SP_BOOKS)
+    R.eq(local_content.name, PRESET_W)
+    R.eq(local_content.filter, 'self.qty > 1')
+    R.eq(local_content.sort[1].column, 'qty')
+    return R.eq(local_content.sort[1].ascending, true)
+  end)
+  R.it("preset: a space scope carries the space name, never its id", function()
+    local key = preset_key("space:" .. tostring(SP_BOOKS), PRESET_S)
+    local item = find_item(PKG, key)
+    R.ok(item, "missing " .. tostring(key))
+    R.is_nil(key:find(FIX.books_id, 1, true), 'the key carries no local space id')
+    R.eq(item.content.scope, "space:" .. tostring(SP_BOOKS))
+    R.eq(item.content.space, SP_BOOKS)
+    R.eq(pkg.canonical(item.content.sort), '[]')
+    return R.eq(pkg.canonical(pkg.describe_local('preset', key)), pkg.canonical(item.content))
+  end)
   R.it("plugin: returns the script and template code", function()
     local key = "plugin:" .. tostring(PLUGIN_NAME)
     local item = find_item(PKG, key)
@@ -691,6 +737,8 @@ R.describe("app_package — describe_local", function()
     R.is_nil(pkg.describe_local('page', "page:no_such_page_" .. tostring(SUFFIX)))
     R.is_nil(pkg.describe_local('group', "group:no_such_group_" .. tostring(SUFFIX)))
     R.is_nil(pkg.describe_local('seed', "seed:" .. tostring(SP_BOOKS) .. "|NO-SUCH-KEY"))
+    R.is_nil(pkg.describe_local('preset', preset_key("widget:" .. tostring(PAGE_NAME) .. ":" .. tostring(WIDGET_ID), "no_such_preset_" .. tostring(SUFFIX))))
+    R.is_nil(pkg.describe_local('preset', preset_key("widget:ghost_page_" .. tostring(SUFFIX) .. ":" .. tostring(WIDGET_ID), PRESET_W)))
     return R.is_nil(pkg.describe_local('nonsense', 'nonsense:x'))
   end)
 end)
@@ -881,6 +929,12 @@ R.describe("app_package — cleanup", function()
     if FIX.view_id then
       views.delete_view(FIX.view_id)
     end
+    if FIX.preset_w then
+      view_presets.delete_preset(FIX.preset_w)
+    end
+    if FIX.preset_s then
+      view_presets.delete_preset(FIX.preset_s)
+    end
     if FIX.page_id then
       cvr.Mutation.deleteCustomView({ }, {
         id = FIX.page_id
@@ -903,6 +957,8 @@ R.describe("app_package — cleanup", function()
     R.is_nil(pkg.describe_local('view', "view:" .. tostring(SP_BOOKS) .. "." .. tostring(VIEW_NAME)))
     R.is_nil(pkg.describe_local('page', "page:" .. tostring(PAGE_NAME)))
     R.is_nil(pkg.describe_local('dataview', "dataview:" .. tostring(DV_NAME)))
+    R.is_nil(pkg.describe_local('preset', preset_key("widget:" .. tostring(PAGE_NAME) .. ":" .. tostring(WIDGET_ID), PRESET_W)))
+    R.is_nil(pkg.describe_local('preset', preset_key("space:" .. tostring(SP_BOOKS), PRESET_S)))
     R.is_nil(pkg.describe_local('plugin', "plugin:" .. tostring(PLUGIN_NAME)))
     return R.is_nil(pkg.describe_local('group', "group:" .. tostring(GROUP_NAME)))
   end)
@@ -975,6 +1031,11 @@ return R.describe("app_package — normalize_content (T22)", function()
         description = '',
         sourceSpace = ''
       },
+      preset = {
+        space = '',
+        filter = '',
+        sort = { }
+      },
       plugin = {
         description = '',
         scriptLanguage = 'coffeescript',
@@ -1008,6 +1069,29 @@ return R.describe("app_package — normalize_content (T22)", function()
       language = 'lua'
     }))
     return R.is_nil(c.triggerFields, 'triggerFields: null means no trigger')
+  end)
+  R.it("normalizes a preset sort: absent, null and [] agree", function()
+    local absent = pkg.normalize_content('preset', {
+      scope = "space:" .. tostring(SP_BOOKS),
+      space = SP_BOOKS,
+      name = PRESET_S
+    })
+    local empty = pkg.normalize_content('preset', {
+      scope = "space:" .. tostring(SP_BOOKS),
+      space = SP_BOOKS,
+      name = PRESET_S,
+      sort = { }
+    })
+    local from_yaml = pkg.normalize_content('preset', pkg.strip_null((yaml.decode("scope: 'space:" .. tostring(SP_BOOKS) .. "'\nspace: " .. tostring(SP_BOOKS) .. "\nname: x\nfilter: ~\nsort: ~\n"))))
+    R.eq(pkg.fingerprint(absent), pkg.fingerprint(empty))
+    R.eq(pkg.fingerprint(from_yaml), pkg.fingerprint({
+      scope = "space:" .. tostring(SP_BOOKS),
+      space = SP_BOOKS,
+      name = 'x',
+      filter = '',
+      sort = { }
+    }))
+    return R.eq(pkg.canonical(from_yaml.sort), '[]')
   end)
   R.it("is idempotent and does not mutate its argument", function()
     local original = {
