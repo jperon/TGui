@@ -114,6 +114,25 @@ SYSTEM_SPACES =
       primary: { parts: {'id'},   unique: true,  type: 'HASH' }
       by_name: { parts: {'name'}, unique: true,  type: 'TREE' }
 
+  -- Named view presets: one filter formula + sort order per widget (or per
+  -- main grid of a space). scope is an opaque key: 'widget:<pageId>:<widgetId>'
+  -- or 'space:<spaceId>'. space_id identifies the displayed space (permissions).
+  _tdb_view_presets:
+    format: {
+      { name: 'id',          type: 'string' }
+      { name: 'scope',       type: 'string' }
+      { name: 'space_id',    type: 'string' }
+      { name: 'name',        type: 'string' }
+      { name: 'filter',      type: 'string' }
+      { name: 'sort',        type: 'string' }
+      { name: 'created_at',  type: 'number' }
+      { name: 'updated_at',  type: 'number' }
+    }
+    indexes:
+      primary:       { parts: {'id'},              unique: true,  type: 'HASH' }
+      by_scope_name: { parts: {'scope','name'},    unique: true,  type: 'TREE' }
+      by_space:      { parts: {'space_id'},        unique: false, type: 'TREE' }
+
   -- Custom widget plugins (script/template code used by custom views)
   _tdb_widget_plugins:
     format: {
@@ -728,6 +747,11 @@ delete_user_space = (name) ->
   -- Drop the underlying box.space
   sp = box.space["data_#{name}"]
   sp\drop! if sp
+  -- Cascade: remove the view presets attached to this space
+  -- (core/view_presets.moon, index by_space).
+  if box.space._tdb_view_presets
+    for t in *box.space._tdb_view_presets.index.by_space\select { sid }
+      box.space._tdb_view_presets\delete t[1]
   -- Remove metadata
   box.space._tdb_spaces\delete sid
 

@@ -356,6 +356,66 @@ local SYSTEM_SPACES = {
       }
     }
   },
+  _tdb_view_presets = {
+    format = {
+      {
+        name = 'id',
+        type = 'string'
+      },
+      {
+        name = 'scope',
+        type = 'string'
+      },
+      {
+        name = 'space_id',
+        type = 'string'
+      },
+      {
+        name = 'name',
+        type = 'string'
+      },
+      {
+        name = 'filter',
+        type = 'string'
+      },
+      {
+        name = 'sort',
+        type = 'string'
+      },
+      {
+        name = 'created_at',
+        type = 'number'
+      },
+      {
+        name = 'updated_at',
+        type = 'number'
+      }
+    },
+    indexes = {
+      primary = {
+        parts = {
+          'id'
+        },
+        unique = true,
+        type = 'HASH'
+      },
+      by_scope_name = {
+        parts = {
+          'scope',
+          'name'
+        },
+        unique = true,
+        type = 'TREE'
+      },
+      by_space = {
+        parts = {
+          'space_id'
+        },
+        unique = false,
+        type = 'TREE'
+      }
+    }
+  },
   _tdb_widget_plugins = {
     format = {
       {
@@ -1584,6 +1644,15 @@ delete_user_space = function(name)
   local sp = box.space["data_" .. tostring(name)]
   if sp then
     sp:drop()
+  end
+  if box.space._tdb_view_presets then
+    local _list_1 = box.space._tdb_view_presets.index.by_space:select({
+      sid
+    })
+    for _index_0 = 1, #_list_1 do
+      local t = _list_1[_index_0]
+      box.space._tdb_view_presets:delete(t[1])
+    end
   end
   return box.space._tdb_spaces:delete(sid)
 end
