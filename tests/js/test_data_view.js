@@ -919,7 +919,7 @@
   describe('DataView prototype surface (frozen)', function() {
     return it('exposes exactly the expected set of methods', function() {
       var expected;
-      expected = ['_actionContext', '_applyData', '_buildFkMaps', '_clearError', '_cloneJson', '_coerceCellValue', '_columnWidth', '_defaultCellValue', '_escapeHtml', '_extractInsertedRecords', '_formatFormulaError', '_loadColWidths', '_lsKey', '_saveColWidths', '_sentinel', '_serializeRowForMutation', '_showError', '_toBoolean', 'constructor', 'deleteSelected', 'getFocusedColumnName', 'insertBlank', 'load', 'mount', 'setActiveRow', 'setDefaultValues', 'setFilter', 'setFormulaFilter', 'unmount'];
+      expected = ['_actionContext', '_applyData', '_applySortState', '_buildFkMaps', '_clearError', '_cloneJson', '_coerceCellValue', '_columnWidth', '_defaultCellValue', '_escapeHtml', '_extractInsertedRecords', '_formatFormulaError', '_loadColWidths', '_lsKey', '_onGridSortChanged', '_saveColWidths', '_sentinel', '_serializeRowForMutation', '_showError', '_sortEntriesFromGrid', '_toBoolean', 'applySortEntries', 'constructor', 'deleteSelected', 'getFocusedColumnName', 'getSortEntries', 'insertBlank', 'load', 'mount', 'setActiveRow', 'setDefaultValues', 'setFilter', 'setFormulaFilter', 'unmount'];
       return deepEq(Object.getOwnPropertyNames(DV.prototype).sort(), expected);
     });
   });

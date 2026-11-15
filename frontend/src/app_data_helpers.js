@@ -140,7 +140,7 @@
       }
     },
     mountDataView: async function(app, space) {
-      var container, input, ref, ref1, relations;
+      var container, input, ref, ref1, ref2, relations;
       if ((ref = app._activeDataView) != null) {
         if (typeof ref.unmount === "function") {
           ref.unmount();
@@ -158,8 +158,20 @@
       if (input) {
         input.value = '';
         input.classList.remove('active');
+        // Menu « Trier / Filtrer » : un seul module pour la grille principale et
+        // les widgets de page (portée `space:<id>` ici).
+        if ((ref1 = window.ViewPresetsMenu) != null) {
+          ref1.attach(input.parentNode, {
+            getDataView: function() {
+              return app._activeDataView;
+            },
+            scope: `space:${space.id}`,
+            spaceId: space.id,
+            filterInput: input
+          });
+        }
       }
-      return (ref1 = window.AppUndoHelpers) != null ? typeof ref1.refreshUI === "function" ? ref1.refreshUI(app) : void 0 : void 0;
+      return (ref2 = window.AppUndoHelpers) != null ? typeof ref2.refreshUI === "function" ? ref2.refreshUI(app) : void 0 : void 0;
     },
     bindDataToolbar: function(app) {
       var ref, ref1, ref2, ref3, ref4;

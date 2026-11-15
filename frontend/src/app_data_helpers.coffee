@@ -104,6 +104,14 @@ window.AppDataHelpers =
     if input
       input.value = ''
       input.classList.remove 'active'
+      # Menu « Trier / Filtrer » : un seul module pour la grille principale et
+      # les widgets de page (portée `space:<id>` ici).
+      window.ViewPresetsMenu?.attach input.parentNode, {
+        getDataView: -> app._activeDataView
+        scope: "space:#{space.id}"
+        spaceId: space.id
+        filterInput: input
+      }
     window.AppUndoHelpers?.refreshUI? app
 
   bindDataToolbar: (app) ->

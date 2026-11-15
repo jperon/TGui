@@ -60,6 +60,8 @@
       this._fkOptions = {}; // field name → [{ text, value }]
       this._formulaFilter = ''; // Lua/MoonScript formula for server-side row filtering
       this._formulaTimer = null; // debounce handle
+      this._sortState = []; // tri demandé (survit aux resetData de Toast UI Grid)
+      this._applyingSort = false; // true pendant la réapplication du tri
       this._focusedColumnName = null;
       this._colWidthsCache = {};
       this._saveWidthsTimer = null;
@@ -361,6 +363,14 @@
         } else {
           return cellEl.removeAttribute('title');
         }
+      });
+      // Clic sur un en-tête : mémoriser le tri pour qu'il survive au prochain
+      // resetData (rechargement du filtre, insertion, suppression…).
+      this._grid.on('afterSort', (ev) => {
+        return this._onGridSortChanged();
+      });
+      this._grid.on('afterUnsort', (ev) => {
+        return this._onGridSortChanged();
       });
       // Tab / Shift+Tab: move to next/prev cell (all columns), wrapping at row
       // boundaries. Start editing only if the target cell is editable.
@@ -778,7 +788,7 @@
     }
 
     _applyData() {
-      var base, base1, base2, columnName, displayVal, f, isError, isNew, j, l, lastIdx, len, len1, name1, ref, ref1, row, rowId, rows, sentinel, sentinelRow, targetRow, val;
+      var base, base1, base2, columnName, displayVal, f, isError, isNew, j, l, lastIdx, len, len1, name1, ref, ref1, ref2, row, rowId, rows, sentinel, sentinelRow, targetRow, val;
       if (!this._grid) {
         return;
       }
@@ -836,6 +846,11 @@
         }
       }
       this._grid.resetData(this._currentData);
+      if ((ref2 = this._sortState) != null ? ref2.length : void 0) {
+        // resetData remet le tri de Toast UI Grid à zéro : réapplique celui demandé
+        // (préréglage ou tri manuel mémorisé) pour qu'il persiste après un load.
+        this._applySortState();
+      }
       // resetData rebuilds rows: the highlighted row key is no longer tracked.
       this._activeRowKey = null;
       // Restore focus if we have saved it
@@ -995,18 +1010,24 @@
 
     // ── Cleanup ───────────────────────────────────────────────────────────────────
     unmount() {
-      var ref;
+      var ref, ref1;
       this._mounted = false;
       clearTimeout(this._formulaTimer);
       clearTimeout(this._saveWidthsTimer);
+      if ((ref = this._viewPresetsMenu) != null) {
+        if (typeof ref.destroy === "function") {
+          ref.destroy();
+        }
+      }
+      this._viewPresetsMenu = null;
       if (this._pasteListener) {
         document.removeEventListener('keydown', this._pasteListener);
       }
       if (this._tabListener) {
         document.removeEventListener('keydown', this._tabListener, true);
       }
-      if ((ref = this._grid) != null) {
-        ref.destroy();
+      if ((ref1 = this._grid) != null) {
+        ref1.destroy();
       }
       this._grid = null;
       this._currentData = [];

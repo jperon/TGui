@@ -21,6 +21,7 @@ SCRIPT_SRCS = {
   '/src/data_views.js'
   '/src/widget_plugins.js'
   '/src/views/field_autocomplete.js'
+  '/src/views/view_presets_menu.js'
   '/src/app_fields_helpers.js'
   '/src/app_sidebar_helpers.js'
   '/src/app_undo_helpers.js'

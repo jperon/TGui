@@ -57,6 +57,8 @@ window.DataView = class DataView
     @_fkOptions     = {}     # field name → [{ text, value }]
     @_formulaFilter = ''     # Lua/MoonScript formula for server-side row filtering
     @_formulaTimer  = null   # debounce handle
+    @_sortState     = []     # tri demandé (survit aux resetData de Toast UI Grid)
+    @_applyingSort  = false  # true pendant la réapplication du tri
     @_focusedColumnName = null
     @_colWidthsCache = {}
     @_saveWidthsTimer = null
@@ -227,6 +229,11 @@ window.DataView = class DataView
         cellEl.setAttribute 'title', fullText
       else
         cellEl.removeAttribute 'title'
+
+    # Clic sur un en-tête : mémoriser le tri pour qu'il survive au prochain
+    # resetData (rechargement du filtre, insertion, suppression…).
+    @_grid.on 'afterSort', (ev) => @_onGridSortChanged()
+    @_grid.on 'afterUnsort', (ev) => @_onGridSortChanged()
 
     # Tab / Shift+Tab: move to next/prev cell (all columns), wrapping at row
     # boundaries. Start editing only if the target cell is editable.
@@ -495,6 +502,9 @@ window.DataView = class DataView
               row._attributes.className.column[f.name].push 'cell-formula-error-internal'
 
     @_grid.resetData @_currentData
+    # resetData remet le tri de Toast UI Grid à zéro : réapplique celui demandé
+    # (préréglage ou tri manuel mémorisé) pour qu'il persiste après un load.
+    @_applySortState() if @_sortState?.length
     # resetData rebuilds rows: the highlighted row key is no longer tracked.
     @_activeRowKey = null
 
@@ -583,6 +593,8 @@ window.DataView = class DataView
     @_mounted = false
     clearTimeout @_formulaTimer
     clearTimeout @_saveWidthsTimer
+    @_viewPresetsMenu?.destroy?()
+    @_viewPresetsMenu = null
     document.removeEventListener 'keydown', @_pasteListener if @_pasteListener
     document.removeEventListener 'keydown', @_tabListener,  true if @_tabListener
     @_grid?.destroy()

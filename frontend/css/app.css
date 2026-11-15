@@ -1275,6 +1275,73 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   background: #fee2e2; border-right-color: #fecaca; color: #b91c1c;
 }
 
+/* ── Menu « Trier / Filtrer » et préréglages de vue ────────────────────────── */
+/* Le bouton est collé au champ filtre (input group) ; le menu est en position
+   fixed pour échapper au `overflow: hidden` des widgets de page. */
+.view-presets-host { position: relative; }
+.view-presets-btn {
+  flex: 0 0 auto;
+  max-width: 11rem;
+  overflow: hidden; text-overflow: ellipsis;
+  margin: 0 .15rem 0 0;
+  padding: .12rem .45rem;
+  font-size: .75rem; white-space: nowrap;
+  border: none; border-left: 1px solid #e5e7eb; border-radius: 0 3px 3px 0;
+  background: #f9fafb; color: #4b5563;
+  cursor: pointer;
+}
+.view-presets-btn:hover { background: #eef2ff; color: #4338ca; }
+.view-presets-btn.active { background: #e0e7ff; color: #3730a3; font-weight: 600; }
+.cv-widget-filter .view-presets-btn { padding: .1rem .35rem; font-size: .7rem; max-width: 9rem; }
+
+.view-presets-menu {
+  position: fixed; z-index: 3000;
+  width: 20rem; max-height: 24rem; overflow-y: auto;
+  padding: .35rem 0;
+  background: #fff; border: 1px solid #d1d5db; border-radius: 4px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .14);
+  font-size: .8rem; color: #374151;
+}
+.view-presets-menu.hidden { display: none; }
+.view-presets-section { padding: .2rem .5rem .35rem; }
+.view-presets-section + .view-presets-section { border-top: 1px solid #f3f4f6; }
+.view-presets-section-title {
+  padding: .2rem 0;
+  font-size: .7rem; letter-spacing: .04em; text-transform: uppercase; color: #9ca3af;
+}
+.view-presets-sort-row, .view-presets-preset {
+  display: flex; align-items: center; gap: .4rem;
+  padding: .18rem .35rem; border-radius: 3px; cursor: pointer;
+}
+.view-presets-sort-row:hover, .view-presets-preset:hover { background: #f3f4f6; }
+.view-presets-preset.active { background: #eef2ff; color: #3730a3; font-weight: 600; }
+.view-presets-sort-label, .view-presets-preset-name {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.view-presets-sort-label { font-family: monospace; }
+.view-presets-remove, .view-presets-preset-delete {
+  flex: 0 0 auto;
+  padding: 0 .15rem; line-height: 1;
+  background: none; border: none; cursor: pointer; color: #9ca3af;
+}
+.view-presets-remove:hover, .view-presets-preset-delete:hover { color: #e74c3c; }
+.view-presets-empty { padding: .15rem .35rem; color: #9ca3af; font-style: italic; }
+.view-presets-actions { padding: .35rem .5rem 0; border-top: 1px solid #e5e7eb; }
+.view-presets-save {
+  width: 100%; padding: .25rem .5rem;
+  font-size: .78rem; color: #374151;
+  background: #f9fafb; border: 1px solid #d1d5db; border-radius: 4px;
+  cursor: pointer;
+}
+.view-presets-save:hover { background: #eef2ff; border-color: #c7d2fe; color: #3730a3; }
+.view-presets-error {
+  margin: .2rem .5rem; padding: .25rem .4rem;
+  background: #fef2f2; border: 1px solid #fecaca; border-radius: 3px;
+  color: #b91c1c; font-size: .75rem;
+}
+.view-presets-error.hidden { display: none; }
+
 /* ── Message de validation YAML (éditeur modal) ────────────────────────────── */
 .yaml-validation-msg {
   background: #fef2f2; border-top: 1px solid #fca5a5;
