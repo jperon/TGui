@@ -43,6 +43,26 @@
       appendChild: function(child) {
         el._children.push(child);
         el.children.push(child);
+        // Non énumérable pour ne pas casser JSON.stringify(el) dans les tests.
+        Object.defineProperty(child, 'parentNode', {
+          value: el,
+          configurable: true,
+          writable: true,
+          enumerable: false
+        });
+        return child;
+      },
+      removeChild: function(child) {
+        var i, j;
+        i = el._children.indexOf(child);
+        if (i !== -1) {
+          el._children.splice(i, 1);
+        }
+        j = el.children.indexOf(child);
+        if (j !== -1) {
+          el.children.splice(j, 1);
+        }
+        child.parentNode = null;
         return child;
       },
       insertBefore: function(child, _ref) {
