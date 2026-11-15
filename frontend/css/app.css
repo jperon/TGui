@@ -639,12 +639,17 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
 .cv-widget-delete-btn:hover { opacity: 1; color: var(--color-error, #e74c3c); }
 .cv-widget-body { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
 .cv-widget-body > div { flex: 1; min-height: 0; }
-.cv-widget-filter {
+.cv-widget-filter.toolbar-filter {
   flex: 1;
+  /* Dans un widget, c'est la largeur du widget qui borne le champ : pas de
+     plancher fixe, sinon la barre de titre déborderait sur un widget étroit. */
+  min-width: 0;
   margin: 0 .5rem 0 .75rem;
 }
-.cv-widget-filter .toolbar-filter-label {
+.cv-widget-filter.toolbar-filter .toolbar-filter-label {
   font-size: .75rem;
+  padding-left: .35rem;
+  padding-right: .35rem;
 }
 
 /* Aggregate widget table */
@@ -1206,23 +1211,45 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
 }
 
 /* ── Champ de filtre formule dans la toolbar ────────────────────────────────── */
+/* L'étiquette et l'input forment un seul bloc visuel (input group) : c'est le
+   conteneur qui porte la bordure et les états, l'étiquette est un préfixe
+   teinté collé à gauche, l'input n'a ni bordure ni fond propre. */
 .toolbar-filter {
-  display: flex; align-items: center; gap: .3rem; flex: 1; min-width: 0;
+  display: flex; align-items: center; flex: 1 1 auto;
+  min-width: 16rem;
+  border: 1px solid #d1d5db; border-radius: 4px;
+  background: #fff;
+  transition: border-color .15s, background .15s;
 }
-.toolbar-filter-label {
-  font-size: .85rem; color: #888; flex-shrink: 0; user-select: none;
+.toolbar-filter .toolbar-filter-label {
+  display: flex; align-items: center; align-self: stretch;
+  flex: 0 0 auto;
+  padding: .15rem .45rem;
+  font-size: .85rem; color: #888; user-select: none;
+  background: #f3f4f6; border-right: 1px solid #e5e7eb;
+  border-radius: 3px 0 0 3px;
 }
 .toolbar-filter-input {
   flex: 1; min-width: 0; font-size: .8rem; font-family: monospace;
-  border: 1px solid transparent; border-radius: 3px;
+  border: none; border-radius: 0;
   padding: .15rem .4rem; outline: none; background: transparent; color: #555;
 }
 .toolbar-filter-input::placeholder { color: #bbb; }
-.toolbar-filter-input:focus,
-.toolbar-filter-input.active {
-  border-color: #d1d5db; background: #fff;
+.toolbar-filter:focus-within { border-color: #9ca3af; }
+.toolbar-filter-input.active { color: #3730a3; }
+.toolbar-filter:has(.toolbar-filter-input.active) {
+  border-color: #6366f1; background: #eef2ff;
 }
-.toolbar-filter-input.active { border-color: #6366f1; background: #eef2ff; color: #3730a3; }
+.toolbar-filter:has(.toolbar-filter-input.active) .toolbar-filter-label {
+  background: #e0e7ff; border-right-color: #c7d2fe; color: #4338ca;
+}
+/* L'erreur prime sur l'état actif : règle après celle de `.active`. */
+.toolbar-filter:has(.toolbar-filter-input.input-error) {
+  border-color: #ef4444; background: #fef2f2;
+}
+.toolbar-filter:has(.toolbar-filter-input.input-error) .toolbar-filter-label {
+  background: #fee2e2; border-right-color: #fecaca; color: #b91c1c;
+}
 
 /* ── Message de validation YAML (éditeur modal) ────────────────────────────── */
 .yaml-validation-msg {
