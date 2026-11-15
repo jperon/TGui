@@ -19,7 +19,7 @@ domain_for_operation = function(name)
   if starts_with(name, 'space') or starts_with(name, 'createSpace') or starts_with(name, 'updateSpace') or starts_with(name, 'deleteSpace') or starts_with(name, 'addField') or starts_with(name, 'addFields') or starts_with(name, 'removeField') or starts_with(name, 'reorderFields') or starts_with(name, 'updateField') or starts_with(name, 'changeFieldType') then
     return 'spaces_fields'
   end
-  if starts_with(name, 'dataView') or starts_with(name, 'createDataView') or starts_with(name, 'updateDataView') or starts_with(name, 'deleteDataView') or starts_with(name, 'executeDataView') or starts_with(name, 'addDataViewToPage') then
+  if starts_with(name, 'dataView') or starts_with(name, 'createDataView') or starts_with(name, 'updateDataView') or starts_with(name, 'deleteDataView') or starts_with(name, 'executeDataView') or starts_with(name, 'addDataViewToPage') or starts_with(name, 'viewPreset') or starts_with(name, 'saveViewPreset') or starts_with(name, 'deleteViewPreset') then
     return 'data_views'
   end
   if starts_with(name, 'widgetPlugin') or starts_with(name, 'createWidgetPlugin') or starts_with(name, 'updateWidgetPlugin') or starts_with(name, 'deleteWidgetPlugin') then

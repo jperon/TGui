@@ -4,6 +4,7 @@ local auth_r = require('resolvers.auth_resolvers')
 local custom_view_r = require('resolvers.custom_view_resolvers')
 local data_view_r = require('resolvers.data_view_resolvers')
 local widget_plugin_r = require('resolvers.widget_plugin_resolvers')
+local view_preset_r = require('resolvers.view_preset_resolvers')
 local aggregate_r = require('resolvers.aggregate_resolvers')
 local export_r = require('resolvers.export_resolvers')
 local app_r = require('resolvers.app_resolvers')
@@ -56,6 +57,7 @@ build = function()
     custom_view_r,
     data_view_r,
     widget_plugin_r,
+    view_preset_r,
     aggregate_r,
     export_r,
     app_r
@@ -71,6 +73,7 @@ build = function()
     custom_view_r,
     data_view_r,
     widget_plugin_r,
+    view_preset_r,
     export_r,
     app_r
   }

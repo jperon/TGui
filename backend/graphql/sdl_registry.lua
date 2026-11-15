@@ -55,6 +55,11 @@ local Query = {
     returns = 'WidgetPlugin'
   },
   {
+    name = 'viewPresets',
+    args = 'scope: String!, spaceId: ID!',
+    returns = '[ViewPreset!]!'
+  },
+  {
     name = 'records',
     args = 'spaceId: ID!, filter: RecordFilter, limit: Int, offset: Int, reprFormula: String, reprLanguage: String',
     returns = 'RecordPage!'
@@ -227,6 +232,16 @@ local Mutation = {
     returns = 'Boolean!'
   },
   {
+    name = 'saveViewPreset',
+    args = 'scope: String!, spaceId: ID!, name: String!, filter: String, sort: String',
+    returns = 'ViewPreset!'
+  },
+  {
+    name = 'deleteViewPreset',
+    args = 'id: ID!',
+    returns = 'Boolean!'
+  },
+  {
     name = 'addWidgetToView',
     args = 'viewId: ID!, widget: WidgetInput!',
     returns = 'CustomView!'
@@ -363,6 +378,10 @@ local ObjectTypes = {
   {
     name = 'DataView',
     definition = 'type DataView {\n  id:           ID!\n  name:         String!\n  description:  String\n  sourceSpace:  String!\n  config:       String!\n  createdAt:    String!\n  updatedAt:    String!\n}'
+  },
+  {
+    name = 'ViewPreset',
+    definition = 'type ViewPreset {\n  id:        ID!\n  scope:     String!\n  spaceId:   ID!\n  name:      String!\n  filter:    String!\n  sort:      String!\n  createdAt: Float\n  updatedAt: Float\n}'
   }
 }
 return {

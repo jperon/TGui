@@ -32,6 +32,9 @@ type Query {
   widgetPlugins:          [WidgetPlugin!]!
   widgetPlugin(id: ID, name: String): WidgetPlugin
 
+  # View presets (named filter + sort per widget or space grid)
+  viewPresets(scope: String!, spaceId: ID!): [ViewPreset!]!
+
   # Raw data from a user space
   records(spaceId: ID!, filter: RecordFilter, limit: Int, offset: Int, reprFormula: String, reprLanguage: String): RecordPage!
   record(spaceId: ID!, id: ID!): Record
@@ -129,6 +132,10 @@ type Mutation {
   createWidgetPlugin(input: CreateWidgetPluginInput!): WidgetPlugin!
   updateWidgetPlugin(id: ID!, input: UpdateWidgetPluginInput!): WidgetPlugin!
   deleteWidgetPlugin(id: ID!): Boolean!
+
+  # View presets
+  saveViewPreset(scope: String!, spaceId: ID!, name: String!, filter: String, sort: String): ViewPreset!
+  deleteViewPreset(id: ID!): Boolean!
 
   # Records (CRUD on user-defined spaces)
   insertRecord(spaceId: ID!, data: JSON!):       Record!
@@ -272,6 +279,17 @@ type WidgetPlugin {
   templateCode:     String!
   createdAt:        String!
   updatedAt:        String!
+}
+
+type ViewPreset {
+  id:        ID!
+  scope:     String!
+  spaceId:   ID!
+  name:      String!
+  filter:    String!
+  sort:      String!
+  createdAt: Float
+  updatedAt: Float
 }
 
 # Widget definition for custom views

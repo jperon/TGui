@@ -56,6 +56,17 @@ type DataView {
   updatedAt:    String!
 }
 
+type ViewPreset {
+  id:        ID!
+  scope:     String!
+  spaceId:   ID!
+  name:      String!
+  filter:    String!
+  sort:      String!
+  createdAt: Float
+  updatedAt: Float
+}
+
 type Query {
   spaces: [Space!]!
   space(id: ID!): Space
@@ -68,6 +79,7 @@ type Query {
   executeDataView(id: ID!, limit: Int, offset: Int): JSON!
   widgetPlugins: [WidgetPlugin!]!
   widgetPlugin(id: ID, name: String): WidgetPlugin
+  viewPresets(scope: String!, spaceId: ID!): [ViewPreset!]!
   records(spaceId: ID!, filter: RecordFilter, limit: Int, offset: Int, reprFormula: String, reprLanguage: String): RecordPage!
   record(spaceId: ID!, id: ID!): Record
   relations(spaceId: ID!): [Relation!]!
@@ -105,6 +117,8 @@ type Mutation {
   createWidgetPlugin(input: CreateWidgetPluginInput!): WidgetPlugin!
   updateWidgetPlugin(id: ID!, input: UpdateWidgetPluginInput!): WidgetPlugin!
   deleteWidgetPlugin(id: ID!): Boolean!
+  saveViewPreset(scope: String!, spaceId: ID!, name: String!, filter: String, sort: String): ViewPreset!
+  deleteViewPreset(id: ID!): Boolean!
   addWidgetToView(viewId: ID!, widget: WidgetInput!): CustomView!
   updateWidgetInView(viewId: ID!, widgetId: String!, widget: WidgetInput!): CustomView!
   removeWidgetFromView(viewId: ID!, widgetId: String!): CustomView!
