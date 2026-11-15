@@ -106,9 +106,10 @@ describe 'AppAppsHelpers.hasCodeChanges', ->
   it 'vrai si un item isCode', ->
     assert EH.hasCodeChanges({ create: [{ key: 'a', isCode: true }] })
 
-  it 'vrai si le type est plugin/page/dataview', ->
+  it 'vrai si le type est plugin/page/dataview/preset', ->
     assert EH.hasCodeChanges({ update: [{ key: 'a', type: 'plugin' }] })
     assert EH.hasCodeChanges({ conflict: [{ key: 'a', type: 'page' }] })
+    assert EH.hasCodeChanges({ create: [{ key: 'a', type: 'preset' }] })
 
   it 'faux si aucun code tiers', ->
     assert not EH.hasCodeChanges({ create: [{ key: 'a', type: 'space' }] })

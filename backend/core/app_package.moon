@@ -9,10 +9,11 @@
 --   build_package(meta, opts) -> { app, items, seed_keys }
 --
 -- Reading code mirrors build_snapshot in resolvers/export_resolvers.moon
--- (read-only, never modified here): record blob decoding lines 85-92, id →
--- name helpers lines 66-74, spaces/fields/views lines 109-131, relations
--- lines 132-147, custom views lines 150-153, data views lines 155-159, widget
--- plugins lines 161-171, groups/permissions lines 173-188. Group and
+-- (read-only, never modified here): record blob decoding lines 87-96, id →
+-- name helpers lines 69-78, spaces/fields/views lines 111-133, relations
+-- lines 135-150, custom views lines 152-155, data views lines 158-161, view
+-- presets lines 164-175, widget plugins lines 177-187, groups/permissions
+-- lines 189-203. Group and
 -- permission reads come from core/permissions.moon (list_groups lines 39-43,
 -- list_permissions lines 87-97), views from core/views.moon (list_views lines
 -- 55-67), space/field reads from core/spaces.moon (list_spaces lines 397-407,
@@ -35,14 +36,17 @@ ITEM_TYPES = {
   view: 'view'
   page: 'page'
   dataview: 'dataview'
+  preset: 'preset'
   plugin: 'plugin'
   group: 'group'
   perm: 'perm'
   seed: 'seed'
 }
 
--- Emission order of the buckets inside build_package.
-TYPE_ORDER = { 'space', 'field', 'relation', 'view', 'page', 'dataview', 'plugin', 'group', 'perm', 'seed' }
+-- Emission order of the buckets inside build_package. `preset` comes after
+-- `page` and `dataview` because its scope names a page or a space, both
+-- delivered earlier (app_apply applies the types in this same order).
+TYPE_ORDER = { 'space', 'field', 'relation', 'view', 'page', 'dataview', 'preset', 'plugin', 'group', 'perm', 'seed' }
 
 -- The built-in admin group is never delivered by a package (spec §1).
 BUILTIN_GROUPS = { admin: true }
@@ -142,6 +146,16 @@ field_name_by_id = (fid) ->
   t = box.space._tdb_fields\get fid
   t and t[3] or nil
 
+-- _tdb_custom_views: by_name is unique (core/spaces.moon:86-87); by id is the
+-- primary key.
+page_id_by_name = (name) ->
+  row = box.space._tdb_custom_views.index.by_name\get name
+  row and row[1]
+
+page_name_by_id = (pid) ->
+  row = box.space._tdb_custom_views\get pid
+  row and row[2]
+
 -- A source space or a permission resource may be stored as an id or as a
 -- name: resolve to the space name, fall back to the stored value.
 resolve_space_name = (value) ->
@@ -150,6 +164,44 @@ resolve_space_name = (value) ->
   return by_id if by_id
   return value if spaces_mod.get_space_by_name value
   value
+
+-- A preset scope is stored with LOCAL ids: 'widget:<page id>:<widget id>' or
+-- 'space:<space id>' (core/spaces.moon:118-119, core/view_presets.moon:2-5).
+-- A package carries the same scope with NAMES, 'widget:<page name>:<widget id>'
+-- or 'space:<space name>', so that it stays valid on another installation; the
+-- page name may itself contain a colon, the widget id never does
+-- (core/widget_ids.moon:23-24). An id that resolves to nothing is kept as
+-- stored, like resolve_space_name above.
+preset_scope_portable = (scope) ->
+  return scope unless type(scope) == 'string'
+  page_id, widget_id = scope\match '^widget:([^:]+):(.+)$'
+  if page_id
+    page_name = page_name_by_id page_id
+    return "widget:#{page_name or page_id}:#{widget_id}"
+  space_id = scope\match '^space:(.+)$'
+  return scope unless space_id
+  "space:#{resolve_space_name space_id}"
+
+-- Inverse of preset_scope_portable: a named page or space is resolved to its
+-- local id, and nil means the target does not exist locally. A scope with
+-- neither prefix is opaque and returned unchanged.
+preset_scope_local = (scope) ->
+  return scope unless type(scope) == 'string'
+  page_name, widget_id = scope\match '^widget:(.*):([^:]+)$'
+  if page_name
+    page_id = page_id_by_name page_name
+    return page_id and "widget:#{page_id}:#{widget_id}" or nil
+  space_name = scope\match '^space:(.+)$'
+  return scope unless space_name
+  sp = spaces_mod.get_space_by_name space_name
+  sp and "space:#{sp.id}" or nil
+
+-- A preset sort is a JSON array of {column, ascending} entries
+-- (core/view_presets.validate_sort) and is packaged as a table, so that `[]`
+-- and an absent sort share one fingerprint.
+preset_sort = (value) ->
+  return {} if value == nil or value == ''
+  decode_config value
 
 -- export_resolvers.moon:182-184: the wildcard permission keeps '*', an
 -- unknown resource falls back to the stored id.
@@ -228,7 +280,19 @@ dataview_content = (row) ->
     config: decode_config row[5]
   }
 
--- Row of _tdb_widget_plugins (export_resolvers.moon:161-171).
+-- Row of _tdb_view_presets (core/spaces.moon:121-135): scope and space are
+-- stored as local ids and delivered as names (preset_scope_portable), the sort
+-- as a table (preset_sort).
+preset_content = (row) ->
+  {
+    scope: preset_scope_portable row[2]
+    space: resolve_space_name row[3]
+    name: row[4]
+    filter: row[5] or ''
+    sort: preset_sort row[6]
+  }
+
+-- Row of _tdb_widget_plugins (export_resolvers.moon:177-187).
 plugin_content = (row) ->
   {
     name: row[2]
@@ -331,6 +395,18 @@ _normalize_dataview_content = (c) ->
     config: decode_config c.config
   }
 
+-- preset_scope_portable and resolve_space_name are idempotent on an already
+-- portable scope/space name, so a decoded package item lands on exactly the
+-- shape built by preset_content.
+_normalize_preset_content = (c) ->
+  {
+    scope: preset_scope_portable c.scope
+    space: resolve_space_name c.space
+    name: c.name
+    filter: c.filter or ''
+    sort: preset_sort c.sort
+  }
+
 _normalize_plugin_content = (c) ->
   {
     name: c.name
@@ -362,6 +438,7 @@ CONTENT_NORMALIZERS = {
   view: _normalize_view_content
   page: _normalize_page_content
   dataview: _normalize_dataview_content
+  preset: _normalize_preset_content
   plugin: _normalize_plugin_content
   group: _normalize_group_content
   perm: _normalize_perm_content
@@ -491,6 +568,18 @@ collect_dataviews = (bucket) ->
       content: dataview_content(row)
     }
 
+-- Key: 'preset:<portable scope>|<name>', both components escaped by key_part
+-- (the scope keeps its ':' separators inside ONE component, like a perm
+-- resource name). The scope names its page or space, never an id.
+collect_presets = (bucket) ->
+  for row in *box.space._tdb_view_presets\select {}
+    scope = preset_scope_portable row[2]
+    table.insert bucket, {
+      type: ITEM_TYPES.preset
+      key: "preset:#{key_part scope}|#{key_part row[4]}"
+      content: preset_content(row)
+    }
+
 collect_plugins = (bucket) ->
   for row in *box.space._tdb_widget_plugins\select {}
     table.insert bucket, {
@@ -552,6 +641,13 @@ find_dataview_row = (name) ->
   for row in *box.space._tdb_data_views\select {}
     return row if row[2] == name
   nil
+
+-- A preset row is keyed by its LOCAL scope (by_scope_name): the portable scope
+-- of the package key is resolved back first. nil = page or space missing.
+find_preset_row = (scope, name) ->
+  local_scope = preset_scope_local scope
+  return nil unless local_scope
+  box.space._tdb_view_presets.index.by_scope_name\get { local_scope, name }
 
 find_plugin_row = (name) ->
   box.space._tdb_widget_plugins.index.by_name\get name
@@ -636,6 +732,18 @@ describe_dataview = (key) ->
   return nil unless row
   dataview_content row
 
+-- Key form: 'preset:<portable scope>|<portable name>' (collect_presets).
+describe_preset = (key) ->
+  rest = strip_prefix key, 'preset:'
+  return nil unless rest
+  idx = rest\find '|'
+  return nil unless idx
+  scope = unkey_part rest\sub(1, idx - 1)
+  name = unkey_part rest\sub(idx + 1)
+  row = find_preset_row scope, name
+  return nil unless row
+  preset_content row
+
 describe_plugin = (key) ->
   name = strip_prefix key, 'plugin:'
   return nil unless name
@@ -684,6 +792,7 @@ DESCRIBERS = {
   view: describe_view
   page: describe_page
   dataview: describe_dataview
+  preset: describe_preset
   plugin: describe_plugin
   group: describe_group
   perm: describe_perm
@@ -763,6 +872,7 @@ build_package = (meta, opts) ->
   collect_views buckets.view, space_list
   collect_pages buckets.page
   collect_dataviews buckets.dataview
+  collect_presets buckets.preset
   collect_plugins buckets.plugin
   collect_groups_and_perms buckets.group, buckets.perm
   collect_seeds buckets.seed, seed_keys
@@ -788,4 +898,4 @@ build_package = (meta, opts) ->
     seed_keys: seed_keys
   }
 
-{ :canonical, :fingerprint, :describe_local, :build_package, :ITEM_TYPES, :key_part, :unkey_part, :strip_null, :normalize_content }
+{ :canonical, :fingerprint, :describe_local, :build_package, :ITEM_TYPES, :key_part, :unkey_part, :strip_null, :normalize_content, :preset_scope_portable, :preset_scope_local }

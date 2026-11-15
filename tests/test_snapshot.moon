@@ -5,6 +5,7 @@
 R      = require 'tests.runner'
 auth   = require 'core.auth'
 spaces = require 'core.spaces'
+view_presets = require 'core.view_presets'
 export_r = require 'resolvers.export_resolvers'
 data_res = require 'resolvers.data_resolvers'
 yaml   = require 'yaml'
@@ -201,6 +202,79 @@ R.describe "importSnapshot — widget plugins", ->
   R.it "cleanup imported widget plugin", ->
     tuple = box.space._tdb_widget_plugins.index.by_name\get PLUGIN
     box.space._tdb_widget_plugins\delete tuple[1] if tuple
+
+-- ────────────────────────────────────────────────────────────────────────────
+R.describe "snapshot — view presets", ->
+  SP_P     = "snap_preset_#{SUFFIX}"
+  PAGE_P   = "snap_preset_page_#{SUFFIX}"
+  PAGE_ID  = "snap_preset_page_id_#{SUFFIX}"
+  PRESET_P = "snap:preset_#{SUFFIX}"
+  WIDGET_P = 'w_0000e1'
+
+  R.it "exports presets with a portable scope and space name", ->
+    sp = spaces.create_user_space SP_P, 'presets'
+    R.ok sp
+    box.space._tdb_custom_views\insert {
+      PAGE_ID, PAGE_P, '', 'layout: {}', os.time!, os.time!
+    }
+    view_presets.save_preset "widget:#{PAGE_ID}:#{WIDGET_P}", sp.id, PRESET_P,
+      'self.a > 1', '[{"column":"a","ascending":true}]'
+    snap = yaml.decode export_r.Query.exportSnapshot(nil, { includeData: false }, ADMIN_CTX)
+    R.ok type(snap.schema.view_presets) == 'table'
+    found = nil
+    for vp in *snap.schema.view_presets
+      found = vp if vp.name == PRESET_P
+    R.ok found, 'preset exported'
+    R.eq found.scope, "widget:#{PAGE_P}:#{WIDGET_P}"
+    R.eq found.space, SP_P
+    R.eq found.filter, 'self.a > 1'
+    R.eq found.sort, '[{"column":"a","ascending":true}]'
+    R.is_nil found.scope\find(PAGE_ID, 1, true), 'no local page id in the scope'
+    R.is_nil found.space\find(sp.id, 1, true), 'no local space id in the space'
+
+  R.it "re-importing the same snapshot skips the existing preset", ->
+    snap_yaml = export_r.Query.exportSnapshot nil, { includeData: false }, ADMIN_CTX
+    result = export_r.Mutation.importSnapshot nil, { yaml: snap_yaml, mode: 'merge' }, ADMIN_CTX
+    R.ok result
+    R.ok result.ok, table.concat result.errors, '; '
+    n = 0
+    for vp in *box.space._tdb_view_presets\select {}
+      n += 1 if vp[4] == PRESET_P
+    R.eq n, 1, 'one preset row, not a duplicate'
+
+  R.it "recreates the preset from the snapshot on a cleaned base", ->
+    snap_yaml = export_r.Query.exportSnapshot nil, { includeData: false }, ADMIN_CTX
+    for vp in *box.space._tdb_view_presets\select {}
+      view_presets.delete_preset vp[1] if vp[4] == PRESET_P
+    box.space._tdb_custom_views\delete PAGE_ID
+    spaces.delete_user_space SP_P
+    R.is_nil spaces.get_space_by_name SP_P
+    result = export_r.Mutation.importSnapshot nil, { yaml: snap_yaml, mode: 'merge' }, ADMIN_CTX
+    R.ok result
+    R.ok result.ok, table.concat result.errors, '; '
+    new_sp = spaces.get_space_by_name SP_P
+    new_page = box.space._tdb_custom_views.index.by_name\get PAGE_P
+    R.ok new_sp, 'space recreated'
+    R.ok new_page, 'page recreated'
+    row = box.space._tdb_view_presets.index.by_scope_name\get {
+      "widget:#{new_page[1]}:#{WIDGET_P}", PRESET_P
+    }
+    R.ok row, 'preset recreated'
+    R.eq row[3], new_sp.id, 'attached to the recreated space'
+    R.eq row[5], 'self.a > 1'
+    R.eq json.decode(row[6])[1].column, 'a'
+
+  R.it "cleanup the preset fixture", ->
+    for vp in *box.space._tdb_view_presets\select {}
+      view_presets.delete_preset vp[1] if vp[4] == PRESET_P
+    page = box.space._tdb_custom_views.index.by_name\get PAGE_P
+    box.space._tdb_custom_views\delete page[1] if page
+    spaces.delete_user_space SP_P
+    R.is_nil spaces.get_space_by_name SP_P
+    n = 0
+    for vp in *box.space._tdb_view_presets\select {}
+      n += 1 if vp[4] == PRESET_P
+    R.eq n, 0
 
 -- ────────────────────────────────────────────────────────────────────────────
 R.describe "importSnapshot — mode replace", ->

@@ -47,13 +47,15 @@ window.AppAppsHelpers =
     }
 
   # Vrai si un élément créé/mis à jour/en conflit porte du code tiers.
+  # La liste des types reprend celle du résolveur (CODE_TYPES,
+  # backend/resolvers/app_resolvers.moon) : `preset` porte une formule de filtre.
   hasCodeChanges: (plan) ->
     groups = [(plan.create or []), (plan.update or []), (plan.conflict or [])]
     for group in groups
       for item in group
         return true if item.isCode == true
         t = item.type
-        return true if t == 'plugin' or t == 'page' or t == 'dataview'
+        return true if t == 'plugin' or t == 'page' or t == 'dataview' or t == 'preset'
     false
 
   # ── Aides DOM (jamais d'innerHTML) ─────────────────────────────────────────
@@ -163,7 +165,8 @@ window.AppAppsHelpers =
         app._t 'ui.apps.unchanged', { count: summary.unchanged }
 
   _isCodeItem: (item) ->
-    item.isCode == true or item.type == 'plugin' or item.type == 'page' or item.type == 'dataview'
+    item.isCode == true or item.type == 'plugin' or item.type == 'page' or
+      item.type == 'dataview' or item.type == 'preset'
 
   _appendItemLabel: (app, li, item) ->
     li.appendChild window.AppAppsHelpers._makeEl 'code', null, String item.key

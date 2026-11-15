@@ -2,6 +2,8 @@ local spaces_mod = require('core.spaces')
 local views_mod = require('core.views')
 local perms_mod = require('core.permissions')
 local auth_mod = require('core.auth')
+local view_presets = require('core.view_presets')
+local app_package = require('core.app_package')
 local executor = require('graphql.executor')
 local uuid_mod = require('uuid')
 local yaml = require('yaml')
@@ -98,6 +100,7 @@ build_snapshot = function(include_data)
       relations = { },
       custom_views = { },
       data_views = { },
+      view_presets = { },
       widget_plugins = { },
       groups = { }
     }
@@ -209,9 +212,21 @@ build_snapshot = function(include_data)
     end
     table.insert(snap.schema.data_views, entry)
   end
-  local _list_4 = box.space._tdb_widget_plugins:select({ })
+  local _list_4 = box.space._tdb_view_presets:select({ })
   for _index_0 = 1, #_list_4 do
-    local wp = _list_4[_index_0]
+    local vp = _list_4[_index_0]
+    local entry = {
+      name = vp[4],
+      scope = app_package.preset_scope_portable(vp[2]),
+      space = space_name_by_id(vp[3]) or vp[3],
+      filter = vp[5] or '',
+      sort = vp[6] or '[]'
+    }
+    table.insert(snap.schema.view_presets, entry)
+  end
+  local _list_5 = box.space._tdb_widget_plugins:select({ })
+  for _index_0 = 1, #_list_5 do
+    local wp = _list_5[_index_0]
     local entry = {
       name = wp[2],
       scriptLanguage = wp[4] or 'coffeescript',
@@ -224,24 +239,24 @@ build_snapshot = function(include_data)
     end
     table.insert(snap.schema.widget_plugins, entry)
   end
-  local _list_5 = box.space._tdb_groups:select({ })
-  for _index_0 = 1, #_list_5 do
-    local g = _list_5[_index_0]
+  local _list_6 = box.space._tdb_groups:select({ })
+  for _index_0 = 1, #_list_6 do
+    local g = _list_6[_index_0]
     local members = { }
-    local _list_6 = box.space._tdb_memberships.index.by_group:select({
+    local _list_7 = box.space._tdb_memberships.index.by_group:select({
       g[1]
     })
-    for _index_1 = 1, #_list_6 do
-      local m = _list_6[_index_1]
+    for _index_1 = 1, #_list_7 do
+      local m = _list_7[_index_1]
       local u = box.space._tdb_users:get(m[1])
       if u then
         table.insert(members, u[2])
       end
     end
     local permissions = { }
-    local _list_7 = perms_mod.list_permissions(g[1])
-    for _index_1 = 1, #_list_7 do
-      local p = _list_7[_index_1]
+    local _list_8 = perms_mod.list_permissions(g[1])
+    for _index_1 = 1, #_list_8 do
+      local p = _list_8[_index_1]
       local perm_entry = {
         resourceType = p.resourceType,
         level = p.level
@@ -264,20 +279,20 @@ build_snapshot = function(include_data)
   end
   if include_data then
     snap.data = { }
-    local _list_6 = spaces_mod.list_spaces()
-    for _index_0 = 1, #_list_6 do
+    local _list_7 = spaces_mod.list_spaces()
+    for _index_0 = 1, #_list_7 do
       local _continue_0 = false
       repeat
-        local sp = _list_6[_index_0]
+        local sp = _list_7[_index_0]
         local user_sp = box.space["data_" .. tostring(sp.name)]
         if not (user_sp) then
           _continue_0 = true
           break
         end
         local rows = { }
-        local _list_7 = user_sp:select({ })
-        for _index_1 = 1, #_list_7 do
-          local tuple = _list_7[_index_1]
+        local _list_8 = user_sp:select({ })
+        for _index_1 = 1, #_list_8 do
+          local tuple = _list_8[_index_1]
           table.insert(rows, decode_record_data(tuple[2]))
         end
         snap.data[sp.name] = rows
@@ -455,14 +470,19 @@ do_import = function(snap, mode)
       local dv = _list_2[_index_0]
       box.space._tdb_data_views:delete(dv[1])
     end
-    local _list_3 = box.space._tdb_widget_plugins:select({ })
+    local _list_3 = box.space._tdb_view_presets:select({ })
     for _index_0 = 1, #_list_3 do
-      local wp = _list_3[_index_0]
+      local vp = _list_3[_index_0]
+      box.space._tdb_view_presets:delete(vp[1])
+    end
+    local _list_4 = box.space._tdb_widget_plugins:select({ })
+    for _index_0 = 1, #_list_4 do
+      local wp = _list_4[_index_0]
       box.space._tdb_widget_plugins:delete(wp[1])
     end
-    local _list_4 = box.space._tdb_groups:select({ })
-    for _index_0 = 1, #_list_4 do
-      local g = _list_4[_index_0]
+    local _list_5 = box.space._tdb_groups:select({ })
+    for _index_0 = 1, #_list_5 do
+      local g = _list_5[_index_0]
       if not (g[2] == 'admin') then
         perms_mod.delete_group(g[1])
       end
@@ -655,9 +675,34 @@ do_import = function(snap, mode)
       end
     end
   end
-  local _list_4 = (snap.schema and snap.schema.widget_plugins or { })
+  local _list_4 = (snap.schema and snap.schema.view_presets or { })
   for _index_0 = 1, #_list_4 do
-    local iwp = _list_4[_index_0]
+    local ivp = _list_4[_index_0]
+    local scope = app_package.preset_scope_local(ivp.scope)
+    local sid = spaces_by_name[ivp.space]
+    if not scope then
+      table.insert(errors, "view_preset " .. tostring(ivp.name) .. ": scope " .. tostring(ivp.scope) .. " not found")
+    elseif not sid then
+      table.insert(errors, "view_preset " .. tostring(ivp.name) .. ": space " .. tostring(ivp.space) .. " not found")
+    elseif box.space._tdb_view_presets.index.by_scope_name:get({
+      scope,
+      ivp.name
+    }) then
+      skipped = skipped + 1
+    else
+      local ok, err = pcall(function()
+        return view_presets.save_preset(scope, sid, ivp.name, ivp.filter or '', ivp.sort or '[]')
+      end)
+      if ok then
+        created = created + 1
+      else
+        table.insert(errors, "view_preset " .. tostring(ivp.name) .. ": " .. tostring(err))
+      end
+    end
+  end
+  local _list_5 = (snap.schema and snap.schema.widget_plugins or { })
+  for _index_0 = 1, #_list_5 do
+    local iwp = _list_5[_index_0]
     local existing_wp = box.space._tdb_widget_plugins.index.by_name:get(iwp.name)
     if existing_wp then
       skipped = skipped + 1
@@ -684,15 +729,15 @@ do_import = function(snap, mode)
       end
     end
   end
-  local _list_5 = (snap.schema and snap.schema.groups or { })
-  for _index_0 = 1, #_list_5 do
+  local _list_6 = (snap.schema and snap.schema.groups or { })
+  for _index_0 = 1, #_list_6 do
     local _continue_0 = false
     repeat
-      local ig = _list_5[_index_0]
+      local ig = _list_6[_index_0]
       local existing_g = nil
-      local _list_6 = box.space._tdb_groups:select({ })
-      for _index_1 = 1, #_list_6 do
-        local g = _list_6[_index_1]
+      local _list_7 = box.space._tdb_groups:select({ })
+      for _index_1 = 1, #_list_7 do
+        local g = _list_7[_index_1]
         if g[2] == ig.name then
           existing_g = g
           break
@@ -715,9 +760,9 @@ do_import = function(snap, mode)
           break
         end
       end
-      local _list_7 = (ig.members or { })
-      for _index_1 = 1, #_list_7 do
-        local uname = _list_7[_index_1]
+      local _list_8 = (ig.members or { })
+      for _index_1 = 1, #_list_8 do
+        local uname = _list_8[_index_1]
         local u = auth_mod.get_user_by_username(uname)
         if u then
           local ok2, err2 = pcall(function()
@@ -730,23 +775,23 @@ do_import = function(snap, mode)
           table.insert(errors, "member " .. tostring(uname) .. " not found (group " .. tostring(ig.name) .. ")")
         end
       end
-      local _list_8 = (ig.permissions or { })
-      for _index_1 = 1, #_list_8 do
-        local perm = _list_8[_index_1]
+      local _list_9 = (ig.permissions or { })
+      for _index_1 = 1, #_list_9 do
+        local perm = _list_9[_index_1]
         local ok3, err3 = pcall(function()
           local rid = perms_mod.WILDCARD_ID
           if perm.resourceId then
-            local _list_9 = spaces_mod.list_spaces()
-            for _index_2 = 1, #_list_9 do
-              local sp = _list_9[_index_2]
+            local _list_10 = spaces_mod.list_spaces()
+            for _index_2 = 1, #_list_10 do
+              local sp = _list_10[_index_2]
               if sp.name == perm.resourceId then
                 rid = sp.id
               end
             end
           end
-          local _list_9 = perms_mod.list_permissions(gid)
-          for _index_2 = 1, #_list_9 do
-            local ep = _list_9[_index_2]
+          local _list_10 = perms_mod.list_permissions(gid)
+          for _index_2 = 1, #_list_10 do
+            local ep = _list_10[_index_2]
             if ep.resourceType == (perm.resourceType or 'space') and ep.resourceId == rid and ep.level == perm.level then
               return 
             end
@@ -768,9 +813,9 @@ do_import = function(snap, mode)
       local _continue_0 = false
       repeat
         local sp = nil
-        local _list_6 = spaces_mod.list_spaces()
-        for _index_0 = 1, #_list_6 do
-          local s = _list_6[_index_0]
+        local _list_7 = spaces_mod.list_spaces()
+        for _index_0 = 1, #_list_7 do
+          local s = _list_7[_index_0]
           if s.name == sp_name then
             sp = s
           end

@@ -60,6 +60,8 @@
       };
     },
     // Vrai si un élément créé/mis à jour/en conflit porte du code tiers.
+    // La liste des types reprend celle du résolveur (CODE_TYPES,
+    // backend/resolvers/app_resolvers.moon) : `preset` porte une formule de filtre.
     hasCodeChanges: function(plan) {
       var group, groups, item, j, l, len, len1, t;
       groups = [plan.create || [], plan.update || [], plan.conflict || []];
@@ -71,7 +73,7 @@
             return true;
           }
           t = item.type;
-          if (t === 'plugin' || t === 'page' || t === 'dataview') {
+          if (t === 'plugin' || t === 'page' || t === 'dataview' || t === 'preset') {
             return true;
           }
         }
@@ -210,7 +212,7 @@
       }
     },
     _isCodeItem: function(item) {
-      return item.isCode === true || item.type === 'plugin' || item.type === 'page' || item.type === 'dataview';
+      return item.isCode === true || item.type === 'plugin' || item.type === 'page' || item.type === 'dataview' || item.type === 'preset';
     },
     _appendItemLabel: function(app, li, item) {
       var details;

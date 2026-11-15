@@ -5,6 +5,7 @@ local spaces = require('core.spaces')
 local views = require('core.views')
 local perms = require('core.permissions')
 local data_views = require('core.data_views')
+local view_presets = require('core.view_presets')
 local schema_r = require('resolvers.schema_resolvers')
 local cvr = require('resolvers.custom_view_resolvers')
 local wpr = require('resolvers.widget_plugin_resolvers')
@@ -22,6 +23,10 @@ local PLUG_N = "v3b_plugin_" .. tostring(SUFFIX)
 local GROUP_N = "v3b_group_" .. tostring(SUFFIX)
 local REL_N = "v3b_rel_" .. tostring(SUFFIX)
 local APP_ID = "org.test.v3b_" .. tostring(SUFFIX)
+local PRESET_N = "v3b:preset_" .. tostring(SUFFIX)
+local WIDGET_N = 'w_0000d00d'
+local SCOPE_N = "widget:" .. tostring(PAGE_N) .. ":" .. tostring(WIDGET_N)
+local PRESET_KEY = "preset:" .. tostring(pkg.key_part(SCOPE_N)) .. "|" .. tostring(pkg.key_part(PRESET_N))
 local KEY_CODE = "field:" .. tostring(SP_B) .. ".code"
 local KEY_TITLE = "field:" .. tostring(SP_B) .. ".title"
 local KEY_QTY = "field:" .. tostring(SP_B) .. ".qty"
@@ -306,6 +311,17 @@ in_list = function(list, key)
   end
   return false
 end
+local preset_row
+preset_row = function(page_name)
+  local page = box.space._tdb_custom_views.index.by_name:get(page_name)
+  if not (page) then
+    return nil
+  end
+  return box.space._tdb_view_presets.index.by_scope_name:get({
+    "widget:" .. tostring(page[1]) .. ":" .. tostring(WIDGET_N),
+    PRESET_N
+  })
+end
 local build_current
 build_current = function(version)
   local meta = {
@@ -329,6 +345,36 @@ rename_item = function(package, old_key, new_key)
         type = it.type,
         key = new_key,
         content = it.content,
+        renamed_from = old_key
+      })
+    else
+      table.insert(items, it)
+    end
+  end
+  return {
+    app = package.app,
+    items = items,
+    seed_keys = package.seed_keys
+  }
+end
+local rename_page_preset
+rename_page_preset = function(package, old_key, new_key, new_scope)
+  local items = { }
+  local _list_0 = package.items
+  for _index_0 = 1, #_list_0 do
+    local it = _list_0[_index_0]
+    if it.type == 'preset' and it.key == old_key then
+      local content = {
+        scope = new_scope,
+        space = it.content.space,
+        name = it.content.name,
+        filter = it.content.filter,
+        sort = it.content.sort
+      }
+      table.insert(items, {
+        type = 'preset',
+        key = new_key,
+        content = content,
         renamed_from = old_key
       })
     else
@@ -515,10 +561,12 @@ R.describe("v3b — fixture", function()
       }
     }, CTX)
     FIX.plugin_id = wp.id
+    local preset = view_presets.save_preset("widget:" .. tostring(p.id) .. ":" .. tostring(WIDGET_N), FIX.books_id, PRESET_N, 'self.qty > 1', '[]')
+    FIX.preset_id = preset.id
     local g = perms.create_group(GROUP_N, 'v3b group')
     FIX.group_id = g.id
     perms.grant(g.id, 'space', FIX.books_id, 'read')
-    return R.ok(v and p and dv and wp and g)
+    return R.ok(v and p and dv and wp and g and preset)
   end)
   return R.it("builds the package v1.0.0 with two seed lines", function()
     seed_opts[SP_B] = 'code'
@@ -642,6 +690,7 @@ end)
 local SP_A2 = tostring(SP_A) .. "_ren"
 local PAGE_N2 = tostring(PAGE_N) .. "2"
 local PLUG_N2 = tostring(PLUG_N) .. "2"
+local PRESET_KEY2 = "preset:" .. tostring(pkg.key_part("widget:" .. tostring(PAGE_N2) .. ":" .. tostring(WIDGET_N))) .. "|" .. tostring(pkg.key_part(PRESET_N))
 R.describe("v3b partie 3 — renommages", function()
   R.it("renames a field in place and keeps values under the new name", function()
     local sid = spaces.get_space_by_name(SP_A).id
@@ -668,12 +717,18 @@ R.describe("v3b partie 3 — renommages", function()
     local base = build_current('1.5.0')
     local PKG_P = rename_item(base, "page:" .. tostring(PAGE_N), "page:" .. tostring(PAGE_N2))
     PKG_P = rename_item(PKG_P, "plugin:" .. tostring(PLUG_N), "plugin:" .. tostring(PLUG_N2))
+    PKG_P = rename_page_preset(PKG_P, PRESET_KEY, PRESET_KEY2, "widget:" .. tostring(PAGE_N2) .. ":" .. tostring(WIDGET_N))
     local report = apply.apply_update(PKG_P, { }, { })
     R.ok(report.ok, report.error)
     R.ok(pkg.describe_local('page', "page:" .. tostring(PAGE_N2)), 'page renamed')
     R.is_nil(pkg.describe_local('page', "page:" .. tostring(PAGE_N)), 'old page gone')
     R.ok(pkg.describe_local('plugin', "plugin:" .. tostring(PLUG_N2)), 'plugin renamed')
-    return R.is_nil(pkg.describe_local('plugin', "plugin:" .. tostring(PLUG_N)), 'old plugin gone')
+    R.is_nil(pkg.describe_local('plugin', "plugin:" .. tostring(PLUG_N)), 'old plugin gone')
+    R.ok(pkg.describe_local('preset', PRESET_KEY2), 'preset follows the renamed page')
+    R.is_nil(pkg.describe_local('preset', PRESET_KEY), 'old preset key gone')
+    R.eq(item_state(APP_ID, PRESET_KEY2), 'actif', 'preset tracked under the new key')
+    R.is_nil(item_row(APP_ID, PRESET_KEY), 'old key untracked')
+    return R.ok(preset_row(PAGE_N2), 'preset row kept')
   end)
   R.it("renames a space in place, remapping child keys and preserving records", function()
     local before = local_rows(SP_A)
@@ -792,6 +847,27 @@ R.describe("v3b partie 4 — aperçu des pertes et purge", function()
     end
     R.nok(has, 'legacy key removed from every record')
     return R.ok(field_by_name(sid, 'title'), 'other fields untouched')
+  end)
+  R.it("marks a preset removed from the package obsolete, then purges it", function()
+    local PKG_O = reversion((without((build_current('2.2.5')), PRESET_KEY2)), '2.2.5')
+    local r = apply.apply_update(PKG_O, { }, { })
+    R.ok(r.ok, r.error)
+    R.eq(item_state(APP_ID, PRESET_KEY2), 'obsolète', 'preset marked obsolete')
+    R.ok(preset_row(PAGE_N2), 'preset never deleted by an update')
+    local pv = apply.preview_purge(APP_ID, {
+      PRESET_KEY2
+    })
+    R.is_nil(pv.error)
+    R.eq(#pv.losses, 1)
+    R.eq(pv.losses[1].type, 'preset')
+    local rp = apply.purge_obsolete(APP_ID, {
+      PRESET_KEY2
+    }, {
+      confirmed = true
+    })
+    R.ok(rp.ok, rp.error)
+    R.is_nil(preset_row(PAGE_N2))
+    return R.is_nil(item_row(APP_ID, PRESET_KEY2))
   end)
   R.it("purges an obsolete space after its relation", function()
     local base = build_current('2.3.0')
@@ -917,9 +993,16 @@ R.describe("v3b — cleanup", function()
         box.space._tdb_widget_plugins:delete(wp[1])
       end
     end
-    local _list_4 = perms.list_groups()
+    local _list_4 = box.space._tdb_view_presets:select({ })
     for _index_0 = 1, #_list_4 do
-      local g = _list_4[_index_0]
+      local vp = _list_4[_index_0]
+      if vp[4] == PRESET_N then
+        box.space._tdb_view_presets:delete(vp[1])
+      end
+    end
+    local _list_5 = perms.list_groups()
+    for _index_0 = 1, #_list_5 do
+      local g = _list_5[_index_0]
       if g.name == GROUP_N then
         perms.delete_group(g.id)
       end

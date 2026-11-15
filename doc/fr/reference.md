@@ -1108,7 +1108,7 @@ mutation Import($yaml: String!, $mode: ImportMode!) {
 
 TGui peut empaqueter une application complète dans un fichier `.tdbapp.yaml`, l'installer sur une autre instance et recevoir les versions ultérieures tout en conservant les données et personnalisations locales. La procédure destinée à un administrateur se trouve dans [Quick Start](get-started.md).
 
-L'en-tête d'un paquet est `app: {id, name, version, description}` ; `version` suit le format `x.y.z`. Les éléments sont identifiés par des clés stables (`space:<name>`, `field:<space>.<name>`, `view:<space>.<name>`, `page:<name>`, `dataview:<name>`, `plugin:<name>`, `group:<name>`, `perm:<group>|<type>|<resource>|<level>`, `seed:<space>|<value>`) ; un renommage est déclaré avec `renamed_from`.
+L'en-tête d'un paquet est `app: {id, name, version, description}` ; `version` suit le format `x.y.z`. Les éléments sont identifiés par des clés stables (`space:<name>`, `field:<space>.<name>`, `view:<space>.<name>`, `page:<name>`, `dataview:<name>`, `preset:<portée portable>|<name>`, `plugin:<name>`, `group:<name>`, `perm:<group>|<type>|<resource>|<level>`, `seed:<space>|<value>`) ; un renommage est déclaré avec `renamed_from`. La portée d'un préréglage de vue est portable : `widget:<nom de page>:<id de widget>` ou `space:<nom d'espace>`, jamais un id local.
 
 ### GraphQL API
 

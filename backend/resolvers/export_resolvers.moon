@@ -5,6 +5,8 @@ spaces_mod  = require 'core.spaces'
 views_mod   = require 'core.views'
 perms_mod   = require 'core.permissions'
 auth_mod    = require 'core.auth'
+view_presets = require 'core.view_presets'
+app_package = require 'core.app_package'
 executor    = require 'graphql.executor'
 uuid_mod    = require 'uuid'
 yaml        = require 'yaml'
@@ -100,6 +102,7 @@ build_snapshot = (include_data) ->
       relations: {}
       custom_views: {}
       data_views: {}
+      view_presets: {}
       widget_plugins: {}
       groups: {}
     }
@@ -157,6 +160,19 @@ build_snapshot = (include_data) ->
     entry = { name: dv[2], sourceSpace: space_name_by_id(dv[4]), config: dv[5] }
     entry.description = dv[3] if dv[3] and dv[3] != ''
     table.insert snap.schema.data_views, entry
+
+  -- View presets: scope and space are exported as NAMES, never as local ids
+  -- (core/app_package.preset_scope_portable), so that the snapshot stays
+  -- installable on another instance. The sort stays JSON text, as stored.
+  for vp in *box.space._tdb_view_presets\select {}
+    entry = {
+      name: vp[4]
+      scope: app_package.preset_scope_portable(vp[2])
+      space: space_name_by_id(vp[3]) or vp[3]
+      filter: vp[5] or ''
+      sort: vp[6] or '[]'
+    }
+    table.insert snap.schema.view_presets, entry
 
   -- Widget plugins
   for wp in *box.space._tdb_widget_plugins\select {}
@@ -326,6 +342,8 @@ do_import = (snap, mode) ->
       box.space._tdb_custom_views\delete cv[1]
     for dv in *box.space._tdb_data_views\select {}
       box.space._tdb_data_views\delete dv[1]
+    for vp in *box.space._tdb_view_presets\select {}
+      box.space._tdb_view_presets\delete vp[1]
     for wp in *box.space._tdb_widget_plugins\select {}
       box.space._tdb_widget_plugins\delete wp[1]
     -- Delete groups except 'admin' (keep users, keep admin group for safety)
@@ -431,6 +449,22 @@ do_import = (snap, mode) ->
         error "source space #{idv.sourceSpace} not found" unless sid
         box.space._tdb_data_views\insert { id, idv.name, idv.description or '', sid, idv.config or '{}' }
       if ok then created += 1 else table.insert errors, "data_view #{idv.name}: #{err}"
+
+  -- View presets (after the pages and the spaces their scope names). save_preset
+  -- validates the name, the space and the sort JSON, like the GraphQL mutation.
+  for ivp in *(snap.schema and snap.schema.view_presets or {})
+    scope = app_package.preset_scope_local ivp.scope
+    sid = spaces_by_name[ivp.space]
+    if not scope
+      table.insert errors, "view_preset #{ivp.name}: scope #{ivp.scope} not found"
+    elseif not sid
+      table.insert errors, "view_preset #{ivp.name}: space #{ivp.space} not found"
+    elseif box.space._tdb_view_presets.index.by_scope_name\get { scope, ivp.name }
+      skipped += 1
+    else
+      ok, err = pcall ->
+        view_presets.save_preset scope, sid, ivp.name, ivp.filter or '', ivp.sort or '[]'
+      if ok then created += 1 else table.insert errors, "view_preset #{ivp.name}: #{err}"
 
   -- Widget plugins
   for iwp in *(snap.schema and snap.schema.widget_plugins or {})
