@@ -1,6 +1,20 @@
 # data_view_helpers.coffee — utility methods extracted from views/data_view.coffee
 # (error banner, column-width persistence, cell coercion, default values).
 # Loaded after data_view.js and extends DataView.prototype. No functional change.
+
+# Un tri est une liste de { column, ascending }. On ignore la colonne technique
+# `sortKey` que Toast UI Grid utilise pour représenter « aucun tri ».
+normalizeSortEntries = (entries) ->
+  out = []
+  return out unless Array.isArray entries
+  for entry in entries
+    continue unless entry
+    name = entry.column ? entry.columnName
+    continue unless name
+    continue if name == 'sortKey'
+    out.push { column: String(name), ascending: !!entry.ascending }
+  out
+
 Object.assign window.DataView::,
   setDefaultValues: (values) ->
     @_defaultValues = values or {}
@@ -23,6 +37,48 @@ Object.assign window.DataView::,
   setFormulaFilter: (formula) ->
     @_formulaFilter = formula or ''
     @load()
+
+  # ── Tri persistant ───────────────────────────────────────────────────────────
+  # `grid.resetData` remet le tri interne de Toast UI Grid à « sortKey » : un tri
+  # appliqué par un préréglage serait donc perdu au moindre rechargement (filtre
+  # modifié, données rechargées). On garde le tri demandé et on le réapplique
+  # après chaque resetData (voir _applyData dans views/data_view.coffee).
+  getSortEntries: ->
+    (@_sortState or []).slice()
+
+  applySortEntries: (entries) ->
+    @_sortState = normalizeSortEntries entries
+    @_applySortState()
+    @_sortState
+
+  _sortEntriesFromGrid: ->
+    return [] unless @_grid and typeof @_grid.getSortState == 'function'
+    state = null
+    try
+      state = @_grid.getSortState()
+    catch e
+      state = null
+    normalizeSortEntries state?.columns
+
+  _applySortState: ->
+    return unless @_grid
+    entries = @_sortState or []
+    @_applyingSort = true
+    try
+      @_grid.unsort?()
+      for entry, i in entries
+        @_grid.sort? entry.column, entry.ascending, i > 0
+    finally
+      @_applyingSort = false
+
+  # Tri/retri manuel (clic sur un en-tête) : mémoriser l'état réel de la grille
+  # pour qu'il survive au prochain rechargement. Ignoré pendant nos propres
+  # réapplications, sinon la remise à zéro de resetData écraserait le tri.
+  _onGridSortChanged: ->
+    return if @_applyingSort
+    @_sortState = @_sortEntriesFromGrid()
+    @_onSortChanged?()
+    @_sortState
 
   # ── Error display ─────────────────────────────────────────────────────────────
   _showError: (msg) ->

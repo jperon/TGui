@@ -2,6 +2,37 @@
   // data_view_helpers.coffee — utility methods extracted from views/data_view.coffee
   // (error banner, column-width persistence, cell coercion, default values).
   // Loaded after data_view.js and extends DataView.prototype. No functional change.
+
+  // Un tri est une liste de { column, ascending }. On ignore la colonne technique
+  // `sortKey` que Toast UI Grid utilise pour représenter « aucun tri ».
+  var normalizeSortEntries;
+
+  normalizeSortEntries = function(entries) {
+    var entry, j, len, name, out, ref;
+    out = [];
+    if (!Array.isArray(entries)) {
+      return out;
+    }
+    for (j = 0, len = entries.length; j < len; j++) {
+      entry = entries[j];
+      if (!entry) {
+        continue;
+      }
+      name = (ref = entry.column) != null ? ref : entry.columnName;
+      if (!name) {
+        continue;
+      }
+      if (name === 'sortKey') {
+        continue;
+      }
+      out.push({
+        column: String(name),
+        ascending: !!entry.ascending
+      });
+    }
+    return out;
+  };
+
   Object.assign(window.DataView.prototype, {
     setDefaultValues: function(values) {
       return this._defaultValues = values || {};
@@ -29,6 +60,67 @@
     setFormulaFilter: function(formula) {
       this._formulaFilter = formula || '';
       return this.load();
+    },
+    // ── Tri persistant ───────────────────────────────────────────────────────────
+    // `grid.resetData` remet le tri interne de Toast UI Grid à « sortKey » : un tri
+    // appliqué par un préréglage serait donc perdu au moindre rechargement (filtre
+    // modifié, données rechargées). On garde le tri demandé et on le réapplique
+    // après chaque resetData (voir _applyData dans views/data_view.coffee).
+    getSortEntries: function() {
+      return (this._sortState || []).slice();
+    },
+    applySortEntries: function(entries) {
+      this._sortState = normalizeSortEntries(entries);
+      this._applySortState();
+      return this._sortState;
+    },
+    _sortEntriesFromGrid: function() {
+      var e, state;
+      if (!(this._grid && typeof this._grid.getSortState === 'function')) {
+        return [];
+      }
+      state = null;
+      try {
+        state = this._grid.getSortState();
+      } catch (error) {
+        e = error;
+        state = null;
+      }
+      return normalizeSortEntries(state != null ? state.columns : void 0);
+    },
+    _applySortState: function() {
+      var base, base1, entries, entry, i, j, len, results1;
+      if (!this._grid) {
+        return;
+      }
+      entries = this._sortState || [];
+      this._applyingSort = true;
+      try {
+        if (typeof (base = this._grid).unsort === "function") {
+          base.unsort();
+        }
+        results1 = [];
+        for (i = j = 0, len = entries.length; j < len; i = ++j) {
+          entry = entries[i];
+          results1.push(typeof (base1 = this._grid).sort === "function" ? base1.sort(entry.column, entry.ascending, i > 0) : void 0);
+        }
+        return results1;
+      } finally {
+        this._applyingSort = false;
+      }
+    },
+    // Tri/retri manuel (clic sur un en-tête) : mémoriser l'état réel de la grille
+    // pour qu'il survive au prochain rechargement. Ignoré pendant nos propres
+    // réapplications, sinon la remise à zéro de resetData écraserait le tri.
+    _onGridSortChanged: function() {
+      if (this._applyingSort) {
+        return;
+      }
+      this._sortState = this._sortEntriesFromGrid();
+      if (typeof this._onSortChanged === "function") {
+        this._onSortChanged();
+      }
+      return this._sortState;
     },
     // ── Error display ─────────────────────────────────────────────────────────────
     _showError: function(msg) {
@@ -126,11 +218,11 @@
         return Number(value);
       }
       boolSet = boolNames || new Set((function() {
-        var i, len, ref, results1;
+        var j, len, ref, results1;
         ref = this.space.fields || [];
         results1 = [];
-        for (i = 0, len = ref.length; i < len; i++) {
-          f = ref[i];
+        for (j = 0, len = ref.length; j < len; j++) {
+          f = ref[j];
           if (f.fieldType === 'Boolean') {
             results1.push(f.name);
           }
@@ -143,13 +235,13 @@
       return value;
     },
     _serializeRowForMutation: function(row, colNames = null, boolNames = null) {
-      var f, i, len, name, names, out;
+      var f, j, len, name, names, out;
       names = colNames || ((function() {
-        var i, len, ref, results1;
+        var j, len, ref, results1;
         ref = this.space.fields || [];
         results1 = [];
-        for (i = 0, len = ref.length; i < len; i++) {
-          f = ref[i];
+        for (j = 0, len = ref.length; j < len; j++) {
+          f = ref[j];
           if (f.fieldType !== 'Sequence' && !(f.formula && f.formula !== '' && !f.triggerFields)) {
             results1.push(f.name);
           }
@@ -157,8 +249,8 @@
         return results1;
       }).call(this));
       out = {};
-      for (i = 0, len = names.length; i < len; i++) {
-        name = names[i];
+      for (j = 0, len = names.length; j < len; j++) {
+        name = names[j];
         out[name] = this._coerceCellValue(name, row != null ? row[name] : void 0, boolNames);
       }
       return out;
@@ -167,11 +259,11 @@
       return JSON.parse(JSON.stringify(obj != null ? obj : {}));
     },
     _extractInsertedRecords: function(results) {
-      var i, len, out, parsed, r, rec, ref;
+      var j, len, out, parsed, r, rec, ref;
       out = [];
       ref = results || [];
-      for (i = 0, len = ref.length; i < len; i++) {
-        r = ref[i];
+      for (j = 0, len = ref.length; j < len; j++) {
+        r = ref[j];
         rec = r != null ? r.insertRecord : void 0;
         if (!(rec != null ? rec.id : void 0)) {
           continue;
