@@ -406,7 +406,11 @@ R.describe "app_package — describe_local", ->
     R.eq(pkg.canonical(local_content), pkg.canonical(item.content))
     R.eq local_content.name, PAGE_NAME
     R.eq local_content.description, 'apkg page'
-    R.eq local_content.yaml, YAML_PAGE
+    -- The stored yaml also carries the widget id assigned at write time
+    -- (core/widget_ids), so compare the hand-written properties only.
+    R.ok local_content.yaml\find('title: App package', 1, true), 'widget conservé'
+    R.ok local_content.yaml\find('space: apkg', 1, true), 'espace du widget conservé'
+    R.matches local_content.yaml, 'id: w_%x%x%x%x%x%x%x%x', 'id de widget attribué'
 
   R.it "dataview: returns sourceSpace as a space name", ->
     key = "dataview:#{DV_NAME}"

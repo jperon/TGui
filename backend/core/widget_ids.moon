@@ -83,11 +83,16 @@ decode_config = (yaml_str) ->
 trim = (s) ->
   tostring(s or '')\match '^%s*(.-)%s*$'
 
+-- The old layout encoders wrote `id: tostring(widget.id)`, so a widget saved
+-- without an id carries the literal string "nil": a missing id in disguise.
+-- An empty id, an explicit null or that placeholder all count as missing.
 is_missing_id = (widget) ->
   return true if type(widget) != 'table'
   id = widget.id
   return true if id == nil
-  type(id) == 'string' and trim(id) == ''
+  return false unless type(id) == 'string'
+  trimmed = trim id
+  trimmed == '' or trimmed == 'nil'
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- Textual patch of one widget header
@@ -148,13 +153,15 @@ find_id_line = (lines, header_idx, key_col) ->
     return { line: j, indent: ind, value: value } if key == 'id'
   nil
 
--- An id pointing nowhere: empty, quoted-empty, explicit null, or commented out.
+-- An id pointing nowhere: empty, quoted-empty, explicit null, the "nil"
+-- placeholder written by the old encoders, or commented out.
 is_empty_scalar = (raw) ->
   value = trim raw
   return true if value == ''
   return true if value\sub(1, 1) == '#'
   return true if value == "''" or value == '""' or value == '~'
-  value\lower! == 'null'
+  lowered = value\lower!
+  lowered == 'null' or lowered == 'nil'
 
 -- Block style: `- widget:` followed by its keys. Either the existing empty id
 -- line is filled in, or a new id line is inserted right after the header.

@@ -1,6 +1,19 @@
 local R = require('tests.runner')
 local wid = require('core.widget_ids')
+local cvr = require('resolvers.custom_view_resolvers')
+local auth = require('core.auth')
 local yaml = require('yaml')
+local SUFFIX = tostring(math.random(100000, 999999))
+local CV_NAME = "test_widget_ids_" .. tostring(SUFFIX)
+local FIX = {
+  cv_id = nil,
+  first_id = nil,
+  extra_pages = { }
+}
+local admin = auth.get_user_by_username('admin')
+local CTX = {
+  user_id = admin and admin.id
+}
 local YAML_NO_ID = [[layout:
   direction: vertical
   children:
@@ -74,7 +87,7 @@ ids_of = function(text)
   end
   return ids
 end
-return R.describe("WidgetIds — normalisation du texte YAML", function()
+R.describe("WidgetIds — normalisation du texte YAML", function()
   R.it("attribue w_ + 8 hexadécimaux à un widget sans id", function()
     local new_yaml, changed = wid.ensure_widget_ids(YAML_NO_ID)
     R.ok(changed, 'changed')
@@ -133,6 +146,23 @@ return R.describe("WidgetIds — normalisation du texte YAML", function()
     R.matches(ids[2], '^w_%x%x%x%x%x%x%x%x$')
     return R.ne(ids[1], ids[2], 'ids distincts')
   end)
+  R.it("remplace le placeholder id: nil écrit par l'ancien encodeur", function()
+    local legacy = [[layout:
+  direction: vertical
+  children:
+    - widget:
+        id: nil
+        title: Test
+        space: test
+]]
+    local new_yaml, changed = wid.ensure_widget_ids(legacy)
+    R.ok(changed, 'changed')
+    local ids = ids_of(new_yaml)
+    R.eq(#ids, 1)
+    R.matches(ids[1], '^w_%x%x%x%x%x%x%x%x$')
+    R.nok(new_yaml:find('id: nil', 1, true), 'placeholder remplacé')
+    return R.ok(new_yaml:find('title: Test', 1, true), 'reste du widget conservé')
+  end)
   R.it("préserve les commentaires écrits à la main", function()
     local new_yaml, changed = wid.ensure_widget_ids(YAML_WITH_COMMENT)
     R.ok(changed, 'changed')
@@ -160,5 +190,92 @@ return R.describe("WidgetIds — normalisation du texte YAML", function()
     local twice, second_changed = wid.ensure_widget_ids(once)
     R.nok(second_changed, 'second passage sans changement')
     return R.eq(twice, once, 'texte stable')
+  end)
+end)
+R.describe("WidgetIds — intégration GraphQL", function()
+  R.it("createCustomView stocke un id pour chaque widget", function()
+    local res = cvr.Mutation.createCustomView({ }, {
+      name = CV_NAME,
+      description = 'widget ids',
+      yaml = YAML_NO_ID
+    }, CTX)
+    R.ok(res)
+    R.ok(res.id)
+    FIX.cv_id = res.id
+    local stored = cvr.Query.customView({ }, {
+      id = FIX.cv_id
+    }, CTX)
+    local ids = ids_of(stored.yaml)
+    R.eq(#ids, 1)
+    R.matches(ids[1], '^w_%x%x%x%x%x%x%x%x$')
+    FIX.first_id = ids[1]
+  end)
+  R.it("un widget ajouté par updateCustomView reçoit un id neuf", function()
+    local stored = cvr.Query.customView({ }, {
+      id = FIX.cv_id
+    }, CTX)
+    local extended = stored.yaml .. "    - widget:\n        title: Second\n        space: test\n"
+    local res = cvr.Mutation.updateCustomView({ }, {
+      id = FIX.cv_id,
+      input = {
+        yaml = extended
+      }
+    }, CTX)
+    R.ok(res)
+    local again = cvr.Query.customView({ }, {
+      id = FIX.cv_id
+    }, CTX)
+    local ids = ids_of(again.yaml)
+    R.eq(#ids, 2)
+    R.eq(ids[1], FIX.first_id, 'id existant conservé')
+    R.matches(ids[2], '^w_%x%x%x%x%x%x%x%x$')
+    return R.ne(ids[1], ids[2], 'ids distincts')
+  end)
+  R.it("updateCustomView qui conserve les id ne les change pas", function()
+    local stored = cvr.Query.customView({ }, {
+      id = FIX.cv_id
+    }, CTX)
+    local res = cvr.Mutation.updateCustomView({ }, {
+      id = FIX.cv_id,
+      input = {
+        yaml = stored.yaml
+      }
+    }, CTX)
+    R.ok(res)
+    local again = cvr.Query.customView({ }, {
+      id = FIX.cv_id
+    }, CTX)
+    return R.eq(again.yaml, stored.yaml, 'texte inchangé')
+  end)
+  return R.it("un id vide stocké est rempli", function()
+    local res = cvr.Mutation.createCustomView({ }, {
+      name = CV_NAME .. '_empty',
+      description = 'empty id',
+      yaml = YAML_EMPTY_ID
+    }, CTX)
+    R.ok(res)
+    table.insert(FIX.extra_pages, res.id)
+    local stored = cvr.Query.customView({ }, {
+      id = res.id
+    }, CTX)
+    local ids = ids_of(stored.yaml)
+    R.eq(#ids, 1)
+    return R.matches(ids[1], '^w_%x%x%x%x%x%x%x%x$')
+  end)
+end)
+return R.describe("WidgetIds — cleanup", function()
+  return R.it("supprime les pages de test", function()
+    if FIX.cv_id then
+      R.ok(cvr.Mutation.deleteCustomView({ }, {
+        id = FIX.cv_id
+      }, CTX))
+    end
+    local _list_0 = FIX.extra_pages
+    for _index_0 = 1, #_list_0 do
+      local id = _list_0[_index_0]
+      R.ok(cvr.Mutation.deleteCustomView({ }, {
+        id = id
+      }, CTX))
+    end
   end)
 end)

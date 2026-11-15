@@ -80,7 +80,11 @@ is_missing_id = function(widget)
   if id == nil then
     return true
   end
-  return type(id) == 'string' and trim(id) == ''
+  if not (type(id) == 'string') then
+    return false
+  end
+  local trimmed = trim(id)
+  return trimmed == '' or trimmed == 'nil'
 end
 local split_lines
 split_lines = function(text)
@@ -182,7 +186,8 @@ is_empty_scalar = function(raw)
   if value == "''" or value == '""' or value == '~' then
     return true
   end
-  return value:lower() == 'null'
+  local lowered = value:lower()
+  return lowered == 'null' or lowered == 'nil'
 end
 local apply_to_block
 apply_to_block = function(lines, header_idx, key_col, new_id)

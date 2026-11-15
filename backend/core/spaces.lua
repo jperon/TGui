@@ -4,6 +4,7 @@ do
   local _obj_0 = require('core.config')
   validate_input, safe_formula_call = _obj_0.validate_input, _obj_0.safe_formula_call
 end
+local widget_ids = require('core.widget_ids')
 local FIELD_TYPES = {
   'String',
   'Int',
@@ -1074,13 +1075,18 @@ bootstrap = function()
       return log.info("tdb_v3: added cardinality to _tdb_relations — relations existantes : cardinalité 'one' par défaut")
     end
   end)
-  return box.once('tdb_v4', function()
+  box.once('tdb_v4', function()
     local flagged = migrate_must_change_password()
     log.info('tdb_v4: added must_change_password to _tdb_users')
     if flagged > 0 then
       return log.warn("tdb_v4: " .. tostring(flagged) .. " user(s) still use the default password — change required")
     end
   end)
+  widget_ids.install_trigger()
+  local normalized = widget_ids.migrate_stored_pages()
+  if normalized > 0 then
+    return log.info("tdb widget ids: " .. tostring(normalized) .. " page(s) normalized")
+  end
 end
 local create_user_space
 create_user_space = function(name, description)
@@ -1598,6 +1604,7 @@ migrate = function()
   for name, desc in pairs(SYSTEM_SPACES) do
     create_space(name, desc)
   end
+  widget_ids.install_trigger()
   local _list_0 = box.space._tdb_fields:select({ })
   for _index_0 = 1, #_list_0 do
     local t = _list_0[_index_0]
