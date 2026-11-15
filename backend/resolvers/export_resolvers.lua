@@ -214,15 +214,26 @@ build_snapshot = function(include_data)
   end
   local _list_4 = box.space._tdb_view_presets:select({ })
   for _index_0 = 1, #_list_4 do
-    local vp = _list_4[_index_0]
-    local entry = {
-      name = vp[4],
-      scope = app_package.preset_scope_portable(vp[2]),
-      space = space_name_by_id(vp[3]) or vp[3],
-      filter = vp[5] or '',
-      sort = vp[6] or '[]'
-    }
-    table.insert(snap.schema.view_presets, entry)
+    local _continue_0 = false
+    repeat
+      local vp = _list_4[_index_0]
+      if app_package.preset_row_orphan(vp) then
+        _continue_0 = true
+        break
+      end
+      local entry = {
+        name = vp[4],
+        scope = app_package.preset_scope_portable(vp[2]),
+        space = space_name_by_id(vp[3]) or vp[3],
+        filter = vp[5] or '',
+        sort = vp[6] or '[]'
+      }
+      table.insert(snap.schema.view_presets, entry)
+      _continue_0 = true
+    until true
+    if not _continue_0 then
+      break
+    end
   end
   local _list_5 = box.space._tdb_widget_plugins:select({ })
   for _index_0 = 1, #_list_5 do

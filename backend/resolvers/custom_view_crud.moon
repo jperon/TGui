@@ -2,6 +2,7 @@
 -- CRUD, snapshot and layout export/import functions for custom YAML views.
 
 uuid_mod = require 'uuid'
+{ :delete_presets_for_page } = require 'core.view_presets'
 
 -- Convert a _tdb_custom_views tuple to the public page shape.
 custom_view_from_tuple = (t) ->
@@ -27,6 +28,9 @@ create_custom_view = (name, description, yaml) ->
     createdAt: tostring(now), updatedAt: tostring(now) }
 
 delete_custom_view = (id) ->
+  -- A page owns the presets of its widgets ('widget:<page id>:<widget id>'):
+  -- deleting it without them leaves scopes nobody can resolve or re-import.
+  delete_presets_for_page id
   box.space._tdb_custom_views\delete id
   true
 

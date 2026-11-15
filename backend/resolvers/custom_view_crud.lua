@@ -1,4 +1,6 @@
 local uuid_mod = require('uuid')
+local delete_presets_for_page
+delete_presets_for_page = require('core.view_presets').delete_presets_for_page
 local custom_view_from_tuple
 custom_view_from_tuple = function(t)
   return {
@@ -51,6 +53,7 @@ create_custom_view = function(name, description, yaml)
 end
 local delete_custom_view
 delete_custom_view = function(id)
+  delete_presets_for_page(id)
   box.space._tdb_custom_views:delete(id)
   return true
 end
