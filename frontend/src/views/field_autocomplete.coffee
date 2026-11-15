@@ -10,11 +10,24 @@ _relCache   = {}   # spaceId -> Promise([relations])
 # A DataView cannot be trusted for this: a page widget builds its own with no
 # relations (`_relations: []`) and with `space.fields` reduced to the visible
 # columns, so `@relation.` would propose nothing there.
+#
+# Un échec de chargement ne reste jamais en cache : sans cela, une promesse
+# rejetée figerait l'autocomplétion jusqu'au rechargement de la page.
+_cached = (cache, sid, load) ->
+  return cache[sid] if cache[sid]
+  promise = Promise.resolve()
+    .then -> load()
+    .catch (err) ->
+      delete cache[sid]
+      throw err
+  cache[sid] = promise
+  promise
+
 _fieldsOf = (sid) ->
-  _fieldCache[sid] ?= Promise.resolve(Spaces.getWithFields sid).then (s) -> s?.fields or []
+  _cached _fieldCache, sid, -> (Spaces.getWithFields sid).then (s) -> s?.fields or []
 
 _relsOf = (sid) ->
-  _relCache[sid] ?= Promise.resolve(Spaces.listRelations sid).then (rels) -> rels or []
+  _cached _relCache, sid, -> (Spaces.listRelations sid).then (rels) -> rels or []
 # `@a.b.pre` under the caret → { path: ['a', 'b'], prefix: 'pre' }, else null.
 _token = (text) ->
   m = TOKEN_RE.exec String(text or '')
@@ -115,14 +128,20 @@ attach = (input, getDataView) ->
     tok = _token input.value.slice(0, caret)
     return close() unless tok
     my = ++reqId
-    _resolve(getDataView?(), tok.path).then (res) ->
-      return unless my == reqId
-      found = _filter res.fields, tok.prefix
-      return close() if found.length == 0
-      items  = found
-      relIds = new Set (r.fromFieldId for r in res.relations)
-      sel    = 0
-      render()
+    _resolve(getDataView?(), tok.path)
+      .then (res) ->
+        return unless my == reqId
+        found = _filter res.fields, tok.prefix
+        return close() if found.length == 0
+        items  = found
+        relIds = new Set (r.fromFieldId for r in res.relations)
+        sel    = 0
+        render()
+      .catch (err) ->
+        # Un chargement en échec ne doit pas laisser de rejet non géré (ni de
+        # liste fantôme) : on ferme simplement les suggestions.
+        console.warn 'FieldAutocomplete: chargement des champs impossible', err
+        close() if my == reqId
 
   input.addEventListener 'input', update
   input.addEventListener 'click', update

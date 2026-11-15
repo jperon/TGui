@@ -31,6 +31,9 @@ window.AppDataHelpers =
     Spaces.list()
       .then (spaces) ->
         app._allSpaces = spaces
+        # Liste de champs rechargée : les noms gardés en cache pour
+        # l'autocomplétion du filtre « λ » peuvent avoir changé.
+        window.FieldAutocomplete?._reset?()
         app.renderSpaceList spaces
       .catch (err) -> tdbAlert app._err(err), 'error'
 
@@ -90,6 +93,9 @@ window.AppDataHelpers =
 
   syncSpaceFields: (app, space) ->
     app._allSpaces = (app._allSpaces or []).map (s) -> if s.id == space.id then space else s
+    # Appelé après toute mutation de champ ou de relation : les noms de champs
+    # mis en cache pour l'autocomplétion du filtre « λ » ne sont plus valides.
+    window.FieldAutocomplete?._reset?()
     if app._activeCustomView and app._currentCustomView?.yaml?.trim()
       app._renderCustomViewPreview app._currentCustomView.yaml
 

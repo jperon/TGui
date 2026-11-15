@@ -1,7 +1,7 @@
 (function() {
   // field_autocomplete.coffee — field name autocomplete for the MoonScript
   // formula filters ("λ"); `@a.b.pre` follows relations at any depth.
-  var MAX_ITEMS, TOKEN_RE, _fieldCache, _fieldsOf, _filter, _insert, _relCache, _relsOf, _resolve, _token, attach;
+  var MAX_ITEMS, TOKEN_RE, _cached, _fieldCache, _fieldsOf, _filter, _insert, _relCache, _relsOf, _resolve, _token, attach;
 
   TOKEN_RE = /@((?:[A-Za-z_]\w*\.)*)([A-Za-z_]\w*)?$/;
 
@@ -16,15 +16,37 @@
   // A DataView cannot be trusted for this: a page widget builds its own with no
   // relations (`_relations: []`) and with `space.fields` reduced to the visible
   // columns, so `@relation.` would propose nothing there.
+
+  // Un échec de chargement ne reste jamais en cache : sans cela, une promesse
+  // rejetée figerait l'autocomplétion jusqu'au rechargement de la page.
+  _cached = function(cache, sid, load) {
+    var promise;
+    if (cache[sid]) {
+      return cache[sid];
+    }
+    promise = Promise.resolve().then(function() {
+      return load();
+    }).catch(function(err) {
+      delete cache[sid];
+      throw err;
+    });
+    cache[sid] = promise;
+    return promise;
+  };
+
   _fieldsOf = function(sid) {
-    return _fieldCache[sid] != null ? _fieldCache[sid] : _fieldCache[sid] = Promise.resolve(Spaces.getWithFields(sid)).then(function(s) {
-      return (s != null ? s.fields : void 0) || [];
+    return _cached(_fieldCache, sid, function() {
+      return (Spaces.getWithFields(sid)).then(function(s) {
+        return (s != null ? s.fields : void 0) || [];
+      });
     });
   };
 
   _relsOf = function(sid) {
-    return _relCache[sid] != null ? _relCache[sid] : _relCache[sid] = Promise.resolve(Spaces.listRelations(sid)).then(function(rels) {
-      return rels || [];
+    return _cached(_relCache, sid, function() {
+      return (Spaces.listRelations(sid)).then(function(rels) {
+        return rels || [];
+      });
     });
   };
 
@@ -228,6 +250,13 @@
         })());
         sel = 0;
         return render();
+      }).catch(function(err) {
+        // Un chargement en échec ne doit pas laisser de rejet non géré (ni de
+        // liste fantôme) : on ferme simplement les suggestions.
+        console.warn('FieldAutocomplete: chargement des champs impossible', err);
+        if (my === reqId) {
+          return close();
+        }
       });
     };
     input.addEventListener('input', update);
