@@ -3,7 +3,7 @@ local graphql_flattener = require('core.graphql_flattener')
 local spaces_mod = require('core.spaces')
 local yield_every
 yield_every = require('core.config').yield_every
-local _ = {
+local _scrap_0 = {
   Query = {
     records_extended = function(_, args, ctx)
       require_auth(ctx)

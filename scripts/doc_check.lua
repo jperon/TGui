@@ -275,7 +275,7 @@ extract_block_rows = function(block_name, schema_lines)
   return rows
 end
 local script_dir = (arg and arg[0] and arg[0]:match('^(.*)/[^/]+$')) or '.'
-package.path = tostring(script_dir) .. "/?.lua;" .. package.path
+package.path = (tostring(script_dir) .. "/?.lua;") .. package.path
 local domain_for_operation
 domain_for_operation = require('doc_domains').domain_for_operation
 local collect_backend_files
