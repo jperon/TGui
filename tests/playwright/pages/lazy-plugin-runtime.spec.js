@@ -200,7 +200,7 @@
       return expect(hits, `requêtes inattendues : ${hits.join(', ')}`).toHaveLength(0);
     });
     test('l’éditeur de plugins affiche le code sans charger les compilateurs', async function({page}) {
-      var hits, modal;
+      var hits, modal, option;
       hits = watchRuntime(page);
       await performLogin(page);
       await page.click('#plugins-nav-manage');
@@ -208,9 +208,12 @@
       await expect(modal).toBeVisible();
       // Le plugin CoffeeScript est sélectionnable et son script s'affiche : la
       // compilation n'a lieu qu'au rendu d'un widget, pas dans l'éditeur.
-      await page.selectOption('#widget-plugin-select', {
-        label: pluginName
-      });
+      // Le libellé des options est « <nom> — <portée> » : on sélectionne par
+      // valeur (id du plugin, connu depuis la création) pour ne pas dépendre du
+      // libellé exact, et on vérifie au passage que le nom y figure.
+      option = page.locator(`#widget-plugin-select option[value='${pluginId}']`);
+      await expect(option).toContainText(pluginName);
+      await page.selectOption('#widget-plugin-select', pluginId);
       // CodeMirror rend le script dans le DOM du modal (pas de compilation).
       await expect(modal).toContainText('module.exports', {
         timeout: 10000
