@@ -1,6 +1,7 @@
 local uuid_mod = require('uuid')
 local clock = require('clock')
 local yaml = require('yaml')
+local scopes = require('core.widget_scopes')
 local require_auth, require_perm
 do
   local _obj_0 = require('resolvers.utils')
@@ -246,22 +247,32 @@ tuple_to_plugin = function(t)
     scriptCode = t[6] or '',
     templateCode = t[7] or '',
     manifest = t[10] or '',
+    appId = scopes.row_app_id(t),
     createdAt = tostring(t[8]),
     updatedAt = tostring(t[9])
   }
 end
-local list_widget_plugins
-list_widget_plugins = function()
-  local result = { }
-  local _list_0 = box.space._tdb_widget_plugins:select({ })
-  for _index_0 = 1, #_list_0 do
-    local t = _list_0[_index_0]
-    table.insert(result, tuple_to_plugin(t))
+local validate_app_scope
+validate_app_scope = function(app_id)
+  local scope = scopes.scope_of(app_id)
+  if not (scope) then
+    return nil
   end
-  table.sort(result, function(a, b)
-    return a.name < b.name
-  end)
-  return result
+  if not (box.space._tdb_apps:get(scope)) then
+    error("Unknown app for widget scope: " .. tostring(scope))
+  end
+  return scope
+end
+local plugin_scope
+plugin_scope = function(t)
+  return scopes.row_app_id(t)
+end
+local assert_unique_name
+assert_unique_name = function(name, ignore_id, app_id)
+  local existing = scopes.find_row(name, app_id)
+  if existing and existing[1] ~= ignore_id then
+    return error("WidgetPlugin name already exists: " .. tostring(name))
+  end
 end
 local get_widget_plugin
 get_widget_plugin = function(id, name)
@@ -269,19 +280,13 @@ get_widget_plugin = function(id, name)
   if id then
     t = box.space._tdb_widget_plugins:get(id)
   elseif name then
-    t = box.space._tdb_widget_plugins.index.by_name:get(name)
+    local rows = box.space._tdb_widget_plugins.index.by_name:select({
+      name,
+      limit = 1
+    })
+    t = rows[1]
   end
   return tuple_to_plugin(t)
-end
-local assert_unique_name
-assert_unique_name = function(name, ignore_id)
-  if ignore_id == nil then
-    ignore_id = nil
-  end
-  local existing = box.space._tdb_widget_plugins.index.by_name:get(name)
-  if existing and existing[1] ~= ignore_id then
-    return error("WidgetPlugin name already exists: " .. tostring(name))
-  end
 end
 local create_widget_plugin
 create_widget_plugin = function(input)
@@ -292,7 +297,8 @@ create_widget_plugin = function(input)
   local script_code = validate_script_code(input.scriptCode)
   local template_code = validate_template_code(input.templateCode)
   local manifest = validate_manifest(input.manifest)
-  assert_unique_name(name)
+  local app_id = validate_app_scope(input.appId)
+  assert_unique_name(name, nil, app_id)
   local id = tostring(uuid_mod.new())
   local now = clock.time()
   box.space._tdb_widget_plugins:insert({
@@ -305,7 +311,8 @@ create_widget_plugin = function(input)
     template_code,
     now,
     now,
-    manifest
+    manifest,
+    scopes.scope_column(app_id)
   })
   return tuple_to_plugin(box.space._tdb_widget_plugins:get(id))
 end
@@ -357,7 +364,19 @@ update_widget_plugin = function(id, input)
   else
     manifest = (t[10] or '')
   end
-  assert_unique_name(name, id)
+  local app_id
+  if input.appId ~= nil then
+    app_id = validate_app_scope(input.appId)
+  else
+    app_id = plugin_scope(t)
+  end
+  if scopes.scope_column(app_id) ~= scopes.scope_column(plugin_scope(t)) then
+    local used = scopes.pages_using(t)
+    if #used > 0 then
+      error("WidgetPlugin '" .. tostring(t[2]) .. "' is used by page(s): " .. tostring(table.concat(used, ', ')) .. " — it cannot change scope")
+    end
+  end
+  assert_unique_name(name, id, app_id)
   local now = clock.time()
   box.space._tdb_widget_plugins:replace({
     id,
@@ -369,22 +388,71 @@ update_widget_plugin = function(id, input)
     template_code,
     t[8],
     now,
-    manifest
+    manifest,
+    scopes.scope_column(app_id)
   })
   return tuple_to_plugin(box.space._tdb_widget_plugins:get(id))
 end
 local delete_widget_plugin
 delete_widget_plugin = function(id)
+  local t = box.space._tdb_widget_plugins:get(id)
+  if not (t) then
+    error("WidgetPlugin not found: " .. tostring(id))
+  end
+  local used = scopes.pages_using(t)
+  if not plugin_scope(t) and #used > 0 then
+    error("WidgetPlugin '" .. tostring(t[2]) .. "' is used by page(s): " .. tostring(table.concat(used, ', ')))
+  end
   box.space._tdb_widget_plugins:delete(id)
   return true
 end
 local Query = {
   widgetPlugins = function(_, args, ctx)
     require_perm(ctx, '*', nil, 'read')
-    return list_widget_plugins()
+    local page_id = args.pageId
+    if page_id then
+      local page = box.space._tdb_custom_views:get(page_id)
+      if not (page) then
+        error("Custom view not found: " .. tostring(page_id))
+      end
+      local scope = scopes.page_app_id(page_id)
+      local _accum_0 = { }
+      local _len_0 = 1
+      local _list_0 = scopes.visible_for_scope(scope)
+      for _index_0 = 1, #_list_0 do
+        local row = _list_0[_index_0]
+        _accum_0[_len_0] = tuple_to_plugin(row)
+        _len_0 = _len_0 + 1
+      end
+      return _accum_0
+    end
+    if args.appId ~= nil then
+      local _accum_0 = { }
+      local _len_0 = 1
+      local _list_0 = scopes.visible_for_scope(scopes.scope_of(args.appId))
+      for _index_0 = 1, #_list_0 do
+        local row = _list_0[_index_0]
+        _accum_0[_len_0] = tuple_to_plugin(row)
+        _len_0 = _len_0 + 1
+      end
+      return _accum_0
+    end
+    local _accum_0 = { }
+    local _len_0 = 1
+    local _list_0 = scopes.all_rows()
+    for _index_0 = 1, #_list_0 do
+      local row = _list_0[_index_0]
+      _accum_0[_len_0] = tuple_to_plugin(row)
+      _len_0 = _len_0 + 1
+    end
+    return _accum_0
   end,
   widgetPlugin = function(_, args, ctx)
     require_perm(ctx, '*', nil, 'read')
+    if args.pageId and args.name then
+      local row = scopes.resolve_for_page(args.name, args.pageId)
+      return tuple_to_plugin(row)
+    end
     if not args.id and not args.name then
       error('widgetPlugin requires id or name')
     end

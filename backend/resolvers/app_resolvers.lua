@@ -1,6 +1,7 @@
 local yaml = require('yaml')
 local app_package = require('core.app_package')
 local app_apply = require('core/app_apply')
+local widget_scopes = require('core.widget_scopes')
 local require_admin
 require_admin = require('resolvers.utils').require_admin
 local CODE_TYPES = {
@@ -42,7 +43,8 @@ seed_map_of = function(entries)
 end
 local decisions_map_of
 decisions_map_of = function(entries)
-  local result = { }
+  local choices = { }
+  local names = { }
   local _list_0 = (entries or { })
   for _index_0 = 1, #_list_0 do
     local _continue_0 = false
@@ -53,17 +55,28 @@ decisions_map_of = function(entries)
         break
       end
       local choice = entry.choice
-      if not (choice == 'local' or choice == 'delivered') then
-        error("Invalid decision '" .. tostring(tostring(choice)) .. "' for '" .. tostring(entry.key) .. "': expected 'local' or 'delivered'")
+      if not (choice == 'local' or choice == 'delivered' or choice == 'rename') then
+        error("Invalid decision '" .. tostring(tostring(choice)) .. "' for '" .. tostring(entry.key) .. "': expected 'local', 'delivered' or 'rename'")
       end
-      result[entry.key] = choice
+      if choice == 'rename' then
+        if entry.newName ~= nil and entry.newName ~= '' then
+          if not (widget_scopes.valid_name(entry.newName)) then
+            error("Invalid new name '" .. tostring(tostring(entry.newName)) .. "' for '" .. tostring(entry.key) .. "'")
+          end
+          names[entry.key] = entry.newName
+        end
+      end
+      choices[entry.key] = choice
       _continue_0 = true
     until true
     if not _continue_0 then
       break
     end
   end
-  return result
+  return {
+    choices = choices,
+    names = names
+  }
 end
 local has_code_field
 has_code_field = function(content)
@@ -104,9 +117,14 @@ conflict_of = function(conflict)
   local result = {
     key = entry.key,
     type = entry.type,
-    delivered = entry.content
+    delivered = entry.content,
+    pages = { }
   }
   result['local'] = local_state and local_state.content or nil
+  if entry.type == 'plugin' then
+    local scope = (local_state and local_state.app_id) or entry.app_scope
+    result.pages = widget_scopes.pages_using_name(entry.content.name, scope)
+  end
   return result
 end
 local plan_shape
@@ -318,9 +336,10 @@ local Mutation = {
   applyAppUpdate = function(_, args, ctx)
     require_admin(ctx)
     local package = require_valid_package(parse_yaml(args.yaml))
-    local decisions = decisions_map_of(args.decisions)
-    local report = app_apply.apply_update(package, decisions, {
-      allow_downgrade = args.allowDowngrade == true
+    local decision_info = decisions_map_of(args.decisions)
+    local report = app_apply.apply_update(package, decision_info.choices, {
+      allow_downgrade = args.allowDowngrade == true,
+      rename_names = decision_info.names
     })
     return apply_report_shape(report)
   end,

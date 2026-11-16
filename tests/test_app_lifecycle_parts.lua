@@ -42,7 +42,10 @@ local YAML_PAGE = [[layout:
     - widget:
         title: v3b
         space: v3b_books
-]]
+    - widget:
+        title: Custom
+        space: v3b_books
+        type: ]] .. PLUG_N .. [[]]
 local FIX = { }
 local seed_opts = { }
 local META = {

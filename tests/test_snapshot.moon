@@ -196,11 +196,11 @@ R.describe "importSnapshot — widget plugins", ->
     result = export_r.Mutation.importSnapshot nil, { yaml: snap_yaml, mode: 'merge' }, ADMIN_CTX
     R.ok result
     R.ok result.ok
-    tuple = box.space._tdb_widget_plugins.index.by_name\get PLUGIN
+    tuple = box.space._tdb_widget_plugins.index.by_scope_name\get { '', PLUGIN }
     R.ok tuple
 
   R.it "cleanup imported widget plugin", ->
-    tuple = box.space._tdb_widget_plugins.index.by_name\get PLUGIN
+    tuple = box.space._tdb_widget_plugins.index.by_scope_name\get { '', PLUGIN }
     box.space._tdb_widget_plugins\delete tuple[1] if tuple
 
 -- ────────────────────────────────────────────────────────────────────────────

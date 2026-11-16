@@ -4,6 +4,7 @@ local perms_mod = require('core.permissions')
 local auth_mod = require('core.auth')
 local view_presets = require('core.view_presets')
 local app_package = require('core.app_package')
+local widget_scopes = require('core.widget_scopes')
 local executor = require('graphql.executor')
 local uuid_mod = require('uuid')
 local yaml = require('yaml')
@@ -715,7 +716,7 @@ do_import = function(snap, mode)
   local _list_5 = (snap.schema and snap.schema.widget_plugins or { })
   for _index_0 = 1, #_list_5 do
     local iwp = _list_5[_index_0]
-    local existing_wp = box.space._tdb_widget_plugins.index.by_name:get(iwp.name)
+    local existing_wp = widget_scopes.find_row(iwp.name, nil)
     if existing_wp then
       skipped = skipped + 1
     else
@@ -732,7 +733,8 @@ do_import = function(snap, mode)
           iwp.templateCode or '',
           now,
           now,
-          iwp.manifest or ''
+          iwp.manifest or '',
+          ''
         })
       end)
       if ok then

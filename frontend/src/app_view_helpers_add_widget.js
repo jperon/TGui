@@ -81,7 +81,7 @@
     // du radio est le NOM du plugin : c'est ce que `_renderWidget` attend dans
     // `type` du nœud YAML.
     _makeWidgetTypePluginOption: function(plugin) {
-      var desc, input, label, name, option, safeId;
+      var desc, input, label, name, option, ref, safeId, scope, scopeEl;
       name = plugin.name;
       option = document.createElement('div');
       option.className = 'widget-type-option widget-type-option--plugin';
@@ -96,6 +96,15 @@
       label = document.createElement('label');
       label.setAttribute('for', input.id);
       label.textContent = name;
+      // Portée de la définition (spec widgets personnalisés §5) : la page voit la
+      // définition de son app en priorité, puis celle de la bibliothèque.
+      scope = (ref = window.WidgetPlugins) != null ? typeof ref.scopeLabel === "function" ? ref.scopeLabel(plugin) : void 0 : void 0;
+      if (scope) {
+        scopeEl = document.createElement('span');
+        scopeEl.className = 'widget-type-option-scope';
+        scopeEl.textContent = ` (${scope})`;
+        label.appendChild(scopeEl);
+      }
       if (plugin.description) {
         desc = document.createElement('span');
         desc.className = 'widget-type-option-desc';
@@ -153,13 +162,16 @@
       return list.appendChild(message);
     },
     _reloadWidgetTypePlugins: function(app) {
-      var api;
+      var api, pageId;
       api = window.WidgetPlugins;
       if (!(api != null ? api.list : void 0)) {
         window.AppViewHelpers._renderWidgetTypePluginsError('API WidgetPlugins indisponible');
         return Promise.resolve([]);
       }
-      return api.list().then(function(plugins) {
+      // Les définitions listées sont celles que voit la page ouverte : sa portée
+      // d'abord, puis la bibliothèque.
+      pageId = window.AppViewHelpers._resolveAddWidgetViewId(app, window.location.hash);
+      return api.list(pageId ? {pageId} : {}).then(function(plugins) {
         window.AppViewHelpers._renderWidgetTypePlugins(plugins || []);
         return plugins || [];
       }).catch(function(err) {

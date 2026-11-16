@@ -47,7 +47,10 @@ plugin_input = function(name)
 end
 local plugin_exists
 plugin_exists = function(name)
-  local p = box.space._tdb_widget_plugins.index.by_name:get(name)
+  local p = box.space._tdb_widget_plugins.index.by_scope_name:get({
+    '',
+    name
+  })
   return p ~= nil
 end
 R.describe("WidgetPlugins — le code du plugin exige le niveau admin", function()

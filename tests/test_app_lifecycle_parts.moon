@@ -57,6 +57,10 @@ layout:
     - widget:
         title: v3b
         space: v3b_books
+    - widget:
+        title: Custom
+        space: v3b_books
+        type: ]] .. PLUG_N .. [[
 ]]
 
 FIX = {}

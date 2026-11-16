@@ -1110,6 +1110,29 @@ TGui peut empaqueter une application complète dans un fichier `.tdbapp.yaml`, l
 
 L'en-tête d'un paquet est `app: {id, name, version, description}` ; `version` suit le format `x.y.z`. Les éléments sont identifiés par des clés stables (`space:<name>`, `field:<space>.<name>`, `view:<space>.<name>`, `page:<name>`, `dataview:<name>`, `preset:<portée portable>|<name>`, `plugin:<name>`, `group:<name>`, `perm:<group>|<type>|<resource>|<level>`, `seed:<space>|<value>`) ; un renommage est déclaré avec `renamed_from`. La portée d'un préréglage de vue est portable : `widget:<nom de page>:<id de widget>` ou `space:<nom d'espace>`, jamais un id local.
 
+### Définitions de widgets dans un paquet
+
+Seules les définitions de widgets **référencées par les pages** du paquet sont embarquées, globales comprises. Chaque élément `plugin:<nom>` porte un champ `origin` :
+
+| `origin` | Sens |
+|---|---|
+| `app` | définition propre à l'app (portée de l'app à l'installation) |
+| `library` | définition de la bibliothèque (globale) |
+
+`origin` est **hors de l'empreinte** : l'empreinte couvre le manifest, le script, le gabarit et leurs langages. Deux copies identiques du même code dans deux portées ont donc la même empreinte.
+
+À l'installation, par définition livrée :
+
+| Cible | Action |
+|---|---|
+| Absente | créée dans sa portée d'origine (`app` ou bibliothèque) |
+| Présente, même empreinte | réutilisée |
+| Présente, empreinte différente | conflit : `local`, `delivered` ou `rename` |
+
+Un conflit sur une définition de widget liste aussi les **pages touchées** (`pages`). Le choix `rename` — le défaut — crée la définition livrée sous un autre nom (`<nom>_imported`, ou le `newName` fourni dans `AppDecisionInput`) et réécrit les lignes `type:` des pages livrées. Les choix `local` et `delivered` conservent ou remplacent la définition locale.
+
+Une définition globale utilisée par une page ne peut pas être supprimée : `deleteWidgetPlugin` échoue en listant les pages.
+
 ### GraphQL API
 
 ```graphql
@@ -1132,7 +1155,7 @@ query {
   previewAppUpdate(yaml: "...") {
     create { key type isCode }
     update { key type isCode }
-    conflict { key type local delivered }
+    conflict { key type local delivered pages }
     keepLocal { key type }
     obsolete
     rename { from to }
@@ -1163,5 +1186,5 @@ mutation {
 ```
 
 - `previewAppUpdate` et `previewAppPurge` n'écrivent jamais.
-- `applyAppUpdate` est atomique et exige une décision (`local` ou `delivered`) pour chaque conflit.
+- `applyAppUpdate` est atomique et exige une décision (`local`, `delivered` ou, pour une définition de widget, `rename`) pour chaque conflit ; sans décision, une définition de widget est importée sous un autre nom.
 - `purgeAppObsolete` exige `confirmed: true` et n'accepte que les éléments dont l'état suivi est obsolète.

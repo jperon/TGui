@@ -2,7 +2,7 @@
 
 > Auto-generated file. Do not edit manually.
 >
-> Generated at: 2026-10-07 23:08:51 UTC
+> Generated at: 2026-11-16 16:05:09 UTC
 >
 > Source: `schema/tdb.graphql`
 
@@ -39,14 +39,19 @@
 | `dataViews` | `-` | `[DataView!]!` | Create, update and execute Data Views (server-side filters, joins and aggregations). |
 | `dataView` | `id: ID!` | `DataView` | Create, update and execute Data Views (server-side filters, joins and aggregations). |
 | `executeDataView` | `id: ID!, limit: Int, offset: Int` | `[JSON!]!` | Create, update and execute Data Views (server-side filters, joins and aggregations). |
-| `viewPresets` | `scope: String!, spaceId: ID!` | `[ViewPreset!]!` | List the named view presets (filter + sort) of one widget or space grid. |
+
+### View Presets
+
+| Operation | Arguments | Return | Description |
+|---|---|---|---|
+| `viewPresets` | `scope: String!, spaceId: ID!` | `[ViewPreset!]!` | List, save or delete a named view preset (filter + sort) of one widget or space grid. |
 
 ### Widget Plugins
 
 | Operation | Arguments | Return | Description |
 |---|---|---|---|
-| `widgetPlugins` | `-` | `[WidgetPlugin!]!` | Manage custom widget plugins (script + template) usable in views. |
-| `widgetPlugin` | `id: ID, name: String` | `WidgetPlugin` | Manage custom widget plugins (script + template) usable in views. |
+| `widgetPlugins` | `appId: String, pageId: ID` | `[WidgetPlugin!]!` | Manage custom widget plugins (script + template) usable in views. |
+| `widgetPlugin` | `id: ID, name: String, pageId: ID` | `WidgetPlugin` | Manage custom widget plugins (script + template) usable in views. |
 
 ### Layouts & Zones
 
@@ -132,8 +137,13 @@
 | `updateDataView` | `id: ID!, input: DataViewInput!` | `DataView!` | Create, update and execute Data Views (server-side filters, joins and aggregations). |
 | `deleteDataView` | `id: ID!` | `Boolean!` | Create, update and execute Data Views (server-side filters, joins and aggregations). |
 | `addDataViewToPage` | `pageId: ID!, dataViewId: ID!` | `CustomView!` | Create, update and execute Data Views (server-side filters, joins and aggregations). |
-| `saveViewPreset` | `scope: String!, spaceId: ID!, name: String!, filter: String, sort: String` | `ViewPreset!` | Create or overwrite a named view preset (filter + sort) for one widget or space grid. |
-| `deleteViewPreset` | `id: ID!` | `Boolean!` | Delete a named view preset. |
+
+### View Presets
+
+| Operation | Arguments | Return | Description |
+|---|---|---|---|
+| `saveViewPreset` | `scope: String!, spaceId: ID!, name: String!, filter: String, sort: String` | `ViewPreset!` | List, save or delete a named view preset (filter + sort) of one widget or space grid. |
+| `deleteViewPreset` | `id: ID!` | `Boolean!` | List, save or delete a named view preset (filter + sort) of one widget or space grid. |
 
 ### Widget Plugins
 

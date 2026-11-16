@@ -2,7 +2,7 @@
 
 > Auto-generated file. Do not edit manually.
 >
-> Generated at: 2026-11-16 12:40:47 UTC
+> Generated at: 2026-11-16 16:05:09 UTC
 
 Backend/frontend test panorama and per-file intent.
 
@@ -44,6 +44,7 @@ Backend/frontend test panorama and per-file intent.
 | `tests/test_formula_space_readonly.moon` | Le cache par requête de space() est partagé entre toutes les évaluations |
 | `tests/test_graphql_flattener.moon` | Tests for GraphQL Flattener with list support |
 | `tests/test_graphql_integration_working.moon` | Working integration tests for GraphQL Builder system |
+| `tests/test_html.moon` | Tests backend/html.lua and the convention used by its callers. |
 | `tests/test_http_static.moon` | Task 3 — fichiers statiques : garde-fous anti-traversal de chemin. |
 | `tests/test_import_snapshot_format.moon` | importSnapshot must refuse documents that are not snapshots BEFORE do_import |
 | `tests/test_index_html.moon` | Garde-fou : le HTML de la SPA doit inclure tous les bundles vendor requis. |
@@ -78,6 +79,7 @@ Backend/frontend test panorama and per-file intent.
 | `tests/test_widget_plugin_manifest.moon` | Manifest des widgets personnalisés (spec |
 | `tests/test_widget_plugin_permissions.moon` | Écriture du code d'un widget plugin = exécution de code dans le navigateur |
 | `tests/test_widget_plugins.moon` | Tests CRUD operations on widget plugins (resolvers/widget_plugin_resolvers.moon). |
+| `tests/test_widget_scopes.moon` | Portées des définitions de widgets personnalisés (spec |
 | `tests/test_zone_merge_split.moon` | Tests for the mergeZones and splitZone mutations. |
 | `tests/js/dom_stub.coffee` | tests/js/dom_stub.coffee — minimal DOM stub for Node.js |
 | `tests/js/run.coffee` | tests/js/run.coffee — runs all test_*.coffee files sequentially |
@@ -109,6 +111,7 @@ Backend/frontend test panorama and per-file intent.
 | `tests/js/test_modal_keydown.coffee` | tests/js/test_modal_keydown.coffee — retrait du handler keydown des modales. |
 | `tests/js/test_page_widget_filter_focus.coffee` | tests/js/test_page_widget_filter_focus.coffee — focus du champ λ d'un widget de page. |
 | `tests/js/test_password_policy.coffee` | Forced default-password change, frontend side (spec §7 / audit 1.4): |
+| `tests/js/test_plugin_runtimes.coffee` | tests/js/test_plugin_runtimes.coffee — on-demand widget compiler loading |
 | `tests/js/test_relation_display_frontend.coffee` | Static frontend tests (Node) for relation display. |
 | `tests/js/test_relation_display_frontend_regression.coffee` | Targeted regressions for frontend relation rendering. |
 | `tests/js/test_sidebar_helpers.coffee` | Handler « nouvel espace » de la barre latérale (AppSidebarHelpers.bindSidebar) : |
@@ -121,4 +124,5 @@ Backend/frontend test panorama and per-file intent.
 | `tests/js/test_widget_manifest_access.coffee` | Manifest des widgets personnalisés : accès effectif (none/read/full), |
 | `tests/js/test_widget_plugins_dedup.coffee` | T13 guard: LIST_WIDGET_PLUGINS must be defined in exactly one frontend source |
 | `tests/js/test_widget_relay_header.coffee` | Le relais des requêtes d'un widget (custom_view_plugins.coffee) doit passer |
+| `tests/js/test_widget_scope_label.coffee` | Portées des widgets personnalisés côté frontend (spec |
 | `tests/js/test_yaml_builder.coffee` | tests/js/test_yaml_builder.coffee — tests for YamlBuilder (yaml_builder.js) |

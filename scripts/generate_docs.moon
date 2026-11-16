@@ -278,6 +278,7 @@ DOMAIN_LABELS =
   spaces_fields: 'Spaces & Fields'
   views: 'Views'
   data_views: 'Data Views'
+  view_presets: 'View Presets'
   widget_plugins: 'Widget Plugins'
   layouts: 'Layouts & Zones'
   relations: 'Relations'
@@ -295,6 +296,8 @@ describe_operation = (op_name, kind) ->
     return "Manage standard and custom views."
   if domain == 'data_views'
     return "Create, update and execute Data Views (server-side filters, joins and aggregations)."
+  if domain == 'view_presets'
+    return "List, save or delete a named view preset (filter + sort) of one widget or space grid."
   if domain == 'widget_plugins'
     return "Manage custom widget plugins (script + template) usable in views."
   if domain == 'layouts'
@@ -362,7 +365,7 @@ append_examples = (out) ->
 
 append_operation_groups = (out, rows, kind) ->
   grouped = rows_by_domain rows
-  ordering = { 'spaces_fields', 'views', 'data_views', 'widget_plugins', 'layouts', 'relations', 'records', 'auth', 'users_groups', 'snapshot', 'misc' }
+  ordering = { 'spaces_fields', 'views', 'data_views', 'view_presets', 'widget_plugins', 'layouts', 'relations', 'records', 'auth', 'users_groups', 'snapshot', 'misc' }
   for domain in *ordering
     items = grouped[domain]
     continue unless items and #items > 0

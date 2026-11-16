@@ -7,6 +7,7 @@ local perms_mod = require('core.permissions')
 local data_views = require('core.data_views')
 local view_presets = require('core.view_presets')
 local app_package = require('core.app_package')
+local widget_scopes = require('core.widget_scopes')
 local plan_update
 plan_update = require('core.app_plan').plan_update
 local TYPE_ORDER = {
@@ -55,7 +56,7 @@ _split_scope = function(key, prefix)
   return _scope_name(rest)
 end
 local _normalize_item
-_normalize_item = function(entry, errors)
+_normalize_item = function(entry, errors, package_app_id)
   if not (type(entry) == 'table') then
     table.insert(errors, 'package item must be a table')
     return nil
@@ -72,6 +73,11 @@ _normalize_item = function(entry, errors)
     table.insert(errors, "package item " .. tostring(entry.key) .. " is missing content")
     return nil
   end
+  local origin = entry.origin
+  if origin ~= nil and origin ~= 'app' and origin ~= 'library' then
+    table.insert(errors, "package item " .. tostring(entry.key) .. " has an unknown origin '" .. tostring(tostring(origin)) .. "' (expected 'app' or 'library')")
+    return nil
+  end
   local content = app_package.normalize_content(entry.type, app_package.strip_null(entry.content))
   local item = {
     type = entry.type,
@@ -81,6 +87,12 @@ _normalize_item = function(entry, errors)
   }
   if entry.renamed_from then
     item.renamed_from = entry.renamed_from
+  end
+  if entry.type == 'plugin' then
+    item.origin = origin or 'library'
+  end
+  if item.origin == 'app' and package_app_id then
+    item.app_scope = package_app_id
   end
   return item
 end
@@ -120,7 +132,7 @@ _normalize = function(package)
   local _list_0 = package.items
   for _index_0 = 1, #_list_0 do
     local entry = _list_0[_index_0]
-    local item = _normalize_item(entry, errors)
+    local item = _normalize_item(entry, errors, pkg.app.id)
     if item then
       table.insert(pkg.items, item)
     end
@@ -169,14 +181,15 @@ _installed_version = function(app_id)
   return t and t[3] or nil
 end
 local _local_state
-_local_state = function(item_type, key)
-  local content = app_package.describe_local(item_type, key)
+_local_state = function(item_type, key, app_scope)
+  local content = app_package.describe_local(item_type, key, app_scope)
   if not (content) then
     return nil
   end
   return {
     fingerprint = app_package.fingerprint(content),
-    content = content
+    content = content,
+    app_id = app_scope
   }
 end
 local _space_renames
@@ -338,7 +351,9 @@ _expand_renames = function(package, installed)
           type = it.type,
           key = it.key,
           content = it.content,
-          fingerprint = it.fingerprint
+          fingerprint = it.fingerprint,
+          origin = it.origin,
+          app_scope = it.app_scope
         })
         _continue_0 = true
         break
@@ -355,7 +370,9 @@ _expand_renames = function(package, installed)
           key = it.key,
           content = it.content,
           fingerprint = it.fingerprint,
-          renamed_from = old_key
+          renamed_from = old_key,
+          origin = it.origin,
+          app_scope = it.app_scope
         })
       else
         table.insert(items, it)
@@ -374,10 +391,18 @@ _expand_renames = function(package, installed)
 end
 local _build_local_states
 _build_local_states = function(package, installed)
-  local types = { }
+  local scopes = { }
   local _list_0 = package.items
   for _index_0 = 1, #_list_0 do
     local it = _list_0[_index_0]
+    if it.key then
+      scopes[it.key] = it.app_scope
+    end
+  end
+  local types = { }
+  local _list_1 = package.items
+  for _index_0 = 1, #_list_1 do
+    local it = _list_1[_index_0]
     if it.key then
       types[it.key] = it.type
     end
@@ -390,7 +415,7 @@ _build_local_states = function(package, installed)
   end
   local states = { }
   for key, item_type in pairs(types) do
-    local state = _local_state(item_type, key)
+    local state = _local_state(item_type, key, scopes[key])
     if state then
       states[key] = state
     end
@@ -498,8 +523,20 @@ _check_decisions = function(conflicts, decisions)
         break
       end
       local d = decisions[entry.key]
+      if d == nil and entry.type == 'plugin' then
+        decisions[entry.key] = 'rename'
+        _continue_0 = true
+        break
+      end
+      if d == 'rename' then
+        if entry.type ~= 'plugin' then
+          return "conflict on '" .. tostring(entry.key) .. "' cannot be resolved by importing under another name (only widget definitions can)"
+        end
+        _continue_0 = true
+        break
+      end
       if not (d == 'local' or d == 'delivered') then
-        return "conflict on '" .. tostring(entry.key) .. "' requires a decision ('local' or 'delivered')"
+        return "conflict on '" .. tostring(entry.key) .. "' requires a decision ('local', 'delivered' or, for a widget definition, 'rename')"
       end
       _continue_0 = true
     until true
@@ -508,6 +545,155 @@ _check_decisions = function(conflicts, decisions)
     end
   end
   return nil
+end
+local _type_line_value
+_type_line_value = function(value)
+  local v = value:match('^([^#]*)' or value)
+  v = v:match('^%s*(.-)%s*$')
+  if #v >= 2 then
+    local q = v:sub(1, 1)
+    if (q == '"' or q == "'") and v:sub(-1) == q then
+      v = v:sub(2, -2)
+    end
+  end
+  return v
+end
+local _rewrite_type_line
+_rewrite_type_line = function(line, renames)
+  local prefix, value, suffix = line:match('^(%s*type:%s*)(.-)(%s*)$')
+  if not (prefix and value) then
+    return line
+  end
+  local name = _type_line_value(value)
+  if not (renames[name]) then
+    return line
+  end
+  local new_name = renames[name]
+  local quote = value:match("^(['\"])")
+  if quote == "'" then
+    new_name = "'" .. tostring(new_name) .. "'"
+  end
+  if quote == '"' then
+    new_name = '"' .. new_name .. '"'
+  end
+  return prefix .. new_name .. suffix
+end
+local _rename_page_types
+_rename_page_types = function(text, renames)
+  if type(text) ~= 'string' or next(renames) == nil then
+    return text
+  end
+  local out = { }
+  local pos = 1
+  while pos <= #text do
+    local nl = text:find('\n', pos, true)
+    local line_end
+    if nl then
+      line_end = nl
+    else
+      line_end = #text
+    end
+    local line = text:sub(pos, line_end)
+    pos = line_end + 1
+    table.insert(out, _rewrite_type_line(line, renames))
+  end
+  return table.concat(out)
+end
+local _rename_targets
+_rename_targets = function(pkg, plan, decisions, new_names)
+  local targets = { }
+  local used = { }
+  local _list_0 = plan.conflict
+  for _index_0 = 1, #_list_0 do
+    local _continue_0 = false
+    repeat
+      local c = _list_0[_index_0]
+      local entry = c[1]
+      if not (entry.type == 'plugin' and decisions[entry.key] == 'rename') then
+        _continue_0 = true
+        break
+      end
+      local requested = new_names and new_names[entry.key]
+      if not (widget_scopes.valid_name(requested)) then
+        requested = entry.content.name .. '_imported'
+      end
+      local base = requested
+      local candidate = base
+      local suffix = 2
+      while widget_scopes.find_row(candidate, entry.app_scope) or used[candidate] do
+        candidate = tostring(base) .. "_" .. tostring(suffix)
+        suffix = suffix + 1
+      end
+      used[candidate] = true
+      targets[entry.key] = candidate
+      _continue_0 = true
+    until true
+    if not _continue_0 then
+      break
+    end
+  end
+  return targets
+end
+local _apply_renames
+_apply_renames = function(pkg, targets)
+  if next(targets) == nil then
+    return {
+      package = pkg,
+      pages = { }
+    }
+  end
+  local renames = { }
+  for key, new_name in pairs(targets) do
+    local old_name = _after(key, 'plugin:')
+    if old_name then
+      renames[app_package.unkey_part(old_name)] = new_name
+    end
+  end
+  local items = { }
+  local pages = { }
+  local _list_0 = pkg.items
+  for _index_0 = 1, #_list_0 do
+    local it = _list_0[_index_0]
+    if it.type == 'plugin' and targets[it.key] then
+      local new_name = targets[it.key]
+      local content = { }
+      for k, v in pairs(it.content) do
+        content[k] = v
+      end
+      content.name = new_name
+      table.insert(items, {
+        type = it.type,
+        key = "plugin:" .. tostring(app_package.key_part(new_name)),
+        content = content,
+        fingerprint = app_package.fingerprint(content),
+        origin = it.origin,
+        app_scope = it.app_scope
+      })
+    elseif it.type == 'page' then
+      local content = { }
+      for k, v in pairs(it.content) do
+        content[k] = v
+      end
+      content.yaml = _rename_page_types(content.yaml, renames)
+      pages[it.key] = true
+      table.insert(items, {
+        type = it.type,
+        key = it.key,
+        content = content,
+        fingerprint = app_package.fingerprint(content)
+      })
+    else
+      table.insert(items, it)
+    end
+  end
+  return {
+    package = {
+      app = pkg.app,
+      items = items,
+      seed_keys = pkg.seed_keys
+    },
+    pages = pages
+  }
 end
 local _empty_report
 _empty_report = function()
@@ -708,9 +894,9 @@ _resolve_preset_id = function(key)
   return row and row[1]
 end
 local _resolve_plugin_id
-_resolve_plugin_id = function(key)
+_resolve_plugin_id = function(key, app_scope)
   local name = _after(key, 'plugin:')
-  local row = name and box.space._tdb_widget_plugins.index.by_name:get(app_package.unkey_part(name))
+  local row = name and widget_scopes.find_row(app_package.unkey_part(name), app_scope)
   return row and row[1]
 end
 local _resolve_group_id
@@ -720,7 +906,7 @@ _resolve_group_id = function(key)
   return g and g.id
 end
 local _resolve_local_id
-_resolve_local_id = function(item_type, key)
+_resolve_local_id = function(item_type, key, app_scope)
   if not (key) then
     return nil
   end
@@ -748,7 +934,7 @@ _resolve_local_id = function(item_type, key)
     return _resolve_preset_id(key)
   end
   if item_type == 'plugin' then
-    return _resolve_plugin_id(key)
+    return _resolve_plugin_id(key, app_scope)
   end
   if item_type == 'group' then
     return _resolve_group_id(key)
@@ -1059,7 +1245,8 @@ _create_plugin = function(entry)
     c.templateCode or '',
     now,
     now,
-    c.manifest or ''
+    c.manifest or '',
+    widget_scopes.scope_column(entry.app_scope)
   })
   return {
     id = id
@@ -1205,7 +1392,7 @@ _record = function(app_id, version, item_type, key, local_id, fingerprint, state
 end
 local _record_kept
 _record_kept = function(ctx, entry, old, fingerprint)
-  local local_id = old and old.local_id or _resolve_local_id(entry.type, entry.key)
+  local local_id = old and old.local_id or _resolve_local_id(entry.type, entry.key, entry.app_scope)
   return _record(ctx.pkg.app.id, ctx.pkg.app.version, entry.type, entry.key, local_id, fingerprint, 'actif')
 end
 local _do_creates
@@ -1276,6 +1463,17 @@ _do_updates = function(ctx)
     end
   end
 end
+local _local_old_of
+_local_old_of = function(ctx, entry)
+  local old = _effective_old(ctx, entry)
+  if old then
+    return old
+  end
+  local local_id = _resolve_local_id(entry.type, entry.key, entry.app_scope)
+  return local_id and {
+    local_id = local_id
+  } or nil
+end
 local _do_conflicts
 _do_conflicts = function(ctx)
   local _list_0 = _order_conflicts(ctx.plan.conflict)
@@ -1292,12 +1490,15 @@ _do_conflicts = function(ctx)
         _continue_0 = true
         break
       end
-      local old = _effective_old(ctx, entry)
+      local old = _local_old_of(ctx, entry)
       local resolution = ctx.decisions[entry.key]
       if resolution == 'delivered' then
         local ex = EXECUTORS[entry.type]
         if not (ex and ex.update) then
           error("unsupported type '" .. tostring(entry.type) .. "'")
+        end
+        if not (old) then
+          error("cannot replace unknown item '" .. tostring(entry.key) .. "'")
         end
         local result = ex.update(entry, old)
         _record(ctx.pkg.app.id, ctx.pkg.app.version, entry.type, entry.key, result.id, entry.fingerprint, 'actif')
@@ -1359,7 +1560,7 @@ _do_unchanged = function(ctx)
         break
       end
       local old = _effective_old(ctx, item)
-      local local_id = old and old.local_id or _resolve_local_id(item.type, key)
+      local local_id = old and old.local_id or _resolve_local_id(item.type, key, item.app_scope)
       _record(ctx.pkg.app.id, ctx.pkg.app.version, item.type, key, local_id, item.fingerprint, 'actif')
       table.insert(ctx.report.unchanged, key)
       _continue_0 = true
@@ -2363,6 +2564,36 @@ apply_update = function(package, decisions, opts)
     return _abort(report, {
       conflict_error
     })
+  end
+  local targets = _rename_targets(pkg, plan, decisions, opts.rename_names)
+  if next(targets) ~= nil then
+    local rewritten = _apply_renames(pkg, targets)
+    pkg = rewritten.package
+    pkg_map = { }
+    local _list_1 = pkg.items
+    for _index_0 = 1, #_list_1 do
+      local it = _list_1[_index_0]
+      pkg_map[it.key] = it
+    end
+    local_states = _build_local_states(pkg, installed)
+    plan = plan_update(installed, pkg, local_states, _effective_opts(pkg.app.id, opts))
+    if #plan.errors > 0 then
+      return _abort(report, plan.errors)
+    end
+    local _list_2 = plan.conflict
+    for _index_0 = 1, #_list_2 do
+      local c = _list_2[_index_0]
+      local entry = c[1]
+      if rewritten.pages[entry.key] and decisions[entry.key] == nil then
+        decisions[entry.key] = 'delivered'
+      end
+    end
+    conflict_error = _check_decisions(plan.conflict, decisions)
+    if conflict_error then
+      return _abort(report, {
+        conflict_error
+      })
+    end
   end
   local _list_1 = plan.obsolete
   for _index_0 = 1, #_list_1 do

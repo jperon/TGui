@@ -365,13 +365,31 @@ Pick it as the widget type:
 
 The same window links to the plugin editor (**New custom widget…**, admins only).
 
+#### Definition scope
+
+A definition lives in **exactly one scope**:
+
+- the **library** (global): usable from every page of the instance;
+- one **installed app**: the definition belongs to that app's package.
+
+A page instance resolves the definition of the **page's app** (the app that delivered the
+page) first, then the library one. A name is unique **per scope** only: two apps, or an app
+and the library, may define the same name without clashing. The **＋ Widget** window and the
+editor show the scope (`library` or `app <id>`), and the editor lets you choose it when
+creating a definition (it can be changed later).
+
+Deleting a library definition still used by a page is **refused**: the message lists the
+pages. Changing the scope of a used definition is refused too (the pages resolving it
+would lose their widget). A definition owned by an app goes away with it.
+
 #### Create a plugin
 
 1. Open a custom view.
 2. Click **🧩 Plugins** in the view toolbar.
 3. Click **+ New**.
-4. Fill `name` (the widget `type` in YAML), the description, the script language and code,
-   the template language and code, and optionally the **YAML manifest** (third editor).
+4. Fill `name` (the widget `type` in YAML), the description, the **scope** (library or
+   app), the script language and code, the template language and code, and optionally the
+   **YAML manifest** (third editor).
 5. Click **💾 Save**, then close (`✕`) to reload the pages using the plugin.
 
 #### Plugin script contract

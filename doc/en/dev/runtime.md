@@ -2,7 +2,7 @@
 
 > Auto-generated file. Do not edit manually.
 >
-> Generated at: 2026-11-16 12:40:47 UTC
+> Generated at: 2026-11-16 16:05:09 UTC
 
 Tarantool startup, HTTP lifecycle and subsystem initialization details.
 
@@ -26,6 +26,7 @@ Tarantool startup, HTTP lifecycle and subsystem initialization details.
 | `backend/core/view_presets.moon` | CRUD for named view presets (a MoonScript filter plus a sort order) |
 | `backend/core/views.moon` | Manage view definitions: named projections over a data space. |
 | `backend/core/widget_ids.moon` | guarantees that every widget of a custom-view (page) YAML document |
+| `backend/core/widget_scopes.moon` | Portées des définitions de widgets personnalisés (spec |
 | `backend/fixtures.moon` | Fixtures du conteneur de test : sur une base vide, installe l'application |
 | `backend/generate_sdl.moon` | CLI entrypoint to generate passive SDL artifact. |
 | `backend/graphql/dynamic.moon` | Generates GraphQL SDL and resolvers dynamically from space metadata. |

@@ -260,7 +260,9 @@
         return;
       }
       this._setMessage(container, `Chargement du plugin ${pluginName}…`, 'color:#888;padding:.5rem');
-      return WidgetPlugins.getByName(pluginName).then((plugin) => {
+      // Résolution par portée : définition de l'app de la page, puis globale
+      // (spec widgets personnalisés §5). `@pageId` est l'id de la page montée.
+      return WidgetPlugins.getByName(pluginName, this.pageId).then((plugin) => {
         var access, manifest, mapping, missing, space, widgetId;
         if (!plugin) {
           this._setMessage(container, `Plugin introuvable : ${pluginName}`, 'color:#c55;padding:.5rem');

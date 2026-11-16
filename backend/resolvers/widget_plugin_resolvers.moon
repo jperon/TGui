@@ -4,6 +4,7 @@
 uuid_mod = require 'uuid'
 clock = require 'clock'
 yaml = require 'yaml'
+scopes = require 'core.widget_scopes'
 { :require_auth, :require_perm } = require 'resolvers.utils'
 
 VALID_SCRIPT_LANGS = {
@@ -174,29 +175,46 @@ tuple_to_plugin = (t) ->
     scriptCode: t[6] or ''
     templateCode: t[7] or ''
     manifest: t[10] or ''
+    appId: scopes.row_app_id t
     createdAt: tostring t[8]
     updatedAt: tostring t[9]
   }
 
-list_widget_plugins = ->
-  result = {}
-  for t in *box.space._tdb_widget_plugins\select {}
-    table.insert result, tuple_to_plugin t
-  table.sort result, (a, b) -> a.name < b.name
-  result
+-- ────────────────────────────────────────────────────────────────────────────
+-- Portées (spec §5)
+-- ────────────────────────────────────────────────────────────────────────────
+
+-- Une app cible doit exister : sans ce contrôle, une faute de frappe créerait
+-- une définition que personne ne verrait (portée inexistante).
+validate_app_scope = (app_id) ->
+  scope = scopes.scope_of app_id
+  return nil unless scope
+  unless box.space._tdb_apps\get scope
+    error "Unknown app for widget scope: #{scope}"
+  scope
+
+-- Portée de la définition : celle demandée pour une création, celle de la
+-- ligne pour une mise à jour sans `appId`.
+plugin_scope = (t) ->
+  scopes.row_app_id t
+
+-- Nom unique DANS LA PORTÉE (spec §5) : la même définition peut exister dans
+-- la bibliothèque et dans plusieurs apps.
+assert_unique_name = (name, ignore_id, app_id) ->
+  existing = scopes.find_row name, app_id
+  if existing and existing[1] != ignore_id
+    error "WidgetPlugin name already exists: #{name}"
 
 get_widget_plugin = (id, name) ->
   t = nil
   if id
     t = box.space._tdb_widget_plugins\get id
   elseif name
-    t = box.space._tdb_widget_plugins.index.by_name\get name
+    -- by_name n'est plus unique (même nom dans plusieurs portées) : plusieurs
+    -- lignes possibles, on renvoie la première dans l'ordre de l'index.
+    rows = box.space._tdb_widget_plugins.index.by_name\select { name, limit: 1 }
+    t = rows[1]
   tuple_to_plugin t
-
-assert_unique_name = (name, ignore_id = nil) ->
-  existing = box.space._tdb_widget_plugins.index.by_name\get name
-  if existing and existing[1] != ignore_id
-    error "WidgetPlugin name already exists: #{name}"
 
 create_widget_plugin = (input) ->
   name = validate_name input.name
@@ -206,12 +224,13 @@ create_widget_plugin = (input) ->
   script_code = validate_script_code input.scriptCode
   template_code = validate_template_code input.templateCode
   manifest = validate_manifest input.manifest
+  app_id = validate_app_scope input.appId
 
-  assert_unique_name name
+  assert_unique_name name, nil, app_id
 
   id = tostring uuid_mod.new!
   now = clock.time!
-  box.space._tdb_widget_plugins\insert { id, name, description, script_lang, template_lang, script_code, template_code, now, now, manifest }
+  box.space._tdb_widget_plugins\insert { id, name, description, script_lang, template_lang, script_code, template_code, now, now, manifest, scopes.scope_column(app_id) }
   tuple_to_plugin box.space._tdb_widget_plugins\get id
 
 update_widget_plugin = (id, input) ->
@@ -225,24 +244,57 @@ update_widget_plugin = (id, input) ->
   script_code = if input.scriptCode != nil then validate_script_code(input.scriptCode) else (t[6] or '')
   template_code = if input.templateCode != nil then validate_template_code(input.templateCode) else (t[7] or '')
   manifest = if input.manifest != nil then validate_manifest(input.manifest) else (t[10] or '')
+  -- `appId: ''` (ou null) déplace la définition vers la bibliothèque ; absent
+  -- la laisse dans sa portée.
+  app_id = if input.appId != nil then validate_app_scope(input.appId) else plugin_scope(t)
+  if scopes.scope_column(app_id) != scopes.scope_column(plugin_scope(t))
+    -- Déplacer une définition utilisée casserait les pages qui la résolvent :
+    -- on refuse en les listant (même règle que la suppression).
+    used = scopes.pages_using t
+    if #used > 0
+      error "WidgetPlugin '#{t[2]}' is used by page(s): #{table.concat used, ', '} — it cannot change scope"
 
-  assert_unique_name name, id
+  assert_unique_name name, id, app_id
 
   now = clock.time!
-  box.space._tdb_widget_plugins\replace { id, name, description, script_lang, template_lang, script_code, template_code, t[8], now, manifest }
+  box.space._tdb_widget_plugins\replace { id, name, description, script_lang, template_lang, script_code, template_code, t[8], now, manifest, scopes.scope_column(app_id) }
   tuple_to_plugin box.space._tdb_widget_plugins\get id
 
+-- Une définition de la bibliothèque encore utilisée par une page ne peut pas
+-- être supprimée : l'erreur nomme les pages (spec §5). Une définition propre à
+-- une app est supprimée par l'app qui la possède.
 delete_widget_plugin = (id) ->
+  t = box.space._tdb_widget_plugins\get id
+  error "WidgetPlugin not found: #{id}" unless t
+  used = scopes.pages_using t
+  if not plugin_scope(t) and #used > 0
+    error "WidgetPlugin '#{t[2]}' is used by page(s): #{table.concat used, ', '}"
   box.space._tdb_widget_plugins\delete id
   true
 
 Query =
+  -- Sans argument : toutes les définitions (éditeur). Avec `pageId` : celles que
+  -- voit cette page (définition de son app, sinon globale). Avec `appId` : idem
+  -- pour une app.
   widgetPlugins: (_, args, ctx) ->
     require_perm ctx, '*', nil, 'read'
-    list_widget_plugins!
+    page_id = args.pageId
+    if page_id
+      page = box.space._tdb_custom_views\get page_id
+      error "Custom view not found: #{page_id}" unless page
+      scope = scopes.page_app_id page_id
+      return [tuple_to_plugin(row) for row in *scopes.visible_for_scope(scope)]
+    if args.appId != nil
+      return [tuple_to_plugin(row) for row in *scopes.visible_for_scope(scopes.scope_of(args.appId))]
+    [tuple_to_plugin(row) for row in *scopes.all_rows!]
 
+  -- `pageId` + `name` : résolution d'une instance (app de la page, puis
+  -- globale). L'id ou le nom seul cherchent dans toutes les portées.
   widgetPlugin: (_, args, ctx) ->
     require_perm ctx, '*', nil, 'read'
+    if args.pageId and args.name
+      row = scopes.resolve_for_page args.name, args.pageId
+      return tuple_to_plugin row
     if not args.id and not args.name
       error 'widgetPlugin requires id or name'
     get_widget_plugin args.id, args.name

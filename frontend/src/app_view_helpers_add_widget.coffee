@@ -91,6 +91,15 @@ Object.assign window.AppViewHelpers,
     label.setAttribute 'for', input.id
     label.textContent = name
 
+    # Portée de la définition (spec widgets personnalisés §5) : la page voit la
+    # définition de son app en priorité, puis celle de la bibliothèque.
+    scope = window.WidgetPlugins?.scopeLabel? plugin
+    if scope
+      scopeEl = document.createElement 'span'
+      scopeEl.className = 'widget-type-option-scope'
+      scopeEl.textContent = " (#{scope})"
+      label.appendChild scopeEl
+
     if plugin.description
       desc = document.createElement 'span'
       desc.className = 'widget-type-option-desc'
@@ -137,7 +146,10 @@ Object.assign window.AppViewHelpers,
     unless api?.list
       window.AppViewHelpers._renderWidgetTypePluginsError 'API WidgetPlugins indisponible'
       return Promise.resolve []
-    api.list()
+    # Les définitions listées sont celles que voit la page ouverte : sa portée
+    # d'abord, puis la bibliothèque.
+    pageId = window.AppViewHelpers._resolveAddWidgetViewId app, window.location.hash
+    api.list(if pageId then { pageId } else {})
       .then (plugins) ->
         window.AppViewHelpers._renderWidgetTypePlugins plugins or []
         plugins or []

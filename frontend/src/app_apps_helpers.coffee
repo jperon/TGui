@@ -13,14 +13,46 @@ window.AppAppsHelpers =
   isSemver: (v) ->
     typeof v == 'string' and /^\d+\.\d+\.\d+$/.test v
 
-  # conflicts: [{key, ...}] — choices: { key: 'local' | 'delivered' }
-  # Retourne [{key, choice}] dans l'ordre des conflits, défaut « local ».
-  buildDecisions: (conflicts, choices) ->
+  # conflicts: [{key, type, ...}] — choices: { key: 'local' | 'delivered' | 'rename' }
+  # newNames: { key: nom } (choix « importer sous un autre nom »).
+  # Retourne [{key, choice, newName}] dans l'ordre des conflits. Défaut :
+  # « rename » pour une définition de widget personnalisé (spec §5 : c'est le
+  # choix qui ne perd rien), « local » sinon.
+  buildDecisions: (conflicts, choices, newNames) ->
     result = []
     for c in (conflicts or [])
-      choice = (choices or {})[c.key] or 'local'
-      result.push { key: c.key, choice: choice }
+      fallback = if c.type == 'plugin' then 'rename' else 'local'
+      choice = (choices or {})[c.key] or fallback
+      entry = { key: c.key, choice: choice }
+      name = (newNames or {})[c.key]
+      entry.newName = name if choice == 'rename' and name
+      result.push entry
     result
+
+  # Accès effectif d'une définition livrée, pour l'aperçu : valeur du manifest,
+  # « complet » sans manifest (rétrocompatibilité) et « lecture » si le YAML est
+  # illisible (le parent traite alors la définition comme `read`).
+  pluginAccessOf: (content) ->
+    text = content?.manifest
+    return 'full' unless text and String(text).trim() != ''
+    parser = window.jsyaml
+    return 'read' unless parser and typeof parser.load == 'function'
+    try
+      parsed = parser.load String(text)
+    catch e
+      return 'read'
+    # Commentaires seuls : aucun manifest, donc le comportement historique.
+    return 'full' unless parsed and typeof parsed == 'object'
+    access = String(parsed.access or 'read').toLowerCase()
+    return access if access in ['none', 'read', 'full']
+    'read'
+
+  # Défaut proposé pour « importer sous un autre nom » : <nom>_imported.
+  defaultImportName: (key) ->
+    text = String key or ''
+    idx = text.lastIndexOf ':'
+    base = if idx >= 0 then text.slice(idx + 1) else text
+    "#{base}_imported"
 
   # Un seul élément sélectionné → partie de la clé après le dernier ':' ;
   # plusieurs → identifiant de l'application.
@@ -110,7 +142,7 @@ window.AppAppsHelpers =
         previewAppUpdate(yaml: $y, allowDowngrade: $d) {
           create { key type content fingerprint isCode }
           update { key type content fingerprint isCode }
-          conflict { key type local delivered }
+          conflict { key type local delivered pages }
           keepLocal { key type content fingerprint isCode }
           obsolete
           rename { from to }
@@ -168,9 +200,19 @@ window.AppAppsHelpers =
     item.isCode == true or item.type == 'plugin' or item.type == 'page' or
       item.type == 'dataview' or item.type == 'preset'
 
+  _accessText: (app, item) ->
+    access = window.AppAppsHelpers.pluginAccessOf item.content
+    text = switch access
+      when 'full' then app._t 'ui.apps.accessFull'
+      else access
+    app._t 'ui.apps.accessLabel', { access: text }
+
   _appendItemLabel: (app, li, item) ->
     li.appendChild window.AppAppsHelpers._makeEl 'code', null, String item.key
     li.appendChild window.AppAppsHelpers._makeEl 'span', 'apps-item-type', " (#{item.type or ''})"
+    if item.type == 'plugin'
+      li.appendChild window.AppAppsHelpers._makeEl 'span', 'apps-plugin-access',
+        window.AppAppsHelpers._accessText app, item
     return unless window.AppAppsHelpers._isCodeItem item
     li.appendChild window.AppAppsHelpers._makeEl 'span', 'apps-code-badge', app._t('ui.apps.codeBadge')
     li.appendChild window.AppAppsHelpers._makeEl 'p', 'apps-code-warning', app._t('ui.apps.codeWarning')
@@ -235,6 +277,9 @@ window.AppAppsHelpers =
     for c, i in conflicts
       container = window.AppAppsHelpers._makeEl 'div', 'apps-conflict'
       container.appendChild window.AppAppsHelpers._makeEl 'div', 'apps-conflict-key', String c.key
+      if c.type == 'plugin'
+        container.appendChild window.AppAppsHelpers._makeEl 'span', 'apps-plugin-access',
+          window.AppAppsHelpers._accessText app, { type: 'plugin', content: c.delivered }
       if window.AppAppsHelpers._isCodeItem { type: c.type }
         container.appendChild window.AppAppsHelpers._makeEl 'span', 'apps-code-badge', app._t('ui.apps.codeBadge')
         container.appendChild window.AppAppsHelpers._makeEl 'p', 'apps-code-warning', app._t('ui.apps.codeWarning')
@@ -248,12 +293,31 @@ window.AppAppsHelpers =
       row.appendChild localSide
       row.appendChild deliveredSide
       container.appendChild row
+      pages = c.pages or []
+      if c.type == 'plugin' and pages.length > 0
+        container.appendChild window.AppAppsHelpers._makeEl 'p', 'apps-conflict-pages',
+          app._t 'ui.apps.conflictPages', { pages: pages.join ', ' }
       choices = window.AppAppsHelpers._makeEl 'div', 'apps-conflict-choices'
       name = "app-conflict-#{i}"
-      choice = app._appChoices[c.key] or 'local'
+      fallback = if c.type == 'plugin' then 'rename' else 'local'
+      choice = app._appChoices[c.key] or fallback
       window.AppAppsHelpers._radio app, choices, name, 'local', app._t('ui.apps.keepMine'), choice == 'local', c.key
       window.AppAppsHelpers._radio app, choices, name, 'delivered', app._t('ui.apps.takeDelivered'), choice == 'delivered', c.key
+      if c.type == 'plugin'
+        window.AppAppsHelpers._radio app, choices, name, 'rename', app._t('ui.apps.renameImport'), choice == 'rename', c.key
       container.appendChild choices
+      if c.type == 'plugin'
+        app._appNewNames ?= {}
+        nameRow = window.AppAppsHelpers._makeEl 'div', 'apps-conflict-newname'
+        nameRow.appendChild window.AppAppsHelpers._makeEl 'label', null, app._t('ui.apps.renameNewName')
+        input = document.createElement 'input'
+        input.type = 'text'
+        input.className = 'apps-conflict-newname-input'
+        input.value = app._appNewNames[c.key] or window.AppAppsHelpers.defaultImportName c.key
+        input.addEventListener 'input', ->
+          app._appNewNames[c.key] = input.value
+        nameRow.appendChild input
+        container.appendChild nameRow
       box.appendChild container
 
   renderApplyReport: (app, r) ->
@@ -277,7 +341,7 @@ window.AppAppsHelpers =
 
   applyPackage: (app) ->
     return unless app._appPlan and app._appPackageYaml
-    decisions = window.AppAppsHelpers.buildDecisions app._appPlan.conflict, (app._appChoices or {})
+    decisions = window.AppAppsHelpers.buildDecisions app._appPlan.conflict, (app._appChoices or {}), (app._appNewNames or {})
     tdbConfirm(app._t('ui.confirms.appApply')).then (ok) ->
       return unless ok
       app.el.appsApplyBtn().disabled = true

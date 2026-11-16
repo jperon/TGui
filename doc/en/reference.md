@@ -1110,6 +1110,29 @@ TGui can package a whole application into a `.tdbapp.yaml` file, install it on a
 
 The header of a package is `app: {id, name, version, description}`; `version` is `x.y.z`. Elements are identified by stable keys (`space:<name>`, `field:<space>.<name>`, `view:<space>.<name>`, `page:<name>`, `dataview:<name>`, `preset:<portable scope>|<name>`, `plugin:<name>`, `group:<name>`, `perm:<group>|<type>|<resource>|<level>`, `seed:<space>|<value>`); a rename is declared with `renamed_from`. A view preset scope is portable: `widget:<page name>:<widget id>` or `space:<space name>`, never a local id.
 
+### Widget definitions in a package
+
+Only the definitions **referenced by the package pages** are embedded, library ones included. Each `plugin:<name>` item carries an `origin` field:
+
+| `origin` | Meaning |
+|---|---|
+| `app` | definition owned by the app (installed in the app scope) |
+| `library` | library (global) definition |
+
+`origin` is **not part of the fingerprint**: the fingerprint covers the manifest, script, template and their languages, so two identical copies in two scopes share it.
+
+On install, per delivered definition:
+
+| Target | Action |
+|---|---|
+| Absent | created in its origin scope (`app` or library) |
+| Present, same fingerprint | reused |
+| Present, different fingerprint | conflict: `local`, `delivered` or `rename` |
+
+A widget-definition conflict also lists the **affected pages** (`pages`). The `rename` choice — the default — creates the delivered definition under another name (`<name>_imported`, or the `newName` given in `AppDecisionInput`) and rewrites the `type:` lines of the delivered pages. `local` and `delivered` keep or replace the local definition.
+
+A library definition used by a page cannot be deleted: `deleteWidgetPlugin` fails and lists the pages.
+
 ### GraphQL API
 
 ```graphql
@@ -1132,7 +1155,7 @@ query {
   previewAppUpdate(yaml: "...") {
     create { key type isCode }
     update { key type isCode }
-    conflict { key type local delivered }
+    conflict { key type local delivered pages }
     keepLocal { key type }
     obsolete
     rename { from to }
@@ -1163,5 +1186,5 @@ mutation {
 ```
 
 - `previewAppUpdate` and `previewAppPurge` never write.
-- `applyAppUpdate` is atomic and requires a decision (`local` or `delivered`) for each conflict.
+- `applyAppUpdate` is atomic and requires a decision (`local`, `delivered` or, for a widget definition, `rename`) for each conflict; without a decision, a widget definition is imported under another name.
 - `purgeAppObsolete` requires `confirmed: true` and only accepts items whose tracked state is obsolete.

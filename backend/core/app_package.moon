@@ -24,6 +24,7 @@ digest     = require 'digest'
 spaces_mod = require 'core.spaces'
 views_mod  = require 'core.views'
 perms_mod  = require 'core.permissions'
+widget_scopes = require 'core.widget_scopes'
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- Item types and ordering
@@ -307,6 +308,9 @@ preset_content = (row) ->
   }
 
 -- Row of _tdb_widget_plugins (export_resolvers.moon:177-187).
+-- `appId` n'est pas dans le contenu : la portée est une propriété de l'élément
+-- livré (`origin`), pas du code — deux définitions identiques dans deux portées
+-- gardent la même empreinte.
 plugin_content = (row) ->
   {
     name: row[2]
@@ -569,12 +573,17 @@ collect_views = (bucket, space_list) ->
       }
 
 collect_pages = (bucket) ->
+  -- Renvoie les lignes : l'export des définitions de widgets part des pages
+  -- livrées (spec widgets personnalisés §5).
+  rows = {}
   for row in *box.space._tdb_custom_views\select {}
+    table.insert rows, row
     table.insert bucket, {
       type: ITEM_TYPES.page
       key: "page:#{key_part row[2]}"
       content: page_content(row)
     }
+  rows
 
 collect_dataviews = (bucket) ->
   for row in *box.space._tdb_data_views\select {}
@@ -602,12 +611,35 @@ collect_presets = (bucket) ->
       content: preset_content(row)
     }
 
-collect_plugins = (bucket) ->
-  for row in *box.space._tdb_widget_plugins\select {}
+-- Définitions de widgets personnalisés **référencées par les pages livrées**
+-- (spec widgets personnalisés §5) — plus toutes celles de l'installation :
+--   clé `plugin:<nom>` ;
+--   `origin` = 'library' pour une définition globale, 'app' sinon (elle sera
+--   créée dans la portée du paquet à l'installation).
+-- Résolution par nom : la définition du paquet exporté d'abord, puis celle que
+-- voit la page (app de la page, sinon globale). Une définition propre à une
+-- autre app est donc livrée comme définition de ce paquet, ce qui est le seul
+-- moyen d'embarquer le code dont la page a besoin.
+collect_plugins = (bucket, page_rows, app_id) ->
+  wanted = {}
+  ordered = [row for row in *(page_rows or {})]
+  table.sort ordered, (a, b) -> a[2] < b[2]
+  for page in *ordered
+    for name in *widget_scopes.referenced_plugin_names page[4]
+      continue if wanted[name]
+      row = nil
+      row = widget_scopes.find_row name, app_id if app_id
+      row or= widget_scopes.resolve_row name, widget_scopes.page_app_id(page[1])
+      wanted[name] = row if row
+  names = [name for name, _ in pairs wanted]
+  table.sort names
+  for name in *names
+    row = wanted[name]
     table.insert bucket, {
       type: ITEM_TYPES.plugin
-      key: "plugin:#{key_part row[2]}"
-      content: plugin_content(row)
+      key: "plugin:#{key_part name}"
+      content: plugin_content row
+      origin: if widget_scopes.row_app_id row then 'app' else 'library'
     }
 
 collect_groups_and_perms = (group_bucket, perm_bucket) ->
@@ -671,8 +703,8 @@ find_preset_row = (scope, name) ->
   return nil unless local_scope
   box.space._tdb_view_presets.index.by_scope_name\get { local_scope, name }
 
-find_plugin_row = (name) ->
-  box.space._tdb_widget_plugins.index.by_name\get name
+find_plugin_row = (name, app_id) ->
+  widget_scopes.find_row name, app_id
 
 find_group = (name) ->
   for g in *perms_mod.list_groups!
@@ -766,10 +798,13 @@ describe_preset = (key) ->
   return nil unless row
   preset_content row
 
-describe_plugin = (key) ->
+-- `app_id` : portée visée (nil = bibliothèque). Une définition existe par
+-- portée (spec widgets personnalisés §5) : la même clé peut désigner la
+-- globale ou celle d'une app.
+describe_plugin = (key, app_id) ->
   name = strip_prefix key, 'plugin:'
   return nil unless name
-  row = find_plugin_row unkey_part name
+  row = find_plugin_row unkey_part(name), app_id
   return nil unless row
   plugin_content row
 
@@ -822,12 +857,13 @@ DESCRIBERS = {
 }
 
 -- Current local content of an element, in package form, or nil when the
--- element does not exist locally.
-describe_local = (item_type, key) ->
+-- element does not exist locally. `app_id` (facultatif) est la portée visée :
+-- seul `plugin` en dépend (définitions par portée).
+describe_local = (item_type, key, app_id) ->
   return nil unless type(key) == 'string'
   describe = DESCRIBERS[item_type]
   return nil unless describe
-  describe key
+  describe key, app_id
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- Package building
@@ -892,10 +928,10 @@ build_package = (meta, opts) ->
   collect_spaces_and_fields buckets.space, buckets.field, space_list
   collect_relations buckets.relation, space_list
   collect_views buckets.view, space_list
-  collect_pages buckets.page
+  page_rows = collect_pages buckets.page
   collect_dataviews buckets.dataview
   collect_presets buckets.preset
-  collect_plugins buckets.plugin
+  collect_plugins buckets.plugin, page_rows, meta.id
   collect_groups_and_perms buckets.group, buckets.perm
   collect_seeds buckets.seed, seed_keys
 
