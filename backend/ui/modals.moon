@@ -117,6 +117,8 @@ _widgetPluginModal = ->
               H.select {id: 'widget-plugin-script-language',
                 H.option {value: 'coffeescript', 'CoffeeScript'}
                 H.option {value: 'javascript', 'JavaScript'}
+                H.option {value: 'lua', 'Lua'}
+                H.option {value: 'moonscript', 'MoonScript'}
               }
               H.label {class: 'formula-hint', 'Script'}
               H.div {id: 'widget-plugin-script-editor', style: 'border: 1px solid #2a2a2a;', ''}

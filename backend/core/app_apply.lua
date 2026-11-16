@@ -7,6 +7,7 @@ local perms_mod = require('core.permissions')
 local data_views = require('core.data_views')
 local view_presets = require('core.view_presets')
 local app_package = require('core.app_package')
+local plugin_compile = require('core.plugin_compile')
 local widget_scopes = require('core.widget_scopes')
 local plan_update
 plan_update = require('core.app_plan').plan_update
@@ -1235,18 +1236,22 @@ _create_plugin = function(entry)
   local c = entry.content
   local id = tostring(uuid_mod.new())
   local now = clock.time()
+  local lang = c.scriptLanguage or 'coffeescript'
+  local code = c.scriptCode or ''
+  local compiled = plugin_compile.compile_script(lang, code)
   box.space._tdb_widget_plugins:insert({
     id,
     c.name,
     c.description or '',
-    c.scriptLanguage or 'coffeescript',
+    lang,
     c.templateLanguage or 'pug',
-    c.scriptCode or '',
+    code,
     c.templateCode or '',
     now,
     now,
     c.manifest or '',
-    widget_scopes.scope_column(entry.app_scope)
+    widget_scopes.scope_column(entry.app_scope),
+    compiled
   })
   return {
     id = id
@@ -1255,6 +1260,25 @@ end
 local _update_plugin
 _update_plugin = function(entry, old)
   local c = entry.content
+  local current = box.space._tdb_widget_plugins:get(old.local_id)
+  if not (current) then
+    return {
+      id = old.local_id
+    }
+  end
+  local lang
+  if c.scriptLanguage ~= nil then
+    lang = c.scriptLanguage
+  else
+    lang = (current[4] or 'coffeescript')
+  end
+  local code
+  if c.scriptCode ~= nil then
+    code = c.scriptCode
+  else
+    code = (current[6] or '')
+  end
+  local compiled = plugin_compile.compile_script(lang, code)
   box.space._tdb_widget_plugins:update(old.local_id, {
     {
       '=',
@@ -1264,7 +1288,7 @@ _update_plugin = function(entry, old)
     {
       '=',
       4,
-      c.scriptLanguage or 'coffeescript'
+      lang
     },
     {
       '=',
@@ -1274,7 +1298,7 @@ _update_plugin = function(entry, old)
     {
       '=',
       6,
-      c.scriptCode or ''
+      code
     },
     {
       '=',
@@ -1290,6 +1314,11 @@ _update_plugin = function(entry, old)
       '=',
       10,
       c.manifest or ''
+    },
+    {
+      '=',
+      12,
+      compiled
     }
   })
   return {

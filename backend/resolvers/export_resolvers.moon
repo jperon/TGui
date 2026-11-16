@@ -8,6 +8,7 @@ auth_mod    = require 'core.auth'
 view_presets = require 'core.view_presets'
 app_package = require 'core.app_package'
 widget_scopes = require 'core.widget_scopes'
+plugin_compile = require 'core.plugin_compile'
 executor    = require 'graphql.executor'
 uuid_mod    = require 'uuid'
 yaml        = require 'yaml'
@@ -482,18 +483,24 @@ do_import = (snap, mode) ->
       ok, err = pcall ->
         id  = tostring uuid_mod.new!
         now = clock.time!
+        lang = iwp.scriptLanguage or 'coffeescript'
+        code = iwp.scriptCode or ''
+        -- The snapshot carries the source only (§5, fingerprint): `compiled`
+        -- is a local cache recomputed here. A broken script refuses the item.
+        compiled = plugin_compile.compile_script lang, code
         box.space._tdb_widget_plugins\insert {
           id
           iwp.name
           iwp.description or ''
-          iwp.scriptLanguage or 'coffeescript'
+          lang
           iwp.templateLanguage or 'pug'
-          iwp.scriptCode or ''
+          code
           iwp.templateCode or ''
           now
           now
           iwp.manifest or ''
           ''
+          compiled
         }
       if ok then created += 1 else table.insert errors, "widget_plugin #{iwp.name}: #{err}"
 

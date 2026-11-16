@@ -97,6 +97,7 @@ local DV_KEYS = {
   "updatedAt"
 }
 local PLUGIN_KEYS = {
+  "compiled",
   "createdAt",
   "description",
   "id",

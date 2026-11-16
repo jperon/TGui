@@ -3,6 +3,7 @@ local clock = require('clock')
 local yaml = require('yaml')
 local scopes = require('core.widget_scopes')
 local cv_widgets = require('resolvers.custom_view_widgets')
+local plugin_compile = require('core.plugin_compile')
 local require_auth, require_perm
 do
   local _obj_0 = require('resolvers.utils')
@@ -10,7 +11,9 @@ do
 end
 local VALID_SCRIPT_LANGS = {
   coffeescript = true,
-  javascript = true
+  javascript = true,
+  lua = true,
+  moonscript = true
 }
 local VALID_TEMPLATE_LANGS = {
   pug = true,
@@ -254,6 +257,7 @@ tuple_to_plugin = function(t)
     templateCode = t[7] or '',
     manifest = t[10] or '',
     appId = scopes.row_app_id(t),
+    compiled = t[12] or '',
     createdAt = tostring(t[8]),
     updatedAt = tostring(t[9])
   }
@@ -304,6 +308,7 @@ create_widget_plugin = function(input)
   local template_code = validate_template_code(input.templateCode)
   local manifest = validate_manifest(input.manifest)
   local app_id = validate_app_scope(input.appId)
+  local compiled = plugin_compile.compile_script(script_lang, script_code)
   assert_unique_name(name, nil, app_id)
   local id = tostring(uuid_mod.new())
   local now = clock.time()
@@ -318,7 +323,8 @@ create_widget_plugin = function(input)
     now,
     now,
     manifest,
-    scopes.scope_column(app_id)
+    scopes.scope_column(app_id),
+    compiled
   })
   return tuple_to_plugin(box.space._tdb_widget_plugins:get(id))
 end
@@ -383,6 +389,7 @@ update_widget_plugin = function(id, input)
     end
   end
   assert_unique_name(name, id, app_id)
+  local compiled = plugin_compile.compile_script(script_lang, script_code)
   local now = clock.time()
   box.space._tdb_widget_plugins:replace({
     id,
@@ -395,7 +402,8 @@ update_widget_plugin = function(id, input)
     t[8],
     now,
     manifest,
-    scopes.scope_column(app_id)
+    scopes.scope_column(app_id),
+    compiled
   })
   return tuple_to_plugin(box.space._tdb_widget_plugins:get(id))
 end

@@ -38,6 +38,7 @@ perms_mod    = require 'core.permissions'
 data_views   = require 'core.data_views'
 view_presets = require 'core.view_presets'
 app_package  = require 'core.app_package'
+plugin_compile = require 'core.plugin_compile'
 widget_scopes = require 'core.widget_scopes'
 { :plan_update } = require 'core.app_plan'
 
@@ -795,23 +796,36 @@ _create_plugin = (entry) ->
   c = entry.content
   id = tostring uuid_mod.new!
   now = clock.time!
+  lang = c.scriptLanguage or 'coffeescript'
+  code = c.scriptCode or ''
+  -- A delivered Lua/MoonScript definition is compiled now: a package with a
+  -- broken script is refused with its line, not silently imported (spec §7).
+  compiled = plugin_compile.compile_script lang, code
   box.space._tdb_widget_plugins\insert {
-    id, c.name, c.description or '', c.scriptLanguage or 'coffeescript',
-    c.templateLanguage or 'pug', c.scriptCode or '', c.templateCode or '',
-    now, now, c.manifest or '', widget_scopes.scope_column(entry.app_scope)
+    id, c.name, c.description or '', lang,
+    c.templateLanguage or 'pug', code, c.templateCode or '',
+    now, now, c.manifest or '', widget_scopes.scope_column(entry.app_scope), compiled
   }
   { id: id }
 
 _update_plugin = (entry, old) ->
   c = entry.content
+  -- Upsert semantics: the delivered content may omit unchanged fields, so the
+  -- compiled cache is recomputed from the final values (row + content).
+  current = box.space._tdb_widget_plugins\get old.local_id
+  return { id: old.local_id } unless current
+  lang = if c.scriptLanguage != nil then c.scriptLanguage else (current[4] or 'coffeescript')
+  code = if c.scriptCode != nil then c.scriptCode else (current[6] or '')
+  compiled = plugin_compile.compile_script lang, code
   box.space._tdb_widget_plugins\update old.local_id, {
     { '=', 3, c.description or '' }
-    { '=', 4, c.scriptLanguage or 'coffeescript' }
+    { '=', 4, lang }
     { '=', 5, c.templateLanguage or 'pug' }
-    { '=', 6, c.scriptCode or '' }
+    { '=', 6, code }
     { '=', 7, c.templateCode or '' }
     { '=', 9, clock.time! }
     { '=', 10, c.manifest or '' }
+    { '=', 12, compiled }
   }
   { id: old.local_id }
 

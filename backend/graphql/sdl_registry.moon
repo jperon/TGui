@@ -135,6 +135,7 @@ ObjectTypes = {
   templateLanguage: String!
   scriptCode:      String!
   scriptLanguage:  String!
+  compiled:        String
   createdAt:       String!
   updatedAt:       String!
 }'

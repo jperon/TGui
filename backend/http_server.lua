@@ -16,6 +16,7 @@ local mime_types = {
   css = 'text/css',
   js = 'application/javascript',
   json = 'application/json',
+  wasm = 'application/wasm',
   yaml = 'application/x-yaml',
   ico = 'image/x-icon',
   png = 'image/png',

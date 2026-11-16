@@ -148,6 +148,10 @@ SYSTEM_SPACES =
       { name: 'updated_at',        type: 'number' }
       { name: 'manifest',          type: 'string', is_nullable: true }
       { name: 'app_id',            type: 'string', is_nullable: true }
+      -- Code compilé/caché côté serveur (spec widgets personnalisés §7) :
+      -- Lua compilé pour moonscript, source pour lua, '' pour les langages
+      -- compilés par le navigateur. Recalculé à chaque enregistrement.
+      { name: 'compiled',          type: 'string', is_nullable: true }
     }
     indexes:
       primary: { parts: {'id'},   unique: true,  type: 'HASH' }
@@ -336,11 +340,12 @@ migrate_widget_plugin_manifest = ->
     { name: 'updated_at',        type: 'number' }
     { name: 'manifest',          type: 'string', is_nullable: true }
     { name: 'app_id',            type: 'string', is_nullable: true }
+    { name: 'compiled',          type: 'string', is_nullable: true }
   }
   normalized = 0
   for t in *sp\select {}
     if t[10] == nil
-      sp\replace { t[1], t[2], t[3], t[4], t[5], t[6], t[7], t[8], t[9], '', t[11] or '' }
+      sp\replace { t[1], t[2], t[3], t[4], t[5], t[6], t[7], t[8], t[9], '', t[11] or '', t[12] or '' }
       normalized += 1
   normalized
 
@@ -370,11 +375,12 @@ migrate_widget_plugin_app_id = ->
     { name: 'updated_at',        type: 'number' }
     { name: 'manifest',          type: 'string', is_nullable: true }
     { name: 'app_id',            type: 'string', is_nullable: true }
+    { name: 'compiled',          type: 'string', is_nullable: true }
   }
   normalized = 0
   for t in *sp\select {}
     if t[11] == nil
-      sp\replace { t[1], t[2], t[3], t[4], t[5], t[6], t[7], t[8], t[9], t[10] or '', '' }
+      sp\replace { t[1], t[2], t[3], t[4], t[5], t[6], t[7], t[8], t[9], t[10] or '', '', t[12] or '' }
       normalized += 1
   sp\create_index 'by_scope_name', {
     parts: {'app_id', 'name'}, unique: true, type: 'TREE', if_not_exists: true
@@ -382,6 +388,36 @@ migrate_widget_plugin_app_id = ->
   sp\create_index 'by_name', {
     parts: {'name'}, unique: false, type: 'TREE', if_not_exists: true
   }
+  normalized
+
+-- Migration tdb_v7 (spec widgets personnalisés §7) : champ `compiled` en fin de
+-- format. Le code Lua compilé (moonscript) ou vérifié (lua) est recalculé à
+-- chaque enregistrement ; les lignes existantes reçoivent '' (aucune
+-- définition lua/moonscript ne peut exister avant cette étape : le langage
+-- était refusé). Idempotente, exposée pour la suite de tests.
+-- Returns the number of rows normalized.
+migrate_widget_plugin_compiled = ->
+  sp = box.space._tdb_widget_plugins
+  return 0 unless sp
+  sp\format {
+    { name: 'id',                type: 'string' }
+    { name: 'name',              type: 'string' }
+    { name: 'description',       type: 'string' }
+    { name: 'script_language',   type: 'string' }
+    { name: 'template_language', type: 'string' }
+    { name: 'script_code',       type: 'string' }
+    { name: 'template_code',     type: 'string' }
+    { name: 'created_at',        type: 'number' }
+    { name: 'updated_at',        type: 'number' }
+    { name: 'manifest',          type: 'string', is_nullable: true }
+    { name: 'app_id',            type: 'string', is_nullable: true }
+    { name: 'compiled',          type: 'string', is_nullable: true }
+  }
+  normalized = 0
+  for t in *sp\select {}
+    if t[12] == nil
+      sp\replace { t[1], t[2], t[3], t[4], t[5], t[6], t[7], t[8], t[9], t[10] or '', t[11] or '', '' }
+      normalized += 1
   normalized
 
 create_space = (name, desc) ->
@@ -487,6 +523,12 @@ bootstrap = ->
   box.once 'tdb_v6', ->
     normalized = migrate_widget_plugin_app_id!
     log.info "tdb_v6: added app_id to _tdb_widget_plugins (#{normalized} row(s) normalized)"
+
+  -- Lua / MoonScript widget definitions (spec widgets personnalisés §7).
+  -- Existing definitions read as "no compiled code"; they keep working.
+  box.once 'tdb_v7', ->
+    normalized = migrate_widget_plugin_compiled!
+    log.info "tdb_v7: added compiled to _tdb_widget_plugins (#{normalized} row(s) normalized)"
 
   -- Widget ids: every widget of a page carries a stable id, which is the key of
   -- the widget-scoped records (named view presets: 'widget:<pageId>:<widgetId>').
@@ -861,4 +903,4 @@ delete_user_space = (name) ->
   -- Remove metadata
   box.space._tdb_spaces\delete sid
 
-{ :bootstrap, :migrate, :migrate_must_change_password, :migrate_widget_plugin_manifest, :migrate_widget_plugin_app_id, :create_user_space, :delete_user_space, :add_field, :remove_field, :update_field, :reorder_fields, :change_field_type, :list_spaces, :list_fields, :get_space, :get_space_by_name, :FIELD_TYPES }
+{ :bootstrap, :migrate, :migrate_must_change_password, :migrate_widget_plugin_manifest, :migrate_widget_plugin_app_id, :migrate_widget_plugin_compiled, :create_user_space, :delete_user_space, :add_field, :remove_field, :update_field, :reorder_fields, :change_field_type, :list_spaces, :list_fields, :get_space, :get_space_by_name, :FIELD_TYPES }

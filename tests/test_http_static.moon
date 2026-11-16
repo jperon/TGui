@@ -91,6 +91,11 @@ R.describe "serve_static — jamais de contenu hors de FRONTEND_DIR", ->
     res = http_server.serve_static mk_req '/css/app.css'
     R.eq res.status, 200
 
+  R.it "sert le binaire wasmoon en application/wasm (spec widgets §7)", ->
+    res = http_server.serve_static mk_req '/vendor/wasmoon.bundle.wasm'
+    R.eq res.status, 200
+    R.eq res.headers['content-type'], 'application/wasm'
+
   R.it "/../backend/init.lua -> 404, jamais le contenu", ->
     res = http_server.serve_static mk_req '/../backend/init.lua'
     R.eq res.status, 404
