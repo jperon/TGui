@@ -439,7 +439,9 @@ CodeMirror, MoonScript as plain text).
   formula compiler) when saved; the resulting Lua is cached in the `compiled` field
   (`WidgetPlugin.compiled`). A compilation error **refuses the save** with its line.
   App export and fingerprints stay based on the **source**.
-- **Lua** is syntax-checked (`loadstring`) when saved and stored as written.
+- **Lua** is **not** syntax-checked when saved (Tarantool runs Lua 5.1, the widget
+  runs Lua 5.4): the source is stored as written and a syntax error shows up
+  inside the widget, with its line.
 - In the browser the code runs under **wasmoon** (Lua 5.4 in WebAssembly), loaded only
   inside a Lua/MoonScript widget's iframe: no other page pays for it (~400 kB `.wasm`).
 - The widget API is exposed as a global `widget` (same API as the JavaScript contract):

@@ -15,6 +15,13 @@ widget.onRecords (rows) ->
   widget.render "<ul>" .. table.concat(items) .. "</ul>"
 ]]
 local TEMPLATE = 'div.plugin-root'
+local LUA54_SNIPPETS = {
+  'x = 7 // 2',
+  'y = 5 & 3',
+  'z = 1 << 4',
+  'local c <const> = 1',
+  'x = ~0'
+}
 local created = { }
 R.describe("WidgetPlugins — langages Lua / MoonScript", function()
   R.it("lua et moonscript sont acceptés par createWidgetPlugin", function()
@@ -44,10 +51,26 @@ R.describe("WidgetPlugins — langages Lua / MoonScript", function()
       created[lang] = p
     end
   end)
-  R.it("lua : le source est vérifié et stocké tel quel dans compiled", function()
+  R.it("lua : le source est stocké tel quel dans compiled", function()
     local p = created.lua
     R.ok(p)
     return R.eq(p.compiled, 'widget.render("ok")')
+  end)
+  R.it("lua : les syntaxes Lua 5.4 sont acceptées (vérification à l'exécution)", function()
+    for i, code in ipairs(LUA54_SNIPPETS) do
+      local name = tostring(BASE) .. "_lua54_" .. tostring(i)
+      local p = wpr.Mutation.createWidgetPlugin({ }, {
+        input = {
+          name = name,
+          scriptLanguage = 'lua',
+          templateLanguage = 'html',
+          scriptCode = code,
+          templateCode = TEMPLATE
+        }
+      }, CTX)
+      R.eq(p.compiled, code, "le source doit être gardé tel quel : " .. tostring(code))
+      box.space._tdb_widget_plugins:delete(p.id)
+    end
   end)
   R.it("moonscript : compiled contient le Lua transpilé, exécutable", function()
     local p = created.moonscript
@@ -75,7 +98,7 @@ R.describe("WidgetPlugins — langages Lua / MoonScript", function()
     return R.eq(res.compiled, p.compiled)
   end)
 end)
-R.describe("WidgetPlugins — refus d’un script invalide", function()
+R.describe("WidgetPlugins — refus d’un MoonScript invalide", function()
   R.it("refuse un MoonScript invalide en nommant la ligne", function()
     local ok, err = pcall(function()
       return wpr.Mutation.createWidgetPlugin({ }, {
@@ -91,23 +114,6 @@ R.describe("WidgetPlugins — refus d’un script invalide", function()
     R.eq(ok, false, 'createWidgetPlugin devait refuser le script')
     local msg = tostring(err)
     R.ok(msg:find('MoonScript invalide', 1, true) ~= nil, "message attendu, vu : " .. tostring(msg))
-    return R.ok(msg:find('ligne 2', 1, true) ~= nil, "la ligne doit être nommée, vu : " .. tostring(msg))
-  end)
-  R.it("refuse un Lua invalide en nommant la ligne", function()
-    local ok, err = pcall(function()
-      return wpr.Mutation.createWidgetPlugin({ }, {
-        input = {
-          name = tostring(BASE) .. "_badlua",
-          scriptLanguage = 'lua',
-          templateLanguage = 'html',
-          scriptCode = "widget.render \"a\"\nif then\n",
-          templateCode = TEMPLATE
-        }
-      }, CTX)
-    end)
-    R.eq(ok, false, 'createWidgetPlugin devait refuser le Lua invalide')
-    local msg = tostring(err)
-    R.ok(msg:find('Lua invalide', 1, true) ~= nil, "message attendu, vu : " .. tostring(msg))
     return R.ok(msg:find('ligne 2', 1, true) ~= nil, "la ligne doit être nommée, vu : " .. tostring(msg))
   end)
   return R.it("updateWidgetPlugin refuse et laisse la définition intacte", function()
@@ -126,6 +132,23 @@ R.describe("WidgetPlugins — refus d’un script invalide", function()
     local row = box.space._tdb_widget_plugins:get(p.id)
     R.eq(row[4], 'lua', 'le langage enregistré ne change pas')
     return R.eq(row[6], 'widget.render("ok")', 'le script enregistré ne change pas')
+  end)
+end)
+R.describe("WidgetPlugins — Lua invalide enregistré tel quel", function()
+  return R.it("un Lua syntaxiquement faux est enregistré sans refus", function()
+    local code = "widget.render \"a\"\nif then\n"
+    local p = wpr.Mutation.createWidgetPlugin({ }, {
+      input = {
+        name = tostring(BASE) .. "_badlua",
+        scriptLanguage = 'lua',
+        templateLanguage = 'html',
+        scriptCode = code,
+        templateCode = TEMPLATE
+      }
+    }, CTX)
+    R.eq(p.scriptLanguage, 'lua')
+    R.eq(p.compiled, code, 'le source doit être gardé tel quel (erreur à l’exécution)')
+    return box.space._tdb_widget_plugins:delete(p.id)
   end)
 end)
 R.describe("WidgetPlugins — migration tdb_v7 (compiled)", function()

@@ -53,7 +53,8 @@
   BUILTIN_WIDGET_TYPES = ['aggregate', 'table'];
 
   // Lua compilé côté serveur (spec §7) : `compiled` porte le chunk que l'iframe
-  // exécute avec wasmoon. `lua` garde son source tel quel (déjà vérifié).
+  // exécute avec wasmoon. Pour `lua`, c'est le source tel quel : sa syntaxe n'est
+  // vérifiée qu'à l'exécution, ici, par wasmoon (Lua 5.4).
   SERVER_COMPILED_LANGS = ['lua', 'moonscript'];
 
   // Binaire wasmoon, récupéré par le parent (même origine) et transmis à l'iframe
@@ -693,9 +694,10 @@
     },
     // Compile a widget definition. Asynchronous: the compilers (CoffeeScript,
     // pug) are loaded on demand (§7), only for the languages it uses. A widget
-    // written in javascript + html triggers no load at all. Lua/MoonScript are
-    // compiled by Tarantool at save time: the parent loads nothing for them (the
-    // iframe fetches wasmoon once mounted, and the .wasm comes from here).
+    // written in javascript + html triggers no load at all. MoonScript is
+    // compiled by Tarantool at save time and Lua is only checked when it runs: the
+    // parent loads nothing for them (the iframe fetches wasmoon once mounted, and
+    // the .wasm comes from here).
     _compilePlugin: function(plugin, pluginParams = {}) {
       var j, lang, len, needed, pluginName, ref, runtimes, scriptLanguage, templateLanguage;
       scriptLanguage = (plugin.scriptLanguage || 'coffeescript').toLowerCase();
@@ -800,7 +802,8 @@
       canWrite = access === 'full';
       gqlExposed = access === 'read' || access === 'full';
       // Lua / MoonScript (§7): the iframe loads wasmoon itself and runs the Lua
-      // chunk compiled by Tarantool; the API table is exposed as global `widget`.
+      // chunk from `compiled` (transpiled MoonScript, or the Lua source as
+      // written); the API table is exposed as global `widget`.
       luaSource = compiled.luaSource || null;
       isLua = luaSource != null;
       luaSourceJson = JSON.stringify(luaSource || '');
@@ -854,7 +857,8 @@ function insertRecord(values) { return writeRequest('insertRecord', { values: va
 function deleteRecord(id) { return writeRequest('deleteRecord', { id: id }); }` : '';
       // Tail executed once the API table exists. Lua: load wasmoon, ask the parent
       // for the .wasm bytes (opaque origin: the iframe cannot fetch them), run the
-      // cached Lua chunk, then signal `plugin_ready` so records are sent.
+      // cached Lua chunk (Lua syntax errors surface here, with their line), then
+      // signal `plugin_ready` so records are sent.
       scriptTailJs = isLua ? `var luaSource = ${luaSourceJson};
 var luaLanguage = ${luaLanguageJson};
 var luaStarted = false;

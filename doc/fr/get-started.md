@@ -443,7 +443,9 @@ CodeMirror, MoonScript en texte brut).
   champ `compiled` (`WidgetPlugin.compiled`). Une erreur de compilation **refuse
   l'enregistrement** avec sa ligne. L'export d'app et l'empreinte restent fondés sur le
   **source**.
-- **Lua** est vérifié (`loadstring`) à l'enregistrement et stocké tel quel.
+- **Lua** n'est **pas** vérifié à l'enregistrement (Tarantool tourne en Lua 5.1,
+  le widget en Lua 5.4) : le source est stocké tel quel et une erreur de syntaxe
+  s'affiche dans le widget, avec sa ligne.
 - Dans le navigateur, le code tourne sous **wasmoon** (Lua 5.4 en WebAssembly), chargé
   uniquement dans l'iframe d'un widget Lua/MoonScript : aucune autre page ne paie son
   coût (~400 ko de `.wasm`).
