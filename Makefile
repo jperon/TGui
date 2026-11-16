@@ -51,6 +51,17 @@ TEST_IMAGE := tdb-test:latest
 # (DOCKER_BUILD_NET=) si le NAT du bridge est réparé.
 DOCKER_BUILD_NET ?= --network=host
 
+# Le build compose demande `build.network: host` (docker-compose.yml,
+# docker-compose.test.yml) : le bridge de cet hôte ne masquerade pas. Certaines
+# versions de compose construisent via buildx bake, qui traite ce réseau comme
+# un privilège et refuse alors le build (« additional privileges requested:
+# pass "--allow=network.host" »). `COMPOSE_BAKE=false` les fait repasser au
+# builder interne, qui l'accepte ; les compose plus récents ignorent cette
+# variable sans émettre ce privilège. Sur un hôte dont le bridge fait du NAT
+# (runners de la CI), on évite carrément `network: host` en exportant
+# TGUI_BUILD_NETWORK=default.
+export COMPOSE_BAKE := false
+
 test: build
 	docker build $(DOCKER_BUILD_NET) -t $(TEST_IMAGE) .
 	docker run --rm -v ./backend:/app/backend:ro -v ./frontend:/app/frontend:ro -v ./schema:/app/schema:ro -v ./tests:/app/tests:ro -e TT_LOG_LEVEL=5 -e TGUI_TEST_ENV=true $(TEST_IMAGE) tarantool /app/backend/test_runner.lua
