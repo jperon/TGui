@@ -41,7 +41,8 @@ window.AppAppsHelpers =
       parsed = parser.load String(text)
     catch e
       return 'read'
-    return 'read' unless parsed and typeof parsed == 'object'
+    # Commentaires seuls : aucun manifest, donc le comportement historique.
+    return 'full' unless parsed and typeof parsed == 'object'
     access = String(parsed.access or 'read').toLowerCase()
     return access if access in ['none', 'read', 'full']
     'read'
@@ -276,6 +277,9 @@ window.AppAppsHelpers =
     for c, i in conflicts
       container = window.AppAppsHelpers._makeEl 'div', 'apps-conflict'
       container.appendChild window.AppAppsHelpers._makeEl 'div', 'apps-conflict-key', String c.key
+      if c.type == 'plugin'
+        container.appendChild window.AppAppsHelpers._makeEl 'span', 'apps-plugin-access',
+          window.AppAppsHelpers._accessText app, { type: 'plugin', content: c.delivered }
       if window.AppAppsHelpers._isCodeItem { type: c.type }
         container.appendChild window.AppAppsHelpers._makeEl 'span', 'apps-code-badge', app._t('ui.apps.codeBadge')
         container.appendChild window.AppAppsHelpers._makeEl 'p', 'apps-code-warning', app._t('ui.apps.codeWarning')

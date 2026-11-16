@@ -58,7 +58,8 @@
         return 'read';
       }
       if (!(parsed && typeof parsed === 'object')) {
-        return 'read';
+        // Commentaires seuls : aucun manifest, donc le comportement historique.
+        return 'full';
       }
       access = String(parsed.access || 'read').toLowerCase();
       if (access === 'none' || access === 'read' || access === 'full') {
@@ -372,6 +373,12 @@
         c = conflicts[i];
         container = window.AppAppsHelpers._makeEl('div', 'apps-conflict');
         container.appendChild(window.AppAppsHelpers._makeEl('div', 'apps-conflict-key', String(c.key)));
+        if (c.type === 'plugin') {
+          container.appendChild(window.AppAppsHelpers._makeEl('span', 'apps-plugin-access', window.AppAppsHelpers._accessText(app, {
+            type: 'plugin',
+            content: c.delivered
+          })));
+        }
         if (window.AppAppsHelpers._isCodeItem({
           type: c.type
         })) {
