@@ -164,7 +164,10 @@ build_snapshot = (include_data) ->
   -- View presets: scope and space are exported as NAMES, never as local ids
   -- (core/app_package.preset_scope_portable), so that the snapshot stays
   -- installable on another instance. The sort stays JSON text, as stored.
+  -- A preset whose page or space no longer exists has no importable scope
+  -- (app_apply refuses "unknown page"): keep it out of the snapshot.
   for vp in *box.space._tdb_view_presets\select {}
+    continue if app_package.preset_row_orphan vp
     entry = {
       name: vp[4]
       scope: app_package.preset_scope_portable(vp[2])

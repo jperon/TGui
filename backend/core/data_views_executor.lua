@@ -5,6 +5,19 @@ do
   local _obj_0 = require('core.triggers')
   make_self_proxy, build_fk_def_map = _obj_0.make_self_proxy, _obj_0.build_fk_def_map
 end
+local relation_field_value
+relation_field_value = require('core.formula_proxy').relation_field_value
+local field_value
+field_value = function(rec, field_name, fk_def_map, space_name, fk_cache)
+  if not (fk_def_map[field_name]) then
+    return rec.proxy[field_name]
+  end
+  local raw = rec.d[field_name]
+  if raw ~= nil and raw ~= '' then
+    return raw
+  end
+  return relation_field_value(rec.d, field_name, space_name, fk_cache)
+end
 local execute_view
 execute_view = function(source_space_ref, config_json, params)
   local config
@@ -70,7 +83,7 @@ execute_view = function(source_space_ref, config_json, params)
         local _list_1 = config.groupBy
         for _index_1 = 1, #_list_1 do
           local f = _list_1[_index_1]
-          _accum_0[_len_0] = tostring(rec.proxy[f] ~= nil and rec.proxy[f] or '')
+          _accum_0[_len_0] = tostring(field_value(rec, f, fk_def_map, source_space_name, fk_cache) or '')
           _len_0 = _len_0 + 1
         end
         parts = _accum_0
@@ -86,7 +99,7 @@ execute_view = function(source_space_ref, config_json, params)
         local _list_1 = config.groupBy
         for _index_1 = 1, #_list_1 do
           local f = _list_1[_index_1]
-          groups[key]._g[f] = rec.proxy[f]
+          groups[key]._g[f] = field_value(rec, f, fk_def_map, source_space_name, fk_cache)
         end
         if config.aggregates then
           local _list_2 = config.aggregates
@@ -109,7 +122,7 @@ execute_view = function(source_space_ref, config_json, params)
           local acc = g._vals[agg]
           acc.count = acc.count + 1
           if agg.field then
-            local val = tonumber(rec.proxy[agg.field])
+            local val = tonumber(field_value(rec, agg.field, fk_def_map, source_space_name, fk_cache))
             if val ~= nil then
               acc.sum = acc.sum + val
               if acc.min ~= nil then

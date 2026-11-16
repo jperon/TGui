@@ -196,6 +196,20 @@ preset_scope_local = (scope) ->
   sp = spaces_mod.get_space_by_name space_name
   sp and "space:#{sp.id}" or nil
 
+-- True when a preset row's target (page or owning space) no longer exists.
+-- Such a row cannot be exported: preset_scope_portable would keep its raw local
+-- id and app_apply._preset_scope would refuse the whole package ("unknown
+-- page"). Deleting a page or a space cascades (core/view_presets
+-- delete_presets_for_page, core/spaces delete_user_space); this guard covers
+-- the rows written before that cascade existed.
+preset_row_orphan = (row) ->
+  return true unless row[3] and space_name_by_id row[3]
+  scope = row[2]
+  page_id = type(scope) == 'string' and scope\match '^widget:([^:]+):(.+)$'
+  if page_id
+    return box.space._tdb_custom_views\get(page_id) == nil
+  false
+
 -- A preset sort is a JSON array of {column, ascending} entries
 -- (core/view_presets.validate_sort) and is packaged as a table, so that `[]`
 -- and an absent sort share one fingerprint.
@@ -571,8 +585,14 @@ collect_dataviews = (bucket) ->
 -- Key: 'preset:<portable scope>|<name>', both components escaped by key_part
 -- (the scope keeps its ':' separators inside ONE component, like a perm
 -- resource name). The scope names its page or space, never an id.
+--
+-- A preset left behind by an older database (no cascade on page deletion, see
+-- core.view_presets.delete_presets_for_page) or pointing at a deleted space is
+-- skipped: preset_scope_portable can only keep its raw id and the import side
+-- (app_apply._preset_scope) refuses the whole package with "unknown page".
 collect_presets = (bucket) ->
   for row in *box.space._tdb_view_presets\select {}
+    continue if preset_row_orphan row
     scope = preset_scope_portable row[2]
     table.insert bucket, {
       type: ITEM_TYPES.preset
@@ -898,4 +918,4 @@ build_package = (meta, opts) ->
     seed_keys: seed_keys
   }
 
-{ :canonical, :fingerprint, :describe_local, :build_package, :ITEM_TYPES, :key_part, :unkey_part, :strip_null, :normalize_content, :preset_scope_portable, :preset_scope_local }
+{ :canonical, :fingerprint, :describe_local, :build_package, :ITEM_TYPES, :key_part, :unkey_part, :strip_null, :normalize_content, :preset_scope_portable, :preset_scope_local, :preset_row_orphan }

@@ -60,6 +60,15 @@ spaces_mod.add_field pers_sp.id, 'classe_fixe', 'Int'
 spaces_mod.add_field pers_sp.id, 'classe_nom', 'String', false, '',
   '(@classe_actuelle and @classe_actuelle.nom) or ""', nil, 'moonscript'
 
+-- ── Relations calculées dont la formule TRAVERSE une relation ────────────────
+-- La formule d'une relation calculée est évaluée avec le même self proxy que
+-- les colonnes calculées : sans lui, `@classe_fixe` est l'Int brut (indexer un
+-- nombre échoue) et une autre colonne calculée est invisible.
+spaces_mod.add_field pers_sp.id, 'classe_via_fixe', 'Int', false, '',
+  '@classe_fixe.id', nil, 'moonscript'
+spaces_mod.add_field pers_sp.id, 'classe_via_calc', 'Int', false, '',
+  '@classe_actuelle.id', nil, 'moonscript'
+
 fields_cls  = {}
 fields_pers = {}
 for f in *spaces_mod.list_fields cls_sp.id
@@ -88,6 +97,29 @@ rel_stored = schema_r.Mutation.createRelation nil, {
     name:        'ct_fixe'
     fromSpaceId: pers_sp.id
     fromFieldId: fields_pers['classe_fixe'].id
+    toSpaceId:   cls_sp.id
+    toFieldId:   fields_cls['id'].id
+    reprFormula: '@nom'
+  }
+}, CTX
+
+-- Relations déclarées sur les champs calculés qui traversent une relation.
+rel_via_fixe = schema_r.Mutation.createRelation nil, {
+  input: {
+    name:        'ct_via_fixe'
+    fromSpaceId: pers_sp.id
+    fromFieldId: fields_pers['classe_via_fixe'].id
+    toSpaceId:   cls_sp.id
+    toFieldId:   fields_cls['id'].id
+    reprFormula: '@nom'
+  }
+}, CTX
+
+rel_via_calc = schema_r.Mutation.createRelation nil, {
+  input: {
+    name:        'ct_via_calc'
+    fromSpaceId: pers_sp.id
+    fromFieldId: fields_pers['classe_via_calc'].id
     toSpaceId:   cls_sp.id
     toFieldId:   fields_cls['id'].id
     reprFormula: '@nom'
@@ -168,8 +200,35 @@ R.describe "Relation sur un champ calculé", ->
     for i, p in ipairs PERSONS
       R.eq by_nom[p.nom].classe_actuelle, p.classe_id, "classe_actuelle de #{p.nom}"
 
+  -- La formule d'une relation calculée est évaluée avec le self proxy des
+  -- colonnes calculées : une traversée de relation y fonctionne.
+  R.it "(f) une relation calculée dont la formule traverse une relation stockée", ->
+    data = query "{ #{PERS_T} { items { nom classe_via_fixe { nom } } } }"
+    for i, item in ipairs data[PERS_T].items
+      expected = CLASSES[PERSONS[i].classe_id]
+      target = item.classe_via_fixe
+      got = if type(target) == 'table' then target.nom else tostring target
+      R.eq got, expected, "classe_via_fixe de #{item.nom}"
+
+  R.it "(g) une relation calculée dont la formule traverse une autre relation calculée", ->
+    data = query "{ #{PERS_T} { items { nom classe_via_calc { nom } } } }"
+    for i, item in ipairs data[PERS_T].items
+      expected = CLASSES[PERSONS[i].classe_id]
+      target = item.classe_via_calc
+      got = if type(target) == 'table' then target.nom else tostring target
+      R.eq got, expected, "classe_via_calc de #{item.nom}"
+
+  R.it "(h) les relations calculées traversantes exposent aussi leur Int brut", ->
+    data = query "{ #{PERS_T} { items { nom classe_via_fixe classe_via_calc } } }"
+    for i, item in ipairs data[PERS_T].items
+      expected = PERSONS[i].classe_id
+      R.eq item.classe_via_fixe, expected, "classe_via_fixe brute de #{item.nom}"
+      R.eq item.classe_via_calc, expected, "classe_via_calc brute de #{item.nom}"
+
 -- ── Nettoyage ────────────────────────────────────────────────────────────────
 
+box.space._tdb_relations\delete { rel_via_calc.id }
+box.space._tdb_relations\delete { rel_via_fixe.id }
 box.space._tdb_relations\delete { rel_computed.id }
 box.space._tdb_relations\delete { rel_stored.id }
 spaces_mod.delete_user_space PERS

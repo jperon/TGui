@@ -153,10 +153,37 @@ delete_preset = function(id)
   })
   return true
 end
+local delete_presets_for_page
+delete_presets_for_page = function(page_id)
+  if not (page_id and page_id ~= '') then
+    return 0
+  end
+  local prefix = "widget:" .. tostring(page_id) .. ":"
+  local deleted = 0
+  local _list_0 = box.space._tdb_view_presets:select({ })
+  for _index_0 = 1, #_list_0 do
+    local _continue_0 = false
+    repeat
+      local t = _list_0[_index_0]
+      if not (type(t[2]) == 'string' and t[2]:sub(1, #prefix) == prefix) then
+        _continue_0 = true
+        break
+      end
+      box.space._tdb_view_presets:delete(t[1])
+      deleted = deleted + 1
+      _continue_0 = true
+    until true
+    if not _continue_0 then
+      break
+    end
+  end
+  return deleted
+end
 return {
   list_presets = list_presets,
   get_preset = get_preset,
   save_preset = save_preset,
   delete_preset = delete_preset,
+  delete_presets_for_page = delete_presets_for_page,
   validate_sort = validate_sort
 }

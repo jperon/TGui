@@ -5,7 +5,8 @@
 -- - Input : scope key, space id, preset name, filter formula, sort JSON.
 -- - Output: persisted presets in _tdb_view_presets as
 --   {id, scope, spaceId, name, filter, sort, createdAt, updatedAt}.
--- Used by: resolvers/view_preset_resolvers, core/spaces (cascade delete).
+-- Used by: resolvers/view_preset_resolvers, core/spaces (cascade delete on a
+-- space), resolvers/custom_view_crud (cascade delete on a page).
 uuid = require 'uuid'
 json = require 'json'
 
@@ -96,4 +97,19 @@ delete_preset = (id) ->
   box.space._tdb_view_presets\delete { id }
   true
 
-{ :list_presets, :get_preset, :save_preset, :delete_preset, :validate_sort }
+-- Cascade target: every preset attached to a page, i.e. the scopes of the form
+-- 'widget:<page id>:<widget id>'. Called by resolvers/custom_view_crud when a
+-- page is deleted: a preset whose page is gone can no longer be read back
+-- (preset_scope_portable has no name to give it) nor re-imported (app_apply
+-- raises "unknown page"), so it must not outlive its page.
+delete_presets_for_page = (page_id) ->
+  return 0 unless page_id and page_id != ''
+  prefix = "widget:#{page_id}:"
+  deleted = 0
+  for t in *box.space._tdb_view_presets\select {}
+    continue unless type(t[2]) == 'string' and t[2]\sub(1, #prefix) == prefix
+    box.space._tdb_view_presets\delete t[1]
+    deleted += 1
+  deleted
+
+{ :list_presets, :get_preset, :save_preset, :delete_preset, :delete_presets_for_page, :validate_sort }

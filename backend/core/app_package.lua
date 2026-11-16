@@ -210,6 +210,18 @@ preset_scope_local = function(scope)
   local sp = spaces_mod.get_space_by_name(space_name)
   return sp and "space:" .. tostring(sp.id) or nil
 end
+local preset_row_orphan
+preset_row_orphan = function(row)
+  if not (row[3] and space_name_by_id(row[3])) then
+    return true
+  end
+  local scope = row[2]
+  local page_id = type(scope) == 'string' and scope:match('^widget:([^:]+):(.+)$')
+  if page_id then
+    return box.space._tdb_custom_views:get(page_id) == nil
+  end
+  return false
+end
 local preset_sort
 preset_sort = function(value)
   if value == nil or value == '' then
@@ -663,13 +675,24 @@ local collect_presets
 collect_presets = function(bucket)
   local _list_0 = box.space._tdb_view_presets:select({ })
   for _index_0 = 1, #_list_0 do
-    local row = _list_0[_index_0]
-    local scope = preset_scope_portable(row[2])
-    table.insert(bucket, {
-      type = ITEM_TYPES.preset,
-      key = "preset:" .. tostring(key_part(scope)) .. "|" .. tostring(key_part(row[4])),
-      content = preset_content(row)
-    })
+    local _continue_0 = false
+    repeat
+      local row = _list_0[_index_0]
+      if preset_row_orphan(row) then
+        _continue_0 = true
+        break
+      end
+      local scope = preset_scope_portable(row[2])
+      table.insert(bucket, {
+        type = ITEM_TYPES.preset,
+        key = "preset:" .. tostring(key_part(scope)) .. "|" .. tostring(key_part(row[4])),
+        content = preset_content(row)
+      })
+      _continue_0 = true
+    until true
+    if not _continue_0 then
+      break
+    end
   end
 end
 local collect_plugins
@@ -1210,5 +1233,6 @@ return {
   strip_null = strip_null,
   normalize_content = normalize_content,
   preset_scope_portable = preset_scope_portable,
-  preset_scope_local = preset_scope_local
+  preset_scope_local = preset_scope_local,
+  preset_row_orphan = preset_row_orphan
 }
