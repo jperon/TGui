@@ -5,6 +5,7 @@ uuid_mod = require 'uuid'
 clock = require 'clock'
 yaml = require 'yaml'
 scopes = require 'core.widget_scopes'
+cv_widgets = require 'resolvers.custom_view_widgets'
 { :require_auth, :require_perm } = require 'resolvers.utils'
 
 VALID_SCRIPT_LANGS = {
@@ -21,6 +22,14 @@ MAX_NAME_LEN = 120
 MAX_DESC_LEN = 2000
 MAX_CODE_LEN = 200000
 
+-- Un nom de définition est une étiquette humaine : « détacher » crée par défaut
+-- « <nom> (<titre de la page>) » (spec widgets personnalisés §4). Le motif
+-- accepte donc, après une lettre ou « _ », les lettres/chiffres ASCII, « _ »,
+-- « - », « . », les parenthèses, l'espace et tout octet UTF-8 (accents). Il
+-- reste unique par portée (core.widget_scopes.NAME_PATTERN, même valeur).
+NAME_PATTERN = "^[%a_\128-\255][%w_%-%.%(%) \128-\255]*$"
+NAME_ALLOWED = "[^%w_%-%.%(%) \128-\255]"
+
 normalize_script_lang = (lang) ->
   l = tostring(lang or 'coffeescript')
   string.lower l
@@ -33,8 +42,9 @@ validate_name = (name) ->
   n = tostring(name or '')
   error 'WidgetPlugin name is required' if n == ''
   error "WidgetPlugin name too long: #{#n}" if #n > MAX_NAME_LEN
-  ok = n\find '^[%a_][%w_%-]*$'
-  error 'WidgetPlugin name must match [A-Za-z_][A-Za-z0-9_-]*' unless ok
+  error 'WidgetPlugin name must not start or end with a space' if n\match '^%s' or n\match '%s$'
+  ok = n\find NAME_PATTERN
+  error 'WidgetPlugin name must match [A-Za-z_][A-Za-z0-9_-.() ]*' unless ok
   n
 
 validate_description = (description) ->
@@ -272,6 +282,91 @@ delete_widget_plugin = (id) ->
   box.space._tdb_widget_plugins\delete id
   true
 
+-- ────────────────────────────────────────────────────────────────────────────
+-- Détacher une instance (spec §4)
+-- ────────────────────────────────────────────────────────────────────────────
+
+-- Nom lisible → nom acceptable : les caractères hors du motif deviennent « _ »,
+-- les espaces multiples sont réduits. Un titre de page contenant « : », « # »
+-- ou des guillemets donne ainsi un nom valide.
+sanitize_name = (text) ->
+  n = tostring(text or '')\gsub NAME_ALLOWED, '_'
+  n = n\gsub '%s+', ' '
+  n = n\match '^%s*(.-)%s*$'
+  n
+
+-- Tronque sans jamais dépasser `limit` octets ; coupe au dernier espace quand
+-- c'est possible, puis retire les espaces pendants.
+truncate_name = (name, limit) ->
+  return name if #name <= limit
+  cut = name\sub 1, limit
+  cut = cut\match '^(.*)%s' or cut
+  cut\match '^(.-)%s*$'
+
+-- Nom par défaut d'une copie : « <nom> (<titre de la page>) ».
+default_copy_name = (plugin_name, page_name) ->
+  base = if type(page_name) == 'string' and page_name\match '%S'
+    "#{plugin_name} (#{page_name})"
+  else
+    "#{plugin_name}_copie"
+  sanitize_name base
+
+-- Nom de la copie : celui demandé s'il est fourni et valide, sinon le nom par
+-- défaut ; un nom déjà pris dans la portée reçoit un suffixe numérique (le nom
+-- n'est unique que par portée, spec §5).
+copy_name_for = (requested, plugin_name, page_name, app_id) ->
+  base = nil
+  if type(requested) == 'string' and requested\match '%S'
+    base = validate_name requested
+  else
+    candidate = truncate_name (default_copy_name plugin_name, page_name), MAX_NAME_LEN - 8
+    error 'WidgetPlugin name is required' if candidate == ''
+    candidate = 'w_' .. candidate unless candidate\match '^[%a_\128-\255]'
+    base = validate_name candidate
+  scopes.unique_name base, app_id
+
+-- Copie d'une définition (script, gabarit, langages, manifest, description)
+-- sous `name`, dans la portée `app_id` (nil = bibliothèque).
+copy_widget_plugin = (source, name, app_id) ->
+  create_widget_plugin {
+    name: name
+    description: source[3] or ''
+    scriptLanguage: source[4] or 'coffeescript'
+    templateLanguage: source[5] or 'pug'
+    scriptCode: source[6] or ''
+    templateCode: source[7] or ''
+    manifest: source[10] or ''
+    appId: app_id
+  }
+
+-- « Détacher » : copie la définition que résout l'instance dans la portée de la
+-- page (app de la page, sinon bibliothèque), puis réécrit le `type:` de CETTE
+-- instance seulement. Aucune autre page, aucune autre instance de la page n'est
+-- touchée ; `params`, `columns` et le reste du nœud sont conservés.
+detach_widget_plugin = (page_id, widget_id, new_name) ->
+  error 'pageId is required' if page_id == nil or page_id == ''
+  error 'widgetId is required' if widget_id == nil or widget_id == ''
+  page = box.space._tdb_custom_views\get page_id
+  error "Custom view not found: #{page_id}" unless page
+  node = cv_widgets.find_widget_in_text page[4], widget_id
+  error "Widget not found in page '#{page[2]}': #{widget_id}" unless node
+  instance_type = node.type
+  unless type(instance_type) == 'string' and instance_type != '' and not scopes.BUILTIN_WIDGET_TYPES[instance_type]
+    error "Widget '#{widget_id}' is not a custom widget"
+  source = scopes.resolve_for_page instance_type, page_id
+  error "Widget definition not found for type '#{instance_type}'" unless source
+  app_id = scopes.page_app_id page_id
+  copy_name = copy_name_for new_name, source[2], page[2], app_id
+  copy = copy_widget_plugin source, copy_name, app_id
+  -- La réécriture est vérifiée avant d'écrire (custom_view_widgets) ; si elle
+  -- échoue malgré tout, la copie est supprimée pour ne pas laisser de définition
+  -- orpheline que personne ne verrait.
+  ok, err = pcall -> cv_widgets.set_widget_type page_id, widget_id, copy.name
+  unless ok
+    box.space._tdb_widget_plugins\delete copy.id
+    error tostring(err), 0
+  copy
+
 Query =
   -- Sans argument : toutes les définitions (éditeur). Avec `pageId` : celles que
   -- voit cette page (définition de son app, sinon globale). Avec `appId` : idem
@@ -315,5 +410,13 @@ Mutation =
   deleteWidgetPlugin: (_, args, ctx) ->
     require_perm ctx, '*', nil, 'admin'
     delete_widget_plugin args.id
+
+  -- Détacher une instance (§4) crée une définition : même niveau que
+  -- createWidgetPlugin (le code d'un widget tourne chez les autres utilisateurs).
+  -- Volontairement absent de WIDGET_ALLOWED_MUTATIONS (graphql/executor.moon) :
+  -- une page ne peut pas créer de définition depuis une iframe de widget.
+  detachWidgetPlugin: (_, args, ctx) ->
+    require_perm ctx, '*', nil, 'admin'
+    detach_widget_plugin args.pageId, args.widgetId, args.newName
 
 { :Query, :Mutation, :validate_manifest }

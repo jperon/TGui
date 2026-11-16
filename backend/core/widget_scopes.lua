@@ -3,7 +3,7 @@ local BUILTIN_WIDGET_TYPES = {
   table = true,
   aggregate = true
 }
-local NAME_PATTERN = '^[%a_][%w_%-]*$'
+local NAME_PATTERN = "^[%a_\128-\255][%w_%-%.%(%) \128-\255]*$"
 local scope_of
 scope_of = function(raw)
   if type(raw) == 'string' and raw ~= '' then

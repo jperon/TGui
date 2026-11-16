@@ -550,9 +550,322 @@ add_widget_to_view = function(viewId, widget)
     updatedAt = tostring(os.time())
   }
 end
+local find_widget_mapping
+find_widget_mapping = function(node, widget_id, depth)
+  if depth == nil then
+    depth = 0
+  end
+  if not (type(node) == 'table' and depth <= 32) then
+    return nil
+  end
+  if type(node.widget) == 'table' then
+    if tostring(node.widget.id) == tostring(widget_id) then
+      return node.widget
+    end
+    return nil
+  end
+  for _, child in pairs(node) do
+    local _continue_0 = false
+    repeat
+      if not (type(child) == 'table') then
+        _continue_0 = true
+        break
+      end
+      local found = find_widget_mapping(child, widget_id, depth + 1)
+      if found then
+        return found
+      end
+      _continue_0 = true
+    until true
+    if not _continue_0 then
+      break
+    end
+  end
+  return nil
+end
+local decode_page_config
+decode_page_config = function(text)
+  if not (type(text) == 'string' and text:match('%S')) then
+    return nil
+  end
+  local ok, config = pcall(yaml.decode, text)
+  if not (ok and type(config) == 'table') then
+    return nil
+  end
+  return config
+end
+local find_widget_in_text
+find_widget_in_text = function(text, widget_id)
+  local config = decode_page_config(text)
+  if not (config) then
+    return nil
+  end
+  return find_widget_mapping(config, widget_id)
+end
+local _split_lines
+_split_lines = function(text)
+  local lines = { }
+  for line in (text .. "\n"):gmatch('([^\n]*)\n') do
+    table.insert(lines, line)
+  end
+  local last_break = #lines > 0 and lines[#lines] == '' and text:sub(-1) == "\n"
+  if last_break then
+    table.remove(lines)
+  end
+  return {
+    lines = lines,
+    trailing = last_break
+  }
+end
+local _scalar_value
+_scalar_value = function(raw)
+  local v = tostring(raw or ''):match('^([^#]*)' or tostring(raw or ''))
+  v = v:match('^%s*(.-)%s*$')
+  if #v >= 2 then
+    local q = v:sub(1, 1)
+    if (q == '"' or q == "'") and v:sub(-1) == q then
+      v = v:sub(2, -2)
+    end
+  end
+  return v
+end
+local _match_widget_key
+_match_widget_key = function(line)
+  local indent = line:match('^%s*')
+  local body = line:sub(#indent + 1)
+  local key_col = #indent
+  local dash = body:match('^%-%s+')
+  if dash then
+    key_col = key_col + #dash
+    body = body:sub(#dash + 1)
+  end
+  local rest = body:match('^widget%s*:%s*(.*)$')
+  if not (rest) then
+    return nil
+  end
+  return {
+    key_col = key_col,
+    rest = rest
+  }
+end
+local _child_range
+_child_range = function(lines, header_idx, key_col)
+  local first = nil
+  local last = nil
+  for j = header_idx + 1, #lines do
+    local _continue_0 = false
+    repeat
+      local raw = lines[j]
+      if raw:match('^%s*$' or raw:match('^%s*#')) then
+        _continue_0 = true
+        break
+      end
+      local ind = #(raw:match('^%s*'))
+      if ind <= key_col then
+        break
+      end
+      if not (first) then
+        first = j
+      end
+      last = j
+      _continue_0 = true
+    until true
+    if not _continue_0 then
+      break
+    end
+  end
+  return {
+    first = first,
+    last = last
+  }
+end
+local _find_child_key
+_find_child_key = function(lines, range, key)
+  if not (range.first) then
+    return nil
+  end
+  for j = range.first, range.last do
+    local k, value = lines[j]:match('^%s*([%w_%-%.]+)%s*:%s*(.*)$')
+    if k == key then
+      return {
+        line = j,
+        value = value
+      }
+    end
+  end
+  return nil
+end
+local _rewrite_type_value
+_rewrite_type_value = function(line, new_type)
+  local prefix, value, suffix = line:match('^(%s*type%s*:%s*)(.-)(%s*)$')
+  if not (prefix) then
+    return nil
+  end
+  local comment = value:match('(%s*#.*)$')
+  if comment then
+    value = value:sub(1, #value - #comment)
+  end
+  local new_value = yaml_scalar(new_type)
+  return prefix .. new_value .. (comment or '') .. suffix
+end
+local _flow_patch
+_flow_patch = function(line, widget_id, new_type)
+  local header = line:find('widget%s*:%s*{')
+  if not (header) then
+    return nil
+  end
+  local open = line:find('{', header)
+  if not (open) then
+    return nil
+  end
+  local close = line:find('}', open)
+  if not (close) then
+    return nil
+  end
+  local inside = line:sub(open + 1, close - 1)
+  local id_raw = inside:match('id%s*:%s*([^,}]*)')
+  if not (id_raw and _scalar_value(id_raw) == tostring(widget_id)) then
+    return nil
+  end
+  if not (inside:match('type%s*:%s*[^,}]*')) then
+    return nil
+  end
+  local patched = inside:gsub('type%s*:%s*[^,}]*', 'type: ' .. yaml_scalar(new_type), 1)
+  return line:sub(1, open) .. patched .. line:sub(close)
+end
+local _deep_equal
+_deep_equal = function(a, b)
+  if not (type(a) == type(b)) then
+    return false
+  end
+  if not (type(a) == 'table') then
+    return a == b
+  end
+  local count = 0
+  for k, v in pairs(a) do
+    count = count + 1
+    if not (_deep_equal(v, b[k])) then
+      return false
+    end
+  end
+  for _ in pairs(b) do
+    count = count - 1
+  end
+  return count == 0
+end
+local _verify_widget_type
+_verify_widget_type = function(before_config, target, new_text, widget_id, new_type)
+  target.type = new_type
+  local ok, after = pcall(yaml.decode, new_text)
+  if not (ok and type(after) == 'table') then
+    error("Rewritten page YAML is invalid")
+  end
+  if not (_deep_equal(before_config, after)) then
+    error("Rewriting widget '" .. tostring(widget_id) .. "' would change the rest of the page YAML")
+  end
+  return nil
+end
+local rewrite_widget_type
+rewrite_widget_type = function(text, widget_id, new_type)
+  local config = decode_page_config(text)
+  if not (config) then
+    error("Page YAML is empty or invalid")
+  end
+  local target = find_widget_mapping(config, widget_id)
+  if not (target) then
+    error("Widget not found in page YAML: " .. tostring(widget_id))
+  end
+  if not (type(target.type) == 'string' and target.type ~= '') then
+    error("Widget '" .. tostring(widget_id) .. "' has no custom type to rewrite")
+  end
+  local split = _split_lines(text)
+  local lines = split.lines
+  local patched = false
+  for idx, raw in ipairs(lines) do
+    local _continue_0 = false
+    repeat
+      local header = _match_widget_key(raw)
+      if not (header) then
+        _continue_0 = true
+        break
+      end
+      if header.rest:sub(1, 1) == '{' then
+        local flow = _flow_patch(raw, widget_id, new_type)
+        if flow then
+          lines[idx] = flow
+          patched = true
+          break
+        end
+      else
+        local range = _child_range(lines, idx, header.key_col)
+        local id_entry = _find_child_key(lines, range, 'id')
+        if not (id_entry and _scalar_value(id_entry.value) == tostring(widget_id)) then
+          _continue_0 = true
+          break
+        end
+        local type_entry = _find_child_key(lines, range, 'type')
+        if not (type_entry) then
+          error("Widget '" .. tostring(widget_id) .. "' has no type line")
+        end
+        local rewritten = _rewrite_type_value(lines[type_entry.line], new_type)
+        if not (rewritten) then
+          error("Cannot rewrite the type of widget '" .. tostring(widget_id) .. "'")
+        end
+        lines[type_entry.line] = rewritten
+        patched = true
+        break
+      end
+      _continue_0 = true
+    until true
+    if not _continue_0 then
+      break
+    end
+  end
+  if not (patched) then
+    error("Widget not found in page YAML: " .. tostring(widget_id))
+  end
+  local new_text = table.concat(lines, "\n")
+  if split.trailing then
+    new_text = new_text .. "\n"
+  end
+  _verify_widget_type(config, target, new_text, widget_id, new_type)
+  return new_text
+end
+local set_widget_type
+set_widget_type = function(page_id, widget_id, new_type)
+  local t = box.space._tdb_custom_views:get(page_id)
+  if not (t) then
+    error("CustomView not found: " .. tostring(page_id))
+  end
+  local new_yaml = rewrite_widget_type(t[4], widget_id, new_type)
+  local now = os.time()
+  box.space._tdb_custom_views:update(page_id, {
+    {
+      '=',
+      4,
+      new_yaml
+    },
+    {
+      '=',
+      6,
+      now
+    }
+  })
+  return {
+    id = t[1],
+    name = t[2],
+    description = t[3],
+    yaml = new_yaml,
+    createdAt = tostring(t[5]),
+    updatedAt = tostring(now)
+  }
+end
 return {
   reorder_widgets = reorder_widgets,
   add_widget_to_view = add_widget_to_view,
   add_data_view_to_page = add_data_view_to_page,
-  encode_layout_yaml = encode_layout_yaml
+  encode_layout_yaml = encode_layout_yaml,
+  find_widget_in_text = find_widget_in_text,
+  rewrite_widget_type = rewrite_widget_type,
+  set_widget_type = set_widget_type
 }

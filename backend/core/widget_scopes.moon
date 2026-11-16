@@ -25,8 +25,10 @@ BUILTIN_WIDGET_TYPES = {
   aggregate: true
 }
 
--- Même motif que resolvers/widget_plugin_resolvers.validate_name.
-NAME_PATTERN = '^[%a_][%w_%-]*$'
+-- Même motif que resolvers/widget_plugin_resolvers.validate_name : un nom est
+-- une étiquette humaine (« détacher » propose « <nom> (<titre de la page>) »,
+-- spec §4), d'où l'espace et les parenthèses.
+NAME_PATTERN = "^[%a_\128-\255][%w_%-%.%(%) \128-\255]*$"
 
 -- `app_id` tel qu'il est stocké ('' = bibliothèque) → forme d'API (nil).
 scope_of = (raw) ->
