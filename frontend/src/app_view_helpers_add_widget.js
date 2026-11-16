@@ -545,7 +545,7 @@
         window._currentDataViewsData = dataViews;
         // Écouter les changements pour charger les champs
         return select.addEventListener('change', function() {
-          var dataViewsData, ref, selectedSource, spaceId, spacesData;
+          var base, base1, dataViewsData, ref, selectedSource, spaceId, spacesData;
           spaceId = this.value;
           if (!spaceId) {
             return;
@@ -567,15 +567,20 @@
                 fieldType: 'String'
               };
             }) : void 0;
-            window.AppViewHelpers._populateFieldsLists(selectedSource);
-            window.AppViewHelpers._populateGroupByOptions(selectedSource);
             // Les sélecteurs du manifest dépendent des champs de la source.
-            return window.AppViewHelpers._refreshWidgetManifestForm();
+            window.AppViewHelpers._refreshWidgetManifestForm();
+            if (typeof (base = window.AppViewHelpers)._populateFieldsLists === "function") {
+              base._populateFieldsLists(selectedSource);
+            }
+            return typeof (base1 = window.AppViewHelpers)._populateGroupByOptions === "function" ? base1._populateGroupByOptions(selectedSource) : void 0;
           } else if (selectedSource) {
             return window.AppViewHelpers._loadSpaceFields(selectedSource, function() {
-              window.AppViewHelpers._populateFieldsLists(selectedSource);
-              window.AppViewHelpers._populateGroupByOptions(selectedSource);
-              return window.AppViewHelpers._refreshWidgetManifestForm();
+              var base2, base3;
+              window.AppViewHelpers._refreshWidgetManifestForm();
+              if (typeof (base2 = window.AppViewHelpers)._populateFieldsLists === "function") {
+                base2._populateFieldsLists(selectedSource);
+              }
+              return typeof (base3 = window.AppViewHelpers)._populateGroupByOptions === "function" ? base3._populateGroupByOptions(selectedSource) : void 0;
             }); // C'est une Data View (elle a une config)
           }
         });

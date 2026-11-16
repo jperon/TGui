@@ -1,8 +1,11 @@
 # tests/playwright/pages/widget-manifest.spec.coffee
 # Widget personnalisé avec manifest (spec 2026-11-16-custom-widgets-design.md
-# §3, §6) : mappage de colonnes, API onRecords/onRecord renommée, updateRecord
-# depuis l'iframe (access: full), et refus d'une mutation avec access: read.
-# Le test crée son espace, ses plugins et sa page, et les supprime à la fin.
+# §3, §3 bis, §6) :
+#   - le widget est ajouté par la fenêtre « ＋ Widget » : sélecteurs de champ
+#     par colonne déclarée, option pré-remplie, mappage écrit dans le YAML ;
+#   - l'iframe reçoit les lignes renommées et son updateRecord modifie la donnée ;
+#   - un plugin access: read voit les lignes mais sa mutation est refusée.
+# Le test crée son espace, ses plugins et ses pages, et les supprime à la fin.
 
 { test, expect } = require '@playwright/test'
 { performLogin, generateUniqueName } = require '../config/parallel-helper'
@@ -22,11 +25,13 @@ test.describe.serial 'Widget personnalisé — manifest, mappage et API', ->
   spaceName = "wman_ev_#{stamp}"
   fullName = "wman_cal_#{stamp}"
   readName = "wman_read_#{stamp}"
-  pageName = generateUniqueName 'WidgetManifest'
+  windowPageName = generateUniqueName 'WidgetManifest'
+  readPageName = generateUniqueName 'WidgetManifestRead'
   spaceId = null
   fullId = null
   readId = null
-  pageId = null
+  windowPageId = null
+  readPageId = null
 
   fullManifest = """
   access: full
@@ -61,31 +66,16 @@ test.describe.serial 'Widget personnalisé — manifest, mappage et API', ->
         api.updateRecord(rows[0].id, { titre: 'MODIFIÉ' });
       }
     });
-    api.onRecord(function (rec) {
-      if (rec && !wrote) api.render('<div id="row">' + rec.titre + '</div>');
-    });
   };
   """
 
-  test.afterAll ({ browser }) ->
+  test.beforeAll ({ browser }) ->
     ctx = await browser.newContext()
     p = await ctx.newPage()
     await performLogin p
-    if pageId
-      await gql p, 'mutation($id: ID!) { deleteCustomView(id: $id) }', { id: pageId }
-    if fullId
-      await gql p, 'mutation($id: ID!) { deleteWidgetPlugin(id: $id) }', { id: fullId }
-    if readId
-      await gql p, 'mutation($id: ID!) { deleteWidgetPlugin(id: $id) }', { id: readId }
-    if spaceId
-      await gql p, 'mutation($id: ID!) { deleteSpace(id: $id) }', { id: spaceId }
-    await ctx.close()
 
-  test 'mappage + onRecords + updateRecord, et mutation refusée en lecture', ({ page }) ->
-    await performLogin page
-
-    # 1. Source : deux colonnes (nom, date_debut) et deux lignes.
-    created = await gql page,
+    # Source : deux colonnes (nom, date_debut) et deux lignes.
+    created = await gql p,
       'mutation($input: CreateSpaceInput!) { createSpace(input: $input) { id name } }',
       { input: { name: spaceName, description: 'Widget manifest e2e' } }
     expect(created?.data?.createSpace?.id,
@@ -96,7 +86,7 @@ test.describe.serial 'Widget personnalisé — manifest, mappage et API', ->
       { name: 'nom', fieldType: 'String', notNull: true, description: '' }
       { name: 'date_debut', fieldType: 'Datetime', notNull: false, description: '' }
     ]
-      res = await gql page,
+      res = await gql p,
         'mutation($sid: ID!, $input: FieldInput!) { addField(spaceId: $sid, input: $input) { id name } }',
         { sid: spaceId, input }
       expect(res?.data?.addField?.name, "addField: #{JSON.stringify(res)}").toBe input.name
@@ -105,17 +95,16 @@ test.describe.serial 'Widget personnalisé — manifest, mappage et API', ->
       { nom: 'Alpha', date_debut: '2026-01-01T00:00:00Z' }
       { nom: 'Beta', date_debut: '2026-02-02T00:00:00Z' }
     ]
-      res = await gql page,
+      res = await gql p,
         'mutation($sid: ID!, $data: JSON!) { insertRecord(spaceId: $sid, data: $data) { id } }',
         { sid: spaceId, data: row }
       expect(res?.data?.insertRecord?.id, "insertRecord: #{JSON.stringify(res)}").toBeTruthy()
 
-    # 2. Deux définitions : accès full (écrit) et read (mutation refusée).
-    fullScriptCode = fullScript
-    res = await gql page,
+    # Deux définitions : accès full (écrit) et read (mutation refusée).
+    res = await gql p,
       'mutation($input: CreateWidgetPluginInput!) { createWidgetPlugin(input: $input) { id name } }',
       { input: { name: fullName, description: 'calendrier (manifest)', scriptLanguage: 'javascript',
-                 templateLanguage: 'html', scriptCode: fullScriptCode, templateCode: '<div>init</div>',
+                 templateLanguage: 'html', scriptCode: fullScript, templateCode: '<div>init</div>',
                  manifest: fullManifest } }
     expect(res?.data?.createWidgetPlugin?.name,
       "createWidgetPlugin (full): #{JSON.stringify(res)}").toBe fullName
@@ -131,7 +120,7 @@ test.describe.serial 'Widget personnalisé — manifest, mappage et API', ->
       });
     };
     """
-    res = await gql page,
+    res = await gql p,
       'mutation($input: CreateWidgetPluginInput!) { createWidgetPlugin(input: $input) { id name } }',
       { input: { name: readName, description: 'lecteur (read)', scriptLanguage: 'javascript',
                  templateLanguage: 'html', scriptCode: readScript, templateCode: '<div id="res">init</div>',
@@ -140,41 +129,104 @@ test.describe.serial 'Widget personnalisé — manifest, mappage et API', ->
       "createWidgetPlugin (read): #{JSON.stringify(res)}").toBe readName
     readId = res.data.createWidgetPlugin.id
 
-    # 3. Page avec mappage de colonnes (la fenêtre écrit la même chose).
-    yaml = "layout:\n  direction: vertical\n  children:\n" +
-      "    - widget:\n        id: cal\n        title: Calendrier\n" +
-      "        space: #{spaceName}\n        type: '#{fullName}'\n" +
-      "        columns:\n          titre: nom\n          debut: date_debut\n" +
-      "        params:\n          couleur: '#c33'\n" +
+    # Page vide pour l'ajout par la fenêtre, et page du widget en lecture.
+    res = await gql p,
+      'mutation($input: CreateCustomViewInput!) { createCustomView(input: $input) { id name } }',
+      { input: { name: windowPageName, yaml: "layout:\n  direction: vertical\n  children: []" } }
+    expect(res?.data?.createCustomView?.id,
+      "createCustomView (fenêtre): #{JSON.stringify(res)}").toBeTruthy()
+    windowPageId = res.data.createCustomView.id
+
+    readYaml = "layout:\n  direction: vertical\n  children:\n" +
       "    - widget:\n        id: reader\n        title: Lecteur\n" +
       "        space: #{spaceName}\n        type: '#{readName}'\n" +
       "        columns:\n          titre: nom\n"
-    res = await gql page,
-      'mutation($input: CreateCustomViewInput!) { createCustomView(input: $input) { id name yaml } }',
-      { input: { name: pageName, yaml: yaml } }
+    res = await gql p,
+      'mutation($input: CreateCustomViewInput!) { createCustomView(input: $input) { id name } }',
+      { input: { name: readPageName, yaml: readYaml } }
     expect(res?.data?.createCustomView?.id,
-      "createCustomView: #{JSON.stringify(res)}").toBeTruthy()
-    pageId = res.data.createCustomView.id
-    expect(res.data.createCustomView.yaml, 'mapping écrit').toContain 'titre: nom'
+      "createCustomView (lecture): #{JSON.stringify(res)}").toBeTruthy()
+    readPageId = res.data.createCustomView.id
 
-    # 4. Ouvrir la page.
+    await ctx.close()
+
+  test.afterAll ({ browser }) ->
+    ctx = await browser.newContext()
+    p = await ctx.newPage()
+    await performLogin p
+    if windowPageId
+      await gql p, 'mutation($id: ID!) { deleteCustomView(id: $id) }', { id: windowPageId }
+    if readPageId
+      await gql p, 'mutation($id: ID!) { deleteCustomView(id: $id) }', { id: readPageId }
+    if fullId
+      await gql p, 'mutation($id: ID!) { deleteWidgetPlugin(id: $id) }', { id: fullId }
+    if readId
+      await gql p, 'mutation($id: ID!) { deleteWidgetPlugin(id: $id) }', { id: readId }
+    if spaceId
+      await gql p, 'mutation($id: ID!) { deleteSpace(id: $id) }', { id: spaceId }
+    await ctx.close()
+
+  test 'ajouté par la fenêtre : mappage, lignes renommées, updateRecord', ({ page }) ->
+    await performLogin page
+
     await page.goto '/'
     await page.waitForSelector '#main', { state: 'visible' }
-    leaf = page.locator('#page-list .leaf-item', { hasText: pageName }).first()
+    leaf = page.locator('#page-list .leaf-item', { hasText: windowPageName }).first()
     await expect(leaf).toBeVisible()
     await leaf.click()
     await expect(page.locator('#custom-view-container')).toBeVisible()
 
-    # 5. Le widget full reçoit les lignes renommées (titre/debut) et l'option,
-    #    puis son updateRecord modifie la donnée et recharge les lignes.
-    frame = page.frameLocator '[data-widget-id="cal"] iframe'
-    await expect(frame.locator('#param')).toHaveText '#c33', { timeout: 15000 }
-    # L'écriture peut précéder la première assertion : la ligne mise à jour
-    # (renommée `titre`) doit être là, avec la seconde ligne intacte.
+    # 1. Fenêtre « ＋ Widget » : choisir le widget personnalisé.
+    await page.click '#yaml-add-widget-btn'
+    modal = page.locator '#add-widget-modal'
+    await expect(modal).toBeVisible()
+
+    pluginOption = page.locator('#widget-type-plugin-list .widget-type-option',
+      { hasText: fullName }).first()
+    await expect(pluginOption).toBeVisible()
+    await pluginOption.locator('label').click()
+    await expect(pluginOption.locator('input[type="radio"]')).toBeChecked()
+
+    await page.fill '#widget-title-input', 'Calendrier'
+    await page.selectOption '#widget-space-select', { label: spaceName }
+
+    # 2. Le formulaire du manifest remplace les paires clé/valeur.
+    await expect(page.locator '#widget-params-pairs').toBeHidden()
+    titreSelect = page.locator '#widget-manifest-form .manifest-column-select[data-declared="titre"]'
+    debutSelect = page.locator '#widget-manifest-form .manifest-column-select[data-declared="debut"]'
+    await expect(titreSelect).toBeVisible()
+    await expect(debutSelect).toBeVisible()
+    # Les champs de la source sont proposés, filtrés par type (Datetime seulement).
+    await expect(titreSelect.locator('option[value="nom"]')).toHaveCount 1
+    await expect(debutSelect.locator('option[value="date_debut"]')).toHaveCount 1
+    await expect(debutSelect.locator('option[value="nom"]')).toHaveCount 0
+
+    await titreSelect.selectOption 'nom'
+    await debutSelect.selectOption 'date_debut'
+    # Option color : la valeur par défaut du manifest est pré-remplie (le
+    # navigateur normalise '#36c' en '#3366cc').
+    await expect(page.locator '#widget-manifest-form input[data-option="couleur"]').toHaveValue '#3366cc'
+
+    await page.click '#add-widget-confirm-btn'
+    await expect(modal).toBeHidden()
+
+    # 3. Le YAML de page porte le mappage et l'option, l'iframe les lignes renommées.
+    saved = await gql page, 'query($id: ID!) { customView(id: $id) { yaml } }', { id: windowPageId }
+    savedYaml = saved?.data?.customView?.yaml or ''
+    expect(savedYaml, "YAML enregistré: #{savedYaml}").toContain 'columns:'
+    expect(savedYaml, "YAML enregistré: #{savedYaml}").toContain 'titre: nom'
+    expect(savedYaml, "YAML enregistré: #{savedYaml}").toContain 'debut: date_debut'
+    expect(savedYaml, "YAML enregistré: #{savedYaml}").toContain "type: '#{fullName}'"
+
+    widget = page.locator ".cv-widget[data-widget-type=\"#{fullName}\"]"
+    await expect(widget).toBeVisible()
+    frame = widget.locator('iframe').contentFrame()
+    await expect(frame.locator('#param')).toHaveText '#3366cc', { timeout: 15000 }
     await expect(frame.locator('#status')).toHaveText 'UPDATED', { timeout: 15000 }
     await expect(frame.locator('#rows')).toContainText 'MODIFIÉ', { timeout: 15000 }
     await expect(frame.locator('#rows')).toContainText 'Beta'
 
+    # 4. L'écriture est bien en base ; la seconde ligne est intacte.
     records = await gql page,
       'query($sid: ID!, $limit: Int) { records(spaceId: $sid, limit: $limit) { items { id data } } }',
       { sid: spaceId, limit: 10 }
@@ -184,12 +236,19 @@ test.describe.serial 'Widget personnalisé — manifest, mappage et API', ->
     expect(names, "données en base: #{JSON.stringify(names)}").toContain 'MODIFIÉ'
     expect(names).toContain 'Beta'
 
-    # 6. Le widget read voit les lignes mais sa mutation est refusée côté parent.
-    readFrame = page.frameLocator '[data-widget-id="reader"] iframe'
-    await expect(readFrame.locator('#res')).toContainText 'DENIED', { timeout: 15000 }
-    await expect(readFrame.locator('#res')).toContainText 'lectures'
+  test 'access: read — mutation refusée, données inchangées', ({ page }) ->
+    await performLogin page
+    await page.goto '/'
+    await page.waitForSelector '#main', { state: 'visible' }
+    leaf = page.locator('#page-list .leaf-item', { hasText: readPageName }).first()
+    await expect(leaf).toBeVisible()
+    await leaf.click()
+    await expect(page.locator('#custom-view-container')).toBeVisible()
 
-    # ... et la base n'a pas reçu « HACK ».
+    frame = page.frameLocator '[data-widget-id="reader"] iframe'
+    await expect(frame.locator('#res')).toContainText 'DENIED', { timeout: 15000 }
+    await expect(frame.locator('#res')).toContainText 'lectures'
+
     records = await gql page,
       'query($sid: ID!, $limit: Int) { records(spaceId: $sid, limit: $limit) { items { id data } } }',
       { sid: spaceId, limit: 10 }

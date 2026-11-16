@@ -440,15 +440,15 @@ Object.assign window.AppViewHelpers,
             selectedSource.isView = true
             # Simuler l'objet space pour peupler les champs
             selectedSource.fields = selectedSource.config.columns?.map (c) -> { name: c, fieldType: 'String' }
-            window.AppViewHelpers._populateFieldsLists selectedSource
-            window.AppViewHelpers._populateGroupByOptions selectedSource
             # Les sélecteurs du manifest dépendent des champs de la source.
             window.AppViewHelpers._refreshWidgetManifestForm()
+            window.AppViewHelpers._populateFieldsLists? selectedSource
+            window.AppViewHelpers._populateGroupByOptions? selectedSource
           else if selectedSource
             window.AppViewHelpers._loadSpaceFields selectedSource, ->
-              window.AppViewHelpers._populateFieldsLists selectedSource
-              window.AppViewHelpers._populateGroupByOptions selectedSource
               window.AppViewHelpers._refreshWidgetManifestForm()
+              window.AppViewHelpers._populateFieldsLists? selectedSource
+              window.AppViewHelpers._populateGroupByOptions? selectedSource
 
   _loadSpaceFields: (space, callback) ->
     # Charger les champs d'un espace spécifique
