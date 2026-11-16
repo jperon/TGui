@@ -502,6 +502,8 @@ window.DataView = class DataView
               row._attributes.className.column[f.name].push 'cell-formula-error-internal'
 
     @_grid.resetData @_currentData
+    # resetData rebuilds rows: the highlighted row key is no longer tracked.
+    @_activeRowKey = null
     # resetData remet le tri de Toast UI Grid à zéro : réapplique celui demandé
     # (préréglage ou tri manuel mémorisé) pour qu'il persiste après un load.
     # Le tri porte sur TOUTES les lignes, sentinelle comprise : on la remet
@@ -509,8 +511,6 @@ window.DataView = class DataView
     if @_sortState?.length
       @_applySortState()
       @_pinSentinelLast()
-    # resetData rebuilds rows: the highlighted row key is no longer tracked.
-    @_activeRowKey = null
 
     # Restore focus if we have saved it
     if @_lastFocus
