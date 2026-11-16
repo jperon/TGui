@@ -684,13 +684,25 @@ _find_child_key = function(lines, range, key)
   if not (range.first) then
     return nil
   end
+  local base = #(lines[range.first]:match('^%s*'))
   for j = range.first, range.last do
-    local k, value = lines[j]:match('^%s*([%w_%-%.]+)%s*:%s*(.*)$')
-    if k == key then
-      return {
-        line = j,
-        value = value
-      }
+    local _continue_0 = false
+    repeat
+      if not (#(lines[j]:match('^%s*')) == base) then
+        _continue_0 = true
+        break
+      end
+      local k, value = lines[j]:match('^%s*([%w_%-%.]+)%s*:%s*(.*)$')
+      if k == key then
+        return {
+          line = j,
+          value = value
+        }
+      end
+      _continue_0 = true
+    until true
+    if not _continue_0 then
+      break
     end
   end
   return nil

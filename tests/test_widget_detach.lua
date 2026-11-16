@@ -288,7 +288,7 @@ R.describe("WidgetDetach — nom de la copie", function()
     R.eq(copy.appId, APP_ID)
     return delete_page(page)
   end)
-  return R.it("refuse un nom invalide", function()
+  R.it("refuse un nom invalide", function()
     local before = page_yaml_of(FIX.pages.p1.id)
     R.raises((function()
       return wpr.Mutation.detachWidgetPlugin({ }, {
@@ -298,6 +298,28 @@ R.describe("WidgetDetach — nom de la copie", function()
       }, CTX)
     end), 'must match')
     return R.eq(page_yaml_of(FIX.pages.p1.id), before, 'la page ne change pas')
+  end)
+  return R.it("ne confond pas une clé `type` imbriquée avec celle du widget", function()
+    local page = create_page("wdetach_nested_" .. tostring(SUFFIX), [[layout:
+  direction: vertical
+  children:
+    - widget:
+        id: w_0000000e
+        type: ']] .. FIX.plugin.name .. [['
+        params:
+          type: 'nested'
+          label: 'X'
+]])
+    local copy = wpr.Mutation.detachWidgetPlugin({ }, {
+      pageId = page.id,
+      widgetId = 'w_0000000e'
+    }, CTX)
+    FIX.plugins[copy.name] = copy
+    local w = widgets_by_id(page.id)['w_0000000e']
+    R.eq(w.type, copy.name, 'le type du widget est réécrit')
+    R.eq(w.params.type, 'nested', 'le type imbriqué des params est intact')
+    R.eq(w.params.label, 'X')
+    return delete_page(page)
   end)
 end)
 R.describe("WidgetDetach — erreurs claires", function()

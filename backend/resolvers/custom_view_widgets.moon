@@ -589,10 +589,15 @@ _child_range = (lines, header_idx, key_col) ->
     last = j
   { first: first, last: last }
 
--- Ligne `key:` parmi les enfants directs, ou nil.
+-- Ligne `key:` parmi les enfants DIRECTS du mapping, ou nil. Seule
+-- l'indentation du premier enfant est acceptée : une clé de même nom plus
+-- profondément imbriquée (`depends_on.id`, `params.type`…) ne doit jamais être
+-- prise pour celle du widget.
 _find_child_key = (lines, range, key) ->
   return nil unless range.first
+  base = #(lines[range.first]\match '^%s*')
   for j = range.first, range.last
+    continue unless #(lines[j]\match '^%s*') == base
     k, value = lines[j]\match '^%s*([%w_%-%.]+)%s*:%s*(.*)$'
     return { line: j, value: value } if k == key
   nil

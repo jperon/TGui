@@ -289,6 +289,28 @@ R.describe "WidgetDetach — nom de la copie", ->
     ), 'must match'
     R.eq page_yaml_of(FIX.pages.p1.id), before, 'la page ne change pas'
 
+  R.it "ne confond pas une clé `type` imbriquée avec celle du widget", ->
+    page = create_page "wdetach_nested_#{SUFFIX}", [[layout:
+  direction: vertical
+  children:
+    - widget:
+        id: w_0000000e
+        type: ']] .. FIX.plugin.name .. [['
+        params:
+          type: 'nested'
+          label: 'X'
+]]
+    copy = wpr.Mutation.detachWidgetPlugin {}, {
+      pageId: page.id
+      widgetId: 'w_0000000e'
+    }, CTX
+    FIX.plugins[copy.name] = copy
+    w = widgets_by_id(page.id)['w_0000000e']
+    R.eq w.type, copy.name, 'le type du widget est réécrit'
+    R.eq w.params.type, 'nested', 'le type imbriqué des params est intact'
+    R.eq w.params.label, 'X'
+    delete_page page
+
 -- ────────────────────────────────────────────────────────────────────────────
 -- Erreurs
 -- ────────────────────────────────────────────────────────────────────────────
