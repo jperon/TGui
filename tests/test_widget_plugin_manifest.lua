@@ -198,6 +198,88 @@ R.describe("WidgetPlugins — migration d’un tuple d’ancien format", functio
     return box.space._tdb_widget_plugins:delete(old[1])
   end)
 end)
+R.describe("WidgetPlugins — mappage de colonnes dans le YAML de page", function()
+  R.it("addWidgetToView écrit un mapping columns déclaré → champ", function()
+    local cvr = require('resolvers.custom_view_resolvers')
+    local spaces = require('core.spaces')
+    local cvw = require('resolvers.custom_view_widgets')
+    local sp = spaces.create_user_space("wpman_map_" .. tostring(SUFFIX), '')
+    local page = cvr.Mutation.createCustomView({ }, {
+      name = "wpman_page_" .. tostring(SUFFIX),
+      description = '',
+      yaml = 'layout:\n  direction: vertical\n  children: []'
+    }, CTX)
+    local res = cvr.Mutation.addWidgetToView({ }, {
+      viewId = page.id,
+      widget = {
+        title = 'Calendrier',
+        type = NAME,
+        spaceId = sp.id,
+        fields = { },
+        columns = {
+          titre = 'nom',
+          debut = 'date_debut'
+        },
+        params = {
+          couleur = '#c33'
+        }
+      }
+    }, CTX)
+    R.ok(res)
+    R.matches(res.yaml, 'columns:')
+    R.matches(res.yaml, 'titre: nom')
+    R.matches(res.yaml, 'debut: date_debut')
+    local config = yaml.decode(res.yaml)
+    local widget = config.layout.children[1].widget
+    R.eq(widget.type, NAME)
+    R.eq(widget.columns.titre, 'nom')
+    R.eq(widget.columns.debut, 'date_debut')
+    R.eq(widget.params.couleur, '#c33')
+    local reordered = cvw.reorder_widgets(page.id, {
+      {
+        widgetId = widget.id,
+        index = 1
+      }
+    })
+    local again = yaml.decode(reordered.yaml).layout.children[1].widget
+    R.eq(again.columns.titre, 'nom')
+    R.eq(again.columns.debut, 'date_debut')
+    cvr.Mutation.deleteCustomView({ }, {
+      id = page.id
+    }, CTX)
+    return spaces.delete_user_space(sp.name)
+  end)
+  return R.it("un widget tableau garde une liste columns", function()
+    local cvr = require('resolvers.custom_view_resolvers')
+    local spaces = require('core.spaces')
+    local sp = spaces.create_user_space("wpman_list_" .. tostring(SUFFIX), '')
+    local page = cvr.Mutation.createCustomView({ }, {
+      name = "wpman_list_page_" .. tostring(SUFFIX),
+      description = '',
+      yaml = 'layout:\n  direction: vertical\n  children: []'
+    }, CTX)
+    local res = cvr.Mutation.addWidgetToView({ }, {
+      viewId = page.id,
+      widget = {
+        title = 'Tableau',
+        type = 'table',
+        spaceId = sp.id,
+        fields = {
+          'nom',
+          'age'
+        }
+      }
+    }, CTX)
+    local widget = yaml.decode(res.yaml).layout.children[1].widget
+    R.eq(#widget.columns, 2)
+    R.eq(widget.columns[1], 'nom')
+    R.eq(widget.columns[2], 'age')
+    cvr.Mutation.deleteCustomView({ }, {
+      id = page.id
+    }, CTX)
+    return spaces.delete_user_space(sp.name)
+  end)
+end)
 return R.describe("WidgetPlugins — export et installation d’app", function()
   R.it("l’export inclut le manifest", function()
     local row = box.space._tdb_widget_plugins:get(plugin_id)

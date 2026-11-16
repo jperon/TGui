@@ -166,6 +166,71 @@ R.describe "WidgetPlugins — migration d’un tuple d’ancien format", ->
     R.eq spaces.migrate_widget_plugin_manifest!, 0, 'idempotente'
     box.space._tdb_widget_plugins\delete old[1]
 
+R.describe "WidgetPlugins — mappage de colonnes dans le YAML de page", ->
+
+  R.it "addWidgetToView écrit un mapping columns déclaré → champ", ->
+    cvr = require 'resolvers.custom_view_resolvers'
+    spaces = require 'core.spaces'
+    cvw = require 'resolvers.custom_view_widgets'
+    sp = spaces.create_user_space "wpman_map_#{SUFFIX}", ''
+    page = cvr.Mutation.createCustomView {}, {
+      name: "wpman_page_#{SUFFIX}"
+      description: ''
+      yaml: 'layout:\n  direction: vertical\n  children: []'
+    }, CTX
+    res = cvr.Mutation.addWidgetToView {}, {
+      viewId: page.id
+      widget: {
+        title: 'Calendrier'
+        type: NAME
+        spaceId: sp.id
+        fields: {}
+        columns: { titre: 'nom', debut: 'date_debut' }
+        params: { couleur: '#c33' }
+      }
+    }, CTX
+    R.ok res
+    R.matches res.yaml, 'columns:'
+    R.matches res.yaml, 'titre: nom'
+    R.matches res.yaml, 'debut: date_debut'
+    config = yaml.decode res.yaml
+    widget = config.layout.children[1].widget
+    R.eq widget.type, NAME
+    R.eq widget.columns.titre, 'nom'
+    R.eq widget.columns.debut, 'date_debut'
+    R.eq widget.params.couleur, '#c33'
+
+    -- un réordonnancement conserve le mapping (pas de liste, pas de perte)
+    reordered = cvw.reorder_widgets page.id, {
+      { widgetId: widget.id, index: 1 }
+    }
+    again = yaml.decode(reordered.yaml).layout.children[1].widget
+    R.eq again.columns.titre, 'nom'
+    R.eq again.columns.debut, 'date_debut'
+
+    cvr.Mutation.deleteCustomView {}, { id: page.id }, CTX
+    spaces.delete_user_space sp.name
+
+  R.it "un widget tableau garde une liste columns", ->
+    cvr = require 'resolvers.custom_view_resolvers'
+    spaces = require 'core.spaces'
+    sp = spaces.create_user_space "wpman_list_#{SUFFIX}", ''
+    page = cvr.Mutation.createCustomView {}, {
+      name: "wpman_list_page_#{SUFFIX}"
+      description: ''
+      yaml: 'layout:\n  direction: vertical\n  children: []'
+    }, CTX
+    res = cvr.Mutation.addWidgetToView {}, {
+      viewId: page.id
+      widget: { title: 'Tableau', type: 'table', spaceId: sp.id, fields: { 'nom', 'age' } }
+    }, CTX
+    widget = yaml.decode(res.yaml).layout.children[1].widget
+    R.eq #widget.columns, 2
+    R.eq widget.columns[1], 'nom'
+    R.eq widget.columns[2], 'age'
+    cvr.Mutation.deleteCustomView {}, { id: page.id }, CTX
+    spaces.delete_user_space sp.name
+
 R.describe "WidgetPlugins — export et installation d’app", ->
 
   R.it "l’export inclut le manifest", ->
