@@ -12,6 +12,7 @@
     templateLanguage
     scriptCode
     templateCode
+    manifest
     updatedAt
   }
 }`;
@@ -25,6 +26,7 @@
     templateLanguage
     scriptCode
     templateCode
+    manifest
     updatedAt
   }
 }`;

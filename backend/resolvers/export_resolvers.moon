@@ -185,6 +185,7 @@ build_snapshot = (include_data) ->
       templateLanguage: wp[5] or 'pug'
       scriptCode: wp[6] or ''
       templateCode: wp[7] or ''
+      manifest: wp[10] or ''
     }
     entry.description = wp[3] if wp[3] and wp[3] != ''
     table.insert snap.schema.widget_plugins, entry
@@ -488,6 +489,7 @@ do_import = (snap, mode) ->
           iwp.templateCode or ''
           now
           now
+          iwp.manifest or ''
         }
       if ok then created += 1 else table.insert errors, "widget_plugin #{iwp.name}: #{err}"
 

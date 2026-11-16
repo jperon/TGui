@@ -349,70 +349,135 @@ Available functions are `sum`, `count`, `avg`, `min`, `max`. The `as` alias is o
 
 ![Aggregate widget example](../img/aggregate-widget.png)
 
-### Custom widget plugins
+### Widgets personnalisés (plugins)
 
-You can add custom widgets to a YAML view with a plugin (`CoffeeScript` or `JavaScript` for logic, `Pug` or `HTML` for template).
+Un widget personnalisé est une **définition réutilisable** (code de script + gabarit, et
+facultativement un `manifest`) que l'on instancie dans une page par son nom. Corriger la
+définition met à jour toutes les pages qui l'utilisent.
 
-Une fois le plugin créé, il figure aussi sous **Widgets personnalisés** dans la fenêtre **＋ Widget** d'une page : choisissez-le comme type de widget, renseignez les paramètres clé/valeur puis cliquez sur **Ajouter** — le YAML de la page reçoit un nœud `type: <nom du plugin>` portant ces `params`, sans sélection de colonne obligatoire. La même fenêtre renvoie vers l'éditeur de plugins (**Nouveau widget personnalisé…**, réservé aux admins).
+Une définition existante figure sous **Widgets personnalisés** dans la fenêtre
+**＋ Widget** d'une page. Choisissez-la comme type de widget :
 
-#### Create a plugin
+- avec un `manifest`, la section **3. Paramètres** affiche un sélecteur de champ par
+  colonne déclarée (filtré par type, « — » pour une colonne optionnelle) et un champ par
+  option, valeur par défaut pré-remplie ;
+- sans `manifest`, les paires clé/valeur habituelles, sans sélection de colonne.
 
-1. Open a custom view.
-2. Click **🧩 Plugins** in the view toolbar.
-3. Click **+ New**.
-4. Fill:
-   - `name` (used as widget `type` in YAML)
-   - `description` (optional)
-   - script language + code
-   - template language + code
-5. Click **💾 Save**.
-6. Close the modal (`✕`) to refresh views using modified plugins.
+La même fenêtre renvoie vers l'éditeur de plugins (**Nouveau widget personnalisé…**,
+réservé aux admins).
 
-#### Plugin script contract
+#### Créer un plugin
 
-Your script must export a function:
+1. Ouvrir une page.
+2. Cliquer sur **🧩 Plugins** dans la barre d'outils.
+3. Cliquer sur **+ Nouveau**.
+4. Renseigner `name` (le `type` du widget en YAML), la description, le langage et le code
+   du script, le langage et le code du gabarit, et éventuellement le **manifest YAML**
+   (troisième éditeur).
+5. Cliquer sur **💾 Enregistrer**, puis fermer (`✕`) pour recharger les pages qui
+   utilisent le plugin.
+
+#### Contrat de script
+
+Le script exporte une fonction :
 
 ```coffeescript
-module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
-  render "<div>Ready</div>"
+module.exports = ({ gql, emitSelection, onInputSelection, onRecords, onRecord, setCursor, render, params }) ->
+  render "<div>Prêt</div>"
 ```
 
-- `render(html)`: updates widget HTML inside the sandboxed iframe.
-- `params`: widget params from YAML (`widget.params`).
-- `gql(query, variables)`: runs GraphQL requests through the parent app.
-- `emitSelection({ rows, byField })`: emits selection for dependent widgets.
-- `onInputSelection(cb)`: receives selection from `depends_on` upstream widgets.
+- `render(html)` : remplace le HTML du widget dans l'iframe sandboxée.
+- `params` : `widget.params` du YAML (valeurs des options).
+- `emitSelection({ rows, byField })` : émet une sélection pour les widgets dépendants
+  (`depends_on`).
+- `onInputSelection(cb)` : reçoit la sélection du widget amont.
+- `gql(query, variables)` : requête GraphQL relayée par le parent, **filtrée selon
+  `access`** (voir plus bas).
+- `onRecords(cb)`, `onRecord(cb)`, `setCursor(id)`, et pour `access: full`
+  `updateRecord(id, values)`, `insertRecord(values)`, `deleteRecord(id)` : API de données
+  décrite plus bas.
 
-#### Use plugin in YAML
+#### Manifest (facultatif)
 
-Set the widget `type` to the plugin name:
+```yaml
+access: read            # none | read | full (défaut : read dès qu'un manifest existe)
+columns:                # colonnes attendues de la source
+  - {name: titre, type: String}
+  - {name: debut, type: Date}
+  - {name: fin, type: Date, optional: true}
+options:                # options typées de l'instance
+  - {name: couleur, type: color, default: '#36c'}
+```
+
+- **`access`** — ce que le widget peut faire, contrôlé par le parent avant tout relais :
+
+  | `access` | Autorisé |
+  |---|---|
+  | `none` | `params`, `render`, sélection ; aucune donnée, `gql` absent |
+  | `read` | + lecture de la source (`onRecords`…), `gql` limité aux *queries* |
+  | `full` | + `updateRecord` / `insertRecord` / `deleteRecord` sur la source, `gql` mutations de données |
+
+  Sans manifest, l'accès effectif est `full` (les plugins existants ne changent pas de
+  comportement). Une opération illisible est refusée. Quelle que soit la valeur, une
+  mutation de schéma, d'utilisateur, de groupe ou d'app est refusée par le serveur, et les
+  résolveurs appliquent toujours les droits de l'utilisateur.
+
+- **`columns`** — noms et types attendus des colonnes de la source. L'instance les mappe
+  dans le YAML de la page (`columns: {<nom déclaré>: <champ>}`). Une colonne obligatoire
+  non mappée affiche un message dans le widget : rien n'est chargé.
+
+- **`options`** — options typées (`color`, `number`, `boolean`, sinon texte), stockées dans
+  `params`. La fenêtre « ＋ Widget » pré-remplit la valeur par défaut.
+
+#### API de données dans l'iframe
+
+- `onRecords(cb)` : lignes de la source du widget (espace ou Data View), **renommées selon
+  le mappage** (`{id, titre, debut, …}`) ; appelée à nouveau après chaque écriture faite par
+  le widget.
+- `onRecord(cb)` : ligne courante reçue du widget amont (`depends_on`), renommée de la même
+  façon.
+- `setCursor(id)` : émet la sélection de cette ligne pour les widgets aval.
+- `updateRecord(id, values)`, `insertRecord(values)`, `deleteRecord(id)` (access `full`
+  seulement) : les clés de `values` sont les **noms déclarés** (traduits en noms de champs
+  côté parent) ; chaque appel renvoie une promesse.
+
+#### Utiliser un plugin dans le YAML
+
+`type` porte le nom du plugin. Avec un manifest, déclarez le mappage de colonnes à côté de
+`params` :
 
 ```yaml
 - widget:
-    id: books_plugin
-    type: test
-    title: Books plugin
-    params:
-      title: "Books"
+    id: calendrier
+    type: calendrier
+    title: Calendrier
+    space: evenements
+    columns: {titre: nom, debut: date_debut, fin: date_fin}
+    params: {couleur: '#c33'}
 ```
 
-`depends_on` works with plugin widgets the same way as for space widgets:
+`depends_on` fonctionne comme pour les widgets d'espace :
 
 ```yaml
 - widget:
-    id: books_plugin
-    type: test
+    id: detail
+    type: fiche
     depends_on:
-      widget: livres
-      field: livre_id
+      widget: calendrier
+      field: evenement_id
       from_field: id
 ```
 
-#### Troubleshooting
+#### Dépannage
 
-- If script/template compilation fails, TGui shows a detailed message with plugin name, source (`script` or `template`), language, and line/column when available.
-- If runtime execution fails inside the iframe, TGui shows `Plugin <name> — exécution JavaScript invalide ...` with the error details.
-- Runtime availability errors (`runtime CoffeeScript indisponible`, `runtime Pug indisponible`) indicate a missing or broken frontend vendor bundle.
+- Une erreur de compilation (script ou gabarit) affiche le nom du plugin, la source
+  (`script` ou `template`), le langage et la ligne/colonne quand elles sont connues.
+- Une erreur d'exécution dans l'iframe affiche `Plugin <nom> — exécution JavaScript
+  invalide …` avec le détail.
+- Les messages `runtime CoffeeScript indisponible` / `runtime Pug indisponible` indiquent un
+  bundle fournisseur absent ou cassé.
+- Un refus d'accès affiche dans l'iframe le message explicite du parent (`manifest access:
+  read`, `access: none`, « lectures seules », etc.).
 
 ---
 

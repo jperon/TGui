@@ -146,6 +146,7 @@ SYSTEM_SPACES =
       { name: 'template_code',     type: 'string' }
       { name: 'created_at',        type: 'number' }
       { name: 'updated_at',        type: 'number' }
+      { name: 'manifest',          type: 'string', is_nullable: true }
     }
     indexes:
       primary: { parts: {'id'},   unique: true,  type: 'HASH' }
@@ -307,6 +308,34 @@ migrate_must_change_password = ->
       flagged += 1
   flagged
 
+-- Migration tdb_v5 (spec widgets personnalisés §3): extend
+-- _tdb_widget_plugins with the optional YAML `manifest`, at the end of the
+-- format and nullable so pre-existing tuples stay valid and read as
+-- "no manifest" (= full access, the behaviour before manifests). Existing rows
+-- are rewritten with an empty manifest so their arity matches the format.
+-- Returns the number of rows normalized. Exposed for the test suite.
+migrate_widget_plugin_manifest = ->
+  sp = box.space._tdb_widget_plugins
+  return 0 unless sp
+  sp\format {
+    { name: 'id',                type: 'string' }
+    { name: 'name',              type: 'string' }
+    { name: 'description',       type: 'string' }
+    { name: 'script_language',   type: 'string' }
+    { name: 'template_language', type: 'string' }
+    { name: 'script_code',       type: 'string' }
+    { name: 'template_code',     type: 'string' }
+    { name: 'created_at',        type: 'number' }
+    { name: 'updated_at',        type: 'number' }
+    { name: 'manifest',          type: 'string', is_nullable: true }
+  }
+  normalized = 0
+  for t in *sp\select {}
+    if t[10] == nil
+      sp\replace { t[1], t[2], t[3], t[4], t[5], t[6], t[7], t[8], t[9], '' }
+      normalized += 1
+  normalized
+
 create_space = (name, desc) ->
   if box.space[name] then return
   s = box.schema.space.create name, {
@@ -397,6 +426,12 @@ bootstrap = ->
     log.info 'tdb_v4: added must_change_password to _tdb_users'
     if flagged > 0
       log.warn "tdb_v4: #{flagged} user(s) still use the default password — change required"
+
+  -- Custom widget manifests (spec widgets personnalisés §3). Existing plugins
+  -- keep working unchanged: an empty manifest means full access.
+  box.once 'tdb_v5', ->
+    normalized = migrate_widget_plugin_manifest!
+    log.info "tdb_v5: added manifest to _tdb_widget_plugins (#{normalized} row(s) normalized)"
 
   -- Widget ids: every widget of a page carries a stable id, which is the key of
   -- the widget-scoped records (named view presets: 'widget:<pageId>:<widgetId>').
@@ -771,4 +806,4 @@ delete_user_space = (name) ->
   -- Remove metadata
   box.space._tdb_spaces\delete sid
 
-{ :bootstrap, :migrate, :migrate_must_change_password, :create_user_space, :delete_user_space, :add_field, :remove_field, :update_field, :reorder_fields, :change_field_type, :list_spaces, :list_fields, :get_space, :get_space_by_name, :FIELD_TYPES }
+{ :bootstrap, :migrate, :migrate_must_change_password, :migrate_widget_plugin_manifest, :create_user_space, :delete_user_space, :add_field, :remove_field, :update_field, :reorder_fields, :change_field_type, :list_spaces, :list_fields, :get_space, :get_space_by_name, :FIELD_TYPES }

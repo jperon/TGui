@@ -67,6 +67,7 @@ Object.assign window.AppViewHelpers,
       app._cmWidgetPluginTemplate?.setOption 'mode', defaults.templateLanguage
       app._cmWidgetPluginScript?.setValue defaults.scriptCode
       app._cmWidgetPluginTemplate?.setValue defaults.templateCode
+      app._cmWidgetPluginManifest?.setValue defaults.manifest
 
     app.el.widgetPluginSaveBtn()?.addEventListener 'click', (ev) ->
       window.AppViewHelpers._pulseModalButton ev.currentTarget
@@ -80,6 +81,7 @@ Object.assign window.AppViewHelpers,
         templateLanguage: app.el.widgetPluginTemplateLanguage().value or 'pug'
         scriptCode: if app._cmWidgetPluginScript then app._cmWidgetPluginScript.getValue() else ''
         templateCode: if app._cmWidgetPluginTemplate then app._cmWidgetPluginTemplate.getValue() else ''
+        manifest: if app._cmWidgetPluginManifest then app._cmWidgetPluginManifest.getValue() else ''
       mutation = if app._selectedWidgetPlugin then app._updateWidgetPluginMutation else app._createWidgetPluginMutation
       vars = if app._selectedWidgetPlugin then { id: app._selectedWidgetPlugin.id, input } else { input }
       GQL.mutate(mutation, vars)
@@ -125,6 +127,7 @@ Object.assign window.AppViewHelpers,
       app._cmWidgetPluginTemplate?.setOption 'mode', app.el.widgetPluginTemplateLanguage().value
       app._cmWidgetPluginScript?.setValue plugin.scriptCode or ''
       app._cmWidgetPluginTemplate?.setValue plugin.templateCode or ''
+      app._cmWidgetPluginManifest?.setValue plugin.manifest or ''
 
   _defaultWidgetPlugin: ->
     name: ''
@@ -144,6 +147,17 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
     emitSelection { rows }
   title = if params?.title then params.title else 'sans titre'
   render \"<div class='plugin-info'>Plugin prêt : \#{title}</div>\"
+"""
+    manifest: """
+# Manifest facultatif : accès aux données et colonnes/options déclarées.
+# Sans manifest, le widget garde l'accès complet (full) et reçoit `gql` brut.
+# access: none | read | full   (défaut : read dès qu'un manifest existe)
+# columns:
+#   - {name: titre, type: String}
+#   - {name: debut, type: Date}
+#   - {name: fin, type: Date, optional: true}
+# options:
+#   - {name: couleur, type: color, default: '#36c'}
 """
 
   _loadWidgetPlugins: (app, preferredId = null) ->
@@ -167,6 +181,7 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
           app._cmWidgetPluginTemplate?.setOption 'mode', app.el.widgetPluginTemplateLanguage().value
           app._cmWidgetPluginScript?.setValue p.scriptCode or ''
           app._cmWidgetPluginTemplate?.setValue p.templateCode or ''
+          app._cmWidgetPluginManifest?.setValue p.manifest or ''
 
         wantedId = preferredId or app._selectedWidgetPlugin?.id
         firstPlugin = null
@@ -197,6 +212,7 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
           app._cmWidgetPluginTemplate?.setOption 'mode', defaults.templateLanguage
           app._cmWidgetPluginScript?.setValue defaults.scriptCode
           app._cmWidgetPluginTemplate?.setValue defaults.templateCode
+          app._cmWidgetPluginManifest?.setValue defaults.manifest
       .catch (err) -> tdbAlert app._err(err), 'error'
 
   _ensureWidgetPluginEditorsSplit: (app) ->
@@ -204,14 +220,21 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
     return unless root
     tplEl = app.el.widgetPluginTemplateEditor?()
     scriptEl = app.el.widgetPluginScriptEditor?()
-    return unless tplEl and scriptEl
+    manifestEl = app.el.widgetPluginManifestEditor?()
+    return unless tplEl and scriptEl and manifestEl
     tplLangSel = app.el.widgetPluginTemplateLanguage?()
     scriptLangSel = app.el.widgetPluginScriptLanguage?()
 
     row = root.querySelector '.widget-plugin-editors-row'
     tplColCurrent = tplEl.closest '.widget-plugin-editor-col'
     scriptColCurrent = scriptEl.closest '.widget-plugin-editor-col'
-    if row and row.contains(tplEl) and row.contains(scriptEl) and tplColCurrent and scriptColCurrent and tplColCurrent != scriptColCurrent and tplColCurrent.parentElement == row and scriptColCurrent.parentElement == row
+    manifestColCurrent = manifestEl.closest '.widget-plugin-editor-col'
+    if row and row.contains(tplEl) and row.contains(scriptEl) and row.contains(manifestEl) and
+       tplColCurrent and scriptColCurrent and manifestColCurrent and
+       tplColCurrent != scriptColCurrent and scriptColCurrent != manifestColCurrent and
+       tplColCurrent != manifestColCurrent and
+       tplColCurrent.parentElement == row and scriptColCurrent.parentElement == row and
+       manifestColCurrent.parentElement == row
       return
 
     pane = tplEl.closest('.yaml-editor-pane') or scriptEl.closest('.yaml-editor-pane')
@@ -221,8 +244,10 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
 
     tplLabel = tplEl.previousElementSibling
     scriptLabel = scriptEl.previousElementSibling
+    manifestLabel = manifestEl.previousElementSibling
     tplLangLabel = root.querySelector("label[for='widget-plugin-template-language']")
     scriptLangLabel = root.querySelector("label[for='widget-plugin-script-language']")
+    manifestLabel = manifestLabel or root.querySelector("label[for='widget-plugin-manifest-editor']")
     ensureLabel = (lbl, txt, forId) ->
       return lbl if lbl
       n = document.createElement 'label'
@@ -240,10 +265,16 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
       scriptLabel = document.createElement 'label'
       scriptLabel.className = 'formula-hint'
       scriptLabel.textContent = 'Script'
+    unless manifestLabel
+      manifestLabel = document.createElement 'label'
+      manifestLabel.className = 'formula-hint'
+      manifestLabel.textContent = 'Manifest (YAML)'
     tplEl.style.height = ''
     scriptEl.style.height = ''
+    manifestEl.style.height = ''
     tplEl.style.flex = '1'
     scriptEl.style.flex = '1'
+    manifestEl.style.flex = '1'
 
     row = document.createElement 'div'
     row.className = 'widget-plugin-editors-row'
@@ -262,8 +293,14 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
     scriptCol.appendChild scriptLabel if scriptLabel
     scriptCol.appendChild scriptEl
 
+    manifestCol = document.createElement 'div'
+    manifestCol.className = 'widget-plugin-editor-col'
+    manifestCol.appendChild manifestLabel if manifestLabel
+    manifestCol.appendChild manifestEl
+
     row.appendChild tplCol
     row.appendChild scriptCol
+    row.appendChild manifestCol
     pane.appendChild row
     for langRow in pane.querySelectorAll '.formula-lang-row'
       langRow.remove()
@@ -347,8 +384,17 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
         lineWrapping: true
         tabSize: 2
         indentWithTabs: false
+    unless app._cmWidgetPluginManifest
+      app._cmWidgetPluginManifest = CodeMirror app.el.widgetPluginManifestEditor(),
+        mode: 'yaml'
+        theme: 'monokai'
+        lineNumbers: true
+        lineWrapping: true
+        tabSize: 2
+        indentWithTabs: false
 
     setTimeout (-> app._cmWidgetPluginScript?.refresh()), 10
     setTimeout (-> app._cmWidgetPluginTemplate?.refresh()), 10
+    setTimeout (-> app._cmWidgetPluginManifest?.refresh()), 10
     window.AppViewHelpers._loadWidgetPlugins app
 

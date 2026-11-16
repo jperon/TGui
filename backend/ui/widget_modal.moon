@@ -85,10 +85,18 @@ _widgetParamsSection = ->
   H.div {class: 'widget-section',
     H.h3 {'3. Paramètres du widget'}
     H.div {class: 'widget-params-config',
-      H.div {id: 'widget-params-list', class: 'params-list',
-        _widgetParamRow!
+      -- Paires clé/valeur (sans manifest) : le conteneur est masqué quand le
+      -- widget choisi déclare un manifest.
+      H.div {id: 'widget-params-pairs',
+        H.div {id: 'widget-params-list', class: 'params-list',
+          _widgetParamRow!
+        }
+        H.button {id: 'add-param-btn', class: 'btn-secondary', '+ Ajouter un paramètre'}
       }
-      H.button {id: 'add-param-btn', class: 'btn-secondary', '+ Ajouter un paramètre'}
+      -- Formulaire tiré du manifest (colonnes de la source + options typées),
+      -- rempli par app_view_helpers_add_widget.coffee.
+      H.div {id: 'widget-manifest-form', class: 'widget-manifest-form hidden'}
+      H.div {id: 'widget-manifest-hint', class: 'widget-type-hint hidden'}
     }
   }
 

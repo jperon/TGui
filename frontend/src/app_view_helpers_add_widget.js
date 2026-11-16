@@ -1,6 +1,12 @@
 (function() {
   // app_view_helpers_add_widget.coffee — add-widget modal helpers extracted from app_view_helpers.coffee
   Object.assign(window.AppViewHelpers, {
+    // État de la fenêtre (définitions connues, manifest et mappage du type
+    // choisi). Déclaré ici pour que les appels internes aient une définition
+    // visible, même si ce ne sont pas des fonctions.
+    _widgetPluginsByName: {},
+    _currentWidgetManifest: null,
+    _currentWidgetColumns: null,
     _openAddWidgetModal: function(app) {
       var cv;
       cv = app._currentCustomView;
@@ -15,7 +21,7 @@
       return window.AppViewHelpers._initializeWidgetModal(app);
     },
     _fixModalHTML: function() {
-      var dataSourceConfig, fieldsContainer, fieldsSection;
+      var dataSourceConfig, fieldsContainer, fieldsSection, manifestForm, paramsConfig;
       // Ajouter les sections manquantes si elles n'existent pas
       dataSourceConfig = document.querySelector('.data-source-config');
       if (!dataSourceConfig) {
@@ -38,7 +44,16 @@
     <div id="selected-fields" class="fields-list selected"> </div>
   </div>
 </div>`;
-        return dataSourceConfig.appendChild(fieldsSection);
+        dataSourceConfig.appendChild(fieldsSection);
+      }
+      // Formulaire de manifest (widgets personnalisés) : conteneur des paires et
+      // conteneur du formulaire déclaré, si le HTML servi est ancien.
+      paramsConfig = document.querySelector('.widget-params-config');
+      if (paramsConfig && !document.getElementById('widget-manifest-form')) {
+        manifestForm = document.createElement('div');
+        manifestForm.id = 'widget-manifest-form';
+        manifestForm.className = 'widget-manifest-form hidden';
+        return paramsConfig.appendChild(manifestForm);
       }
     },
     // Vide un conteneur : innerHTML (navigateur) et tableaux d'enfants (stub DOM
@@ -92,12 +107,22 @@
       return option;
     },
     _renderWidgetTypePlugins: function(plugins) {
-      var empty, i, len, list, plugin, results;
+      var empty, i, j, len, len1, list, plugin, ref, results;
       list = document.getElementById('widget-type-plugin-list');
       if (!list) {
         return;
       }
       window.AppViewHelpers._clearWidgetTypeContainer(list);
+      // Définitions courantes, indexées par nom : la fenêtre en tire le manifest
+      // (colonnes déclarées, options, access) quand l'utilisateur choisit le type.
+      window.AppViewHelpers._widgetPluginsByName = {};
+      ref = plugins || [];
+      for (i = 0, len = ref.length; i < len; i++) {
+        plugin = ref[i];
+        if (plugin != null ? plugin.name : void 0) {
+          window.AppViewHelpers._widgetPluginsByName[plugin.name] = plugin;
+        }
+      }
       if (!(plugins && plugins.length > 0)) {
         empty = document.createElement('div');
         empty.className = 'widget-type-hint';
@@ -106,8 +131,8 @@
         return;
       }
       results = [];
-      for (i = 0, len = plugins.length; i < len; i++) {
-        plugin = plugins[i];
+      for (j = 0, len1 = plugins.length; j < len1; j++) {
+        plugin = plugins[j];
         if (plugin != null ? plugin.name : void 0) {
           results.push(list.appendChild(window.AppViewHelpers._makeWidgetTypePluginOption(plugin)));
         }
@@ -142,6 +167,274 @@
         window.AppViewHelpers._renderWidgetTypePluginsError(err);
         return [];
       });
+    },
+    // ── Formulaire tiré du manifest (spec §3 bis) ─────────────────────────────
+    // Manifest analysé côté fenêtre. Le serveur l'a validé à l'enregistrement ;
+    // un manifest illisible (import direct) est ignoré : paires clé/valeur, comme
+    // avant. Une définition sans manifest garde le formulaire libre.
+    _parseWidgetManifest: function(text) {
+      var e, parsed, parser;
+      if (!(text && String(text).trim() !== '')) {
+        return null;
+      }
+      parser = window.jsyaml;
+      if (!(parser && typeof parser.load === 'function')) {
+        return null;
+      }
+      try {
+        parsed = parser.load(String(text));
+      } catch (error1) {
+        e = error1;
+        console.warn('widget manifest: YAML invalide', e);
+        return null;
+      }
+      if (!(parsed && typeof parsed === 'object')) {
+        return null;
+      }
+      return {
+        access: parsed.access,
+        columns: Array.isArray(parsed.columns) ? parsed.columns : [],
+        options: Array.isArray(parsed.options) ? parsed.options : []
+      };
+    },
+    _manifestTypeKind: function(type) {
+      var t;
+      t = String(type || '').toLowerCase();
+      if (t === 'date' || t === 'datetime') {
+        return 'date';
+      }
+      if (t === 'int' || t === 'float' || t === 'number' || t === 'decimal') {
+        return 'number';
+      }
+      if (t === 'boolean') {
+        return 'boolean';
+      }
+      if (t === 'string' || t === 'id' || t === 'uuid' || t === 'sequence') {
+        return 'string';
+      }
+      return 'any';
+    },
+    // Type compatible pour un sélecteur de colonne : type déclaré identique,
+    // `Any` (ou type de champ inconnu), ou même famille (Date/Datetime,
+    // Int/Float, String/ID/UUID/Sequence).
+    _manifestFieldCompatible: function(declaredType, field) {
+      var actual, actualKind, declared, declaredKind;
+      declared = String(declaredType || '');
+      actual = String((field != null ? field.fieldType : void 0) || '');
+      if (declared === '' || actual === '') {
+        return true;
+      }
+      if (declared.toLowerCase() === actual.toLowerCase()) {
+        return true;
+      }
+      if (actual.toLowerCase() === 'any') {
+        return true;
+      }
+      declaredKind = window.AppViewHelpers._manifestTypeKind(declared);
+      actualKind = window.AppViewHelpers._manifestTypeKind(actual);
+      if (declaredKind === 'any') {
+        return true;
+      }
+      return declaredKind === actualKind;
+    },
+    // Champs de la source choisie dans la fenêtre (espace ou Data View).
+    _fieldsForSourceId: function(spaceId) {
+      var ref, space, spaces, view, views;
+      if (!spaceId) {
+        return [];
+      }
+      spaces = window._currentSpacesData || [];
+      views = window._currentDataViewsData || [];
+      space = spaces.find(function(s) {
+        return s.id === spaceId;
+      });
+      if (space) {
+        return space.fields || [];
+      }
+      view = views.find(function(v) {
+        return v.id === spaceId;
+      });
+      if (!view) {
+        return [];
+      }
+      return view.fields || (((ref = view.config) != null ? ref.columns : void 0) || []).map(function(c) {
+        return {
+          name: c,
+          fieldType: 'String'
+        };
+      });
+    },
+    _clearWidgetManifestForm: function() {
+      var form;
+      form = document.getElementById('widget-manifest-form');
+      if (!form) {
+        return;
+      }
+      window.AppViewHelpers._clearWidgetTypeContainer(form);
+      return form;
+    },
+    // Rend le formulaire du manifest : un sélecteur de champ par colonne déclarée
+    // (filtré par type, « — » pour une optionnelle) et un champ par option, avec
+    // la valeur par défaut. Aucun manifest : on ne touche pas aux paires.
+    _renderWidgetManifestForm: function(manifest) {
+      var col, empty, fields, form, hint, i, j, len, len1, opt, ref, ref1, spaceSelect;
+      form = window.AppViewHelpers._clearWidgetManifestForm();
+      if (!form) {
+        return;
+      }
+      hint = document.getElementById('widget-manifest-hint');
+      if (hint != null) {
+        hint.classList.add('hidden');
+      }
+      spaceSelect = document.getElementById('widget-space-select');
+      fields = window.AppViewHelpers._fieldsForSourceId(spaceSelect != null ? spaceSelect.value : void 0);
+      ref = manifest.columns || [];
+      for (i = 0, len = ref.length; i < len; i++) {
+        col = ref[i];
+        if (col && col.name) {
+          form.appendChild(window.AppViewHelpers._makeManifestColumnRow(col, fields));
+        }
+      }
+      ref1 = manifest.options || [];
+      for (j = 0, len1 = ref1.length; j < len1; j++) {
+        opt = ref1[j];
+        if (opt && opt.name) {
+          form.appendChild(window.AppViewHelpers._makeManifestOptionRow(opt));
+        }
+      }
+      if ((manifest.columns || []).length === 0 && (manifest.options || []).length === 0) {
+        empty = document.createElement('div');
+        empty.className = 'widget-type-hint';
+        empty.textContent = 'Ce manifest ne déclare ni colonne ni option.';
+        form.appendChild(empty);
+      }
+      return form;
+    },
+    _makeManifestColumnRow: function(col, fields) {
+      var field, i, label, len, mapping, none, opt, ref, row, select;
+      row = document.createElement('div');
+      row.className = 'manifest-form-row';
+      label = document.createElement('label');
+      label.textContent = `${col.name} (${col.type || 'Any'})`;
+      if (col.optional !== true) {
+        label.textContent += ' *';
+      }
+      select = document.createElement('select');
+      select.className = 'manifest-column-select';
+      select.dataset.declared = col.name;
+      select.dataset.required = col.optional === true ? '0' : '1';
+      none = document.createElement('option');
+      none.value = '';
+      none.textContent = '—';
+      select.appendChild(none);
+      mapping = window.AppViewHelpers._currentWidgetColumns || {};
+      ref = fields || [];
+      for (i = 0, len = ref.length; i < len; i++) {
+        field = ref[i];
+        if (!(field != null ? field.name : void 0)) {
+          continue;
+        }
+        if (!window.AppViewHelpers._manifestFieldCompatible(col.type, field)) {
+          continue;
+        }
+        opt = document.createElement('option');
+        opt.value = field.name;
+        opt.textContent = `${field.name} (${field.fieldType || 'String'})`;
+        select.appendChild(opt);
+      }
+      select.value = mapping[col.name] || '';
+      row.appendChild(label);
+      row.appendChild(select);
+      return row;
+    },
+    _makeManifestOptionRow: function(opt) {
+      var input, label, row, type;
+      row = document.createElement('div');
+      row.className = 'manifest-form-row';
+      label = document.createElement('label');
+      label.textContent = opt.name;
+      row.appendChild(label);
+      type = String(opt.type || 'text').toLowerCase();
+      input = document.createElement('input');
+      input.dataset.option = opt.name;
+      input.dataset.optionType = type;
+      switch (type) {
+        case 'color':
+          input.type = 'color';
+          input.value = opt.default ? String(opt.default) : '#000000';
+          break;
+        case 'number':
+          input.type = 'number';
+          input.value = opt.default != null ? String(opt.default) : '';
+          break;
+        case 'boolean':
+          input.type = 'checkbox';
+          input.checked = opt.default === true;
+          break;
+        default:
+          input.type = 'text';
+          input.value = opt.default != null ? String(opt.default) : '';
+      }
+      row.appendChild(input);
+      return row;
+    },
+    // Choix du type : un plugin avec manifest remplace les paires clé/valeur par
+    // le formulaire déclaré. `pluginName` vide (ou « table ») = paires.
+    _updateWidgetParamsForm: function(pluginName) {
+      var form, hint, manifest, pairs, plugin, ref;
+      plugin = (ref = window.AppViewHelpers._widgetPluginsByName) != null ? ref[pluginName] : void 0;
+      manifest = plugin ? window.AppViewHelpers._parseWidgetManifest(plugin.manifest) : null;
+      window.AppViewHelpers._currentWidgetManifest = manifest;
+      window.AppViewHelpers._currentWidgetColumns = null;
+      form = document.getElementById('widget-manifest-form');
+      pairs = document.getElementById('widget-params-pairs');
+      hint = document.getElementById('widget-manifest-hint');
+      if (!form) {
+        return manifest;
+      }
+      if (manifest) {
+        if (pairs != null) {
+          pairs.classList.add('hidden');
+        }
+        form.classList.remove('hidden');
+        window.AppViewHelpers._renderWidgetManifestForm(manifest);
+        if (hint != null) {
+          hint.classList.add('hidden');
+        }
+      } else {
+        form.classList.add('hidden');
+        if (pairs != null) {
+          pairs.classList.remove('hidden');
+        }
+        window.AppViewHelpers._clearWidgetTypeContainer(form);
+        if (hint != null) {
+          hint.classList.add('hidden');
+        }
+      }
+      return manifest;
+    },
+    // Le changement de source change les champs proposés : on redessine les
+    // sélecteurs du manifest. Les valeurs déjà choisies sont conservées.
+    _refreshWidgetManifestForm: function() {
+      var form, i, len, manifest, ref, ref1, ref2, sel, selected;
+      manifest = window.AppViewHelpers._currentWidgetManifest;
+      if (!manifest) {
+        return;
+      }
+      form = document.getElementById('widget-manifest-form');
+      if (!form) {
+        return;
+      }
+      selected = {};
+      ref = document.querySelectorAll('#widget-manifest-form .manifest-column-select' || []);
+      for (i = 0, len = ref.length; i < len; i++) {
+        sel = ref[i];
+        if ((ref1 = sel.dataset) != null ? ref1.declared : void 0) {
+          selected[(ref2 = sel.dataset) != null ? ref2.declared : void 0] = sel.value;
+        }
+      }
+      window.AppViewHelpers._currentWidgetColumns = selected;
+      return window.AppViewHelpers._renderWidgetManifestForm(manifest);
     },
     // Sélection d'un type : une seule option marquée, radio coché. Appelée par
     // délégation, les options de plugins étant créées après le montage.
@@ -252,7 +545,7 @@
         window._currentDataViewsData = dataViews;
         // Écouter les changements pour charger les champs
         return select.addEventListener('change', function() {
-          var dataViewsData, ref, selectedSource, spaceId, spacesData;
+          var base, base1, dataViewsData, ref, selectedSource, spaceId, spacesData;
           spaceId = this.value;
           if (!spaceId) {
             return;
@@ -274,12 +567,20 @@
                 fieldType: 'String'
               };
             }) : void 0;
-            window.AppViewHelpers._populateFieldsLists(selectedSource);
-            return window.AppViewHelpers._populateGroupByOptions(selectedSource);
+            // Les sélecteurs du manifest dépendent des champs de la source.
+            window.AppViewHelpers._refreshWidgetManifestForm();
+            if (typeof (base = window.AppViewHelpers)._populateFieldsLists === "function") {
+              base._populateFieldsLists(selectedSource);
+            }
+            return typeof (base1 = window.AppViewHelpers)._populateGroupByOptions === "function" ? base1._populateGroupByOptions(selectedSource) : void 0;
           } else if (selectedSource) {
             return window.AppViewHelpers._loadSpaceFields(selectedSource, function() {
-              window.AppViewHelpers._populateFieldsLists(selectedSource);
-              return window.AppViewHelpers._populateGroupByOptions(selectedSource);
+              var base2, base3;
+              window.AppViewHelpers._refreshWidgetManifestForm();
+              if (typeof (base2 = window.AppViewHelpers)._populateFieldsLists === "function") {
+                base2._populateFieldsLists(selectedSource);
+              }
+              return typeof (base3 = window.AppViewHelpers)._populateGroupByOptions === "function" ? base3._populateGroupByOptions(selectedSource) : void 0;
             }); // C'est une Data View (elle a une config)
           }
         });
@@ -375,18 +676,25 @@
           window.AppViewHelpers._selectWidgetType(tableRadio.parentNode);
         }
       }
+      // ... et donc du formulaire de paramètres par défaut (paires clé/valeur).
+      window.AppViewHelpers._updateWidgetParamsForm('table');
       // Sélection du type de widget : délégation sur le conteneur, car les
       // options des widgets personnalisés sont créées à chaque ouverture.
       typeOptionsRoot = document.getElementById('widget-type-options');
       if (typeOptionsRoot && !typeOptionsRoot._tdbTypeBound) {
         typeOptionsRoot._tdbTypeBound = true;
         typeOptionsRoot.addEventListener('click', function(ev) {
-          var option, ref;
+          var option, pluginName, ref, ref1, ref2;
           option = (ref = ev.target) != null ? typeof ref.closest === "function" ? ref.closest('.widget-type-option') : void 0 : void 0;
           if (!option) {
             return;
           }
-          return window.AppViewHelpers._selectWidgetType(option);
+          window.AppViewHelpers._selectWidgetType(option);
+          pluginName = (ref1 = option.dataset) != null ? ref1.pluginName : void 0;
+          if (pluginName == null) {
+            pluginName = typeof option.querySelector === "function" ? (ref2 = option.querySelector('input[type="radio"]')) != null ? ref2.value : void 0 : void 0;
+          }
+          return window.AppViewHelpers._updateWidgetParamsForm(pluginName);
         });
       }
       // Lien vers l'éditeur de plugins (admin uniquement, si l'info est connue).
@@ -464,6 +772,66 @@
       }
       return results;
     },
+    // Colonnes obligatoires du manifest : chaque `<select>` doit avoir un champ.
+    _validateWidgetManifestForm: function() {
+      var declared, errors, i, len, ref, ref1, ref2, sel;
+      errors = [];
+      ref = document.querySelectorAll('#widget-manifest-form .manifest-column-select' || []);
+      for (i = 0, len = ref.length; i < len; i++) {
+        sel = ref[i];
+        declared = (ref1 = sel.dataset) != null ? ref1.declared : void 0;
+        if (!declared) {
+          continue;
+        }
+        if (((ref2 = sel.dataset) != null ? ref2.required : void 0) !== '1') {
+          continue;
+        }
+        if (sel.value) {
+          continue;
+        }
+        errors.push(`Colonne obligatoire non mappée : ${declared}`);
+      }
+      return errors;
+    },
+    _collectWidgetManifestData: function() {
+      var columns, declared, i, input, j, len, len1, name, params, ref, ref1, ref2, ref3, ref4, sel, type;
+      columns = {};
+      ref = document.querySelectorAll('#widget-manifest-form .manifest-column-select' || []);
+      for (i = 0, len = ref.length; i < len; i++) {
+        sel = ref[i];
+        declared = (ref1 = sel.dataset) != null ? ref1.declared : void 0;
+        if (!(declared && sel.value)) {
+          continue;
+        }
+        columns[declared] = sel.value;
+      }
+      params = {};
+      ref2 = document.querySelectorAll('#widget-manifest-form [data-option]' || []);
+      for (j = 0, len1 = ref2.length; j < len1; j++) {
+        input = ref2[j];
+        name = (ref3 = input.dataset) != null ? ref3.option : void 0;
+        if (!name) {
+          continue;
+        }
+        type = String(((ref4 = input.dataset) != null ? ref4.optionType : void 0) || 'text');
+        params[name] = (function() {
+          switch (type) {
+            case 'boolean':
+              return input.checked === true;
+            case 'number':
+              if (input.value === '' || input.value === null) {
+                return '';
+              } else {
+                return Number(input.value);
+              }
+              break;
+            default:
+              return String(input.value || '');
+          }
+        })();
+      }
+      return {columns, params};
+    },
     _validateWidgetForm: function() {
       var errors, selectedFields, selectedType, spaceSelect, titleInput, type;
       titleInput = document.getElementById('widget-title-input');
@@ -485,10 +853,15 @@
       if (type === 'table' && selectedFields.length === 0) {
         errors.push('Au moins un champ doit être sélectionné');
       }
+      // Widget personnalisé avec manifest : ses colonnes obligatoires doivent
+      // être mappées sur un champ de la source.
+      if (window.AppViewHelpers._currentWidgetManifest) {
+        errors = errors.concat(window.AppViewHelpers._validateWidgetManifestForm());
+      }
       return errors;
     },
     _collectWidgetData: function() {
-      var field, fields, i, j, keyInput, len, len1, paramRow, paramRows, params, selectedFields, selectedType, spaceSelect, titleInput, valueInput;
+      var field, fields, i, j, keyInput, len, len1, manifestData, paramRow, paramRows, params, selectedFields, selectedType, spaceSelect, titleInput, valueInput;
       titleInput = document.getElementById('widget-title-input');
       spaceSelect = document.getElementById('widget-space-select');
       selectedType = document.querySelector('input[name="widget-type"]:checked');
@@ -500,14 +873,21 @@
         field = selectedFields[i];
         fields.push(field.dataset.fieldName || field.textContent);
       }
-      // Collecter les paramètres
-      params = {};
-      for (j = 0, len1 = paramRows.length; j < len1; j++) {
-        paramRow = paramRows[j];
-        keyInput = paramRow.querySelector('.param-key');
-        valueInput = paramRow.querySelector('.param-value');
-        if (keyInput && valueInput && keyInput.value.trim()) {
-          params[keyInput.value.trim()] = valueInput.value.trim();
+      // Widget personnalisé avec manifest : mappage déclaré → champ + options.
+      manifestData = null;
+      if (window.AppViewHelpers._currentWidgetManifest) {
+        manifestData = window.AppViewHelpers._collectWidgetManifestData();
+      }
+      // Collecter les paramètres (paires clé/valeur, ou options du manifest)
+      params = manifestData ? manifestData.params : {};
+      if (!manifestData) {
+        for (j = 0, len1 = paramRows.length; j < len1; j++) {
+          paramRow = paramRows[j];
+          keyInput = paramRow.querySelector('.param-key');
+          valueInput = paramRow.querySelector('.param-value');
+          if (keyInput && valueInput && keyInput.value.trim()) {
+            params[keyInput.value.trim()] = valueInput.value.trim();
+          }
         }
       }
       return {
@@ -515,6 +895,7 @@
         spaceId: spaceSelect.value,
         type: (selectedType != null ? selectedType.value : void 0) || 'table',
         fields: fields,
+        columns: manifestData != null ? manifestData.columns : void 0,
         params: params
       };
     },
@@ -568,6 +949,7 @@
           type: widgetData.type,
           spaceId: widgetData.spaceId,
           fields: widgetData.fields,
+          columns: widgetData.columns,
           groupBy: widgetData.groupBy,
           params: widgetData.params,
           position: {

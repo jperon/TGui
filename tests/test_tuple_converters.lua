@@ -100,6 +100,7 @@ local PLUGIN_KEYS = {
   "createdAt",
   "description",
   "id",
+  "manifest",
   "name",
   "scriptCode",
   "scriptLanguage",
@@ -333,7 +334,8 @@ R.describe("tuple converters — widget plugin", function()
       name = PLUGIN_NAME,
       description = 'tuple plugin fixture',
       scriptLanguage = 'coffeescript',
-      templateLanguage = 'pug'
+      templateLanguage = 'pug',
+      manifest = ''
     }, "widgetPlugin values")
   end)
 end)

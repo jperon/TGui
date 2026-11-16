@@ -53,6 +53,38 @@ encode_widget_params = (params, indent) ->
   return '' if body == ''
   indent .. "params:\n" .. body
 
+-- `columns` d'un widget a deux formes : une liste de champs (widget tableau)
+-- ou un mapping « nom déclaré → champ de la source » (widget personnalisé avec
+-- manifest, spec widgets personnalisés §3). Une clé chaîne = mapping.
+is_columns_mapping = (columns) ->
+  return false unless columns and type(columns) == 'table'
+  for key in pairs columns
+    return true if type(key) == 'string'
+  false
+
+-- Bloc `columns:` d'un widget. Mapping : clés triées (YAML stable). Liste :
+-- un champ par ligne, comme avant.
+encode_widget_columns = (widget, indent) ->
+  columns = widget.columns
+  return '' unless columns and type(columns) == 'table'
+  if is_columns_mapping columns
+    keys = {}
+    for key in pairs columns
+      table.insert keys, key
+    table.sort keys
+    body = ''
+    for _, key in ipairs(keys)
+      value = columns[key]
+      continue if value == nil or value == ''
+      body ..= indent .. "  " .. yaml_scalar(key) .. ": " .. yaml_scalar(value) .. "\n"
+    return '' if body == ''
+    return indent .. "columns:\n" .. body
+  return '' if #columns == 0
+  body = indent .. "columns:\n"
+  for _, col in ipairs(columns)
+    body ..= indent .. "  - " .. yaml_scalar(col) .. "\n"
+  body
+
 -- Fonction utilitaire pour encoder le YAML
 encode_layout_yaml = (config) ->
   yaml_content = "layout:\n"
@@ -78,11 +110,8 @@ encode_layout_yaml = (config) ->
           if child.widget.dataViewId
             yaml_content ..= indent .. "    dataViewId: " .. tostring(child.widget.dataViewId) .. "\n"
 
-          -- Ajouter les colonnes si présentes
-          if child.widget.columns and #child.widget.columns > 0
-            yaml_content ..= indent .. "    columns:\n"
-            for _, col in ipairs(child.widget.columns)
-              yaml_content ..= indent .. "      - " .. col .. "\n"
+          -- Ajouter les colonnes si présentes (liste ou mappage)
+          yaml_content ..= encode_widget_columns child.widget, indent .. "    "
 
           -- Ajouter le groupement si présent
           if child.widget.groupBy
@@ -270,10 +299,7 @@ reorder_widgets = (pageId, widgetPositions) ->
             yaml_content ..= "              position: " .. tostring(position_index(widget.position, 1)) .. "\n"
             yaml_content ..= encode_widget_type widget, "              "
 
-            if widget.columns and #widget.columns > 0
-              yaml_content ..= "              columns:\n"
-              for _, col in ipairs(widget.columns)
-                yaml_content ..= "                - " .. col .. "\n"
+            yaml_content ..= encode_widget_columns widget, "              "
 
             if widget.groupBy
               yaml_content ..= "              groupBy: " .. tostring(widget.groupBy) .. "\n"
@@ -287,11 +313,8 @@ reorder_widgets = (pageId, widgetPositions) ->
       yaml_content ..= "        position: " .. tostring(position_index(child.widget.position, 1)) .. "\n"
       yaml_content ..= encode_widget_type child.widget, "        "
 
-      -- Ajouter les colonnes si présentes
-      if child.widget.columns and #child.widget.columns > 0
-        yaml_content ..= "        columns:\n"
-        for _, col in ipairs(child.widget.columns)
-          yaml_content ..= "          - " .. col .. "\n"
+      -- Ajouter les colonnes si présentes (liste ou mappage)
+      yaml_content ..= encode_widget_columns child.widget, "        "
 
       -- Ajouter le groupement si présent
       if child.widget.groupBy
@@ -436,8 +459,11 @@ add_widget_to_view = (viewId, widget) ->
   if widget.type
     new_widget.type = widget.type
 
-  -- Ajouter les colonnes (depuis fields ou columns)
-  if widget.fields and type(widget.fields) == 'table' and #widget.fields > 0
+  -- Ajouter les colonnes : un mappage « nom déclaré → champ » (widget
+  -- personnalisé avec manifest) d'abord, puis la liste de champs (tableau).
+  if is_columns_mapping widget.columns
+    new_widget.columns = widget.columns
+  elseif widget.fields and type(widget.fields) == 'table' and #widget.fields > 0
     new_widget.columns = widget.fields
   elseif widget.columns and type(widget.columns) == 'table' and #widget.columns > 0
     new_widget.columns = widget.columns

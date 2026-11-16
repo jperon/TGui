@@ -243,7 +243,8 @@ build_snapshot = function(include_data)
       scriptLanguage = wp[4] or 'coffeescript',
       templateLanguage = wp[5] or 'pug',
       scriptCode = wp[6] or '',
-      templateCode = wp[7] or ''
+      templateCode = wp[7] or '',
+      manifest = wp[10] or ''
     }
     if wp[3] and wp[3] ~= '' then
       entry.description = wp[3]
@@ -730,7 +731,8 @@ do_import = function(snap, mode)
           iwp.scriptCode or '',
           iwp.templateCode or '',
           now,
-          now
+          now,
+          iwp.manifest or ''
         })
       end)
       if ok then

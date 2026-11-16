@@ -321,6 +321,19 @@ _widgetPluginModal = function()
                 style = 'border: 1px solid #2a2a2a;',
                 ''
               })
+            }),
+            H.div({
+              class = 'widget-plugin-editor-col',
+              H.label({
+                class = 'formula-hint',
+                ['for'] = 'widget-plugin-manifest-editor',
+                'Manifest (YAML)'
+              }),
+              H.div({
+                id = 'widget-plugin-manifest-editor',
+                style = 'border: 1px solid #2a2a2a;',
+                ''
+              })
             })
           })
         })

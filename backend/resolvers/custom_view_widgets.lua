@@ -73,6 +73,60 @@ encode_widget_params = function(params, indent)
   end
   return indent .. "params:\n" .. body
 end
+local is_columns_mapping
+is_columns_mapping = function(columns)
+  if not (columns and type(columns) == 'table') then
+    return false
+  end
+  for key in pairs(columns) do
+    if type(key) == 'string' then
+      return true
+    end
+  end
+  return false
+end
+local encode_widget_columns
+encode_widget_columns = function(widget, indent)
+  local columns = widget.columns
+  if not (columns and type(columns) == 'table') then
+    return ''
+  end
+  if is_columns_mapping(columns) then
+    local keys = { }
+    for key in pairs(columns) do
+      table.insert(keys, key)
+    end
+    table.sort(keys)
+    local body = ''
+    for _, key in ipairs(keys) do
+      local _continue_0 = false
+      repeat
+        local value = columns[key]
+        if value == nil or value == '' then
+          _continue_0 = true
+          break
+        end
+        body = body .. (indent .. "  " .. yaml_scalar(key) .. ": " .. yaml_scalar(value) .. "\n")
+        _continue_0 = true
+      until true
+      if not _continue_0 then
+        break
+      end
+    end
+    if body == '' then
+      return ''
+    end
+    return indent .. "columns:\n" .. body
+  end
+  if #columns == 0 then
+    return ''
+  end
+  local body = indent .. "columns:\n"
+  for _, col in ipairs(columns) do
+    body = body .. (indent .. "  - " .. yaml_scalar(col) .. "\n")
+  end
+  return body
+end
 local encode_layout_yaml
 encode_layout_yaml = function(config)
   local yaml_content = "layout:\n"
@@ -92,12 +146,7 @@ encode_layout_yaml = function(config)
         if child.widget.dataViewId then
           yaml_content = yaml_content .. (indent .. "    dataViewId: " .. tostring(child.widget.dataViewId) .. "\n")
         end
-        if child.widget.columns and #child.widget.columns > 0 then
-          yaml_content = yaml_content .. (indent .. "    columns:\n")
-          for _, col in ipairs(child.widget.columns) do
-            yaml_content = yaml_content .. (indent .. "      - " .. col .. "\n")
-          end
-        end
+        yaml_content = yaml_content .. encode_widget_columns(child.widget, indent .. "    ")
         if child.widget.groupBy then
           yaml_content = yaml_content .. (indent .. "    groupBy: " .. tostring(child.widget.groupBy) .. "\n")
         end
@@ -288,12 +337,7 @@ reorder_widgets = function(pageId, widgetPositions)
             yaml_content = yaml_content .. ("              space: " .. yaml_scalar(widget.space or '') .. "\n")
             yaml_content = yaml_content .. ("              position: " .. tostring(position_index(widget.position, 1)) .. "\n")
             yaml_content = yaml_content .. encode_widget_type(widget, "              ")
-            if widget.columns and #widget.columns > 0 then
-              yaml_content = yaml_content .. "              columns:\n"
-              for _, col in ipairs(widget.columns) do
-                yaml_content = yaml_content .. ("                - " .. col .. "\n")
-              end
-            end
+            yaml_content = yaml_content .. encode_widget_columns(widget, "              ")
             if widget.groupBy then
               yaml_content = yaml_content .. ("              groupBy: " .. tostring(widget.groupBy) .. "\n")
             end
@@ -308,12 +352,7 @@ reorder_widgets = function(pageId, widgetPositions)
       yaml_content = yaml_content .. ("        space: " .. yaml_scalar(child.widget.space or '') .. "\n")
       yaml_content = yaml_content .. ("        position: " .. tostring(position_index(child.widget.position, 1)) .. "\n")
       yaml_content = yaml_content .. encode_widget_type(child.widget, "        ")
-      if child.widget.columns and #child.widget.columns > 0 then
-        yaml_content = yaml_content .. "        columns:\n"
-        for _, col in ipairs(child.widget.columns) do
-          yaml_content = yaml_content .. ("          - " .. col .. "\n")
-        end
-      end
+      yaml_content = yaml_content .. encode_widget_columns(child.widget, "        ")
       if child.widget.groupBy then
         yaml_content = yaml_content .. ("        groupBy: " .. tostring(child.widget.groupBy) .. "\n")
       end
@@ -465,7 +504,9 @@ add_widget_to_view = function(viewId, widget)
   if widget.type then
     new_widget.type = widget.type
   end
-  if widget.fields and type(widget.fields) == 'table' and #widget.fields > 0 then
+  if is_columns_mapping(widget.columns) then
+    new_widget.columns = widget.columns
+  elseif widget.fields and type(widget.fields) == 'table' and #widget.fields > 0 then
     new_widget.columns = widget.fields
   elseif widget.columns and type(widget.columns) == 'table' and #widget.columns > 0 then
     new_widget.columns = widget.columns

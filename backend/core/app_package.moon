@@ -315,6 +315,7 @@ plugin_content = (row) ->
     templateLanguage: row[5] or 'pug'
     scriptCode: row[6] or ''
     templateCode: row[7] or ''
+    manifest: row[10] or ''
   }
 
 -- Named group from core/permissions.list_groups (lines 39-43).
@@ -429,6 +430,7 @@ _normalize_plugin_content = (c) ->
     templateLanguage: _nonempty_or c.templateLanguage, 'pug'
     scriptCode: c.scriptCode or ''
     templateCode: c.templateCode or ''
+    manifest: if type(c.manifest) == 'string' then c.manifest else ''
   }
 
 _normalize_group_content = (c) ->
@@ -918,4 +920,4 @@ build_package = (meta, opts) ->
     seed_keys: seed_keys
   }
 
-{ :canonical, :fingerprint, :describe_local, :build_package, :ITEM_TYPES, :key_part, :unkey_part, :strip_null, :normalize_content, :preset_scope_portable, :preset_scope_local, :preset_row_orphan }
+{ :canonical, :fingerprint, :describe_local, :build_package, :ITEM_TYPES, :key_part, :unkey_part, :strip_null, :normalize_content, :preset_scope_portable, :preset_scope_local, :preset_row_orphan, :plugin_content }

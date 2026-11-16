@@ -23,6 +23,7 @@ REFERENCE = """
       templateLanguage
       scriptCode
       templateCode
+      manifest
       updatedAt
     }
   }

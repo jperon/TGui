@@ -176,6 +176,7 @@ window.App =
     widgetPluginTemplateLanguage: -> document.getElementById 'widget-plugin-template-language'
     widgetPluginScriptEditor: -> document.getElementById 'widget-plugin-script-editor'
     widgetPluginTemplateEditor: -> document.getElementById 'widget-plugin-template-editor'
+    widgetPluginManifestEditor: -> document.getElementById 'widget-plugin-manifest-editor'
     # Formula modal (CodeMirror)
     formulaModal:      -> document.getElementById 'formula-modal'
     formulaModalApplyBtn: -> document.getElementById 'formula-modal-apply-btn'

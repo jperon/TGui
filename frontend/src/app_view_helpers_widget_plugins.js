@@ -106,7 +106,7 @@
       }
       if ((ref1 = app.el.widgetPluginNewBtn()) != null) {
         ref1.addEventListener('click', function(ev) {
-          var defaults, ref2, ref3, ref4, ref5, ref6;
+          var defaults, ref2, ref3, ref4, ref5, ref6, ref7;
           window.AppViewHelpers._pulseModalButton(ev.currentTarget);
           defaults = window.AppViewHelpers._defaultWidgetPlugin();
           app._selectedWidgetPlugin = null;
@@ -126,7 +126,10 @@
           if ((ref5 = app._cmWidgetPluginScript) != null) {
             ref5.setValue(defaults.scriptCode);
           }
-          return (ref6 = app._cmWidgetPluginTemplate) != null ? ref6.setValue(defaults.templateCode) : void 0;
+          if ((ref6 = app._cmWidgetPluginTemplate) != null) {
+            ref6.setValue(defaults.templateCode);
+          }
+          return (ref7 = app._cmWidgetPluginManifest) != null ? ref7.setValue(defaults.manifest) : void 0;
         });
       }
       if ((ref2 = app.el.widgetPluginSaveBtn()) != null) {
@@ -144,7 +147,8 @@
             scriptLanguage: app.el.widgetPluginScriptLanguage().value || 'coffeescript',
             templateLanguage: app.el.widgetPluginTemplateLanguage().value || 'pug',
             scriptCode: app._cmWidgetPluginScript ? app._cmWidgetPluginScript.getValue() : '',
-            templateCode: app._cmWidgetPluginTemplate ? app._cmWidgetPluginTemplate.getValue() : ''
+            templateCode: app._cmWidgetPluginTemplate ? app._cmWidgetPluginTemplate.getValue() : '',
+            manifest: app._cmWidgetPluginManifest ? app._cmWidgetPluginManifest.getValue() : ''
           };
           mutation = app._selectedWidgetPlugin ? app._updateWidgetPluginMutation : app._createWidgetPluginMutation;
           vars = app._selectedWidgetPlugin ? {
@@ -202,7 +206,7 @@
         });
       }
       return (ref6 = app.el.widgetPluginSelect()) != null ? ref6.addEventListener('change', function() {
-        var id, plugin, ref10, ref7, ref8, ref9;
+        var id, plugin, ref10, ref11, ref7, ref8, ref9;
         id = app.el.widgetPluginSelect().value;
         if (!id) {
           return;
@@ -227,7 +231,10 @@
         if ((ref9 = app._cmWidgetPluginScript) != null) {
           ref9.setValue(plugin.scriptCode || '');
         }
-        return (ref10 = app._cmWidgetPluginTemplate) != null ? ref10.setValue(plugin.templateCode || '') : void 0;
+        if ((ref10 = app._cmWidgetPluginTemplate) != null) {
+          ref10.setValue(plugin.templateCode || '');
+        }
+        return (ref11 = app._cmWidgetPluginManifest) != null ? ref11.setValue(plugin.manifest || '') : void 0;
       }) : void 0;
     },
     _defaultWidgetPlugin: function() {
@@ -245,12 +252,21 @@
     rows = selection?.rows or []
     emitSelection { rows }
   title = if params?.title then params.title else 'sans titre'
-  render \"<div class='plugin-info'>Plugin prêt : \#{title}</div>\"`
+  render \"<div class='plugin-info'>Plugin prêt : \#{title}</div>\"`,
+        manifest: `# Manifest facultatif : accès aux données et colonnes/options déclarées.
+# Sans manifest, le widget garde l'accès complet (full) et reçoit \`gql\` brut.
+# access: none | read | full   (défaut : read dès qu'un manifest existe)
+# columns:
+#   - {name: titre, type: String}
+#   - {name: debut, type: Date}
+#   - {name: fin, type: Date, optional: true}
+# options:
+#   - {name: couleur, type: color, default: '#36c'}`
       };
     },
     _loadWidgetPlugins: function(app, preferredId = null) {
       return GQL.query(app._listWidgetPluginsQuery).then(function(data) {
-        var defaults, emptyOpt, firstPlugin, i, len, opt, p, plugins, ref, ref1, ref2, ref3, ref4, sel, selectPlugin, selected, wantedId;
+        var defaults, emptyOpt, firstPlugin, i, len, opt, p, plugins, ref, ref1, ref2, ref3, ref4, ref5, sel, selectPlugin, selected, wantedId;
         plugins = data.widgetPlugins || [];
         app._widgetPluginCache = plugins;
         sel = app.el.widgetPluginSelect();
@@ -260,7 +276,7 @@
         }
         sel.innerHTML = '';
         selectPlugin = function(p) {
-          var ref, ref1, ref2, ref3;
+          var ref, ref1, ref2, ref3, ref4;
           app._selectedWidgetPlugin = p;
           if (p != null ? p.id : void 0) {
             sel.value = p.id;
@@ -278,7 +294,10 @@
           if ((ref2 = app._cmWidgetPluginScript) != null) {
             ref2.setValue(p.scriptCode || '');
           }
-          return (ref3 = app._cmWidgetPluginTemplate) != null ? ref3.setValue(p.templateCode || '') : void 0;
+          if ((ref3 = app._cmWidgetPluginTemplate) != null) {
+            ref3.setValue(p.templateCode || '');
+          }
+          return (ref4 = app._cmWidgetPluginManifest) != null ? ref4.setValue(p.manifest || '') : void 0;
         };
         wantedId = preferredId || ((ref = app._selectedWidgetPlugin) != null ? ref.id : void 0);
         firstPlugin = null;
@@ -321,29 +340,34 @@
           if ((ref3 = app._cmWidgetPluginScript) != null) {
             ref3.setValue(defaults.scriptCode);
           }
-          return (ref4 = app._cmWidgetPluginTemplate) != null ? ref4.setValue(defaults.templateCode) : void 0;
+          if ((ref4 = app._cmWidgetPluginTemplate) != null) {
+            ref4.setValue(defaults.templateCode);
+          }
+          return (ref5 = app._cmWidgetPluginManifest) != null ? ref5.setValue(defaults.manifest) : void 0;
         }
       }).catch(function(err) {
         return tdbAlert(app._err(err), 'error');
       });
     },
     _ensureWidgetPluginEditorsSplit: function(app) {
-      var base, base1, base2, base3, base4, ensureLabel, i, j, langRow, len, len1, oldRow, pane, ref, ref1, results, root, row, scriptCol, scriptColCurrent, scriptEl, scriptLabel, scriptLangLabel, scriptLangSel, tplCol, tplColCurrent, tplEl, tplLabel, tplLangLabel, tplLangSel;
+      var base, base1, base2, base3, base4, base5, ensureLabel, i, j, langRow, len, len1, manifestCol, manifestColCurrent, manifestEl, manifestLabel, oldRow, pane, ref, ref1, results, root, row, scriptCol, scriptColCurrent, scriptEl, scriptLabel, scriptLangLabel, scriptLangSel, tplCol, tplColCurrent, tplEl, tplLabel, tplLangLabel, tplLangSel;
       root = typeof (base = app.el).widgetPluginModal === "function" ? base.widgetPluginModal() : void 0;
       if (!root) {
         return;
       }
       tplEl = typeof (base1 = app.el).widgetPluginTemplateEditor === "function" ? base1.widgetPluginTemplateEditor() : void 0;
       scriptEl = typeof (base2 = app.el).widgetPluginScriptEditor === "function" ? base2.widgetPluginScriptEditor() : void 0;
-      if (!(tplEl && scriptEl)) {
+      manifestEl = typeof (base3 = app.el).widgetPluginManifestEditor === "function" ? base3.widgetPluginManifestEditor() : void 0;
+      if (!(tplEl && scriptEl && manifestEl)) {
         return;
       }
-      tplLangSel = typeof (base3 = app.el).widgetPluginTemplateLanguage === "function" ? base3.widgetPluginTemplateLanguage() : void 0;
-      scriptLangSel = typeof (base4 = app.el).widgetPluginScriptLanguage === "function" ? base4.widgetPluginScriptLanguage() : void 0;
+      tplLangSel = typeof (base4 = app.el).widgetPluginTemplateLanguage === "function" ? base4.widgetPluginTemplateLanguage() : void 0;
+      scriptLangSel = typeof (base5 = app.el).widgetPluginScriptLanguage === "function" ? base5.widgetPluginScriptLanguage() : void 0;
       row = root.querySelector('.widget-plugin-editors-row');
       tplColCurrent = tplEl.closest('.widget-plugin-editor-col');
       scriptColCurrent = scriptEl.closest('.widget-plugin-editor-col');
-      if (row && row.contains(tplEl) && row.contains(scriptEl) && tplColCurrent && scriptColCurrent && tplColCurrent !== scriptColCurrent && tplColCurrent.parentElement === row && scriptColCurrent.parentElement === row) {
+      manifestColCurrent = manifestEl.closest('.widget-plugin-editor-col');
+      if (row && row.contains(tplEl) && row.contains(scriptEl) && row.contains(manifestEl) && tplColCurrent && scriptColCurrent && manifestColCurrent && tplColCurrent !== scriptColCurrent && scriptColCurrent !== manifestColCurrent && tplColCurrent !== manifestColCurrent && tplColCurrent.parentElement === row && scriptColCurrent.parentElement === row && manifestColCurrent.parentElement === row) {
         return;
       }
       pane = tplEl.closest('.yaml-editor-pane') || scriptEl.closest('.yaml-editor-pane');
@@ -357,8 +381,10 @@
       }
       tplLabel = tplEl.previousElementSibling;
       scriptLabel = scriptEl.previousElementSibling;
+      manifestLabel = manifestEl.previousElementSibling;
       tplLangLabel = root.querySelector("label[for='widget-plugin-template-language']");
       scriptLangLabel = root.querySelector("label[for='widget-plugin-script-language']");
+      manifestLabel = manifestLabel || root.querySelector("label[for='widget-plugin-manifest-editor']");
       ensureLabel = function(lbl, txt, forId) {
         var n;
         if (lbl) {
@@ -382,10 +408,17 @@
         scriptLabel.className = 'formula-hint';
         scriptLabel.textContent = 'Script';
       }
+      if (!manifestLabel) {
+        manifestLabel = document.createElement('label');
+        manifestLabel.className = 'formula-hint';
+        manifestLabel.textContent = 'Manifest (YAML)';
+      }
       tplEl.style.height = '';
       scriptEl.style.height = '';
+      manifestEl.style.height = '';
       tplEl.style.flex = '1';
       scriptEl.style.flex = '1';
+      manifestEl.style.flex = '1';
       row = document.createElement('div');
       row.className = 'widget-plugin-editors-row';
       tplCol = document.createElement('div');
@@ -412,8 +445,15 @@
         scriptCol.appendChild(scriptLabel);
       }
       scriptCol.appendChild(scriptEl);
+      manifestCol = document.createElement('div');
+      manifestCol.className = 'widget-plugin-editor-col';
+      if (manifestLabel) {
+        manifestCol.appendChild(manifestLabel);
+      }
+      manifestCol.appendChild(manifestEl);
       row.appendChild(tplCol);
       row.appendChild(scriptCol);
+      row.appendChild(manifestCol);
       pane.appendChild(row);
       ref1 = pane.querySelectorAll('.formula-lang-row');
       results = [];
@@ -521,6 +561,16 @@
           indentWithTabs: false
         });
       }
+      if (!app._cmWidgetPluginManifest) {
+        app._cmWidgetPluginManifest = CodeMirror(app.el.widgetPluginManifestEditor(), {
+          mode: 'yaml',
+          theme: 'monokai',
+          lineNumbers: true,
+          lineWrapping: true,
+          tabSize: 2,
+          indentWithTabs: false
+        });
+      }
       setTimeout((function() {
         var ref1;
         return (ref1 = app._cmWidgetPluginScript) != null ? ref1.refresh() : void 0;
@@ -528,6 +578,10 @@
       setTimeout((function() {
         var ref1;
         return (ref1 = app._cmWidgetPluginTemplate) != null ? ref1.refresh() : void 0;
+      }), 10);
+      setTimeout((function() {
+        var ref1;
+        return (ref1 = app._cmWidgetPluginManifest) != null ? ref1.refresh() : void 0;
       }), 10);
       return window.AppViewHelpers._loadWidgetPlugins(app);
     }

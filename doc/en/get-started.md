@@ -351,68 +351,129 @@ Available functions are `sum`, `count`, `avg`, `min`, `max`. The `as` alias is o
 
 ### Custom widget plugins
 
-You can add custom widgets to a YAML view with a plugin (`CoffeeScript` or `JavaScript` for logic, `Pug` or `HTML` for template).
+A custom widget is a **reusable definition** (script code + template, and optionally a
+`manifest`) instantiated in a page by name. Fixing the definition updates every page that
+uses it.
 
-Once a plugin exists, it is also listed under **Custom widgets** in the page's **＋ Widget** window: pick it as the widget type, fill the key/value parameters and click **Add** — the page YAML gets a `type: <plugin name>` node carrying those `params`, and no column selection is required. The same window links to the plugin editor (**New custom widget…**, admins only).
+An existing definition is listed under **Custom widgets** in a page's **＋ Widget** window.
+Pick it as the widget type:
+
+- with a `manifest`, section **3. Parameters** becomes a field selector per declared column
+  (filtered by type, "—" for an optional column) and an input per option, prefilled with
+  its default;
+- without a `manifest`, the usual key/value pairs, with no column selection.
+
+The same window links to the plugin editor (**New custom widget…**, admins only).
 
 #### Create a plugin
 
 1. Open a custom view.
 2. Click **🧩 Plugins** in the view toolbar.
 3. Click **+ New**.
-4. Fill:
-   - `name` (used as widget `type` in YAML)
-   - `description` (optional)
-   - script language + code
-   - template language + code
-5. Click **💾 Save**.
-6. Close the modal (`✕`) to refresh views using modified plugins.
+4. Fill `name` (the widget `type` in YAML), the description, the script language and code,
+   the template language and code, and optionally the **YAML manifest** (third editor).
+5. Click **💾 Save**, then close (`✕`) to reload the pages using the plugin.
 
 #### Plugin script contract
 
-Your script must export a function:
+The script exports a function:
 
 ```coffeescript
-module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
+module.exports = ({ gql, emitSelection, onInputSelection, onRecords, onRecord, setCursor, render, params }) ->
   render "<div>Ready</div>"
 ```
 
-- `render(html)`: updates widget HTML inside the sandboxed iframe.
+- `render(html)`: updates the widget HTML inside the sandboxed iframe.
 - `params`: widget params from YAML (`widget.params`).
-- `gql(query, variables)`: runs GraphQL requests through the parent app.
-- `emitSelection({ rows, byField })`: emits selection for dependent widgets.
-- `onInputSelection(cb)`: receives selection from `depends_on` upstream widgets.
+- `emitSelection({ rows, byField })`: emits a selection for dependent widgets
+  (`depends_on`).
+- `onInputSelection(cb)`: receives the upstream widget selection.
+- `gql(query, variables)`: GraphQL request relayed by the parent, **filtered by `access`**
+  (see below).
+- `onRecords(cb)`, `onRecord(cb)`, `setCursor(id)`, and for `access: full`
+  `updateRecord(id, values)`, `insertRecord(values)`, `deleteRecord(id)`: the data API
+  described below.
 
-#### Use plugin in YAML
-
-Set the widget `type` to the plugin name:
+#### Manifest (optional)
 
 ```yaml
-- widget:
-    id: books_plugin
-    type: test
-    title: Books plugin
-    params:
-      title: "Books"
+access: read            # none | read | full (default: read once a manifest exists)
+columns:                # columns expected from the source
+  - {name: titre, type: String}
+  - {name: debut, type: Date}
+  - {name: fin, type: Date, optional: true}
+options:                # typed instance options
+  - {name: couleur, type: color, default: '#36c'}
 ```
 
-`depends_on` works with plugin widgets the same way as for space widgets:
+- **`access`** — what the widget may do, enforced by the parent before any relay:
+
+  | `access` | Allowed |
+  |---|---|
+  | `none` | `params`, `render`, selection; no data, no `gql` |
+  | `read` | + reading the source (`onRecords`…), `gql` limited to *queries* |
+  | `full` | + `updateRecord` / `insertRecord` / `deleteRecord` on the source, data mutations through `gql` |
+
+  Without a manifest the effective access is `full` (existing plugins keep working). An
+  operation that cannot be parsed is refused. Whatever the value, schema, user, group and
+  app mutations are refused by the server, and resolvers still apply the user's own
+  permissions.
+
+- **`columns`** — expected source column names and types. The instance maps them in the
+  page YAML (`columns: {<declared name>: <field>}`). A required column left unmapped shows
+  a message in the widget: nothing is loaded.
+
+- **`options`** — typed options (`color`, `number`, `boolean`, anything else as text),
+  stored in `params`. The "＋ Widget" window prefills the default value.
+
+#### Data API inside the iframe
+
+- `onRecords(cb)`: rows of the widget source (space or Data View), **renamed according to
+  the mapping** (`{id, titre, debut, …}`); called again after every write made by the
+  widget.
+- `onRecord(cb)`: current row received from the upstream widget (`depends_on`), renamed the
+  same way.
+- `setCursor(id)`: emits that row's selection for downstream widgets.
+- `updateRecord(id, values)`, `insertRecord(values)`, `deleteRecord(id)` (`full` access
+  only): keys of `values` are the **declared names** (translated to field names by the
+  parent); each call returns a promise.
+
+#### Use a plugin in YAML
+
+`type` is the plugin name. With a manifest, declare the column mapping next to `params`:
 
 ```yaml
 - widget:
-    id: books_plugin
-    type: test
+    id: calendar
+    type: calendar
+    title: Calendar
+    space: events
+    columns: {titre: nom, debut: date_debut, fin: date_fin}
+    params: {couleur: '#c33'}
+```
+
+`depends_on` works like for space widgets:
+
+```yaml
+- widget:
+    id: detail
+    type: card
     depends_on:
-      widget: livres
-      field: livre_id
+      widget: calendar
+      field: event_id
       from_field: id
 ```
 
 #### Troubleshooting
 
-- If script/template compilation fails, TGui shows a detailed message with plugin name, source (`script` or `template`), language, and line/column when available.
-- If runtime execution fails inside the iframe, TGui shows `Plugin <name> — exécution JavaScript invalide ...` with the error details.
-- Runtime availability errors (`runtime CoffeeScript indisponible`, `runtime Pug indisponible`) indicate a missing or broken frontend vendor bundle.
+- A compilation error (script or template) names the plugin, the source (`script` or
+  `template`), the language, and the line/column when available.
+- A runtime error inside the iframe shows `Plugin <name> — exécution JavaScript invalide …`
+  with the details.
+- `runtime CoffeeScript indisponible` / `runtime Pug indisponible` means a missing or
+  broken vendor bundle.
+- A denied request shows the parent's explicit message inside the iframe (`manifest
+  access: read`, `access: none`, "lectures seules", …).
 
 ---
 

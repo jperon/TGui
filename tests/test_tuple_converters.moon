@@ -59,7 +59,7 @@ VIEW_KEYS  = {"config", "createdAt", "id", "name", "spaceId", "updatedAt", "view
 CV_KEYS    = {"createdAt", "description", "id", "name", "updatedAt", "yaml"}
 DV_KEYS    = {"config", "createdAt", "description", "id", "name", "sourceSpace", "updatedAt"}
 PLUGIN_KEYS = {
-  "createdAt", "description", "id", "name"
+  "createdAt", "description", "id", "manifest", "name"
   "scriptCode", "scriptLanguage", "templateCode", "templateLanguage", "updatedAt"
 }
 REL_KEYS = {
@@ -290,6 +290,7 @@ R.describe "tuple converters — widget plugin", ->
       description: 'tuple plugin fixture'
       scriptLanguage: 'coffeescript'
       templateLanguage: 'pug'
+      manifest: ''
     }, "widgetPlugin values"
 
 -- ── Relations ─────────────────────────────────────────────────────────────────

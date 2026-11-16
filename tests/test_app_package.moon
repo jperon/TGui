@@ -724,7 +724,7 @@ R.describe "app_package — normalize_content (T22)", ->
       dataview: { description: '', sourceSpace: '' }
       preset: { space: '', filter: '', sort: {} }
       plugin: { description: '', scriptLanguage: 'coffeescript', templateLanguage: 'pug',
-                scriptCode: '', templateCode: '' }
+                scriptCode: '', templateCode: '', manifest: '' }
       group: { description: '' }
       perm: { resource: '*' }
       seed: { data: {} }

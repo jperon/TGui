@@ -2,7 +2,7 @@
 
 > Auto-generated file. Do not edit manually.
 >
-> Generated at: 2026-10-07 23:08:51 UTC
+> Generated at: 2026-11-16 12:40:47 UTC
 
 CoffeeScript module organization and key UI flows.
 

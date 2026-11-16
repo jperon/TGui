@@ -11,6 +11,7 @@ LIST_WIDGET_PLUGINS = """
       templateLanguage
       scriptCode
       templateCode
+      manifest
       updatedAt
     }
   }
@@ -26,6 +27,7 @@ GET_WIDGET_PLUGIN = """
       templateLanguage
       scriptCode
       templateCode
+      manifest
       updatedAt
     }
   }
