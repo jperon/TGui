@@ -34,7 +34,7 @@
         # Outils de compilation seuls (moonc + coffee), sans les navigateurs
         # Playwright (lourds). Utilisé par la CI pour vérifier que les artefacts
         # commités sont en phase avec les sources, de façon déterministe.
-        buildTools = with pkgs; [ gnumake luaEnv lua5_1 nodejs_22 coffeescript git ];
+        buildTools = with pkgs; [ gnumake luaEnv lua5_1 gcc nodejs_22 coffeescript git ];
       in
       {
         devShells.build = pkgs.mkShell {
@@ -120,7 +120,9 @@
           command -v coffee
           command -v node
           command -v make
+          command -v cc
           command -v gcc
+          test -f ${pkgs.lua5_1}/include/lua.h
           # Dépendances du moonc du sous-module (backend/vendor/moonscript).
           lua -e 'require("lpeg"); require("argparse"); require("lfs")'
           lua_ver=$(lua -v 2>&1)
