@@ -55,6 +55,11 @@ makeElement = (tag) ->
     addEventListener: (ev, fn) ->
       el._listeners[ev] ?= []
       el._listeners[ev].push fn
+    removeEventListener: (ev, fn) ->
+      list = el._listeners[ev]
+      return unless list
+      i = list.indexOf fn
+      list.splice i, 1 if i != -1
     # Retourne un élément stub (mémoïsé par sélecteur) plutôt que null, afin que
     # le code qui enchaîne .querySelector(x).addEventListener(...) ne plante pas.
     querySelector: (sel) ->

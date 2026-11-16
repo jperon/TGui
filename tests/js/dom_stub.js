@@ -91,6 +91,17 @@
         }
         return el._listeners[ev].push(fn);
       },
+      removeEventListener: function(ev, fn) {
+        var i, list;
+        list = el._listeners[ev];
+        if (!list) {
+          return;
+        }
+        i = list.indexOf(fn);
+        if (i !== -1) {
+          return list.splice(i, 1);
+        }
+      },
       // Retourne un élément stub (mémoïsé par sélecteur) plutôt que null, afin que
       // le code qui enchaîne .querySelector(x).addEventListener(...) ne plante pas.
       querySelector: function(sel) {

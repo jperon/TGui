@@ -145,7 +145,7 @@
     parseSort: parseSort,
     serializeSort: serializeSort,
     attach: function(wrapEl, opts = {}) {
-      var actions, api, applyPreset, button, clearActive, clearError, close, dataView, deletePreset, destroy, ensureDataViewBinding, errorEl, isOpen, loadPresets, matchesActive, menu, onDocumentClick, onDocumentKey, open, positionMenu, presetList, presetSection, ref, ref1, removeSortColumn, renderPresets, renderSort, saveBtn, saveCurrent, showError, sortList, sortSection, state, syncActive, toggle, updateButton;
+      var actions, api, applyPreset, button, clearActive, clearError, close, dataView, deletePreset, destroy, ensureDataViewBinding, errorEl, isOpen, loadPresets, matchesActive, menu, onDocumentClick, onDocumentKey, onFilterInput, open, positionMenu, presetList, presetSection, ref, ref1, removeSortColumn, renderPresets, renderSort, saveBtn, saveCurrent, showError, sortList, sortSection, state, syncActive, toggle, updateButton;
       if (!wrapEl) {
         return null;
       }
@@ -540,25 +540,35 @@
           }
         };
       };
+      onFilterInput = function() {
+        return clearActive();
+      };
       destroy = function() {
-        var dv, ref1, ref2;
+        var dv, ref1, ref2, ref3;
         if (typeof document.removeEventListener === "function") {
           document.removeEventListener('click', onDocumentClick, true);
         }
         if (typeof document.removeEventListener === "function") {
           document.removeEventListener('keydown', onDocumentKey);
         }
+        // La grille principale réattache le menu au même input à chaque changement
+        // d'espace : sans ce retrait, les écouteurs s'accumuleraient.
+        if ((ref1 = opts.filterInput) != null) {
+          if (typeof ref1.removeEventListener === "function") {
+            ref1.removeEventListener('input', onFilterInput);
+          }
+        }
         dv = dataView();
         if (dv && dv._viewPresetsMenu === api) {
           dv._viewPresetsMenu = null;
           dv._onSortChanged = null;
         }
-        if ((ref1 = button.parentNode) != null) {
-          if (typeof ref1.removeChild === "function") {
-            ref1.removeChild(button);
+        if ((ref2 = button.parentNode) != null) {
+          if (typeof ref2.removeChild === "function") {
+            ref2.removeChild(button);
           }
         }
-        return (ref2 = menu.parentNode) != null ? typeof ref2.removeChild === "function" ? ref2.removeChild(menu) : void 0 : void 0;
+        return (ref3 = menu.parentNode) != null ? typeof ref3.removeChild === "function" ? ref3.removeChild(menu) : void 0 : void 0;
       };
       api = {
         button: button,
@@ -597,9 +607,9 @@
         return saveCurrent();
       });
       if ((ref1 = opts.filterInput) != null) {
-        ref1.addEventListener('input', function() {
-          return clearActive();
-        });
+        if (typeof ref1.addEventListener === "function") {
+          ref1.addEventListener('input', onFilterInput);
+        }
       }
       wrapEl._viewPresetsMenu = api;
       ensureDataViewBinding();

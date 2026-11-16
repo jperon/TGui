@@ -433,6 +433,49 @@
     });
   });
 
+  describe('ViewPresetsMenu — cycle de vie', function() {
+    it('retire son écouteur input à la destruction', function() {
+      var api, dv, input, wrap;
+      wrap = global.document.createElement('div');
+      input = global.document.createElement('input');
+      wrap.appendChild(input);
+      dv = makeDv();
+      api = VPM.attach(wrap, {
+        getDataView: (function() {
+          return dv;
+        }),
+        scope: 'space:s1',
+        spaceId: 's1',
+        filterInput: input
+      });
+      eq((input._listeners.input || []).length, 1);
+      api.destroy();
+      return eq((input._listeners.input || []).length, 0);
+    });
+    return it('ne les accumule pas quand la grille réattache le menu au même input', function() {
+      var api1, api2, dv, input, opts, wrap;
+      wrap = global.document.createElement('div');
+      input = global.document.createElement('input');
+      wrap.appendChild(input);
+      dv = makeDv();
+      opts = {
+        getDataView: (function() {
+          return dv;
+        }),
+        scope: 'space:s1',
+        spaceId: 's1',
+        filterInput: input
+      };
+      api1 = VPM.attach(wrap, opts);
+      eq((input._listeners.input || []).length, 1);
+      // Changement d'espace : la grille principale réattache sur le même input.
+      api2 = VPM.attach(wrap, opts);
+      eq((input._listeners.input || []).length, 1);
+      api2.destroy();
+      return eq((input._listeners.input || []).length, 0);
+    });
+  });
+
   summary();
 
 }).call(this);
