@@ -9,7 +9,7 @@ This guide walks you step by step from zero to a fully functional **school libra
 ## Prerequisites
 
 - [Docker](https://www.docker.com/) (or Tarantool 3.x installed locally)
-- `make`, `moonc` (MoonScript compiler), `coffee` (CoffeeScript) — only needed to modify sources
+- `make`, `git` et `coffee` (CoffeeScript) — nécessaires seulement pour modifier les sources ; le compilateur MoonScript est un sous-module git (lancer `git submodule update --init`)
 
 ---
 

@@ -51,18 +51,33 @@ Renvois au spec `docs/superpowers/specs/2026-10-07-app-versioning-design.md` (§
 
 ## Environnement de développement (Nix)
 
-Un `flake.nix` fournit tous les outils (`moonc`, `coffee`, navigateurs
-Playwright, `shot-scraper`, client `docker`, `jq`). Les entrées `nixpkgs` et
-`flake-utils` sont **épinglées à une révision exacte** (elle-même figée dans
-`flake.lock`) : l'environnement est reproductible. Le `shellHook` **efface
-`LD_LIBRARY_PATH`/`LD_PRELOAD`/`LD_AUDIT`** héritées de l'hôte pour rester
-hermétique (sinon les navigateurs Playwright échouent sur une version de glibc).
+Un `flake.nix` fournit tous les outils (`moonc` du sous-module MoonScript,
+`coffee`, navigateurs Playwright, `shot-scraper`, client `docker`, `jq`). Les
+entrées `nixpkgs` et `flake-utils` sont **épinglées à une révision exacte**
+(elle-même figée dans `flake.lock`) : l'environnement est reproductible. Le
+`shellHook` **efface `LD_LIBRARY_PATH`/`LD_PRELOAD`/`LD_AUDIT`** héritées de
+l'hôte pour rester hermétique (sinon les navigateurs Playwright échouent sur
+une version de glibc).
+
+**MoonScript est un sous-module git** (`backend/vendor/moonscript`), épinglé sur
+le tag **v0.8.0** : c'est la même version qui compile les sources et qui tourne
+dans Tarantool (`moonscript.base.to_lua` pour les formules). Après un clone (ou
+un changement de branche) :
 
 ```bash
-nix develop                 # entre dans le shell de dev reproductible
-make doctor                 # vérifie outils, hermétisme et navigateur headless
+git submodule update --init  # récupère backend/vendor/moonscript
+nix develop                  # entre dans le shell de dev reproductible
+make doctor                  # vérifie outils, sous-module, hermétisme, navigateur
 # puis : make build, make test, npx playwright test ...
 ```
+
+Le compilateur du sous-module tourne sur le Lua 5.1 de Nix avec `lpeg`,
+`argparse` et `luafilesystem` (voir `scripts/moonc.sh`) ; son analyseur natif
+(`moonscript/parse/native.c`) est compilé dans `build/`, ignoré par git.
+
+**Mise à jour de MoonScript** : changer le commit du sous-module (checkout du
+nouveau tag, `git add backend/vendor/moonscript`), puis `make build` et
+committer les sources et les `.lua` recompilés. Ne jamais éditer le sous-module.
 
 Mise à jour volontaire des dépendances Nix : `nix flake update
 --override-input nixpkgs github:NixOS/nixpkgs/nixos-unstable`, puis ré-épingler
@@ -82,19 +97,24 @@ make install-hooks          # git config core.hooksPath .githooks (une fois)
 
 ## Compilation
 
+Les `.lua` sont produits par le `moonc` du sous-module (`scripts/moonc.sh`,
+MoonScript 0.8.0), jamais par celui de nixpkgs : une seule version, celle qui
+tourne à l'exécution.
+
 ```bash
-# Un fichier MoonScript
-moonc backend/core/spaces.moon          # produit backend/core/spaces.lua
+# Un fichier MoonScript (ou `make build` pour tout)
+scripts/moonc.sh backend/core/spaces.moon   # produit backend/core/spaces.lua
 
 # Un fichier CoffeeScript
 coffee --no-header -c frontend/src/app.coffee   # produit frontend/src/app.js
 
-# Tout recompiler
+# Tout recompiler (analyseur natif + tous les .moon/.coffee)
 make build
 ```
 
 Après toute modification de `.moon` ou `.coffee`, toujours compiler avant de tester
-ou de committer.
+ou de committer. Le sous-module doit être initialisé (`git submodule update
+--init`) ; `make build` échoue avec un message explicite sinon.
 
 ## Tests
 
