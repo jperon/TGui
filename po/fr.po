@@ -132,3 +132,52 @@ msgstr "- [Nix](https://nixos.org/) avec [direnv](https://direnv.net/) (recomman
 
 msgid "Once a plugin exists, it is also listed under **Custom widgets** in the page's **＋ Widget** window: pick it as the widget type, fill the key/value parameters and click **Add** — the page YAML gets a `type: <plugin name>` node carrying those `params`, and no column selection is required. The same window links to the plugin editor (**New custom widget…**, admins only)."
 msgstr "Une fois le plugin créé, il figure aussi sous **Widgets personnalisés** dans la fenêtre **＋ Widget** d'une page : choisissez-le comme type de widget, renseignez les paramètres clé/valeur puis cliquez sur **Ajouter** — le YAML de la page reçoit un nœud `type: <nom du plugin>` portant ces `params`, sans sélection de colonne obligatoire. La même fenêtre renvoie vers l'éditeur de plugins (**Nouveau widget personnalisé…**, réservé aux admins)."
+
+msgid "14. [Sorting and filtering a grid](#14-sorting-and-filtering-a-grid)"
+msgstr "14. [Trier et filtrer une grille](#14-trier-et-filtrer-une-grille)"
+
+msgid "## 14. Sorting and filtering a grid"
+msgstr "## 14. Trier et filtrer une grille"
+
+msgid "The **Trier / Filtrer** button in the space toolbar, and in every data widget of a page, opens the sort and filter menu."
+msgstr "Le bouton **Trier / Filtrer** de la barre d'outils d'un espace, et de chaque widget de données d'une page, ouvre le menu de tri et de filtre."
+
+msgid "### Sorting on several criteria"
+msgstr "### Trier sur plusieurs critères"
+
+msgid "Sorting is hierarchical: the first criterion decides, ties are broken by the second, and so on. The menu lists the current criteria in priority order (1 is the highest)."
+msgstr "Le tri est hiérarchique : le premier critère décide, les égalités sont départagées par le second, et ainsi de suite. Le menu liste les critères courants par ordre de priorité (1 est le plus fort)."
+
+msgid "| Action | How |"
+msgstr "| Action | Comment |"
+
+msgid "|--------|-----|"
+msgstr "|--------|-----|"
+
+msgid "| Sort on one column | Click the sort arrow in a column header: this replaces the current sort |"
+msgstr "| Trier sur une colonne | Cliquez la flèche de tri d'un en-tête de colonne : cela remplace le tri courant |"
+
+msgid "| Add a secondary criterion | Shift+click, Ctrl+click or Cmd+click the sort arrow of another column |"
+msgstr "| Ajouter un critère secondaire | Maj+clic, Ctrl+clic ou Cmd+clic sur la flèche de tri d'une autre colonne |"
+
+msgid "| Add a criterion from the menu | **+ Ajouter un critère**: choose a column and a direction, then click the button; the criterion is appended last |"
+msgstr "| Ajouter un critère depuis le menu | **+ Ajouter un critère** : choisissez une colonne et un sens, puis cliquez le bouton ; le critère est ajouté en dernier |"
+
+msgid "| Invert a criterion | Click its ↑ / ↓ button in the menu, or Shift+click its header |"
+msgstr "| Inverser un critère | Cliquez son bouton ↑ / ↓ dans le menu, ou faites Maj+clic sur son en-tête |"
+
+msgid "| Change a criterion's priority | Click ▲ (up) or ▼ (down) in the menu |"
+msgstr "| Changer la priorité d'un critère | Cliquez ▲ (monter) ou ▼ (descendre) dans le menu |"
+
+msgid "| Remove a criterion | Click ✕ in the menu |"
+msgstr "| Retirer un critère | Cliquez ✕ dans le menu |"
+
+msgid "Every change is applied immediately and survives a data reload (filter change, insertion, deletion). Modifying the sort clears the highlight of the active preset, since the preset no longer matches."
+msgstr "Chaque modification est appliquée immédiatement et survit à un rechargement des données (changement de filtre, insertion, suppression). Modifier le tri retire la mise en évidence du préréglage actif, puisqu'il ne correspond plus."
+
+msgid "### Named presets"
+msgstr "### Préréglages nommés"
+
+msgid "**Enregistrer sous…** stores the current filter and sort under a name, either for the whole space grid or for one widget of a page. Clicking a preset applies it: its filter and its sort criteria, in order, are restored."
+msgstr "**Enregistrer sous…** mémorise le filtre et le tri courants sous un nom, pour la grille entière d'un espace ou pour un widget d'une page. Cliquer un préréglage l'applique : son filtre et ses critères de tri, dans l'ordre, sont restaurés."
+
