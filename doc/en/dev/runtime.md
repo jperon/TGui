@@ -2,7 +2,7 @@
 
 > Auto-generated file. Do not edit manually.
 >
-> Generated at: 2026-10-07 23:08:51 UTC
+> Generated at: 2026-11-16 12:40:47 UTC
 
 Tarantool startup, HTTP lifecycle and subsystem initialization details.
 
@@ -23,8 +23,10 @@ Tarantool startup, HTTP lifecycle and subsystem initialization details.
 | `backend/core/spaces.moon` | Bootstrap and manage tdb system spaces (metadata) in Tarantool. |
 | `backend/core/triggers.moon` | Manages Tarantool before_replace triggers for trigger formula fields. |
 | `backend/core/validation.moon` | Validate record payloads against the declared space fields on insert/update. |
+| `backend/core/view_presets.moon` | CRUD for named view presets (a MoonScript filter plus a sort order) |
 | `backend/core/views.moon` | Manage view definitions: named projections over a data space. |
-| `backend/fixtures.moon` | Seed dataset for the TGui test container. |
+| `backend/core/widget_ids.moon` | guarantees that every widget of a custom-view (page) YAML document |
+| `backend/fixtures.moon` | Fixtures du conteneur de test : sur une base vide, installe l'application |
 | `backend/generate_sdl.moon` | CLI entrypoint to generate passive SDL artifact. |
 | `backend/graphql/dynamic.moon` | Generates GraphQL SDL and resolvers dynamically from space metadata. |
 | `backend/graphql/executor.moon` | Executes a parsed GraphQL operation against a schema and resolvers. |
@@ -51,8 +53,15 @@ Tarantool startup, HTTP lifecycle and subsystem initialization details.
 | `backend/resolvers/init.moon` | Compose and initialize the executable GraphQL schema/resolver graph. |
 | `backend/resolvers/schema_resolvers.moon` | Resolvers for space, field, view, and relation metadata. |
 | `backend/resolvers/utils.moon` | Shared helpers for all resolvers. |
+| `backend/resolvers/view_preset_resolvers.moon` | GraphQL resolvers for named view presets (filter + sort per widget |
 | `backend/resolvers/widget_plugin_resolvers.moon` | CRUD resolvers for custom widget plugins used by custom views. |
 | `backend/test_runner.moon` | Entrypoint to run tests in a Docker container. |
+| `backend/tools/app_builder.moon` | tools/app_builder.moon — structure YAML compacte → paquet .tdbapp.yaml. |
+| `backend/tools/bibliotheque_app.moon` | Assembleur de l'application « Bibliothèque » : structure YAML + seeds. |
+| `backend/tools/bibliotheque_seed_coordonnees.moon` | tools/bibliotheque_seed_coordonnees.moon — données fictives : coordonnées. |
+| `backend/tools/bibliotheque_seed_ecole.moon` | T6 — Données fictives « école » du paquet Bibliothèque. |
+| `backend/tools/bibliotheque_seed_livres.moon` | tools/bibliotheque_seed_livres.moon — données fictives « bibliothèque » (T7). |
+| `backend/tools/seed_rng.moon` | tools/seed_rng.moon — générateur pseudo-aléatoire déterministe (Park–Miller). |
 | `backend/ui/admin_panels.moon` | Administration panels of the SPA (extracted from backend/index.moon, no functional change). |
 | `backend/ui/content.moon` | Main content area and toolbars of the SPA (extracted from backend/index.moon, no functional change). |
 | `backend/ui/data_view_modal.moon` | Data view configuration modal of the SPA (extracted from backend/index.moon, no functional change). |
