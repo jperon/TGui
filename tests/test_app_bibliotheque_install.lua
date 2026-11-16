@@ -266,7 +266,7 @@ local ex_descriptif
 ex_descriptif = function(ex)
   local l = ex.livre and LIVRES[ex.livre]
   local base = l and livre_descriptif(l) or '?'
-  return base .. (ex.cote and (" " .. tostring(MINUS) .. " " .. ex.cote) or '')
+  return base .. (ex.cote and ((" " .. tostring(MINUS) .. " ") .. ex.cote) or '')
 end
 local emprunteur_of
 emprunteur_of = function(ex_id)

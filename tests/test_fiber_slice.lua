@@ -8,7 +8,7 @@ local burn
 burn = function(sec)
   local t0 = clock.monotonic()
   while clock.monotonic() - t0 < sec do
-    local _ = nil
+    local _scrap_0 = nil
   end
 end
 local pack

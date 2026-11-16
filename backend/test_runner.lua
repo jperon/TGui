@@ -3,7 +3,7 @@ box.cfg({
   log_level = 5,
   memtx_memory = 256 * 1024 * 1024
 })
-package.path = '/app/?.lua;/app/backend/?.lua;/app/backend/?/init.lua;' .. package.path
+package.path = '/app/?.lua;/app/backend/?.lua;/app/backend/?/init.lua;/app/backend/vendor/moonscript/?.lua;/app/backend/vendor/moonscript/?/init.lua;' .. package.path
 require('fiber').set_max_slice({
   warn = 2,
   err = 20

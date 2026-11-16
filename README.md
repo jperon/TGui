@@ -51,12 +51,15 @@ présenter dans des vues et des pages.
 ## Prérequis
 
 - **Docker** et **Docker Compose**.
-- **Nix** (recommandé) : `nix develop` fournit `moonc`, `coffee`, `node`,
-  les navigateurs Playwright, `shot-scraper` et le client Docker (voir
-  `flake.nix`).
+- **Nix** (recommandé) : `nix develop` fournit le compilateur MoonScript du
+  sous-module (Lua 5.1 + lpeg, même version qu'à l'exécution), `coffee`,
+  `node`, les navigateurs Playwright, `shot-scraper` et le client Docker
+  (voir `flake.nix`).
 
-Sans Nix : `moonc` et `coffee` doivent être disponibles (ou utiliser Docker
-pour les tests).
+Le compilateur MoonScript est le sous-module git `backend/vendor/moonscript`
+(épinglé sur le tag v0.8.0) : après un clone, lancer
+`git submodule update --init`. Sans Nix, Lua 5.1 avec `lpeg`, `argparse` et
+`luafilesystem` est nécessaire (ou utiliser Docker pour les tests).
 
 ## Démarrage rapide
 
@@ -86,7 +89,7 @@ réel.
 
 | Commande | Description |
 |---|---|
-| `make build` | Compile `.moon` → `.lua` et `.coffee` → `.js` |
+| `make build` | Compile `.moon` → `.lua` (moonc du sous-module), `.coffee` → `.js` et l'analyseur natif MoonScript |
 | `make test` | Construit l'image de test et lance la suite Tarantool |
 | `make test-js` | Lance les tests JavaScript (`tests/js/run.coffee`) |
 | `make test-up` | Démarre l'environnement de test (port 8081) |

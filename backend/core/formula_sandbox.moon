@@ -98,9 +98,13 @@ compile_formula = (formula, field_name, language) ->
 
     -- Wrap expression in a MoonScript lambda: (self, space) -> <expr>
     moon_src = "return (self, space) -> " .. formula
-    ok_c, lua_or_err = pcall moon.to_lua, moon_src
+    ok_c, lua_or_err, compile_err = pcall moon.to_lua, moon_src
     unless ok_c
       log.error "tdb triggers: MoonScript parse error for '#{field_name}': #{lua_or_err}"
+      return nil
+    -- to_lua returns nil, message on a parse/compile error (it does not raise)
+    unless lua_or_err
+      log.error "tdb triggers: MoonScript parse error for '#{field_name}': #{compile_err}"
       return nil
     lua_or_err
   else

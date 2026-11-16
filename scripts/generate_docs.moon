@@ -432,7 +432,7 @@ modules_from_rel = (rels) ->
   out
 
 collect_modules = ->
-  backend_files = list_files "cd #{shell_quote(ROOT_DIR)} && find ./backend -name '*.moon' -type f ! -path './backend/moonscript/*' | sed 's#^\\./##'"
+  backend_files = list_files "cd #{shell_quote(ROOT_DIR)} && find ./backend -name '*.moon' -type f ! -path './backend/vendor/*' | sed 's#^\\./##'"
   backend_abs = {}
   for rel in *backend_files
     table.insert backend_abs, "#{ROOT_DIR}/#{rel}"

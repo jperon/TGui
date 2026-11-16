@@ -429,7 +429,7 @@ add_file_if_exists = function(files, path)
   end
 end
 local script_dir = (arg and arg[0] and arg[0]:match('^(.*)/[^/]+$')) or '.'
-package.path = tostring(script_dir) .. "/?.lua;" .. package.path
+package.path = (tostring(script_dir) .. "/?.lua;") .. package.path
 local domain_for_operation
 domain_for_operation = require('doc_domains').domain_for_operation
 local DOMAIN_LABELS = {
@@ -642,7 +642,7 @@ modules_from_rel = function(rels)
 end
 local collect_modules
 collect_modules = function()
-  local backend_files = list_files("cd " .. tostring(shell_quote(ROOT_DIR)) .. " && find ./backend -name '*.moon' -type f ! -path './backend/moonscript/*' | sed 's#^\\./##'")
+  local backend_files = list_files("cd " .. tostring(shell_quote(ROOT_DIR)) .. " && find ./backend -name '*.moon' -type f ! -path './backend/vendor/*' | sed 's#^\\./##'")
   local backend_abs = { }
   for _index_0 = 1, #backend_files do
     local rel = backend_files[_index_0]

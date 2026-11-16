@@ -61,7 +61,7 @@ msgid "- [Docker](https://www.docker.com/) (or Tarantool 3.x installed locally)"
 msgstr ""
 
 #: doc/en/get-started.md:12
-msgid "- `make`, `moonc` (MoonScript compiler), `coffee` (CoffeeScript) — only needed to modify sources"
+msgid "- `make`, `git` and `coffee` (CoffeeScript) — only needed to modify sources; the MoonScript compiler is a git submodule (run `git submodule update --init`)"
 msgstr ""
 
 #: doc/en/get-started.md:16

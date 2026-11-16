@@ -123,3 +123,6 @@ msgstr "- `applyAppUpdate` est atomique et exige une décision (`local` ou `deli
 
 msgid "- `purgeAppObsolete` requires `confirmed: true` and only accepts items whose tracked state is obsolete."
 msgstr "- `purgeAppObsolete` exige `confirmed: true` et n'accepte que les éléments dont l'état suivi est obsolète."
+
+msgid "- `make`, `git` and `coffee` (CoffeeScript) — only needed to modify sources; the MoonScript compiler is a git submodule (run `git submodule update --init`)"
+msgstr "- `make`, `git` et `coffee` (CoffeeScript) — nécessaires seulement pour modifier les sources ; le compilateur MoonScript est un sous-module git (lancer `git submodule update --init`)"

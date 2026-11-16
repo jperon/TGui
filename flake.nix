@@ -24,15 +24,26 @@
         # On force npm à installer EXACTEMENT cette version de @playwright/test
         # pour éviter tout décalage entre le driver JS et les binaires navigateur.
         playwrightVersion = pkgs.playwright-driver.version;
+
+        # MoonScript n'est plus pris dans nixpkgs : le compilateur est le
+        # sous-module backend/vendor/moonscript (tag v0.8.0), la même version
+        # qu'à l'exécution dans Tarantool. Il tourne sur Lua 5.1 + lpeg,
+        # argparse et luafilesystem ; son analyseur natif est compilé par le
+        # Makefile dans build/.
+        luaEnv = pkgs.lua5_1.withPackages (ps: [ ps.lpeg ps.argparse ps.luafilesystem ]);
         # Outils de compilation seuls (moonc + coffee), sans les navigateurs
         # Playwright (lourds). Utilisé par la CI pour vérifier que les artefacts
         # commités sont en phase avec les sources, de façon déterministe.
-        buildTools = with pkgs; [ gnumake luaPackages.moonscript nodejs_22 coffeescript git ];
+        buildTools = with pkgs; [ gnumake luaEnv lua5_1 gcc nodejs_22 coffeescript git ];
       in
       {
         devShells.build = pkgs.mkShell {
           name = "tgui-build";
           packages = buildTools;
+
+          # Consommés par le Makefile (scripts/moonc.sh, règle native.so).
+          TGUI_LUA = "${luaEnv}/bin/lua";
+          TGUI_LUA_INCDIR = "${pkgs.lua5_1}/include";
         };
 
         devShells.default = pkgs.mkShell {
@@ -41,7 +52,7 @@
           packages = with pkgs; [
             # Build des sources
             gnumake
-            luaPackages.moonscript      # moonc : .moon → .lua
+            luaEnv                      # Lua 5.1 + lpeg/argparse/luafilesystem : exécute le moonc du sous-module
             nodejs_22
             coffeescript                # coffee : .coffee → .js
 
@@ -55,6 +66,10 @@
             jq
             git
           ];
+
+          # Utilisés par le Makefile (scripts/moonc.sh, règle build/…/native.so).
+          TGUI_LUA = "${luaEnv}/bin/lua";
+          TGUI_LUA_INCDIR = "${pkgs.lua5_1}/include";
 
           # Playwright : utiliser les navigateurs de Nix plutôt qu'un téléchargement npm.
           PLAYWRIGHT_BROWSERS_PATH = "${pkgs.playwright-driver.browsers}";
@@ -80,7 +95,7 @@
             case $- in
               *i*)
             echo "TGui dev shell"
-            echo "  moonc   $(moon -v 2>/dev/null)"
+            echo "  moonc   $(scripts/moonc.sh -v 2>/dev/null || echo 'indisponible (git submodule update --init)')"
             echo "  coffee  $(coffee --version 2>/dev/null)"
             echo "  node    $(node --version)"
             echo "  playwright (navigateurs Nix) : ${playwrightVersion}"
@@ -101,15 +116,20 @@
         checks.build-tools = pkgs.runCommand "tgui-build-tools-check" {
           nativeBuildInputs = buildTools;
         } ''
-          command -v moonc
+          command -v lua
           command -v coffee
           command -v node
           command -v make
-          moon_ver=$(moon -v 2>&1)
+          command -v cc
+          command -v gcc
+          test -f ${pkgs.lua5_1}/include/lua.h
+          # Dépendances du moonc du sous-module (backend/vendor/moonscript).
+          lua -e 'require("lpeg"); require("argparse"); require("lfs")'
+          lua_ver=$(lua -v 2>&1)
           coffee_ver=$(coffee --version 2>&1)
           node_ver=$(node --version 2>&1)
           make_ver=$(make --version 2>&1 | head -1)
-          echo "moonscript: $moon_ver"
+          echo "lua:        $lua_ver"
           echo "coffee:     $coffee_ver"
           echo "node:       $node_ver"
           echo "make:       $make_ver"

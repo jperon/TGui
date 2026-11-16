@@ -1,7 +1,22 @@
+# ── MoonScript (sous-module upstream) ────────────────────────────────────────
+# Le compilateur est celui du sous-module backend/vendor/moonscript, épinglé
+# sur le tag v0.8.0 : c'est EXACTEMENT la version qui tourne à l'exécution dans
+# Tarantool (moonscript.base.to_lua pour les formules). Il s'exécute sur le Lua
+# 5.1 du dev shell Nix (TGUI_LUA, fourni par flake.nix) avec lpeg, argparse et
+# luafilesystem ; l'analyseur natif (moonscript/parse/native.c) est compilé
+# dans build/ (ignoré par git, jamais dans le sous-module).
+#
+# Mise à jour : changer le commit du sous-module puis `make build`.
+MOONSCRIPT_DIR := backend/vendor/moonscript
+LUA            ?= $(if $(TGUI_LUA),$(TGUI_LUA),lua5.1)
+LUA_INCDIR     ?= $(if $(TGUI_LUA_INCDIR),$(TGUI_LUA_INCDIR),/usr/include/lua5.1)
+MOONC          := scripts/moonc.sh
+NATIVE_SO      := build/moonscript/parse/native.so
+
 # MoonScript sources and their compiled Lua output.
-# On exclut backend/moonscript/ : c'est le compilateur MoonScript vendu (ses
-# propres .lua sont fournis tels quels et ne doivent pas être recompilés).
-MOON_SRCS     := $(shell find backend tests scripts -name '*.moon' -not -path '*/moonscript/*')
+# On exclut backend/vendor/ : c'est le sous-module upstream (ses .lua sont
+# fournis tels quels et ne doivent pas être recompilés).
+MOON_SRCS     := $(shell find backend tests scripts -name '*.moon' -not -path '*/vendor/*')
 LUA_OUTS      := $(MOON_SRCS:.moon=.lua)
 
 # CoffeeScript sources and their compiled JS output
@@ -21,7 +36,7 @@ all: build
 # Compile toutes les sources MoonScript et CoffeeScript vers leurs artefacts.
 # (Les règles de motif %.lua:%.moon et %.js:%.coffee font le travail ; build ne
 #  fait que déclarer la liste complète des cibles.)
-build: $(LUA_OUTS) $(JS_OUTS) $(TEST_JS_OUTS)
+build: $(NATIVE_SO) $(LUA_OUTS) $(JS_OUTS) $(TEST_JS_OUTS)
 
 # Active les hooks git versionnés (.githooks/), notamment le pre-commit qui
 # lance la suite de tests. À exécuter une fois après le clone.
@@ -52,8 +67,21 @@ test-logs:
 test-js: $(TEST_JS_OUTS)
 	coffee tests/js/run.coffee
 
-%.lua: %.moon
-	moonc $<
+# Analyseur natif de MoonScript 0.8.0, compilé hors du sous-module.
+$(NATIVE_SO): $(MOONSCRIPT_DIR)/moonscript/parse/native.c
+	@test -f "$(LUA_INCDIR)/lua.h" || { \
+		echo "❌ en-têtes Lua introuvables dans $(LUA_INCDIR) : lancer 'nix develop' (ou définir TGUI_LUA_INCDIR)"; \
+		exit 1; }
+	@mkdir -p $(@D)
+	$(CC) -shared -O2 -fPIC -I$(LUA_INCDIR) -o $@ $<
+
+# Message explicite quand le sous-module n'a pas été récupéré (clone sans
+# --recurse-submodules) : la règle ci-dessus ne peut pas s'appliquer.
+$(MOONSCRIPT_DIR)/moonscript/parse/native.c:
+	@echo "❌ sous-module MoonScript absent : lancer 'git submodule update --init'"; exit 1
+
+%.lua: %.moon | $(NATIVE_SO)
+	$(MOONC) $<
 
 %.js: %.coffee
 	coffee --no-header -c $<
@@ -152,6 +180,7 @@ logs:
 
 clean:
 	rm -f $(LUA_OUTS) $(JS_OUTS) $(TEST_JS_OUTS)
+	rm -rf build
 
 # Vérifie l'environnement de dev Nix (outils, hermétisme, Playwright,
 # navigateur headless). Entre dans le dev shell si on n'y est pas déjà.

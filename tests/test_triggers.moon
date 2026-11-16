@@ -190,6 +190,22 @@ R.describe "Triggers — compile_formula", ->
     R.eq type(fn), 'function'
     R.eq fn({ a: 10, b: 5 }, nil), 15
 
+  R.it "invalid MoonScript formula -> parser message with line and column", ->
+    -- MoonScript 0.8.0 : to_lua renvoie nil, message (sans lever d'erreur)
+    ok_ms, moon = pcall require, 'moonscript.base'
+    R.ok ok_ms, "moonscript.base should be available"
+    ok_c, lua_code, compile_err = pcall moon.to_lua, 'return (self) -> self.a +'
+    R.ok ok_c, "to_lua ne doit pas lever : #{tostring lua_code}"
+    R.is_nil lua_code
+    R.ok compile_err, "un message d'erreur doit être renvoyé"
+    R.ok compile_err\find('at line 1', 1, true), "nouveau format d'erreur : #{compile_err}"
+    R.ok compile_err\find('column', 1, true), "nouveau format d'erreur : #{compile_err}"
+
+  R.it "invalid MoonScript formula -> compile_formula returns nil, does not raise", ->
+    ok, fn = pcall triggers.compile_formula, 'self.a +', 'invalid_ms', 'moonscript'
+    R.ok ok, "compile_formula ne doit pas lever : #{tostring fn}"
+    R.is_nil fn
+
 R.describe "Triggers — trigger formula MoonScript", ->
   local ms_space_id, ms_data_space
 

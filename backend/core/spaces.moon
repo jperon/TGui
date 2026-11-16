@@ -654,9 +654,12 @@ change_field_type = (field_id, new_type, conversion_formula, language) ->
       unless ok_ms
         error "MoonScript non disponible: #{moon}"
       moon_src = "return (self, space) -> " .. conversion_formula
-      ok_c, lua_or_err = pcall moon.to_lua, moon_src
+      ok_c, lua_or_err, compile_err = pcall moon.to_lua, moon_src
       unless ok_c
         error "MoonScript parse error: #{lua_or_err}"
+      -- to_lua returns nil, message on a parse/compile error (it does not raise)
+      unless lua_or_err
+        error "MoonScript parse error: #{compile_err}"
       lua_or_err
     else
       "return function(self, space) return " .. conversion_formula .. " end"
