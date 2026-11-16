@@ -106,12 +106,13 @@ $(PLAYWRIGHT_JS_OUTS): $(PLAYWRIGHT_COFFEE_SRCS)
 	coffee --no-header -c $(PLAYWRIGHT_COFFEE_SRCS)
 	@echo "✅ Playwright tests compiled"
 
-# Build vendor bundles (tui-grid, js-yaml, codemirror)
+# Build vendor bundles (tui-grid, js-yaml, codemirror, plugin runtime, sortablejs)
 VENDOR_OUTS := frontend/vendor/tui-grid.bundle.js \
 	frontend/vendor/tui-grid.bundle.css \
 	frontend/vendor/jsyaml.bundle.js \
 	frontend/vendor/codemirror.bundle.js \
 	frontend/vendor/codemirror.bundle.css \
+	frontend/vendor/sortablejs.bundle.js \
 	frontend/vendor/plugin-runtime.bundle.js
 
 vendor: $(VENDOR_OUTS)

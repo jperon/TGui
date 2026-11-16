@@ -334,9 +334,9 @@ curl -s -X POST http://localhost:8081/graphql \
   `tests/playwright/pages/page-rendering.spec.coffee`.
 - **Data view `sourceSpace`** : le frontend stocke l'**id** de l'espace (UUID),
   pas son nom. `data_views_executor.execute_view` résout par id puis par nom.
-- **Vendor frontend** : tout bundle utilisé doit être inclus dans `backend/index.moon`
-  (ex. `sortablejs.bundle.js` pour `new Sortable`). Un bundle oublié casse la
-  fonctionnalité silencieusement à l'exécution.
+- **Vendor frontend** : tout bundle chargé par la page doit être listé dans
+  `backend/ui/scripts.moon`/`backend/index.moon` **et commité** (sinon un clone neuf
+  le reçoit en 404) ; `tests/js/test_vendor_bundles_tracked.coffee` échoue sinon.
 - **Cache de modules Lua** : Tarantool met les modules en cache dans `package.loaded`.
   Une modification de `.lua` n'est prise en compte qu'après redémarrage du container
   (`make down && make up`), sauf si le module est rechargé explicitement.
