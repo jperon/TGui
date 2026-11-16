@@ -13,6 +13,7 @@ local data_r = require('resolvers.data_resolvers')
 local cvr = require('resolvers.custom_view_resolvers')
 local dv_r = require('resolvers.data_view_resolvers')
 local wpr = require('resolvers.widget_plugin_resolvers')
+local view_presets = require('core.view_presets')
 local SUFFIX = tostring(math.random(100000, 999999))
 local SP_NAME = "ar_sp_" .. tostring(SUFFIX)
 local SP_AUX = "ar_aux_" .. tostring(SUFFIX)
@@ -28,7 +29,12 @@ local APP_ID = "org.test.ar_" .. tostring(SUFFIX)
 local GHOST_PLUGIN = "ar_ghost_plugin_" .. tostring(SUFFIX)
 local GHOST_PAGE = "ar_ghost_page_" .. tostring(SUFFIX)
 local GHOST_DV = "ar_ghost_dv_" .. tostring(SUFFIX)
+local GHOST_PRESET = "ar_ghost_preset_" .. tostring(SUFFIX)
 local GHOST_BASE = "ar_ghost_" .. tostring(SUFFIX)
+local WIDGET_NAME = 'w_0000a1'
+local SCOPE_NAME = "widget:" .. tostring(PAGE_NAME) .. ":" .. tostring(WIDGET_NAME)
+local PRESET_NAME = "ar:preset_" .. tostring(SUFFIX)
+local PRESET_KEY = "preset:" .. tostring(app_package.key_part(SCOPE_NAME)) .. "|" .. tostring(app_package.key_part(PRESET_NAME))
 local admin = auth.get_user_by_username('admin')
 local ADMIN_CTX = {
   user_id = admin.id
@@ -271,6 +277,17 @@ ghost_package = function()
           }
         }
       }
+    },
+    {
+      type = 'preset',
+      key = "preset:" .. tostring(app_package.key_part("widget:" .. tostring(GHOST_PAGE) .. ":w_00000001")) .. "|" .. tostring(app_package.key_part(GHOST_PRESET)),
+      content = {
+        scope = "widget:" .. tostring(GHOST_PAGE) .. ":w_00000001",
+        space = GHOST_BASE,
+        name = GHOST_PRESET,
+        filter = 'self.x > 1',
+        sort = { }
+      }
     }
   }
   return {
@@ -326,6 +343,7 @@ R.describe("app_resolvers — fixture", function()
         templateCode = 'div x'
       }
     }, ADMIN_CTX).id
+    FIX.preset_id = view_presets.save_preset("widget:" .. tostring(FIX.page_id) .. ":" .. tostring(WIDGET_NAME), FIX.books_id, PRESET_NAME, 'self.qty > 1', '[{"column":"qty","ascending":false}]').id
     FIX.group_id = perms_mod.create_group(GROUP_NAME, 'ar group').id
     perms_mod.grant(FIX.group_id, 'space', books.id, 'read')
     R.ok(spaces.get_space_by_name(SP_NAME))
@@ -333,6 +351,7 @@ R.describe("app_resolvers — fixture", function()
     R.ok(FIX.page_id)
     R.ok(FIX.dv_id)
     R.ok(FIX.plugin_id)
+    R.ok(FIX.preset_id)
     return R.ok(FIX.group_id)
   end)
   return R.it("inserts seed rows (including one with a note value)", function()
@@ -481,6 +500,14 @@ R.describe("app_resolvers — exportApp", function()
     R.ok((find_item(DECODED1, FIELD_NOTE)), 'note field delivered')
     R.eq((find_item(DECODED1, FIELD_NOTE)).content.formula, '')
     R.ok((find_item(DECODED1, "seed:" .. tostring(SP_NAME) .. "|AR-1")), 'seed row delivered')
+    local preset_item = find_item(DECODED1, PRESET_KEY)
+    R.ok(preset_item, 'view preset delivered')
+    R.eq(preset_item.content.scope, SCOPE_NAME)
+    R.eq(preset_item.content.space, SP_NAME)
+    R.eq(preset_item.content.filter, 'self.qty > 1')
+    R.eq(type(preset_item.content.sort), 'table')
+    R.eq(preset_item.content.sort[1].column, 'qty')
+    R.is_nil(PRESET_KEY:find(FIX.page_id, 1, true), 'no local page id in the key')
     return R.is_nil(find_item(DECODED1, 'group:admin'), 'admin group never delivered')
   end)
   R.it("refuses a version that is not x.y.z", function()
@@ -615,6 +642,7 @@ R.describe("app_resolvers — apply on a deleted base recreates everything", fun
     R.ok(app_package.describe_local('view', "view:" .. tostring(SP_NAME) .. "." .. tostring(VIEW_NAME)))
     R.ok(app_package.describe_local('page', "page:" .. tostring(PAGE_NAME)))
     R.ok(app_package.describe_local('dataview', "dataview:" .. tostring(DV_NAME)))
+    R.ok(app_package.describe_local('preset', PRESET_KEY))
     R.ok(app_package.describe_local('plugin', "plugin:" .. tostring(PLUGIN_NAME)))
     R.ok(app_package.describe_local('group', "group:" .. tostring(GROUP_NAME)))
     R.eq(box.space._tdb_apps:get(APP_ID)[3], '1.0.0')
@@ -808,18 +836,21 @@ R.describe("app_resolvers — conflict decisions", function()
   end)
 end)
 R.describe("app_resolvers — isCode marks third-party code", function()
-  return R.it("flags plugins, pages, data views and formula/trigger fields", function()
+  return R.it("flags plugins, pages, data views, presets and formula/trigger fields", function()
     local plan = app_r.Query.previewAppUpdate(nil, {
       yaml = yaml.encode(ghost_package())
     }, ADMIN_CTX)
     R.eq(#plan.errors, 0, json.encode(plan.errors))
-    R.eq(#plan.create, 6)
+    R.eq(#plan.create, 7)
     R.nok((find_created(plan, "field:" .. tostring(GHOST_BASE) .. ".plain")).isCode, 'plain field')
     R.ok((find_created(plan, "field:" .. tostring(GHOST_BASE) .. ".calc")).isCode, 'formula field')
     R.ok((find_created(plan, "field:" .. tostring(GHOST_BASE) .. ".trig")).isCode, 'trigger field')
     R.ok((find_created(plan, "plugin:" .. tostring(GHOST_PLUGIN))).isCode, 'plugin')
     R.ok((find_created(plan, "page:" .. tostring(GHOST_PAGE))).isCode, 'page')
-    return R.ok((find_created(plan, "dataview:" .. tostring(GHOST_DV))).isCode, 'data view')
+    R.ok((find_created(plan, "dataview:" .. tostring(GHOST_DV))).isCode, 'data view')
+    local ghost_preset = find_created(plan, "preset:" .. tostring(app_package.key_part("widget:" .. tostring(GHOST_PAGE) .. ":w_00000001")) .. "|" .. tostring(app_package.key_part(GHOST_PRESET)))
+    R.ok(ghost_preset, 'preset in the plan')
+    return R.ok(ghost_preset.isCode, 'preset (its filter is a MoonScript formula)')
   end)
 end)
 R.describe("app_resolvers — invalid inputs", function()

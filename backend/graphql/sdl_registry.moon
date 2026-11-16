@@ -14,6 +14,7 @@ Query = {
   { name: 'executeDataView', args: 'id: ID!, limit: Int, offset: Int', returns: 'JSON!' }
   { name: 'widgetPlugins',args: '',                           returns: '[WidgetPlugin!]!' }
   { name: 'widgetPlugin', args: 'id: ID, name: String',       returns: 'WidgetPlugin' }
+  { name: 'viewPresets',  args: 'scope: String!, spaceId: ID!', returns: '[ViewPreset!]!' }
   { name: 'records',      args: 'spaceId: ID!, filter: RecordFilter, limit: Int, offset: Int, reprFormula: String, reprLanguage: String', returns: 'RecordPage!' }
   { name: 'record',       args: 'spaceId: ID!, id: ID!',      returns: 'Record' }
   { name: 'relations',    args: 'spaceId: ID!',               returns: '[Relation!]!' }
@@ -51,6 +52,8 @@ Mutation = {
   { name: 'createWidgetPlugin', args: 'input: CreateWidgetPluginInput!', returns: 'WidgetPlugin!' }
   { name: 'updateWidgetPlugin', args: 'id: ID!, input: UpdateWidgetPluginInput!', returns: 'WidgetPlugin!' }
   { name: 'deleteWidgetPlugin', args: 'id: ID!',                         returns: 'Boolean!' }
+  { name: 'saveViewPreset',   args: 'scope: String!, spaceId: ID!, name: String!, filter: String, sort: String', returns: 'ViewPreset!' }
+  { name: 'deleteViewPreset', args: 'id: ID!',                           returns: 'Boolean!' }
   { name: 'addWidgetToView',   args: 'viewId: ID!, widget: WidgetInput!',   returns: 'CustomView!' }
   { name: 'updateWidgetInView', args: 'viewId: ID!, widgetId: String!, widget: WidgetInput!', returns: 'CustomView!' }
   { name: 'removeWidgetFromView', args: 'viewId: ID!, widgetId: String!', returns: 'CustomView!' }
@@ -145,6 +148,19 @@ ObjectTypes = {
   config:       String!
   createdAt:    String!
   updatedAt:    String!
+}'
+  }
+  {
+    name: 'ViewPreset',
+    definition: 'type ViewPreset {
+  id:        ID!
+  scope:     String!
+  spaceId:   ID!
+  name:      String!
+  filter:    String!
+  sort:      String!
+  createdAt: Float
+  updatedAt: Float
 }'
   }
 }

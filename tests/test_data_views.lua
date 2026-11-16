@@ -72,7 +72,14 @@ return R.describe("DataViews — system storage", function()
   R.it("execute view returns filtered/sorted data", function()
     local ctx = trusted_ctx('admin')
     local views = resolvers.Query.dataViews(nil, nil, ctx)
-    local dv_id = views[#views].id
+    local dv_id = nil
+    for _index_0 = 1, #views do
+      local v = views[_index_0]
+      if v.name == "test_view_1" then
+        dv_id = v.id
+      end
+    end
+    R.ok(dv_id, 'test_view_1 listée')
     local res = resolvers.Query.executeDataView(nil, {
       id = dv_id
     }, ctx)

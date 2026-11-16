@@ -5,6 +5,7 @@ local spaces = require('core.spaces')
 local views = require('core.views')
 local perms = require('core.permissions')
 local data_views = require('core.data_views')
+local view_presets = require('core.view_presets')
 local schema_r = require('resolvers.schema_resolvers')
 local cvr = require('resolvers.custom_view_resolvers')
 local wpr = require('resolvers.widget_plugin_resolvers')
@@ -625,7 +626,6 @@ R.describe("app_apply — failure in the middle rolls back everything", function
             notNull = false,
             description = '',
             formula = '',
-            triggerFields = { },
             language = 'lua'
           }
         },
@@ -681,7 +681,6 @@ rel_field = function(name)
       notNull = false,
       description = '',
       formula = '',
-      triggerFields = { },
       language = 'lua'
     }
   }
@@ -720,7 +719,6 @@ rel_pkg = function(version, author_card)
           notNull = false,
           description = '',
           formula = '',
-          triggerFields = { },
           language = 'lua'
         }
       },
@@ -819,6 +817,212 @@ R.describe("app_apply — relation cardinality", function()
     return R.is_nil(pkg.describe_local('relation', REL_RB_KEY))
   end)
 end)
+local SP_P = "aap_preset_" .. tostring(SUFFIX)
+local PAGE_P = "aap_preset_page_" .. tostring(SUFFIX)
+local PRESET_P = "aap:preset_" .. tostring(SUFFIX)
+local WIDGET_P = 'w_0000cafe'
+local APP_P = "org.test.aappreset_" .. tostring(SUFFIX)
+local SCOPE_P = "widget:" .. tostring(PAGE_P) .. ":" .. tostring(WIDGET_P)
+local KEY_PAGE_P = "page:" .. tostring(PAGE_P)
+local KEY_PRESET_P = "preset:" .. tostring(pkg.key_part(SCOPE_P)) .. "|" .. tostring(pkg.key_part(PRESET_P))
+R.describe("app_apply — préréglages de vue", function()
+  R.it("builds a package whose preset scope names the page and the space", function()
+    local sp = spaces.create_user_space(SP_P, 'aap preset')
+    FIX.preset_space_id = sp.id
+    spaces.add_field(sp.id, 'code', 'String', false, '')
+    local page = cvr.Mutation.createCustomView({ }, {
+      name = PAGE_P,
+      description = '',
+      yaml = YAML_PAGE
+    }, CTX)
+    FIX.preset_page_id = page.id
+    local local_preset = view_presets.save_preset("widget:" .. tostring(page.id) .. ":" .. tostring(WIDGET_P), sp.id, PRESET_P, 'self.code == "x"', '[{"column":"code","ascending":true}]')
+    FIX.local_preset_id = local_preset.id
+    local page_content = pkg.describe_local('page', KEY_PAGE_P)
+    R.ok(page_content)
+    FIX.PKG_P = {
+      app = {
+        id = APP_P,
+        name = 'Preset fixture',
+        version = '1.0.0',
+        description = ''
+      },
+      items = {
+        {
+          type = 'space',
+          key = "space:" .. tostring(SP_P),
+          content = {
+            description = 'aap preset'
+          }
+        },
+        {
+          type = 'field',
+          key = "field:" .. tostring(SP_P) .. ".code",
+          content = {
+            fieldType = 'String',
+            notNull = false,
+            description = '',
+            formula = '',
+            language = 'lua'
+          }
+        },
+        {
+          type = 'page',
+          key = KEY_PAGE_P,
+          content = page_content
+        },
+        {
+          type = 'preset',
+          key = KEY_PRESET_P,
+          content = {
+            scope = SCOPE_P,
+            space = SP_P,
+            name = PRESET_P,
+            filter = 'self.code == "x"',
+            sort = {
+              {
+                column = 'code',
+                ascending = true
+              }
+            }
+          }
+        }
+      },
+      seed_keys = { }
+    }
+    local built = pkg.build_package({
+      id = APP_P,
+      name = 'Preset fixture',
+      version = '1.0.0',
+      description = ''
+    }, { })
+    local emitted = item_by_key(built, KEY_PRESET_P)
+    R.ok(emitted, "missing " .. tostring(KEY_PRESET_P))
+    R.eq(emitted.content.scope, SCOPE_P)
+    R.eq(emitted.content.space, SP_P)
+    R.eq(emitted.content.sort[1].column, 'code')
+    R.is_nil(KEY_PRESET_P:find(FIX.local_preset_id, 1, true), 'no local preset id in the key')
+    R.is_nil(KEY_PRESET_P:find(sp.id, 1, true), 'no local space id in the key')
+    return R.eq(pkg.canonical(emitted.content), pkg.canonical(item_by_key(FIX.PKG_P, KEY_PRESET_P).content))
+  end)
+  R.it("installs the preset under the local page and space ids", function()
+    view_presets.delete_preset(FIX.local_preset_id)
+    box.space._tdb_custom_views:delete(FIX.preset_page_id)
+    spaces.delete_user_space(SP_P)
+    local report = apply.apply_update(FIX.PKG_P, { }, { })
+    R.ok(report.ok, report.error)
+    R.eq(#report.created, #FIX.PKG_P.items, 'created')
+    local new_sp = spaces.get_space_by_name(SP_P)
+    local new_page = box.space._tdb_custom_views.index.by_name:get(PAGE_P)
+    R.ok(new_sp, 'space reinstalled')
+    R.ok(new_page, 'page reinstalled')
+    local row = box.space._tdb_view_presets.index.by_scope_name:get({
+      "widget:" .. tostring(new_page[1]) .. ":" .. tostring(WIDGET_P),
+      PRESET_P
+    })
+    R.ok(row, 'preset installed under the resolved page id')
+    R.eq(row[3], new_sp.id, 'attached to the resolved space id')
+    R.eq(row[5], 'self.code == "x"')
+    R.eq(json.decode(row[6])[1].column, 'code')
+    local described = pkg.describe_local('preset', KEY_PRESET_P)
+    R.eq(described.scope, SCOPE_P)
+    local installed = apply.apply_update(FIX.PKG_P, { }, { })
+    R.ok(installed.ok, installed.error)
+    R.eq(#installed.created, 0, 'nothing created on a reinstall')
+    return R.eq(#installed.unchanged, #FIX.PKG_P.items, 'everything unchanged')
+  end)
+  R.it("updates the delivered filter and keeps the row", function()
+    local page_id = box.space._tdb_custom_views.index.by_name:get(PAGE_P)[1]
+    local changed = {
+      app = {
+        id = APP_P,
+        name = 'Preset fixture',
+        version = '1.1.0',
+        description = ''
+      },
+      items = { },
+      seed_keys = { }
+    }
+    local _list_0 = FIX.PKG_P.items
+    for _index_0 = 1, #_list_0 do
+      local it = _list_0[_index_0]
+      if it.key == KEY_PRESET_P then
+        table.insert(changed.items, {
+          type = 'preset',
+          key = it.key,
+          content = {
+            scope = SCOPE_P,
+            space = SP_P,
+            name = PRESET_P,
+            filter = 'self.code == "y"',
+            sort = it.content.sort
+          }
+        })
+      else
+        table.insert(changed.items, it)
+      end
+    end
+    local report = apply.apply_update(changed, { }, { })
+    R.ok(report.ok, report.error)
+    R.eq(#report.updated, 1, 'updated')
+    R.eq(report.updated[1], KEY_PRESET_P)
+    local row = box.space._tdb_view_presets.index.by_scope_name:get({
+      "widget:" .. tostring(page_id) .. ":" .. tostring(WIDGET_P),
+      PRESET_P
+    })
+    return R.eq(row[5], 'self.code == "y"', 'filter updated in place')
+  end)
+  R.it("refuses a preset whose page does not exist, writing nothing", function()
+    local ghost_scope = "widget:no_such_page_" .. tostring(SUFFIX) .. ":" .. tostring(WIDGET_P)
+    local bad = {
+      app = {
+        id = "org.test.aappresetbad_" .. tostring(SUFFIX),
+        name = 'Bad',
+        version = '1.0.0',
+        description = ''
+      },
+      items = {
+        {
+          type = 'preset',
+          key = "preset:" .. tostring(pkg.key_part(ghost_scope)) .. "|" .. tostring(pkg.key_part('Fantome')),
+          content = {
+            scope = ghost_scope,
+            space = SP_P,
+            name = 'Fantome',
+            filter = '',
+            sort = { }
+          }
+        }
+      },
+      seed_keys = { }
+    }
+    R.ok(apply.load_package(bad), 'the package shape is valid (failure is operational)')
+    local rows_before = #box.space._tdb_view_presets:select({ })
+    local report = apply.apply_update(bad, { }, { })
+    R.nok(report.ok)
+    R.matches(report.error, 'unknown page')
+    R.matches(report.error, "no_such_page_" .. tostring(SUFFIX))
+    R.eq(#box.space._tdb_view_presets:select({ }), rows_before, 'no preset written')
+    return R.nok(box.space._tdb_apps:get("org.test.aappresetbad_" .. tostring(SUFFIX), 'no app row'))
+  end)
+  return R.it("cleans up the preset fixture", function()
+    local _list_0 = box.space._tdb_view_presets:select({ })
+    for _index_0 = 1, #_list_0 do
+      local t = _list_0[_index_0]
+      if t[4] == PRESET_P then
+        view_presets.delete_preset(t[1])
+      end
+    end
+    local page = box.space._tdb_custom_views.index.by_name:get(PAGE_P)
+    if page then
+      box.space._tdb_custom_views:delete(page[1])
+    end
+    clean_app_rows(APP_P)
+    spaces.delete_user_space(SP_P)
+    R.is_nil(spaces.get_space_by_name(SP_P))
+    return R.is_nil(pkg.describe_local('preset', KEY_PRESET_P))
+  end)
+end)
 R.describe("app_apply — cleanup", function()
   return R.it("removes every fixture element and tracking row", function()
     local sid = spaces.get_space_by_name(SP_BOOKS)
@@ -906,7 +1110,6 @@ R.describe("app_apply — field without formula in package (DÉFAUT 2)", functio
             fieldType = 'String',
             notNull = false,
             description = 'delivered desc',
-            triggerFields = { },
             language = 'lua'
           }
         })

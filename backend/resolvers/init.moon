@@ -17,6 +17,7 @@ auth_r        = require 'resolvers.auth_resolvers'
 custom_view_r = require 'resolvers.custom_view_resolvers'
 data_view_r   = require 'resolvers.data_view_resolvers'
 widget_plugin_r = require 'resolvers.widget_plugin_resolvers'
+view_preset_r = require 'resolvers.view_preset_resolvers'
 aggregate_r   = require 'resolvers.aggregate_resolvers'
 export_r      = require 'resolvers.export_resolvers'
 app_r         = require 'resolvers.app_resolvers'
@@ -62,14 +63,14 @@ build = ->
   combined_sdl = static_sdl .. "\n\n" .. introspection.SDL .. "\n\n" .. dyn.sdl
 
   -- Build static resolvers base. Query merge order: schema, data, auth,
-  -- custom_view, data_view, widget_plugin, aggregate, export, app.
+  -- custom_view, data_view, widget_plugin, view_preset, aggregate, export, app.
   query_resolvers = schema_r.Query
-  for mod in *{ data_r, auth_r, custom_view_r, data_view_r, widget_plugin_r, aggregate_r, export_r, app_r }
+  for mod in *{ data_r, auth_r, custom_view_r, data_view_r, widget_plugin_r, view_preset_r, aggregate_r, export_r, app_r }
     query_resolvers = merge query_resolvers, mod.Query
   -- Mutation merge order: schema, data, auth, custom_view, data_view,
-  -- widget_plugin, export, app (no aggregate).
+  -- widget_plugin, view_preset, export, app (no aggregate).
   mutation_resolvers = schema_r.Mutation
-  for mod in *{ data_r, auth_r, custom_view_r, data_view_r, widget_plugin_r, export_r, app_r }
+  for mod in *{ data_r, auth_r, custom_view_r, data_view_r, widget_plugin_r, view_preset_r, export_r, app_r }
     mutation_resolvers = merge mutation_resolvers, mod.Mutation
   static_resolvers = {
     Query:    query_resolvers

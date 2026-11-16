@@ -31,6 +31,9 @@ window.AppDataHelpers =
     Spaces.list()
       .then (spaces) ->
         app._allSpaces = spaces
+        # Liste de champs rechargée : les noms gardés en cache pour
+        # l'autocomplétion du filtre « λ » peuvent avoir changé.
+        window.FieldAutocomplete?._reset?()
         app.renderSpaceList spaces
       .catch (err) -> tdbAlert app._err(err), 'error'
 
@@ -90,6 +93,9 @@ window.AppDataHelpers =
 
   syncSpaceFields: (app, space) ->
     app._allSpaces = (app._allSpaces or []).map (s) -> if s.id == space.id then space else s
+    # Appelé après toute mutation de champ ou de relation : les noms de champs
+    # mis en cache pour l'autocomplétion du filtre « λ » ne sont plus valides.
+    window.FieldAutocomplete?._reset?()
     if app._activeCustomView and app._currentCustomView?.yaml?.trim()
       app._renderCustomViewPreview app._currentCustomView.yaml
 
@@ -104,6 +110,14 @@ window.AppDataHelpers =
     if input
       input.value = ''
       input.classList.remove 'active'
+      # Menu « Trier / Filtrer » : un seul module pour la grille principale et
+      # les widgets de page (portée `space:<id>` ici).
+      window.ViewPresetsMenu?.attach input.parentNode, {
+        getDataView: -> app._activeDataView
+        scope: "space:#{space.id}"
+        spaceId: space.id
+        filterInput: input
+      }
     window.AppUndoHelpers?.refreshUI? app
 
   bindDataToolbar: (app) ->

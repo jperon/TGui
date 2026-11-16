@@ -5,6 +5,18 @@
 json = require 'json'
 log = require 'log'
 { :make_self_proxy, :build_fk_def_map } = require 'core.triggers'
+{ :relation_field_value } = require 'core.formula_proxy'
+
+-- Value of one field for one record, as a group label or an aggregate input.
+-- A relation field must contribute its raw FK value (the Int that is stored, or
+-- the value computed at read time): make_self_proxy resolves it to the target
+-- record, i.e. a table, which is neither a usable label nor a number. Computed
+-- fields keep the proxy, since their value only exists there.
+field_value = (rec, field_name, fk_def_map, space_name, fk_cache) ->
+  return rec.proxy[field_name] unless fk_def_map[field_name]
+  raw = rec.d[field_name]
+  return raw if raw != nil and raw != ''
+  relation_field_value rec.d, field_name, space_name, fk_cache
 
 -- Execute a data view config on a source space.
 -- source_space_ref is the space id (UUID) stored by the frontend; for robustness
@@ -54,12 +66,19 @@ execute_view = (source_space_ref, config_json, params) ->
     
     for rec in *records
       -- compute key
-      parts = [tostring(rec.proxy[f] != nil and rec.proxy[f] or '') for f in *config.groupBy]
+      parts = [tostring(field_value(rec, f, fk_def_map, source_space_name, fk_cache) or '') for f in *config.groupBy]
       key = table.concat parts, '\t'
       
       unless groups[key]
-        groups[key] = { _d: rec.d, _vals: {} }
+        -- _g porte la valeur *résolue* (formule comprise) de chaque champ de
+        -- regroupement ; _d (données brutes) ne contient pas les colonnes
+        -- calculées, d'où des libellés nuls dans les vues agrégées. Un champ
+        -- relation y contribue par sa valeur brute (Int), jamais par l'objet
+        -- cible rendu par le proxy FK.
+        groups[key] = { _d: rec.d, _g: {}, _vals: {} }
         table.insert group_keys, key
+        for f in *config.groupBy
+          groups[key]._g[f] = field_value rec, f, fk_def_map, source_space_name, fk_cache
         if config.aggregates
           for agg in *config.aggregates
             groups[key]._vals[agg] = { count: 0, sum: 0, min: nil, max: nil }
@@ -70,7 +89,7 @@ execute_view = (source_space_ref, config_json, params) ->
           acc = g._vals[agg]
           acc.count += 1
           if agg.field
-            val = tonumber(rec.proxy[agg.field])
+            val = tonumber(field_value(rec, agg.field, fk_def_map, source_space_name, fk_cache))
             if val != nil
               acc.sum += val
               acc.min = if acc.min != nil then math.min(acc.min, val) else val
@@ -82,7 +101,7 @@ execute_view = (source_space_ref, config_json, params) ->
       g = groups[key]
       row = {}
       for f in *config.groupBy
-        row[f] = g._d[f]
+        row[f] = g._g[f]
       if config.aggregates
         for agg in *config.aggregates
           alias = agg.as or (if agg.field then "#{agg.fn}_#{agg.field}" else "count")

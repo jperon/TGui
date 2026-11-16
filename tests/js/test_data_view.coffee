@@ -239,6 +239,27 @@ describe 'DataView editable columns formatter regression', ->
 
     dv.unmount()
 
+describe 'DataView hidden link columns', ->
+  it 'transmits a hidden field to tui.Grid as a hidden column', ->
+    sp = makeSpace
+      fields: [
+        { id: 'f1', name: 'nom',   fieldType: 'String', formula: null, triggerFields: null }
+        { id: 'f2', name: 'livre', fieldType: 'Int',    formula: null, triggerFields: null, hidden: true }
+      ]
+    dv = new DV container(), sp
+    dv._loadColWidths = -> Promise.resolve {}
+    dv.load = -> Promise.resolve []
+    await dv.mount()
+
+    cols = dv._grid.getColumns()
+    hidden = cols.find (c) -> c.name == 'livre'
+    assert hidden, 'hidden field must keep a grid column'
+    assert hidden.hidden is true, 'hidden column must carry hidden:true'
+    nom = cols.find (c) -> c.name == 'nom'
+    assert not nom.hidden, 'visible column must not be hidden'
+
+    dv.unmount()
+
 describe 'DataView FK fuzzy autocomplete editor', ->
   it 'supports fuzzy search and maps label -> id', ->
     sp = makeSpace
@@ -299,18 +320,212 @@ describe 'DataView.unmount', ->
     eq dv._rows.length, 0
     eq dv._currentData.length, 0
 
+describe 'DataView.setActiveRow', ->
+  makeGrid = ->
+    classes = {}
+    grid =
+      resetData: -> @_data = arguments[0]
+      getRowAt: -> null
+      addRowClassName: (key, cls) ->
+        (classes[String key] ?= {})[cls] = true
+      removeRowClassName: (key, cls) ->
+        delete classes[String key]?[cls]
+      hasClass: (key, cls) -> !! classes[String key]?[cls]
+      countClass: (cls) ->
+        n = 0
+        n += 1 for _k, v of classes when v[cls]
+        n
+    { grid, classes }
+
+  it 'marks the given row and clears the previous one', ->
+    dv = new DV container(), makeSpace()
+    { grid } = makeGrid()
+    dv._grid = grid
+    dv.setActiveRow 0
+    assert grid.hasClass(0, 'tdb-selected-row'), 'row 0 not marked'
+    dv.setActiveRow 1
+    assert grid.hasClass(1, 'tdb-selected-row'), 'row 1 not marked'
+    assert not grid.hasClass(0, 'tdb-selected-row'), 'row 0 should be cleared'
+    eq grid.countClass('tdb-selected-row'), 1
+
+  it 'clears the active row when rowKey is null', ->
+    dv = new DV container(), makeSpace()
+    { grid } = makeGrid()
+    dv._grid = grid
+    dv.setActiveRow 2
+    dv.setActiveRow null
+    eq grid.countClass('tdb-selected-row'), 0
+    eq dv._activeRowKey, null
+
+describe 'DataView filter none', ->
+  it 'setFilter {none:true} shows zero rows (no sentinel)', ->
+    dv = new DV container(), makeSpace()
+    gridData = []
+    dv._grid =
+      resetData: (d) -> gridData = d
+      getRowAt: -> null
+      addRowClassName: ->
+      removeRowClassName: ->
+    dv._rows = [ { __rowId: '1', nom: 'Alice' }, { __rowId: '2', nom: 'Bob' } ]
+    dv.setFilter { field: 'nom', value: null, none: true }
+    eq gridData.length, 0
+    eq dv._currentData.length, 0
+
+  it 'a normal setFilter still works after a none filter', ->
+    dv = new DV container(), makeSpace()
+    gridData = []
+    dv._grid =
+      resetData: (d) -> gridData = d
+      getRowAt: -> null
+      addRowClassName: ->
+      removeRowClassName: ->
+    dv._rows = [ { __rowId: '1', nom: 'Alice' } ]
+    dv.setFilter { field: 'nom', value: null, none: true }
+    dv.setFilter { field: 'nom', value: 'Alice' }
+    eq gridData.length, 2   # Alice + sentinel
+    assert gridData[1].__isNew
+
+describe 'DataView.load computed path selection', ->
+  it 'uses the dynamic space query when the only computed field is a trigger (triggerFields = [])', ->
+    oldQuery = global.GQL.query
+    queries  = []
+    global.GQL.query = (q, vars) ->
+      queries.push q
+      Promise.resolve
+        test_space: { items: [] }
+        records:    { items: [], total: 0 }
+
+    sp = makeSpace
+      fields: [
+        { id: 'f1', name: 'eleve_nom', fieldType: 'Str', formula: '@first', triggerFields: [] }
+      ]
+    dv = new DV container(), sp
+    dv._mounted = true
+    await dv.load()
+    global.GQL.query = oldQuery
+
+    assert queries.length > 0, 'no GraphQL query issued'
+    assert queries[0].indexOf('test_space(limit: 2000') >= 0,
+      "expected the dynamic space query, got: #{queries[0].substring 0, 60}"
+
+  it 'still uses the plain records query for a space without computed fields', ->
+    oldQuery = global.GQL.query
+    queries  = []
+    global.GQL.query = (q, vars) ->
+      queries.push q
+      Promise.resolve
+        test_space: { items: [] }
+        records:    { items: [], total: 0 }
+
+    dv = new DV container(), makeSpace()
+    dv._mounted = true
+    await dv.load()
+    global.GQL.query = oldQuery
+
+    assert queries.length > 0, 'no GraphQL query issued'
+    assert queries[0].indexOf('query Records') >= 0,
+      "expected the plain records query, got: #{queries[0].substring 0, 60}"
+
+# An active formula filter must not push a computed space onto the plain
+# records query: read-computed columns have no stored value, so the dynamic
+# space query (which accepts a RecordFilter) has to serve the filtered rows.
+describe 'DataView.load with formula filter', ->
+  computedSpace = ->
+    makeSpace
+      fields: [
+        { id: 'f1', name: 'nom',       fieldType: 'Str', formula: null, triggerFields: null }
+        { id: 'f2', name: 'eleve_nom', fieldType: 'Str', formula: '@eleve and @eleve.descriptif', triggerFields: null }
+      ]
+
+  it 'routes an active filter through the dynamic query with a $filter variable', ->
+    oldQuery  = global.GQL.query
+    queries   = []
+    varBodies = []
+    global.GQL.query = (q, vars) ->
+      queries.push q
+      varBodies.push vars
+      Promise.resolve
+        test_space: { items: [] }
+        records:    { items: [], total: 0 }
+
+    dv = new DV container(), computedSpace()
+    dv._mounted = true
+    dv._formulaFilter = '@x'
+    await dv.load()
+    global.GQL.query = oldQuery
+
+    assert queries.length > 0, 'no GraphQL query issued'
+    assert queries[0].indexOf('query') >= 0,
+      "not a GraphQL query: #{queries[0].substring 0, 60}"
+    assert queries[0].indexOf('test_space(limit: 2000') >= 0,
+      "expected the dynamic space query, got: #{queries[0].substring 0, 80}"
+    assert queries[0].indexOf('$filter') >= 0,
+      "expected a $filter variable, got: #{queries[0].substring 0, 80}"
+    deepEq varBodies[0].filter, { formula: '@x', language: 'moonscript' }
+
+  it 'still uses the plain records query with an active filter on a space without computed fields', ->
+    oldQuery = global.GQL.query
+    queries  = []
+    global.GQL.query = (q, vars) ->
+      queries.push q
+      Promise.resolve
+        test_space: { items: [] }
+        records:    { items: [], total: 0 }
+
+    dv = new DV container(), makeSpace()
+    dv._mounted = true
+    dv._formulaFilter = '@x'
+    await dv.load()
+    global.GQL.query = oldQuery
+
+    assert queries.length > 0, 'no GraphQL query issued'
+    assert queries[0].indexOf('query Records') >= 0,
+      "expected the plain records query, got: #{queries[0].substring 0, 60}"
+
+  it 'flags the formula inputs on a failing filtered query and clears them on success', ->
+    oldQuery = global.GQL.query
+    input    = global.document.createElement 'input'
+    byId     = global.document.createElement 'div'
+    global.document._setById 'formula-filter-input', byId
+    failing  = true
+    global.GQL.query = ->
+      if failing
+        Promise.reject new Error 'bad formula'
+      else
+        Promise.resolve { test_space: { items: [] }, records: { items: [], total: 0 } }
+
+    dv = new DV container(), computedSpace()
+    dv._mounted = true
+    dv._formulaFilter = '@x'
+    dv._formulaInputEl = input
+    await dv.load()
+    clearTimeout dv._errorTimer
+    assert input.classList.contains('input-error'), 'input-error missing on @_formulaInputEl'
+    assert byId.classList.contains('input-error'), 'input-error missing on #formula-filter-input'
+    eq dv._rows.length, 0
+
+    failing = false
+    await dv.load()
+    assert not input.classList.contains('input-error'), 'input-error not cleared on @_formulaInputEl'
+    assert not byId.classList.contains('input-error'), 'input-error not cleared on #formula-filter-input'
+    global.GQL.query = oldQuery
+    global.document._setById 'formula-filter-input', null
+
+
 # Freeze the public prototype surface so the data_view / data_view_helpers split
 # cannot silently drop or rename a method.
 describe 'DataView prototype surface (frozen)', ->
   it 'exposes exactly the expected set of methods', ->
     expected = [
-      '_actionContext', '_applyData', '_buildFkMaps', '_clearError',
+      '_actionContext', '_applyData', '_applySortState', '_buildFkMaps', '_clearError',
       '_cloneJson', '_coerceCellValue', '_columnWidth', '_defaultCellValue',
       '_escapeHtml', '_extractInsertedRecords', '_formatFormulaError',
-      '_loadColWidths', '_lsKey', '_saveColWidths', '_sentinel',
-      '_serializeRowForMutation', '_showError', '_toBoolean', 'constructor',
-      'deleteSelected', 'getFocusedColumnName', 'insertBlank', 'load', 'mount',
-      'setDefaultValues', 'setFilter', 'setFormulaFilter', 'unmount'
+      '_loadColWidths', '_lsKey', '_onGridSortChanged', '_pinSentinelLast', '_saveColWidths', '_sentinel',
+      '_serializeRowForMutation', '_showError', '_sortEntriesFromGrid', '_toBoolean',
+      'applySortEntries', 'constructor',
+      'deleteSelected', 'getFocusedColumnName', 'getSortEntries', 'insertBlank',
+      'load', 'mount',
+      'setActiveRow', 'setDefaultValues', 'setFilter', 'setFormulaFilter', 'unmount'
     ]
     deepEq Object.getOwnPropertyNames(DV.prototype).sort(), expected
 

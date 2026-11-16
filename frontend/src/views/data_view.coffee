@@ -57,9 +57,12 @@ window.DataView = class DataView
     @_fkOptions     = {}     # field name → [{ text, value }]
     @_formulaFilter = ''     # Lua/MoonScript formula for server-side row filtering
     @_formulaTimer  = null   # debounce handle
+    @_sortState     = []     # tri demandé (survit aux resetData de Toast UI Grid)
+    @_applyingSort  = false  # true pendant la réapplication du tri
     @_focusedColumnName = null
     @_colWidthsCache = {}
     @_saveWidthsTimer = null
+    @_activeRowKey = null   # rowKey of the row highlighted by depends_on cascade
 
    # Build FK display maps for all relation fields.
   _buildFkMaps: ->
@@ -168,6 +171,10 @@ window.DataView = class DataView
             return err if err
             safe = escapeHtml String(displayVal ? '')
             "<span class=\"tdb-cell-text\" data-full-text=\"#{safe}\">#{safe}</span>"
+      # Champ de liaison chargé mais non affiché (T21) : la colonne reste dans
+      # la grille et dans la requête, mais Toast UI Grid la masque (en-tête,
+      # panneau de largeurs) ; elle est aussi exclue de la navigation Tab.
+      col.hidden = true if f.hidden
       col
 
     @_grid = new tui.Grid
@@ -209,6 +216,7 @@ window.DataView = class DataView
 
     @_grid.on 'click', (ev) =>
       setFocusedColumn ev.columnName if ev?.columnName
+      @setActiveRow ev.rowKey if ev?.rowKey?
 
     @_grid.on 'mouseover', (ev) =>
       return unless ev?.targetType == 'cell'
@@ -222,12 +230,18 @@ window.DataView = class DataView
       else
         cellEl.removeAttribute 'title'
 
+    # Clic sur un en-tête : mémoriser le tri pour qu'il survive au prochain
+    # resetData (rechargement du filtre, insertion, suppression…).
+    @_grid.on 'afterSort', (ev) => @_onGridSortChanged()
+    @_grid.on 'afterUnsort', (ev) => @_onGridSortChanged()
+
     # Tab / Shift+Tab: move to next/prev cell (all columns), wrapping at row
     # boundaries. Start editing only if the target cell is editable.
     # Listener on document (capture) so it fires even when focus is on wrapper
     # itself (non-editable cell); guarded by wrapper.contains(activeElement).
-    editableCols = columns.filter((c) -> c.editor).map((c) -> c.name)
-    allCols      = columns.map (c) -> c.name
+    navColumns   = columns.filter (c) -> not c.hidden
+    editableCols = navColumns.filter((c) -> c.editor).map((c) -> c.name)
+    allCols      = navColumns.map (c) -> c.name
     editableSet  = new Set editableCols
 
     moveTo = (rowKey, colName) =>
@@ -368,8 +382,12 @@ window.DataView = class DataView
   load: ->
     return unless @_mounted
 
-    # Save current focus to restore it after resetData
-    focus = @_grid?.getFocusedCell()
+    # Save current focus to restore it after resetData — but only when the browser
+    # focus is actually inside the grid. A reload triggered from an input outside
+    # the grid (e.g. the live formula filter) must not steal the focus back.
+    @_lastFocus = null
+    gridHasFocus = @container?.contains document.activeElement
+    focus = @_grid?.getFocusedCell() if gridHasFocus
     if focus?.rowKey? and focus.columnName
       focusedRow = @_grid.getRow focus.rowKey
       if focusedRow
@@ -379,7 +397,9 @@ window.DataView = class DataView
           columnName: focus.columnName
 
     fields       = @space.fields or []
-    formulaNames = new Set (f.name for f in fields when f.formula and f.formula != '' and not f.triggerFields)
+    # Every field carrying a formula (trigger or not) must be read through the
+    # dynamic space query: a trigger formula may have no stored value yet.
+    computedNames = new Set (f.name for f in fields when f.formula and f.formula != '')
     reprNames    = new Set (f.name for f in fields when f.reprFormula and f.reprFormula != '')
 
     if @space.isView
@@ -394,7 +414,7 @@ window.DataView = class DataView
       catch e
         @_showError "Erreur d'exécution de la vue : #{e.message}"
         @_rows = []
-    else if (formulaNames.size > 0 or reprNames.size > 0) and not @_formulaFilter
+    else if computedNames.size > 0 or reprNames.size > 0
       # Use the space-specific dynamic resolver so formula fields are evaluated.
       tname      = gqlName @space.name
       fieldList  = for f in fields
@@ -404,16 +424,25 @@ window.DataView = class DataView
         else
           nm
       fieldList = fieldList.join(' ')
-      spaceQuery = "query { #{tname}(limit: 2000) { items { _id #{fieldList} } } }"
+      # The dynamic space query also accepts a RecordFilter (dynamic.moon), so an
+      # active formula filter no longer forces the plain records query — which
+      # would drop read-computed columns (no stored value for them).
+      spaceFilter = if @_formulaFilter then { formula: @_formulaFilter, language: 'moonscript' } else undefined
+      spaceQuery = "query($filter: RecordFilter) { #{tname}(limit: 2000, filter: $filter) { items { _id #{fieldList} } } }"
       try
-        data = await GQL.query spaceQuery, {}
+        data = await GQL.query spaceQuery, { filter: spaceFilter }
         return unless @_mounted
         @_rows = data[tname].items.map (item) ->
           row           = Object.assign {}, item
           row.__rowId   = item._id
           row
+        @_formulaInputEl?.classList.remove 'input-error'
+        document.getElementById('formula-filter-input')?.classList.remove 'input-error'
       catch e
         @_showError "Erreur de colonne calculée : #{e.message}"
+        if @_formulaFilter
+          @_formulaInputEl?.classList.add 'input-error'
+          document.getElementById('formula-filter-input')?.classList.add 'input-error'
         @_rows = []
     else
       gqlFilter = if @_formulaFilter then { formula: @_formulaFilter, language: 'moonscript' } else undefined
@@ -438,6 +467,13 @@ window.DataView = class DataView
 
   _applyData: ->
     return unless @_grid
+    # « aucun résultat » : un widget dépendant dont la source n'a aucune ligne
+    # correspondante n'affiche aucune ligne (ni donnée, ni sentinelle).
+    if @filter and @filter.none
+      @_currentData = []
+      @_activeRowKey = null
+      @_grid.resetData @_currentData
+      return
     rows = @_rows
     if @filter
       rows = rows.filter (r) => String(r[@filter.field]) == String(@filter.value)
@@ -466,6 +502,15 @@ window.DataView = class DataView
               row._attributes.className.column[f.name].push 'cell-formula-error-internal'
 
     @_grid.resetData @_currentData
+    # resetData rebuilds rows: the highlighted row key is no longer tracked.
+    @_activeRowKey = null
+    # resetData remet le tri de Toast UI Grid à zéro : réapplique celui demandé
+    # (préréglage ou tri manuel mémorisé) pour qu'il persiste après un load.
+    # Le tri porte sur TOUTES les lignes, sentinelle comprise : on la remet
+    # ensuite en dernière position (cf. _pinSentinelLast).
+    if @_sortState?.length
+      @_applySortState()
+      @_pinSentinelLast()
 
     # Restore focus if we have saved it
     if @_lastFocus
@@ -484,9 +529,12 @@ window.DataView = class DataView
         # Small delay to ensure TUI has finished DOM updates
         setTimeout (=> @_grid.focus targetRow.rowKey, columnName), 0
 
-    # Find the actual rowKey tui.Grid assigned to the sentinel (last visual row)
-    lastIdx = @_currentData.length - 1
-    sentinelRow = @_grid.getRowAt lastIdx
+    # La sentinelle se repère par `__isNew`, jamais par son index : le tri peut
+    # avoir changé l'ordre visuel. Repli par index pour une grille sans getData.
+    sentinelRow = if typeof @_grid.getData == 'function'
+      (@_grid.getData() or []).find (row) -> row?.__isNew
+    else
+      @_grid.getRowAt @_currentData.length - 1
     if sentinelRow?
       @_grid.addRowClassName sentinelRow.rowKey, 'tdb-new-row'
 
@@ -552,11 +600,14 @@ window.DataView = class DataView
     @_mounted = false
     clearTimeout @_formulaTimer
     clearTimeout @_saveWidthsTimer
+    @_viewPresetsMenu?.destroy?()
+    @_viewPresetsMenu = null
     document.removeEventListener 'keydown', @_pasteListener if @_pasteListener
     document.removeEventListener 'keydown', @_tabListener,  true if @_tabListener
     @_grid?.destroy()
     @_grid = null
     @_currentData = []
     @_rows = []
+    @_activeRowKey = null
     @container.innerHTML = ''
 

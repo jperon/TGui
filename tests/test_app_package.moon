@@ -10,6 +10,7 @@ pkg = require 'core.app_package'
 spaces = require 'core.spaces'
 views = require 'core.views'
 perms = require 'core.permissions'
+view_presets = require 'core.view_presets'
 schema_r = require 'resolvers.schema_resolvers'
 cvr = require 'resolvers.custom_view_resolvers'
 wpr = require 'resolvers.widget_plugin_resolvers'
@@ -30,6 +31,12 @@ PLUGIN_NAME = "apkg_plugin_#{SUFFIX}"
 GROUP_NAME  = "apkg_group_#{SUFFIX}"
 REL_NAME    = "apkg_rel_#{SUFFIX}"
 SP_SEED     = "apkg_seed_#{SUFFIX}"
+
+-- Preset names carry a key delimiter (':' / '|') and the scopes name the page
+-- and the space, never their local ids.
+PRESET_W  = "apkg:preset_#{SUFFIX}"
+PRESET_S  = "apkg|preset_#{SUFFIX}"
+WIDGET_ID = 'w_0000abcd'
 
 -- DÉFAUT 1 : noms contenant des délimiteurs de clé (., |, :, %).
 SP_ESP   = "apkg_esp.ace_#{SUFFIX}"
@@ -69,6 +76,9 @@ find_item = (package, key) ->
   for it in *package.items
     return it if it.key == key
   nil
+
+-- Key of a preset item, built the way core/app_package.collect_presets does.
+preset_key = (scope, name) -> "preset:#{pkg.key_part scope}|#{pkg.key_part name}"
 
 -- build_package with a seed config must raise; return the message for asserts.
 seed_error = (seed_config) ->
@@ -258,6 +268,16 @@ R.describe "app_package — fixture", ->
     R.ok res
     FIX.plugin_id = res.id
 
+  R.it "creates named view presets on a widget and on a space", ->
+    widget_preset = view_presets.save_preset "widget:#{FIX.page_id}:#{WIDGET_ID}", FIX.books_id,
+      PRESET_W, 'self.qty > 1', json.encode { { column: 'qty', ascending: true } }
+    space_preset = view_presets.save_preset "space:#{FIX.books_id}", FIX.books_id,
+      PRESET_S, '', '[]'
+    FIX.preset_w = widget_preset.id
+    FIX.preset_s = space_preset.id
+    R.ok widget_preset
+    R.ok space_preset
+
   R.it "creates a group with permissions", ->
     g = perms.create_group GROUP_NAME, 'apkg group'
     FIX.group_id = g.id
@@ -296,9 +316,9 @@ R.describe "app_package — build_package", ->
       bad += 1 unless it.type and it.key and type(it.content) == 'table'
     R.eq bad, 0
 
-  R.it "covers the ten item types", ->
+  R.it "covers the eleven item types", ->
     seen = { it.type, true for it in *PKG.items }
-    for t in *{ 'space', 'field', 'relation', 'view', 'page', 'dataview', 'plugin', 'group', 'perm', 'seed' }
+    for t in *{ 'space', 'field', 'relation', 'view', 'page', 'dataview', 'preset', 'plugin', 'group', 'perm', 'seed' }
       R.ok seen[t], "missing item type #{t}"
 
   R.it "delivers both test spaces sorted by name", ->
@@ -359,7 +379,7 @@ R.describe "app_package — describe_local", ->
     R.eq(pkg.canonical(pkg.describe_local('space', key)), pkg.canonical(item.content))
     R.eq item.content.description, 'apkg books'
 
-  R.it "field: normalizes empty values (description, formula, triggerFields)", ->
+  R.it "field: normalizes empty values (description, formula) and keeps no trigger", ->
     key = "field:#{SP_BOOKS}.total"
     item = find_item PKG, key
     R.ok item
@@ -367,14 +387,13 @@ R.describe "app_package — describe_local", ->
     R.eq(pkg.canonical(local_content), pkg.canonical(item.content))
     R.eq local_content.formula, '(self.qty or 0) * 2'
     R.eq local_content.language, 'lua'
-    R.eq #local_content.triggerFields, 0
+    R.is_nil local_content.triggerFields, 'computed column: no trigger, key absent'
     R.eq local_content.description, ''
     R.eq pkg.canonical(local_content), pkg.canonical({
       fieldType: 'Int'
       notNull: false
       description: ''
       formula: '(self.qty or 0) * 2'
-      triggerFields: {}
       language: 'lua'
     })
 
@@ -407,7 +426,11 @@ R.describe "app_package — describe_local", ->
     R.eq(pkg.canonical(local_content), pkg.canonical(item.content))
     R.eq local_content.name, PAGE_NAME
     R.eq local_content.description, 'apkg page'
-    R.eq local_content.yaml, YAML_PAGE
+    -- The stored yaml also carries the widget id assigned at write time
+    -- (core/widget_ids), so compare the hand-written properties only.
+    R.ok local_content.yaml\find('title: App package', 1, true), 'widget conservé'
+    R.ok local_content.yaml\find('space: apkg', 1, true), 'espace du widget conservé'
+    R.matches local_content.yaml, 'id: w_%x%x%x%x%x%x%x%x', 'id de widget attribué'
 
   R.it "dataview: returns sourceSpace as a space name", ->
     key = "dataview:#{DV_NAME}"
@@ -417,6 +440,30 @@ R.describe "app_package — describe_local", ->
     R.eq(pkg.canonical(local_content), pkg.canonical(item.content))
     R.eq local_content.sourceSpace, SP_BOOKS
     R.eq local_content.description, 'apkg data view'
+
+  R.it "preset: names the page and the space, and decodes the sort", ->
+    key = preset_key "widget:#{PAGE_NAME}:#{WIDGET_ID}", PRESET_W
+    item = find_item PKG, key
+    R.ok item, "missing #{key}"
+    R.is_nil key\find(FIX.page_id, 1, true), 'the key carries no local page id'
+    local_content = pkg.describe_local 'preset', key
+    R.eq(pkg.canonical(local_content), pkg.canonical(item.content))
+    R.eq local_content.scope, "widget:#{PAGE_NAME}:#{WIDGET_ID}"
+    R.eq local_content.space, SP_BOOKS
+    R.eq local_content.name, PRESET_W
+    R.eq local_content.filter, 'self.qty > 1'
+    R.eq local_content.sort[1].column, 'qty'
+    R.eq local_content.sort[1].ascending, true
+
+  R.it "preset: a space scope carries the space name, never its id", ->
+    key = preset_key "space:#{SP_BOOKS}", PRESET_S
+    item = find_item PKG, key
+    R.ok item, "missing #{key}"
+    R.is_nil key\find(FIX.books_id, 1, true), 'the key carries no local space id'
+    R.eq item.content.scope, "space:#{SP_BOOKS}"
+    R.eq item.content.space, SP_BOOKS
+    R.eq pkg.canonical(item.content.sort), '[]'
+    R.eq(pkg.canonical(pkg.describe_local('preset', key)), pkg.canonical(item.content))
 
   R.it "plugin: returns the script and template code", ->
     key = "plugin:#{PLUGIN_NAME}"
@@ -471,6 +518,8 @@ R.describe "app_package — describe_local", ->
     R.is_nil pkg.describe_local('page', "page:no_such_page_#{SUFFIX}")
     R.is_nil pkg.describe_local('group', "group:no_such_group_#{SUFFIX}")
     R.is_nil pkg.describe_local('seed', "seed:#{SP_BOOKS}|NO-SUCH-KEY")
+    R.is_nil pkg.describe_local('preset', preset_key("widget:#{PAGE_NAME}:#{WIDGET_ID}", "no_such_preset_#{SUFFIX}"))
+    R.is_nil pkg.describe_local('preset', preset_key("widget:ghost_page_#{SUFFIX}:#{WIDGET_ID}", PRESET_W))
     R.is_nil pkg.describe_local('nonsense', 'nonsense:x')
 
 -- ────────────────────────────────────────────────────────────────────────────
@@ -597,6 +646,10 @@ R.describe "app_package — cleanup", ->
       schema_r.Mutation.deleteRelation {}, { id: FIX.rel_id }, CTX
     if FIX.view_id
       views.delete_view FIX.view_id
+    if FIX.preset_w
+      view_presets.delete_preset FIX.preset_w
+    if FIX.preset_s
+      view_presets.delete_preset FIX.preset_s
     if FIX.page_id
       cvr.Mutation.deleteCustomView {}, { id: FIX.page_id }, CTX
     if FIX.dv_id
@@ -609,6 +662,8 @@ R.describe "app_package — cleanup", ->
     R.is_nil pkg.describe_local('view', "view:#{SP_BOOKS}.#{VIEW_NAME}")
     R.is_nil pkg.describe_local('page', "page:#{PAGE_NAME}")
     R.is_nil pkg.describe_local('dataview', "dataview:#{DV_NAME}")
+    R.is_nil pkg.describe_local('preset', preset_key("widget:#{PAGE_NAME}:#{WIDGET_ID}", PRESET_W))
+    R.is_nil pkg.describe_local('preset', preset_key("space:#{SP_BOOKS}", PRESET_S))
     R.is_nil pkg.describe_local('plugin', "plugin:#{PLUGIN_NAME}")
     R.is_nil pkg.describe_local('group', "group:#{GROUP_NAME}")
 
@@ -661,11 +716,13 @@ R.describe "app_package — normalize_content (T22)", ->
   R.it "reproduces each builder's defaults for absent optional keys", ->
     expected = {
       space: { description: '' }
-      field: { notNull: false, description: '', formula: '', triggerFields: {}, language: 'lua' }
+      -- triggerFields has no default: the key must stay absent (no trigger).
+      field: { notNull: false, description: '', formula: '', language: 'lua' }
       relation: { cardinality: 'one' }
       view: {}
       page: { description: '', yaml: '' }
       dataview: { description: '', sourceSpace: '' }
+      preset: { space: '', filter: '', sort: {} }
       plugin: { description: '', scriptLanguage: 'coffeescript', templateLanguage: 'pug',
                 scriptCode: '', templateCode: '' }
       group: { description: '' }
@@ -684,9 +741,24 @@ R.describe "app_package — normalize_content (T22)", ->
       notNull: false
       description: ''
       formula: ''
-      triggerFields: {}
       language: 'lua'
     }
+    R.is_nil c.triggerFields, 'triggerFields: null means no trigger'
+
+  R.it "normalizes a preset sort: absent, null and [] agree", ->
+    absent = pkg.normalize_content 'preset', {
+      scope: "space:#{SP_BOOKS}", space: SP_BOOKS, name: PRESET_S
+    }
+    empty = pkg.normalize_content 'preset', {
+      scope: "space:#{SP_BOOKS}", space: SP_BOOKS, name: PRESET_S, sort: {}
+    }
+    from_yaml = pkg.normalize_content 'preset',
+      pkg.strip_null (yaml.decode "scope: 'space:#{SP_BOOKS}'\nspace: #{SP_BOOKS}\nname: x\nfilter: ~\nsort: ~\n")
+    R.eq pkg.fingerprint(absent), pkg.fingerprint(empty)
+    R.eq pkg.fingerprint(from_yaml), pkg.fingerprint {
+      scope: "space:#{SP_BOOKS}", space: SP_BOOKS, name: 'x', filter: '', sort: {}
+    }
+    R.eq pkg.canonical(from_yaml.sort), '[]'
 
   R.it "is idempotent and does not mutate its argument", ->
     original = { fieldType: 'Int', description: 'x' }
@@ -701,6 +773,6 @@ R.describe "app_package — normalize_content (T22)", ->
     c = pkg.normalize_content 'field', pkg.strip_null(raw)
     built = {
       fieldType: 'String', notNull: false, description: '', formula: '',
-      triggerFields: {}, language: 'lua'
+      language: 'lua'
     }
     R.eq pkg.fingerprint(c), pkg.fingerprint(built)

@@ -1,0 +1,136 @@
+spaces:
+- name: Genres
+  description: Genres littéraires (hiérarchie)
+  fields:
+  - {name: genre, type: String, notNull: true}
+  - {name: parent, type: Int, ref: Genres.id}
+  - name: niveau
+    type: Int
+    formula: |
+      n = 1
+      p = @parent
+      while p
+        n += 1
+        p = p.parent
+      n
+  - name: chemin
+    type: String
+    formula: |
+      parts = { @genre }
+      p = @parent
+      while p
+        table.insert parts, 1, p.genre
+        p = p.parent
+      table.concat parts, ' › '
+  - name: nombre_de_livres
+    type: Int
+    formula: "#[l for l in *space('Livres') when l.genre == @id]"
+- name: Auteurs
+  description: Auteurs
+  fields:
+  - {name: nom, type: String, notNull: true}
+  - {name: particule, type: String}
+  - {name: prenom, type: String}
+  - {name: titre, type: String}
+  - name: nom_complet
+    type: String
+    formula: |
+      parts = {}
+      table.insert parts, @prenom if @prenom
+      table.insert parts, @particule if @particule
+      table.insert parts, @nom
+      table.concat parts, ' '
+  - name: n_ouvrages
+    type: Int
+    formula: "#[l for l in *space('Livres') when l.auteur == @id]"
+- name: MotsCles
+  description: Mots-clés
+  fields:
+  - {name: mot, type: String, notNull: true}
+  - name: occurrences
+    type: Int
+    formula: "#[x for x in *space('LivresMotsCles') when x.mot_cle == @id]"
+- name: Livres
+  description: Catalogue des livres
+  fields:
+  - {name: titre, type: String, notNull: true}
+  - {name: auteur, type: Int, ref: Auteurs.id}
+  - {name: genre, type: Int, ref: Genres.id}
+  - {name: note, type: Int}
+  - {name: age_min, type: Int}
+  - {name: age_max, type: Int}
+  - {name: commentaire, type: String}
+  - name: auteur_nom
+    type: String
+    formula: "@auteur and @auteur.nom_complet"
+  - name: genre_nom
+    type: String
+    formula: "@genre and @genre.chemin"
+  - name: descriptif
+    type: String
+    formula: "@titre .. ' (' .. (@auteur and @auteur.nom_complet or '?') .. ')'"
+  - name: n_exemplaires
+    type: Int
+    formula: "#[e for e in *space('Exemplaires') when e.livre == @id and (e.suppression or '') == '']"
+  - name: doublon
+    type: Boolean
+    formula: "#[l for l in *space('Livres') when l.titre == @titre and l.auteur == (@auteur and @auteur.id) and l.id ~= @id] > 0"
+- name: LivresMotsCles
+  description: Liaison N-N livres / mots-clés
+  fields:
+  - {name: livre, type: Int, ref: Livres.id}
+  - {name: mot_cle, type: Int, ref: MotsCles.id}
+- name: Exemplaires
+  description: Exemplaires physiques
+  fields:
+  - {name: livre, type: Int, ref: Livres.id}
+  - {name: cote, type: String}
+  - {name: acquisition, type: Datetime}
+  - {name: suppression, type: Datetime}
+  - name: livre_titre
+    type: String
+    formula: "@livre and @livre.titre"
+  - name: descriptif
+    type: String
+    formula: "(@livre and @livre.descriptif or '?') .. (@cote and (' − ' .. @cote) or '')"
+  - name: emprunteur
+    type: String
+    description: Emprunteur du prêt non rendu (vide si disponible)
+    formula: "([p.nom .. ' ' .. (p.prenom or '') for p in *space('Personnes') when p.id == ([e.personne for e in *space('Emprunts') when e.exemplaire == @id and (e.retour or '') == ''])[1]])[1]"
+- name: Emprunts
+  description: Emprunts
+  fields:
+  - {name: personne, type: Int, ref: Personnes.id}
+  - {name: exemplaire, type: Int, ref: Exemplaires.id}
+  - {name: emprunt, type: Datetime, notNull: true}
+  - {name: retour, type: Datetime}
+  - name: lecteur
+    type: String
+    formula: "@personne and @personne.descriptif"
+  - name: ouvrage
+    type: String
+    formula: "@exemplaire and @exemplaire.descriptif"
+  - name: livre
+    type: Int
+    formula: "@exemplaire and @exemplaire.livre and @exemplaire.livre.id"
+  - name: classe
+    type: Int
+    formula: "@personne and @personne.classe_actuelle"
+  - name: annee
+    type: Int
+    formula: "([a.id for a in *space('Annee') when a.debut <= @emprunt and @emprunt <= a.fin])[1]"
+  - name: annee_en_cours
+    type: Boolean
+    formula: "#[a for a in *space('Annee') when a.en_cours and a.debut <= @emprunt and @emprunt <= a.fin] > 0"
+  - name: livre_titre
+    type: String
+    formula: "@exemplaire and @exemplaire.livre and @exemplaire.livre.titre"
+  - name: annee_scolaire
+    type: String
+    formula: |
+      n = tonumber @emprunt\sub(1, 4)
+      m = tonumber @emprunt\sub(6, 7)
+      if m >= 9
+        "#{n} - #{n + 1}"
+      else
+        "#{n - 1} - #{n}"

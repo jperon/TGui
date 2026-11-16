@@ -13,6 +13,7 @@ spaces = require 'core.spaces'
 views = require 'core.views'
 perms = require 'core.permissions'
 data_views = require 'core.data_views'
+view_presets = require 'core.view_presets'
 schema_r = require 'resolvers.schema_resolvers'
 cvr = require 'resolvers.custom_view_resolvers'
 wpr = require 'resolvers.widget_plugin_resolvers'
@@ -32,6 +33,13 @@ PLUG_N = "v3b_plugin_#{SUFFIX}"
 GROUP_N= "v3b_group_#{SUFFIX}"
 REL_N  = "v3b_rel_#{SUFFIX}"
 APP_ID = "org.test.v3b_#{SUFFIX}"
+
+-- Named view preset attached to a widget of the page: its package key and
+-- scope name the PAGE, so renaming the page moves them.
+PRESET_N   = "v3b:preset_#{SUFFIX}"
+WIDGET_N   = 'w_0000d00d'
+SCOPE_N    = "widget:#{PAGE_N}:#{WIDGET_N}"
+PRESET_KEY = "preset:#{pkg.key_part SCOPE_N}|#{pkg.key_part PRESET_N}"
 
 KEY_CODE  = "field:#{SP_B}.code"
 KEY_TITLE = "field:#{SP_B}.title"
@@ -154,6 +162,13 @@ in_list = (list, key) ->
     return true if k == key
   false
 
+-- The stored row of the fixture preset, located by (local scope, name). The
+-- local ids change on reinstallation, so the row is never located by id.
+preset_row = (page_name) ->
+  page = box.space._tdb_custom_views.index.by_name\get page_name
+  return nil unless page
+  box.space._tdb_view_presets.index.by_scope_name\get { "widget:#{page[1]}:#{WIDGET_N}", PRESET_N }
+
 build_current = (version) ->
   meta = { id: APP_ID, name: 'V3b fixture', version: version, description: 'v3b' }
   subset pkg.build_package meta, { seed: seed_opts }
@@ -163,6 +178,19 @@ rename_item = (package, old_key, new_key) ->
   for it in *package.items
     if it.key == old_key
       table.insert items, { type: it.type, key: new_key, content: it.content, renamed_from: old_key }
+    else
+      table.insert items, it
+  { app: package.app, items: items, seed_keys: package.seed_keys }
+
+-- A real author republishes the preset under the new page name: the preset key
+-- and its scope name the page, so both move with the page rename.
+rename_page_preset = (package, old_key, new_key, new_scope) ->
+  items = {}
+  for it in *package.items
+    if it.type == 'preset' and it.key == old_key
+      content = { scope: new_scope, space: it.content.space, name: it.content.name,
+                  filter: it.content.filter, sort: it.content.sort }
+      table.insert items, { type: 'preset', key: new_key, content: content, renamed_from: old_key }
     else
       table.insert items, it
   { app: package.app, items: items, seed_keys: package.seed_keys }
@@ -245,10 +273,13 @@ R.describe "v3b — fixture", ->
                templateLanguage: 'pug', scriptCode: "render 'ok'", templateCode: 'div ok' }
     }, CTX
     FIX.plugin_id = wp.id
+    preset = view_presets.save_preset "widget:#{p.id}:#{WIDGET_N}", FIX.books_id,
+      PRESET_N, 'self.qty > 1', '[]'
+    FIX.preset_id = preset.id
     g = perms.create_group GROUP_N, 'v3b group'
     FIX.group_id = g.id
     perms.grant g.id, 'space', FIX.books_id, 'read'
-    R.ok v and p and dv and wp and g
+    R.ok v and p and dv and wp and g and preset
 
   R.it "builds the package v1.0.0 with two seed lines", ->
     seed_opts[SP_B] = 'code'
@@ -337,6 +368,7 @@ R.describe "v3b partie 2 — lignes seed", ->
 SP_A2   = "#{SP_A}_ren"
 PAGE_N2 = "#{PAGE_N}2"
 PLUG_N2 = "#{PLUG_N}2"
+PRESET_KEY2 = "preset:#{pkg.key_part "widget:#{PAGE_N2}:#{WIDGET_N}"}|#{pkg.key_part PRESET_N}"
 
 R.describe "v3b partie 3 — renommages", ->
 
@@ -360,12 +392,21 @@ R.describe "v3b partie 3 — renommages", ->
     base = build_current '1.5.0'
     PKG_P = rename_item base, "page:#{PAGE_N}", "page:#{PAGE_N2}"
     PKG_P = rename_item PKG_P, "plugin:#{PLUG_N}", "plugin:#{PLUG_N2}"
+    PKG_P = rename_page_preset PKG_P, PRESET_KEY, PRESET_KEY2,
+      "widget:#{PAGE_N2}:#{WIDGET_N}"
     report = apply.apply_update PKG_P, {}, {}
     R.ok report.ok, report.error
     R.ok pkg.describe_local('page', "page:#{PAGE_N2}"), 'page renamed'
     R.is_nil pkg.describe_local('page', "page:#{PAGE_N}"), 'old page gone'
     R.ok pkg.describe_local('plugin', "plugin:#{PLUG_N2}"), 'plugin renamed'
     R.is_nil pkg.describe_local('plugin', "plugin:#{PLUG_N}"), 'old plugin gone'
+    -- The preset is keyed by the page name: its key and scope follow the page,
+    -- its local row keeps the page id.
+    R.ok pkg.describe_local('preset', PRESET_KEY2), 'preset follows the renamed page'
+    R.is_nil pkg.describe_local('preset', PRESET_KEY), 'old preset key gone'
+    R.eq item_state(APP_ID, PRESET_KEY2), 'actif', 'preset tracked under the new key'
+    R.is_nil item_row(APP_ID, PRESET_KEY), 'old key untracked'
+    R.ok preset_row(PAGE_N2), 'preset row kept'
 
   R.it "renames a space in place, remapping child keys and preserving records", ->
     before = local_rows SP_A
@@ -456,6 +497,21 @@ R.describe "v3b partie 4 — aperçu des pertes et purge", ->
     R.nok has, 'legacy key removed from every record'
     R.ok field_by_name(sid, 'title'), 'other fields untouched'
 
+  R.it "marks a preset removed from the package obsolete, then purges it", ->
+    PKG_O = reversion (without (build_current '2.2.5'), PRESET_KEY2), '2.2.5'
+    r = apply.apply_update PKG_O, {}, {}
+    R.ok r.ok, r.error
+    R.eq item_state(APP_ID, PRESET_KEY2), 'obsolète', 'preset marked obsolete'
+    R.ok preset_row(PAGE_N2), 'preset never deleted by an update'
+    pv = apply.preview_purge APP_ID, { PRESET_KEY2 }
+    R.is_nil pv.error
+    R.eq #pv.losses, 1
+    R.eq pv.losses[1].type, 'preset'
+    rp = apply.purge_obsolete APP_ID, { PRESET_KEY2 }, { confirmed: true }
+    R.ok rp.ok, rp.error
+    R.is_nil preset_row(PAGE_N2)
+    R.is_nil item_row(APP_ID, PRESET_KEY2)
+
   R.it "purges an obsolete space after its relation", ->
     base = build_current '2.3.0'
     pkg_r = reversion (without (without base, "relation:#{SP_B}.author_id"), "space:#{SP_A2}"), '2.3.0'
@@ -513,6 +569,8 @@ R.describe "v3b — cleanup", ->
       box.space._tdb_custom_views\delete cv[1] if cv[2]\find(PAGE_N, 1, true)
     for wp in *box.space._tdb_widget_plugins\select {}
       box.space._tdb_widget_plugins\delete wp[1] if wp[2]\find(PLUG_N, 1, true)
+    for vp in *box.space._tdb_view_presets\select {}
+      box.space._tdb_view_presets\delete vp[1] if vp[4] == PRESET_N
     for g in *perms.list_groups!
       perms.delete_group g.id if g.name == GROUP_N
     clean_app!

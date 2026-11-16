@@ -26,20 +26,126 @@
   //         widget:
   //           title: Personnes
   //           space: personnes
-  var CustomView,
+
+  // Parse a Data View `config`: the list GraphQL query returns the raw serialized
+  // JSON string (data_views.coffee), while the detail query decodes it. Accept both.
+  var CustomView, _dataViewColumns, _nodeFactor, _parseDataViewConfig,
+    indexOf = [].indexOf,
     hasProp = {}.hasOwnProperty;
 
+  _parseDataViewConfig = function(raw) {
+    var e;
+    if (!raw) {
+      return {};
+    }
+    if (typeof raw === 'object') {
+      return raw;
+    }
+    try {
+      return JSON.parse(raw);
+    } catch (error1) {
+      e = error1;
+      return null;
+    }
+  };
+
+  // Output columns of a Data View, mirroring backend/core/data_views_executor.moon:
+  // groupBy names then aggregate aliases; explicit `columns`; otherwise the source
+  // space fields. Each entry is `{ name, fieldType }`, the type reused from the
+  // source space when it declares the column.
+  _dataViewColumns = function(config, dv, allSpaces) {
+    var agg, col, f, fields, j, k, l, len, len1, len2, len3, len4, m, n, name, names, ref, ref1, ref2, ref3, seen, source, typeFor;
+    source = null;
+    if (dv.sourceSpace && allSpaces) {
+      source = allSpaces.find(function(s) {
+        return s.id === dv.sourceSpace || s.name === dv.sourceSpace;
+      });
+    }
+    typeFor = function(name) {
+      var f;
+      if (source) {
+        f = (source.fields || []).find(function(sf) {
+          return sf.name === name;
+        });
+        if (f != null ? f.fieldType : void 0) {
+          return f.fieldType;
+        }
+      }
+      return 'String';
+    };
+    names = [];
+    if ((config.groupBy && config.groupBy.length > 0) || (config.aggregates && config.aggregates.length > 0)) {
+      ref = config.groupBy || [];
+      for (j = 0, len = ref.length; j < len; j++) {
+        name = ref[j];
+        names.push(name);
+      }
+      ref1 = config.aggregates || [];
+      for (k = 0, len1 = ref1.length; k < len1; k++) {
+        agg = ref1[k];
+        names.push(agg.as || (agg.field ? `${agg.fn}_${agg.field}` : 'count'));
+      }
+    } else if (config.columns && config.columns.length > 0) {
+      ref2 = config.columns;
+      for (l = 0, len2 = ref2.length; l < len2; l++) {
+        col = ref2[l];
+        names.push((typeof col === 'string' ? col : col.as || col.field));
+      }
+    } else if (source) {
+      ref3 = source.fields || [];
+      for (m = 0, len3 = ref3.length; m < len3; m++) {
+        f = ref3[m];
+        names.push(f.name);
+      }
+    }
+    fields = [];
+    seen = {};
+    for (n = 0, len4 = names.length; n < len4; n++) {
+      name = names[n];
+      if (!name) {
+        continue;
+      }
+      if (seen[name]) {
+        continue;
+      }
+      seen[name] = true;
+      fields.push({
+        name: name,
+        fieldType: typeFor(name)
+      });
+    }
+    return fields;
+  };
+
+  // Facteur de répartition d'un nœud. Lu sur le mapping `widget`/`layout` (forme
+  // documentée de doc/fr/get-started.md), puis sur l'entrée elle-même (ancienne
+  // forme). Défaut : 1. L'écriture (setChildFactors) vise le mapping.
+  _nodeFactor = function(node) {
+    if (node.widget && (node.widget.factor != null)) {
+      return node.widget.factor;
+    }
+    if (node.layout && (node.layout.factor != null)) {
+      return node.layout.factor;
+    }
+    if (node.factor != null) {
+      return node.factor;
+    }
+    return 1;
+  };
+
   window.CustomView = CustomView = class CustomView {
-    constructor(container1, yamlText, allSpaces, allDataViews = [], options = {}) {
+    constructor(container1, yamlText1, allSpaces1, allDataViews = [], options = {}) {
       this.container = container1;
-      this.yamlText = yamlText;
-      this.allSpaces = allSpaces;
+      this.yamlText = yamlText1;
+      this.allSpaces = allSpaces1;
       this.allDataViews = allDataViews;
       this.options = options;
       this._widgets = []; // list of { dataView, node, el }
       this._widgetsById = {}; // id -> entry
       this._pluginStateByWidgetId = {};
       this._pluginSelectionListenersByWidgetId = {};
+      this._resizeObserver = null;
+      this._resizeTimer = null;
       this.pageId = this.container.getAttribute('data-page-id') || null;
       this.presentationMode = this.options.presentationMode || false;
     }
@@ -166,8 +272,92 @@ transition: all 0.3s ease;`;
       return container.appendChild(p);
     }
 
+    // Répartit `sizeA + sizeB` px entre deux tuiles voisines après un glisser de
+    // `delta` px, en respectant un minimum `min` pour chacune. Fonction pure.
+    static redistribute(sizeA, sizeB, delta, min) {
+      var a, total;
+      total = sizeA + sizeB;
+      if (total < 2 * min) {
+        return [sizeA, sizeB];
+      }
+      a = Math.max(min, Math.min(total - min, sizeA + delta));
+      return [a, total - a];
+    }
+
+    // Réécrit le YAML d'une page en mettant à jour le `factor` des enfants voulus.
+    // `path` = indices d'enfants depuis `layout` jusqu'à la zone parente.
+    // `factors` = liste de `{ index, factor }` (index dans les enfants de la zone).
+    // Le facteur est écrit dans le mapping `widget`/`layout` de l'enfant.
+    static setChildFactors(yamlText, path, factors) {
+      var child, entry, f, idx, j, k, len, len1, mapping, parent, parsed, ref, ref1, ref2;
+      parsed = jsyaml.load(yamlText);
+      if (!(parsed != null ? parsed.layout : void 0)) {
+        return yamlText;
+      }
+      parent = parsed.layout;
+      ref = path || [];
+      for (j = 0, len = ref.length; j < len; j++) {
+        idx = ref[j];
+        entry = parent != null ? (ref1 = parent.children) != null ? ref1[idx] : void 0 : void 0;
+        if (!entry) {
+          return yamlText;
+        }
+        parent = entry.layout ? entry.layout : entry;
+      }
+      if ((parent != null ? parent.children : void 0) == null) {
+        return yamlText;
+      }
+      ref2 = factors || [];
+      for (k = 0, len1 = ref2.length; k < len1; k++) {
+        f = ref2[k];
+        child = parent.children[f.index];
+        if (!child) {
+          continue;
+        }
+        mapping = child.widget ? child.widget : child.layout ? child.layout : child;
+        mapping.factor = Math.round(f.factor * 100) / 100;
+        if (child.widget || child.layout) {
+          delete child.factor;
+        }
+      }
+      return jsyaml.dump(parsed);
+    }
+
+    // Anti-rebond : une seule passe de rafraîchissement par salve de changements.
+    _refreshGridLayouts() {
+      var entry, j, len, ref, ref1, ref2, results;
+      ref = this._widgets;
+      results = [];
+      for (j = 0, len = ref.length; j < len; j++) {
+        entry = ref[j];
+        results.push((ref1 = entry.dataView) != null ? (ref2 = ref1._grid) != null ? ref2.refreshLayout() : void 0 : void 0);
+      }
+      return results;
+    }
+
+    // Recalcule la taille des grilles quand la surface d'une tuile change
+    // (séparateurs, réouverture de la page, redimensionnement de la fenêtre).
+    _setupResizeObserver() {
+      var ref;
+      if (typeof ResizeObserver === 'undefined') {
+        return;
+      }
+      if ((ref = this._resizeObserver) != null) {
+        if (typeof ref.disconnect === "function") {
+          ref.disconnect();
+        }
+      }
+      this._resizeObserver = new ResizeObserver((entries) => {
+        clearTimeout(this._resizeTimer);
+        return this._resizeTimer = setTimeout((() => {
+          return this._refreshGridLayouts();
+        }), 50);
+      });
+      return this._resizeObserver.observe(this.container);
+    }
+
     mount() {
-      var e, el, parsed, ref, root;
+      var base, dep, e, el, ff, j, len, name1, parsed, ref, ref1, root, w;
       this.container.innerHTML = '';
       this._widgets = [];
       this._widgetsById = {};
@@ -192,30 +382,42 @@ transition: all 0.3s ease;`;
         this.container.innerHTML = "<p style='color:#888;padding:1rem'>Pas de section <code>layout</code> dans le YAML.</p>";
         return;
       }
+      // Index des `from_field` requis par chaque widget source, pour que les
+      // champs de liaison soient chargés même s'ils sont absents de `columns`.
+      this._linkFieldsByWidgetId = {};
+      ref = this._collectWidgetNodes(root);
+      for (j = 0, len = ref.length; j < len; j++) {
+        w = ref[j];
+        dep = w.depends_on;
+        if (!(dep != null ? dep.widget : void 0)) {
+          continue;
+        }
+        ff = dep.from_field || 'id';
+        ((base = this._linkFieldsByWidgetId)[name1 = dep.widget] != null ? base[name1] : base[name1] = []).push(ff);
+      }
       el = this._renderZoneOrWidget(root);
       this.container.style.cssText = 'display:flex;flex-direction:column;height:100%;';
       this.container.appendChild(el);
       // Wire depends_on after all DataView grids are ready (mount is async)
       Promise.all(this._mountPromises).then(() => {
         this._wireDepends();
+        // Initial cascade: activate the first row of each root widget and
+        // propagate down the depends_on chain (once per mount).
+        this._initializeCascade();
         // Refresh grid layouts now that elements are in the live DOM
-        return setTimeout(() => {
-          var entry, i, len, ref, ref1, ref2, results;
-          ref = this._widgets;
-          results = [];
-          for (i = 0, len = ref.length; i < len; i++) {
-            entry = ref[i];
-            results.push((ref1 = entry.dataView) != null ? (ref2 = ref1._grid) != null ? ref2.refreshLayout() : void 0 : void 0);
-          }
-          return results;
-        }, 0);
+        setTimeout((() => {
+          return this._refreshGridLayouts();
+        }), 0);
+        // Une tuile redimensionnée change la taille de sa grille : on rafraîchit
+        // les layouts (avec anti-rebond) à chaque changement de taille.
+        return this._setupResizeObserver();
       });
       // Initialiser le DragDropManager avec support des zones (Phase 3)
       // Disabled in presentation mode
       if (this.pageId && !this.presentationMode) {
-        if ((ref = this._dragDropManager) != null) {
-          if (typeof ref.destroy === "function") {
-            ref.destroy();
+        if ((ref1 = this._dragDropManager) != null) {
+          if (typeof ref1.destroy === "function") {
+            ref1.destroy();
           }
         }
         // Vérifier si DragDropManager est disponible
@@ -270,8 +472,10 @@ transition: all 0.3s ease;`;
     // Renders either a zone (direction+children) or a widget node.
     // Applies `factor` (flex proportion) when specified (default: 1).
     // Supports both inline zone keys (direction/children) and wrapped "- layout:" syntax.
-    _renderZoneOrWidget(node) {
-      var child, el, i, len, ref, zone, zoneContent, zoneHeader;
+    // `path` = indices des enfants depuis `layout` (racine) jusqu'à la zone parente ;
+    // sert à réécrire le bon emplacement du YAML lors d'un glisser de séparateur.
+    _renderZoneOrWidget(node, path = []) {
+      var canSplit, child, childEl, childEls, children, el, i, j, k, len, len1, zone, zoneContent, zoneHeader;
       zone = node.layout ? node.layout : node;
       if (zone.widget) {
         el = this._renderWidget(zone.widget);
@@ -295,10 +499,22 @@ transition: all 0.3s ease;`;
         // Container pour les widgets de la zone
         zoneContent = document.createElement('div');
         zoneContent.className = 'cv-zone-content';
-        ref = zone.children || [];
-        for (i = 0, len = ref.length; i < len; i++) {
-          child = ref[i];
-          zoneContent.appendChild(this._renderZoneOrWidget(child));
+        children = zone.children || [];
+        childEls = [];
+        for (i = j = 0, len = children.length; j < len; i = ++j) {
+          child = children[i];
+          childEls.push(this._renderZoneOrWidget(child, path.concat([i])));
+        }
+        // Séparateurs glissables : uniquement sur une page éditable, hors mode
+        // présentation, et pas dans une zone qui a déjà sa poignée (id+factor).
+        canSplit = children.length > 1 && this.pageId && !this.presentationMode;
+        canSplit = canSplit && !(zone.id && zone.factor);
+        for (i = k = 0, len1 = childEls.length; k < len1; i = ++k) {
+          childEl = childEls[i];
+          zoneContent.appendChild(childEl);
+          if (canSplit && i < childEls.length - 1) {
+            zoneContent.appendChild(this._createSplitter(zone.direction, childEl, childEls[i + 1], path, i));
+          }
         }
         el.appendChild(zoneContent);
         // Ajouter les poignées de redimensionnement si factor est défini
@@ -306,12 +522,178 @@ transition: all 0.3s ease;`;
           this._addResizeHandle(el, zone);
         }
       }
-      el.style.flex = node.factor != null ? String(node.factor) : '1';
+      el.style.flex = String(_nodeFactor(node));
       return el;
     }
 
+    // Séparateur glissable entre deux enfants consécutifs d'une zone. Le glisser
+    // redistribue l'espace des DEUX voisins (minimum 80 px chacun) en conservant
+    // la SOMME de leurs facteurs : les autres enfants de la zone ne changent donc
+    // pas de taille. Un double-clic les remet à parts égales. Les écouteurs
+    // `document` ne vivent que pendant le glisser (posés au mousedown, retirés au
+    // mouseup) et un clic sans déplacement n'écrit rien dans le YAML.
+    _createSplitter(direction, a, b, path, index) {
+      var axis, dir, dragging, factorOf, horizontal, onMouseMove, onMouseUp, sp, startA, startB, startFactorA, startFactorB, startPos, stopDrag, sumFactors;
+      horizontal = direction === 'horizontal';
+      dir = horizontal ? 'horizontal' : 'vertical';
+      axis = horizontal ? 'width' : 'height';
+      sp = document.createElement('div');
+      sp.className = `cv-splitter cv-splitter--${dir}`;
+      dragging = false;
+      startPos = 0;
+      startA = 0;
+      startB = 0;
+      startFactorA = 1;
+      startFactorB = 1;
+      sumFactors = 2;
+      // Facteur courant d'un enfant : le flex rendu est un simple nombre.
+      factorOf = function(el) {
+        var f;
+        f = parseFloat(el.style.flex);
+        if (isNaN(f)) {
+          return 1;
+        } else {
+          return f;
+        }
+      };
+      onMouseMove = (ev) => {
+        var delta, fa, fb, na, nb, pos, total;
+        if (!dragging) {
+          return;
+        }
+        pos = horizontal ? ev.clientX : ev.clientY;
+        delta = pos - startPos;
+        if (delta === 0) {
+          return;
+        }
+        [na, nb] = CustomView.redistribute(startA, startB, delta, 80);
+        total = na + nb;
+        if (total <= 0) {
+          return;
+        }
+        // Pixels → facteurs, à somme constante : les voisins hors de la paire,
+        // dont le flex reste inchangé, gardent leur taille.
+        fa = Math.round((sumFactors * na / total) * 100) / 100;
+        fb = Math.round((sumFactors - fa) * 100) / 100;
+        a.style.flex = String(fa);
+        return b.style.flex = String(fb);
+      };
+      onMouseUp = () => {
+        var fa, fb;
+        if (!dragging) {
+          return;
+        }
+        stopDrag();
+        fa = factorOf(a);
+        fb = factorOf(b);
+        // Aucun déplacement : ne pas réécrire le YAML (jsyaml.dump y perdrait
+        // les commentaires) ni redimensionner quoi que ce soit.
+        if (fa === startFactorA && fb === startFactorB) {
+          return;
+        }
+        return this._saveChildFactors(path, [
+          {
+            index: index,
+            factor: fa
+          },
+          {
+            index: index + 1,
+            factor: fb
+          }
+        ]);
+      };
+      stopDrag = function() {
+        var ref;
+        dragging = false;
+        if (typeof document.removeEventListener === "function") {
+          document.removeEventListener('mousemove', onMouseMove);
+        }
+        if (typeof document.removeEventListener === "function") {
+          document.removeEventListener('mouseup', onMouseUp);
+        }
+        return (ref = document.body) != null ? ref.style.cursor = '' : void 0;
+      };
+      sp.addEventListener('mousedown', (ev) => {
+        var ra, rb, ref;
+        dragging = true;
+        startPos = horizontal ? ev.clientX : ev.clientY;
+        ra = a.getBoundingClientRect();
+        rb = b.getBoundingClientRect();
+        startA = ra[axis] || 0;
+        startB = rb[axis] || 0;
+        startFactorA = factorOf(a);
+        startFactorB = factorOf(b);
+        sumFactors = startFactorA + startFactorB;
+        if ((ref = document.body) != null) {
+          ref.style.cursor = horizontal ? 'col-resize' : 'row-resize';
+        }
+        if (typeof document.addEventListener === "function") {
+          document.addEventListener('mousemove', onMouseMove);
+        }
+        if (typeof document.addEventListener === "function") {
+          document.addEventListener('mouseup', onMouseUp);
+        }
+        return typeof ev.preventDefault === "function" ? ev.preventDefault() : void 0;
+      });
+      sp.addEventListener('dblclick', () => {
+        a.style.flex = '1';
+        b.style.flex = '1';
+        return this._saveChildFactors(path, [
+          {
+            index: index,
+            factor: 1
+          },
+          {
+            index: index + 1,
+            factor: 1
+          }
+        ]);
+      });
+      return sp;
+    }
+
+    // Persiste les facteurs d'une paire de voisins dans le YAML de la page, puis
+    // recharge le rendu. Réutilise la mutation existante updateCustomView.
+    _saveChildFactors(path, factors) {
+      var app, e, newYaml;
+      if (!this.pageId) {
+        return;
+      }
+      newYaml = null;
+      try {
+        newYaml = CustomView.setChildFactors(this.yamlText, path, factors);
+      } catch (error1) {
+        e = error1;
+        return;
+      }
+      if (!newYaml) {
+        return;
+      }
+      this.yamlText = newYaml;
+      app = window.App;
+      if (!(app && typeof GQL !== 'undefined')) {
+        return;
+      }
+      return GQL.mutate(app._updateCustomViewMutation, {
+        id: this.pageId,
+        input: {
+          yaml: newYaml
+        }
+      }).then((data) => {
+        var ref;
+        if ((data != null ? data.updateCustomView : void 0) != null) {
+          app._currentCustomView = data.updateCustomView;
+        }
+        return (ref = window.AppViewHelpers) != null ? typeof ref._renderCustomViewPreview === "function" ? ref._renderCustomViewPreview(app, newYaml) : void 0 : void 0;
+      }).catch(function(err) {
+        if (typeof tdbAlert !== 'undefined') {
+          return tdbAlert(app._err(err), 'error');
+        }
+      });
+    }
+
     _renderWidget(wNode) {
-      var body, col, delBtn, dv, entry, f, fieldMap, filterFormula, filterInput, filterLabel, filterTimer, filterWrap, i, lang, len, ref, runtimeWidgetId, sp, titleBar, titleText, wrapper;
+      var body, col, delBtn, dv, entry, extras, f, fieldMap, filterFormula, filterInput, filterLabel, filterTimer, filterWrap, j, k, l, lang, len, len1, len2, lf, present, ref, ref1, ref2, ref3, runtimeWidgetId, sp, srcField, titleBar, titleText, visible, wrapper;
       wrapper = document.createElement('div');
       wrapper.className = 'cv-widget';
       // Ajouter les attributs pour le drag & drop
@@ -379,27 +761,54 @@ transition: all 0.3s ease;`;
         }
         return wrapper;
       }
-      // Apply column filter/order if specified
+      // Apply column filter/order if specified. Les champs de liaison requis par
+      // la chaîne depends_on (le `depends_on.field` du widget, et le `from_field`
+      // de chaque widget qui dépend de lui) sont ajoutés en COPIE marquée
+      // `hidden: true` : ils doivent être chargés (la requête GraphQL se construit
+      // depuis sp.fields) mais pas affichés.
       if (wNode.columns && wNode.columns.length > 0) {
         fieldMap = {};
         ref = sp.fields || [];
-        for (i = 0, len = ref.length; i < len; i++) {
-          f = ref[i];
+        for (j = 0, len = ref.length; j < len; j++) {
+          f = ref[j];
           fieldMap[f.name] = f;
         }
         sp = Object.assign({}, sp);
-        sp.fields = (function() {
-          var j, len1, ref1, results;
+        visible = (function() {
+          var k, len1, ref1, results;
           ref1 = wNode.columns;
           results = [];
-          for (j = 0, len1 = ref1.length; j < len1; j++) {
-            col = ref1[j];
+          for (k = 0, len1 = ref1.length; k < len1; k++) {
+            col = ref1[k];
             if (fieldMap[col]) {
               results.push(fieldMap[col]);
             }
           }
           return results;
         })();
+        present = {};
+        for (k = 0, len1 = visible.length; k < len1; k++) {
+          f = visible[k];
+          present[f.name] = true;
+        }
+        extras = [];
+        ref1 = this._widgetLinkFields(wNode);
+        for (l = 0, len2 = ref1.length; l < len2; l++) {
+          lf = ref1[l];
+          if (!(!present[lf])) {
+            continue;
+          }
+          srcField = fieldMap[lf];
+          if (!srcField) {
+            console.warn(`depends_on: champ de liaison '${lf}' absent de l'espace/vue '${wNode.space}' (widget '${wNode.id}')`);
+            continue;
+          }
+          extras.push(Object.assign({}, srcField, {
+            hidden: true
+          }));
+          present[lf] = true;
+        }
+        sp.fields = visible.concat(extras);
       }
       dv = new DataView(body, sp);
       filterFormula = '';
@@ -412,7 +821,7 @@ transition: all 0.3s ease;`;
         }
       }
       filterWrap = document.createElement('div');
-      filterWrap.className = 'cv-widget-filter toolbar-filter';
+      filterWrap.className = 'cv-widget-filter toolbar-filter no-drag';
       filterLabel = document.createElement('span');
       filterLabel.className = 'toolbar-filter-label';
       filterLabel.textContent = 'λ';
@@ -427,6 +836,11 @@ transition: all 0.3s ease;`;
       titleBar.appendChild(filterWrap);
       titleBar.appendChild(delBtn);
       filterTimer = null;
+      if ((ref2 = window.FieldAutocomplete) != null) {
+        ref2.attach(filterInput, function() {
+          return dv;
+        });
+      }
       filterInput.addEventListener('input', (ev) => {
         var val;
         val = ev.target.value.trim();
@@ -437,6 +851,21 @@ transition: all 0.3s ease;`;
         }), 400);
       });
       dv._formulaInputEl = filterInput;
+      // Même menu que la grille principale, avec la portée du widget de page.
+      // Jamais pour un widget dont la source est une Data View : `sp.id` est alors
+      // l'id de la vue, et `saveViewPreset` le refuse (« Space not found »).
+      if (this.pageId && wNode.id && !sp.isView) {
+        if ((ref3 = window.ViewPresetsMenu) != null) {
+          ref3.attach(filterWrap, {
+            getDataView: function() {
+              return dv;
+            },
+            scope: `widget:${this.pageId}:${wNode.id}`,
+            spaceId: sp.id,
+            filterInput: filterInput
+          });
+        }
+      }
       this._mountPromises.push(dv.mount());
       delBtn.addEventListener('click', () => {
         return dv.deleteSelected();
@@ -453,14 +882,58 @@ transition: all 0.3s ease;`;
       return wrapper;
     }
 
+    // Liste à plat des mappings `widget` d'un arbre de layout, dans l'ordre de
+    // rendu. Sert à connaître les dépendances avant de rendre les widgets.
+    _collectWidgetNodes(node, out = []) {
+      var child, j, len, ref, zone;
+      zone = node.layout ? node.layout : node;
+      if (zone.widget) {
+        out.push(zone.widget);
+      } else {
+        ref = zone.children || [];
+        for (j = 0, len = ref.length; j < len; j++) {
+          child = ref[j];
+          this._collectWidgetNodes(child, out);
+        }
+      }
+      return out;
+    }
+
+    // Champs de liaison obligatoires d'un widget : son propre `depends_on.field`,
+    // puis le `from_field` (défaut `id`) de chaque widget qui dépend de lui.
+    // Dédoublonnés, dans cet ordre.
+    _widgetLinkFields(wNode) {
+      var add, ff, j, len, out, ref, ref1, ref2;
+      out = [];
+      add = function(name) {
+        if (!name) {
+          return;
+        }
+        if (indexOf.call(out, name) < 0) {
+          return out.push(name);
+        }
+      };
+      add((ref = wNode.depends_on) != null ? ref.field : void 0);
+      ref2 = ((ref1 = this._linkFieldsByWidgetId) != null ? ref1[wNode.id] : void 0) || [];
+      for (j = 0, len = ref2.length; j < len; j++) {
+        ff = ref2[j];
+        add(ff);
+      }
+      return out;
+    }
+
     _wireDepends() {
-      var dep, entry, i, len, ref, results, src;
+      var dep, entry, j, len, ref, results, src;
       ref = this._widgets;
       results = [];
-      for (i = 0, len = ref.length; i < len; i++) {
-        entry = ref[i];
+      for (j = 0, len = ref.length; j < len; j++) {
+        entry = ref[j];
         dep = entry.node.depends_on;
         if (!dep) {
+          continue;
+        }
+        if (entry.plugin) {
+          // Un widget plugin dépendant n'est pas rempli automatiquement.
           continue;
         }
         src = this._widgetsById[dep.widget];
@@ -503,17 +976,44 @@ transition: all 0.3s ease;`;
       return results;
     }
 
-    _applyDependencySelection(entry, dep, rowData) {
-      var defaults, filterVal, targetWidgetId;
-      filterVal = String(rowData[dep.from_field || 'id']);
+    _applyDependencySelection(entry, dep, rowData, seen = new WeakSet()) {
+      var defaults, filterVal, first, key, raw, ref, targetWidgetId;
+      key = dep.from_field || 'id';
+      raw = rowData != null ? rowData[key] : void 0;
+      // Garde-fou : le champ de liaison est absent de la ligne source (widget
+      // source dépourvu de ce champ, vue agrégée, …). Ne jamais filtrer sur la
+      // chaîne "undefined" (qui laisserait tout passer) : aucun résultat.
+      if (raw === void 0 || raw === null || raw === '') {
+        console.warn(`depends_on: champ de liaison '${key}' absent de la ligne source du widget '${dep.widget}' (widget cible '${(ref = entry.node) != null ? ref.id : void 0}')`);
+        if (entry.dataView != null) {
+          entry.dataView.setDefaultValues({});
+          entry.dataView.setFilter({
+            field: dep.field,
+            value: null,
+            none: true
+          });
+          this._cascadeNone(entry, seen);
+        }
+        return;
+      }
+      filterVal = String(raw);
       defaults = {};
       defaults[dep.field] = filterVal;
       if (entry.dataView != null) {
         entry.dataView.setDefaultValues(defaults);
-        return entry.dataView.setFilter({
+        entry.dataView.setFilter({
           field: dep.field,
           value: filterVal
         });
+        // Cascade : activer la première ligne affichée de ce widget et propager à
+        // ses propres dépendants, ou passer en « aucun résultat » si vide.
+        seen.add(entry);
+        first = this._firstRow(entry);
+        if (first != null) {
+          return this._selectRow(entry, first.rowKey, seen);
+        } else {
+          return this._cascadeNone(entry, seen);
+        }
       } else if (entry.plugin) {
         targetWidgetId = entry.runtimeWidgetId || entry.node.id;
         if (!targetWidgetId) {
@@ -529,8 +1029,159 @@ transition: all 0.3s ease;`;
       }
     }
 
+    // ── Sélection en cascade des widgets dépendants ─────────────────────────────
+
+      // Entrées widgets dépendant directement de `entry` (via depends_on.widget).
+    _dependentEntries(entry) {
+      var depId, e, j, len, ref, ref1, ref2, ref3, results;
+      depId = entry != null ? (ref = entry.node) != null ? ref.id : void 0 : void 0;
+      if (!depId) {
+        return [];
+      }
+      ref1 = this._widgets;
+      results = [];
+      for (j = 0, len = ref1.length; j < len; j++) {
+        e = ref1[j];
+        if (((ref2 = e.node) != null ? (ref3 = ref2.depends_on) != null ? ref3.widget : void 0 : void 0) === depId) {
+          results.push(e);
+        }
+      }
+      return results;
+    }
+
+    // Première ligne VISUELLE (hors sentinelle `__isNew`) d'une entrée, ou null.
+    // L'index dans `_currentData` suit l'ordre de chargement alors que la grille
+    // peut être triée : on parcourt donc les lignes affichées par la grille (qui
+    // portent leur `rowKey`) au lieu de relier un index à `getRowAt`.
+    _firstRow(entry) {
+      var found, grid, i, j, k, len, len1, ref, ref1, row, rows;
+      grid = entry != null ? (ref = entry.dataView) != null ? ref._grid : void 0 : void 0;
+      if (!grid) {
+        return null;
+      }
+      rows = typeof grid.getData === 'function' ? grid.getData() || [] : [];
+      for (j = 0, len = rows.length; j < len; j++) {
+        row = rows[j];
+        if (row != null ? row.__isNew : void 0) {
+          continue;
+        }
+        found = ((row != null ? row.rowKey : void 0) != null) && typeof grid.getRow === 'function' ? grid.getRow(row.rowKey) : row;
+        if ((found != null) && !found.__isNew) {
+          return found;
+        }
+      }
+      ref1 = entry.dataView._currentData || [];
+      // Repli (grille sans getData, double de test minimal) : ordre de chargement.
+      for (i = k = 0, len1 = ref1.length; k < len1; i = ++k) {
+        row = ref1[i];
+        if (row != null ? row.__isNew : void 0) {
+          continue;
+        }
+        found = typeof grid.getRowAt === "function" ? grid.getRowAt(i) : void 0;
+        if ((found != null) && !found.__isNew) {
+          return found;
+        }
+      }
+      return null;
+    }
+
+    // Marque `rowKey` active sur un widget dataView, puis propage la ligne à ses
+    // dépendants (récursion). Ne vole pas le focus ni n'ouvre l'édition.
+    _selectRow(entry, rowKey, seen = new WeakSet()) {
+      var ref, rowData;
+      if ((entry != null ? entry.dataView : void 0) == null) {
+        return;
+      }
+      rowData = (ref = entry.dataView._grid) != null ? ref.getRow(rowKey) : void 0;
+      if (!((rowData != null) && !rowData.__isNew)) {
+        return;
+      }
+      entry.dataView.setActiveRow(rowKey);
+      seen.add(entry);
+      return this._cascadeToDependents(entry, rowData, seen);
+    }
+
+    // Propage `rowData` de `entry` à ses dépendants dataView. Les widgets plugin
+    // dépendants ne sont pas remplis automatiquement.
+    _cascadeToDependents(entry, rowData, seen = new WeakSet()) {
+      var child, j, len, ref, ref1, results;
+      ref = this._dependentEntries(entry);
+      results = [];
+      for (j = 0, len = ref.length; j < len; j++) {
+        child = ref[j];
+        if (child.plugin) {
+          continue;
+        }
+        if (seen.has(child)) {
+          console.warn(`depends_on: cycle détecté autour du widget '${(ref1 = child.node) != null ? ref1.id : void 0}'`);
+          continue;
+        }
+        results.push(this._applyDependencySelection(child, child.node.depends_on, rowData, seen));
+      }
+      return results;
+    }
+
+    // Aucune ligne disponible : les dépendants (et descendants) passent en
+    // « aucun résultat », sans reliquat de l'ancienne sélection.
+    _cascadeNone(entry, seen = new WeakSet()) {
+      var child, j, len, ref, ref1, ref2, ref3, results;
+      seen.add(entry);
+      ref = this._dependentEntries(entry);
+      results = [];
+      for (j = 0, len = ref.length; j < len; j++) {
+        child = ref[j];
+        if (child.plugin) {
+          continue;
+        }
+        if (seen.has(child)) {
+          console.warn(`depends_on: cycle détecté autour du widget '${(ref1 = child.node) != null ? ref1.id : void 0}'`);
+          continue;
+        }
+        seen.add(child);
+        if ((ref2 = child.dataView) != null) {
+          ref2.setFilter({
+            field: (ref3 = child.node.depends_on) != null ? ref3.field : void 0,
+            value: null,
+            none: true
+          });
+        }
+        results.push(this._cascadeNone(child, seen));
+      }
+      return results;
+    }
+
+    // Au montage : chaque widget racine pourvu de dépendants active sa première
+    // ligne et lance la cascade. Les widgets sans dépendants ne sont pas modifiés.
+    _initializeCascade() {
+      var entry, first, j, len, ref, ref1, results;
+      ref = this._widgets;
+      results = [];
+      for (j = 0, len = ref.length; j < len; j++) {
+        entry = ref[j];
+        if (entry.plugin) {
+          continue;
+        }
+        if ((ref1 = entry.node) != null ? ref1.depends_on : void 0) {
+          continue;
+        }
+        if (entry.dataView == null) {
+          continue;
+        }
+        if (!(this._dependentEntries(entry).length > 0)) {
+          continue;
+        }
+        first = this._firstRow(entry);
+        if (first != null) {
+          results.push(this._selectRow(entry, first.rowKey));
+        } else {
+          results.push(this._cascadeNone(entry));
+        }
+      }
+      return results;
+    }
+
     _findSpace(nameOrId) {
-      var dv, ref, ref1, sp;
+      var config, dv, fields, sp;
       if (!nameOrId) {
         return null;
       }
@@ -545,25 +1196,22 @@ transition: all 0.3s ease;`;
         return v.name === nameOrId || v.id === nameOrId;
       });
       if (dv) {
+        config = _parseDataViewConfig(dv.config);
+        fields = config ? _dataViewColumns(config, dv, this.allSpaces) : [];
         return {
           // Create a virtual space object for DataView class compatibility
           id: dv.id,
           name: dv.name,
           isView: true,
           viewId: dv.id,
-          fields: (ref = dv.config) != null ? (ref1 = ref.columns) != null ? ref1.map(function(c) {
-            return {
-              name: c,
-              fieldType: 'String'
-            } || [];
-          }) : void 0 : void 0
+          fields: fields
         };
       }
       return null;
     }
 
     unmount() {
-      var entry, i, id, len, ref, ref1, ref2, st;
+      var entry, id, j, len, ref, ref1, ref2, ref3, st;
       ref = this._pluginStateByWidgetId;
       for (id in ref) {
         if (!hasProp.call(ref, id)) continue;
@@ -572,12 +1220,19 @@ transition: all 0.3s ease;`;
           window.removeEventListener('message', st.onMessage);
         }
       }
-      ref1 = this._widgets;
-      for (i = 0, len = ref1.length; i < len; i++) {
-        entry = ref1[i];
-        if ((ref2 = entry.dataView) != null) {
-          if (typeof ref2.unmount === "function") {
-            ref2.unmount();
+      if ((ref1 = this._resizeObserver) != null) {
+        if (typeof ref1.disconnect === "function") {
+          ref1.disconnect();
+        }
+      }
+      this._resizeObserver = null;
+      clearTimeout(this._resizeTimer);
+      ref2 = this._widgets;
+      for (j = 0, len = ref2.length; j < len; j++) {
+        entry = ref2[j];
+        if ((ref3 = entry.dataView) != null) {
+          if (typeof ref3.unmount === "function") {
+            ref3.unmount();
           }
         }
       }

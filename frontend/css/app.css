@@ -196,17 +196,18 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   font-size: 1rem; cursor: pointer; line-height: 1;
 }
 
-#space-list, #custom-view-list {
+#space-list, #page-list, #data-view-list {
   list-style: none; padding: 0;
 }
-#space-list li, #custom-view-list .leaf-item {
+#space-list li, #page-list .leaf-item, #data-view-list li {
   padding: .4rem 1rem .4rem 1.25rem; cursor: pointer;
   border-radius: 4px; transition: background .15s;
   font-size: .875rem; display: flex; align-items: center; gap: .4rem;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 #space-list li:hover, #space-list li.active,
-#custom-view-list .leaf-item:hover, #custom-view-list .leaf-item.active {
+#page-list .leaf-item:hover, #page-list .leaf-item.active,
+#data-view-list li:hover, #data-view-list li.active {
   background: rgba(255,255,255,.1);
 }
 
@@ -310,9 +311,21 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   font-size: 0.82rem;
 }
 /* Sentinel (new row) styling */
+/* Ligne sentinelle (nouvel enregistrement). Toast UI Grid pose la classe sur
+   chaque cellule `td` de la ligne ; on garde aussi la forme `td` descendante au
+   cas où la classe serait posée sur le `tr`. */
+.tdb-new-row,
 .tdb-new-row td {
   opacity: 0.5;
   border-top: 1px dashed #b0b8c8 !important;
+}
+/* Row highlighted by the depends_on cascade (one active row per grid). */
+.tui-grid-row.tdb-selected-row td {
+  background: rgba(137, 180, 250, 0.28) !important;
+  color: var(--color-text, #333) !important;
+}
+.tui-grid-row.tdb-selected-row:hover td {
+  background: rgba(137, 180, 250, 0.38) !important;
 }
 
 /* ── Custom view container ────────────────────────────────────────────────── */
@@ -324,6 +337,12 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   position: relative; /* Pour les poignées de redimensionnement */
   border: 1px solid transparent;
   transition: border-color 0.2s ease;
+  /* Les zones de page portent la classe générique .drop-zone (glisser-déposer) :
+     on neutralise ici ce qui centre et rétrécit les tuiles. */
+  align-items: stretch;
+  justify-content: flex-start;
+  color: inherit;
+  font-style: normal;
 }
 
 .cv-zone.vertical { flex-direction: column; }
@@ -349,6 +368,8 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   flex: 1;
   display: flex;
   min-height: 0;
+  min-width: 0;
+  align-items: stretch;
 }
 
 .cv-zone.vertical > .cv-zone-content {
@@ -385,6 +406,23 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   transform: scale(1.2);
 }
 
+/* Séparateurs glissables entre tuiles (mode tuile des pages) */
+.cv-splitter {
+  flex: 0 0 5px;
+  align-self: stretch;
+  background: transparent;
+  transition: background 0.15s ease;
+  z-index: 5;
+}
+
+.cv-splitter:hover,
+.cv-splitter:active {
+  background: var(--color-accent);
+}
+
+.cv-splitter--horizontal { cursor: col-resize; }
+.cv-splitter--vertical { cursor: row-resize; }
+
 /* Tooltip de redimensionnement */
 .resize-tooltip {
   pointer-events: none;
@@ -406,11 +444,22 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   background-size: 50px 50px;
 }
 
-/* Styles pour les widgets dans les zones */
+/* Styles pour les widgets dans les zones — mode tuile : les widgets remplissent
+   la surface et se touchent, séparés par un unique filet de 1 px. */
 .cv-zone .cv-widget {
-  margin: 2px;
-  border-radius: 4px;
+  margin: 0;
+  border-radius: 0;
   overflow: hidden;
+  min-width: 0;
+}
+
+/* Évite la double bordure entre deux tuiles voisines. */
+.cv-zone.horizontal > .cv-zone-content > .cv-widget + .cv-widget {
+  border-left-width: 0;
+}
+
+.cv-zone.vertical > .cv-zone-content > .cv-widget + .cv-widget {
+  border-top-width: 0;
 }
 
 /* Zone toolbar (Phase 3) */
@@ -594,12 +643,17 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
 .cv-widget-delete-btn:hover { opacity: 1; color: var(--color-error, #e74c3c); }
 .cv-widget-body { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
 .cv-widget-body > div { flex: 1; min-height: 0; }
-.cv-widget-filter {
+.cv-widget-filter.toolbar-filter {
   flex: 1;
+  /* Dans un widget, c'est la largeur du widget qui borne le champ : pas de
+     plancher fixe, sinon la barre de titre déborderait sur un widget étroit. */
+  min-width: 0;
   margin: 0 .5rem 0 .75rem;
 }
-.cv-widget-filter .toolbar-filter-label {
+.cv-widget-filter.toolbar-filter .toolbar-filter-label {
   font-size: .75rem;
+  padding-left: .35rem;
+  padding-right: .35rem;
 }
 
 /* Aggregate widget table */
@@ -617,6 +671,7 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
 .presentation-mode .cv-widget-title { cursor: default; }
 .presentation-mode .cv-widget-delete-btn,
 .presentation-mode .resize-handle,
+.presentation-mode .cv-splitter,
 .presentation-mode .cv-widget-filter { display: none !important; }
 .presentation-mode .drop-zone { border: none !important; }
 .presentation-mode .cv-widget-title::after { display: none; }
@@ -1160,23 +1215,136 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
 }
 
 /* ── Champ de filtre formule dans la toolbar ────────────────────────────────── */
+/* L'étiquette et l'input forment un seul bloc visuel (input group) : c'est le
+   conteneur qui porte la bordure et les états, l'étiquette est un préfixe
+   teinté collé à gauche, l'input n'a ni bordure ni fond propre. */
 .toolbar-filter {
-  display: flex; align-items: center; gap: .3rem; flex: 1; min-width: 0;
+  display: flex; align-items: center; flex: 1 1 auto;
+  min-width: 16rem;
+  border: 1px solid #d1d5db; border-radius: 4px;
+  background: #fff;
+  transition: border-color .15s, background .15s;
 }
-.toolbar-filter-label {
-  font-size: .85rem; color: #888; flex-shrink: 0; user-select: none;
+.toolbar-filter .toolbar-filter-label {
+  display: flex; align-items: center; align-self: stretch;
+  flex: 0 0 auto;
+  padding: .15rem .45rem;
+  font-size: .85rem; color: #888; user-select: none;
+  background: #f3f4f6; border-right: 1px solid #e5e7eb;
+  border-radius: 3px 0 0 3px;
 }
 .toolbar-filter-input {
   flex: 1; min-width: 0; font-size: .8rem; font-family: monospace;
-  border: 1px solid transparent; border-radius: 3px;
+  border: none; border-radius: 0;
   padding: .15rem .4rem; outline: none; background: transparent; color: #555;
 }
 .toolbar-filter-input::placeholder { color: #bbb; }
-.toolbar-filter-input:focus,
-.toolbar-filter-input.active {
-  border-color: #d1d5db; background: #fff;
+.toolbar-filter:focus-within { border-color: #9ca3af; }
+.toolbar-filter-input.active { color: #3730a3; }
+.toolbar-filter:has(.toolbar-filter-input.active) {
+  border-color: #6366f1; background: #eef2ff;
 }
-.toolbar-filter-input.active { border-color: #6366f1; background: #eef2ff; color: #3730a3; }
+.toolbar-filter:has(.toolbar-filter-input.active) .toolbar-filter-label {
+  background: #e0e7ff; border-right-color: #c7d2fe; color: #4338ca;
+}
+
+/* Autocomplete des noms de champs dans les filtres formule (« λ »).
+   La liste est attachée à document.body, en position fixed sous l'input. */
+.field-ac {
+  position: fixed;
+  z-index: 3000;
+  max-height: 14rem;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, .12);
+  font-family: monospace;
+  font-size: .8rem;
+}
+.field-ac-item {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 1rem;
+  padding: .2rem .5rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.field-ac-item.selected { background: #eef2ff; }
+.field-ac-type { color: #9ca3af; font-size: .72rem; }
+/* L'erreur prime sur l'état actif : règle après celle de `.active`. */
+.toolbar-filter:has(.toolbar-filter-input.input-error) {
+  border-color: #ef4444; background: #fef2f2;
+}
+.toolbar-filter:has(.toolbar-filter-input.input-error) .toolbar-filter-label {
+  background: #fee2e2; border-right-color: #fecaca; color: #b91c1c;
+}
+
+/* ── Menu « Trier / Filtrer » et préréglages de vue ────────────────────────── */
+/* Le bouton est collé au champ filtre (input group) ; le menu est en position
+   fixed pour échapper au `overflow: hidden` des widgets de page. */
+.view-presets-host { position: relative; }
+.view-presets-btn {
+  flex: 0 0 auto;
+  max-width: 11rem;
+  overflow: hidden; text-overflow: ellipsis;
+  margin: 0 .15rem 0 0;
+  padding: .12rem .45rem;
+  font-size: .75rem; white-space: nowrap;
+  border: none; border-left: 1px solid #e5e7eb; border-radius: 0 3px 3px 0;
+  background: #f9fafb; color: #4b5563;
+  cursor: pointer;
+}
+.view-presets-btn:hover { background: #eef2ff; color: #4338ca; }
+.view-presets-btn.active { background: #e0e7ff; color: #3730a3; font-weight: 600; }
+.cv-widget-filter .view-presets-btn { padding: .1rem .35rem; font-size: .7rem; max-width: 9rem; }
+
+.view-presets-menu {
+  position: fixed; z-index: 3000;
+  width: 20rem; max-height: 24rem; overflow-y: auto;
+  padding: .35rem 0;
+  background: #fff; border: 1px solid #d1d5db; border-radius: 4px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .14);
+  font-size: .8rem; color: #374151;
+}
+.view-presets-menu.hidden { display: none; }
+.view-presets-section { padding: .2rem .5rem .35rem; }
+.view-presets-section + .view-presets-section { border-top: 1px solid #f3f4f6; }
+.view-presets-section-title {
+  padding: .2rem 0;
+  font-size: .7rem; letter-spacing: .04em; text-transform: uppercase; color: #9ca3af;
+}
+.view-presets-sort-row, .view-presets-preset {
+  display: flex; align-items: center; gap: .4rem;
+  padding: .18rem .35rem; border-radius: 3px; cursor: pointer;
+}
+.view-presets-sort-row:hover, .view-presets-preset:hover { background: #f3f4f6; }
+.view-presets-preset.active { background: #eef2ff; color: #3730a3; font-weight: 600; }
+.view-presets-sort-label, .view-presets-preset-name {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.view-presets-sort-label { font-family: monospace; }
+.view-presets-remove, .view-presets-preset-delete {
+  flex: 0 0 auto;
+  padding: 0 .15rem; line-height: 1;
+  background: none; border: none; cursor: pointer; color: #9ca3af;
+}
+.view-presets-remove:hover, .view-presets-preset-delete:hover { color: #e74c3c; }
+.view-presets-empty { padding: .15rem .35rem; color: #9ca3af; font-style: italic; }
+.view-presets-actions { padding: .35rem .5rem 0; border-top: 1px solid #e5e7eb; }
+.view-presets-save {
+  width: 100%; padding: .25rem .5rem;
+  font-size: .78rem; color: #374151;
+  background: #f9fafb; border: 1px solid #d1d5db; border-radius: 4px;
+  cursor: pointer;
+}
+.view-presets-save:hover { background: #eef2ff; border-color: #c7d2fe; color: #3730a3; }
+.view-presets-error {
+  margin: .2rem .5rem; padding: .25rem .4rem;
+  background: #fef2f2; border: 1px solid #fecaca; border-radius: 3px;
+  color: #b91c1c; font-size: .75rem;
+}
+.view-presets-error.hidden { display: none; }
 
 /* ── Message de validation YAML (éditeur modal) ────────────────────────────── */
 .yaml-validation-msg {

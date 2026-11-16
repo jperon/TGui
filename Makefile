@@ -14,7 +14,7 @@ TEST_JS_OUTS     := $(TEST_COFFEE_SRCS:.coffee=.js)
 PLAYWRIGHT_COFFEE_SRCS := $(shell find tests/playwright -name '*.coffee')
 PLAYWRIGHT_JS_OUTS := $(PLAYWRIGHT_COFFEE_SRCS:.coffee=.js)
 
-.PHONY: all install-hooks build test test-js test-up test-down test-logs up down logs clean doctor vendor audit-deps doc doc-% doc-gen doc-po-update doc-po-build doc-md doc-check sdl-gen sdl-check ci test-browser test-browser-spaces test-browser-data-views test-browser-pages test-browser-relations test-browser-auth test-browser-apps test-browser-integration test-browser-e2e playwright-install playwright-setup playwright-compile
+.PHONY: all install-hooks build test test-js test-up test-down test-logs up down logs clean doctor vendor audit-deps doc doc-% doc-gen doc-po-update doc-po-build doc-md doc-check sdl-gen sdl-check app-bibliotheque app-bibliotheque-check ci test-browser test-browser-spaces test-browser-data-views test-browser-pages test-browser-relations test-browser-auth test-browser-apps test-browser-integration test-browser-e2e playwright-install playwright-setup playwright-compile
 
 all: build
 
@@ -233,6 +233,18 @@ sdl-check: build
 	diff -u schema/tdb.generated.graphql $$tmp >/dev/null || (echo "SDL drift detected: run 'make sdl-gen' and commit schema/tdb.generated.graphql"; rm -f $$tmp; exit 1); \
 	rm -f $$tmp; \
 	echo "SDL check OK"
+
+app-bibliotheque: build
+	docker build $(DOCKER_BUILD_NET) -t $(TEST_IMAGE) .
+	docker run --rm -u $$(id -u):$$(id -g) -v ./:/app $(TEST_IMAGE) tarantool -e 'package.path="/app/backend/?.lua;/app/backend/?/init.lua;"..package.path; require("tools.bibliotheque_app").write("/app/apps/bibliotheque/bibliotheque.tdbapp.yaml"); os.exit(0)'
+
+app-bibliotheque-check: build
+	@tmp=$$(mktemp); \
+	docker build $(DOCKER_BUILD_NET) -t $(TEST_IMAGE) . >/dev/null; \
+	docker run --rm -v ./:/app $(TEST_IMAGE) tarantool -e 'package.path="/app/backend/?.lua;/app/backend/?/init.lua;"..package.path; io.write(require("tools.app_builder").emit(require("tools.bibliotheque_app").build())); os.exit(0)' > $$tmp; \
+	diff -q $$tmp apps/bibliotheque/bibliotheque.tdbapp.yaml >/dev/null || { echo "❌ paquet périmé : make app-bibliotheque"; rm -f $$tmp; exit 1; }; \
+	rm -f $$tmp; \
+	echo "✅ paquet à jour"
 
 ci: sdl-check test test-js doc-check
 

@@ -3,7 +3,9 @@
 window.AppFieldsHelpers =
   bindFormulaFilter: (app) ->
     app._formulaTimer = null
-    app.el.formulaFilterInput().addEventListener 'input', (e) ->
+    input = app.el.formulaFilterInput()
+    window.FieldAutocomplete?.attach input, -> app._activeDataView
+    input.addEventListener 'input', (e) ->
       clearTimeout app._formulaTimer
       val = e.target.value.trim()
       e.target.classList.toggle 'active', val != ''
@@ -106,8 +108,8 @@ window.AppFieldsHelpers =
     app.el.relTargetRow().classList.toggle 'hidden', !isRelation
     app.el.relReprRow().classList.toggle 'hidden', !isRelation
     app.el.fieldNotNull().closest('label')?.classList.toggle 'hidden', isRelation
-    formulaSection = app.el.formulaBody().closest('.formula-section')
-    formulaSection?.classList.toggle 'hidden', isRelation
+    # La section formule reste visible pour une Relation : un champ relation
+    # peut être CALCULÉ (formule de lecture renvoyant l'id de la cible).
     document.getElementById('field-repr-section')?.classList.toggle 'hidden', isRelation
     if isRelation
       sel = app.el.relToSpace()
@@ -162,6 +164,25 @@ window.AppFieldsHelpers =
       opts.language = 'lua'
     opts
 
+  applyFieldFormulaState: (app, field) ->
+    if field.formula and field.formula != ''
+      if field.triggerFields
+        document.querySelector('input[name="formula-type"][value="trigger"]').checked = true
+        app.el.triggerFieldsRow().classList.remove 'hidden'
+        tf = field.triggerFields
+        app.el.fieldTriggerFields().value =
+          if tf.length == 0 then ''
+          else if tf[0] == '*' then '*'
+          else tf.join(', ')
+      else
+        document.querySelector('input[name="formula-type"][value="formula"]').checked = true
+      app.el.formulaBody().classList.remove 'hidden'
+      app.el.fieldFormula().value = field.formula
+      if app.el.formulaLanguage() then app.el.formulaLanguage().value = field.language or 'lua'
+    else
+      document.querySelector('input[name="formula-type"][value="none"]').checked = true
+      app.el.formulaBody().classList.add 'hidden'
+
   startEditField: (app, field, relation = null) ->
     app._editingFieldId = field.id
     app._editingRelation = relation or null
@@ -175,28 +196,15 @@ window.AppFieldsHelpers =
       app.el.relReprFormula().value = relation.reprFormula or ''
       app.el.relToSpace().value = relation.toSpaceId or ''
       app.el.fieldReprFormula().value = '' if app.el.fieldReprFormula()
+      # Une relation peut porter une formule (champ relation calculé) : elle
+      # doit être affichée pour pouvoir être éditée.
+      @applyFieldFormulaState app, field
     else
       app.el.fieldType().value = field.fieldType
       app._onFieldTypeChange()
       app.el.fieldNotNull().checked = field.notNull
       app.el.fieldReprFormula().value = field.reprFormula or '' if app.el.fieldReprFormula()
-      if field.formula and field.formula != ''
-        if field.triggerFields
-          document.querySelector('input[name="formula-type"][value="trigger"]').checked = true
-          app.el.triggerFieldsRow().classList.remove 'hidden'
-          tf = field.triggerFields
-          app.el.fieldTriggerFields().value =
-            if tf.length == 0 then ''
-            else if tf[0] == '*' then '*'
-            else tf.join(', ')
-        else
-          document.querySelector('input[name="formula-type"][value="formula"]').checked = true
-        app.el.formulaBody().classList.remove 'hidden'
-        app.el.fieldFormula().value = field.formula
-        if app.el.formulaLanguage() then app.el.formulaLanguage().value = field.language or 'lua'
-      else
-        document.querySelector('input[name="formula-type"][value="none"]').checked = true
-        app.el.formulaBody().classList.add 'hidden'
+      @applyFieldFormulaState app, field
     app.el.fieldName().focus()
 
   updateFieldProperties: (app, fieldId, opts, formulaType) ->
@@ -382,7 +390,11 @@ window.AppFieldsHelpers =
       if type != originalType
         conversionFormula = null
         conversionLang = 'lua'
-        if formulaType != 'none'
+        # Pour une Relation, la formule saisie est la formule de LECTURE du
+        # champ relation calculé, pas une formule de conversion de type : rien
+        # à convertir vers un id Int, elle est enregistrée sur le champ après
+        # le changement de type (updateFieldProperties ci-dessous).
+        if formulaType != 'none' and type != 'Relation'
           conversionFormula = app.el.fieldFormula().value.trim() or null
           conversionLang = app.el.formulaLanguage()?.value or 'lua'
 
@@ -405,7 +417,8 @@ window.AppFieldsHelpers =
                   toSpaceId
                   idField.id
                   reprFormula
-                )
+                ).then ->
+                  app.updateFieldProperties(app._editingFieldId, opts, formulaType)
             else
               app.updateFieldProperties(app._editingFieldId, opts, formulaType)
           .catch (err) -> tdbAlert app._err(err), 'error'
@@ -416,12 +429,17 @@ window.AppFieldsHelpers =
       toSpaceId   = app.el.relToSpace().value
       reprFormula = app.el.relReprFormula().value.trim()
       return unless toSpaceId
+      formulaType = document.querySelector('input[name="formula-type"]:checked').value
+      formulaOpts = window.AppFieldsHelpers.applyFormulaOptions app, {}, formulaType, null
       Spaces.getWithFields(toSpaceId).then (targetSpace) ->
         idField = (targetSpace.fields or []).find (f) -> f.fieldType == 'Sequence'
         unless idField
           tdbAlert app._t('ui.alerts.targetNoSequence'), 'warn'
           return
-        Spaces.addField(app._currentSpace.id, name, 'Int', notNull, '')
+        # La formule (si « Colonne calculée » est choisie) est transmise au
+        # champ Int : la relation porte alors sur un champ calculé.
+        Spaces.addField(app._currentSpace.id, name, 'Int', notNull, '',
+          formulaOpts.formula, formulaOpts.triggerFields, formulaOpts.language)
           .then (newField) ->
             Spaces.createRelation(name, app._currentSpace.id, newField.id, toSpaceId, idField.id, reprFormula)
               .then ->

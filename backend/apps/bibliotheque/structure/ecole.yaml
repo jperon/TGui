@@ -1,0 +1,113 @@
+spaces:
+- name: Titres
+  description: Titres de civilité
+  fields:
+  - {name: titre, type: String, notNull: true}
+  - {name: abrege, type: String}
+  - {name: femme, type: Boolean}
+- name: Sections
+  description: Sections de l'école
+  fields:
+  - {name: section, type: String, notNull: true}
+  - {name: abregee, type: String}
+- name: Annee
+  description: Années scolaires
+  fields:
+  - {name: debut, type: Datetime, notNull: true}
+  - {name: fin, type: Datetime, notNull: true}
+  - {name: en_cours, type: Boolean, description: Année courante (stockée, voir plan)}
+  - {name: section, type: Int, ref: Sections.id}
+  - name: n
+    type: Int
+    formula: "tonumber(@debut\\sub(1, 4))"
+  - name: annee
+    type: String
+    formula: "@n .. ' - ' .. (@n + 1)"
+- name: Niveaux
+  description: Niveaux scolaires
+  fields:
+  - {name: niveau, type: Int, notNull: true}
+  - {name: classe, type: String}
+  - {name: abrege, type: String, notNull: true}
+  - {name: generique, type: String}
+  - {name: superieur, type: Int, ref: Niveaux.id}
+  - name: descriptif
+    type: String
+    formula: "(\"%02d − %s\")\\format @niveau, @abrege"
+- name: Personnes
+  description: Élèves, enseignants et familles
+  fields:
+  - {name: nom, type: String, notNull: true}
+  - {name: particule, type: String}
+  - {name: prenom, type: String}
+  - {name: titre, type: Int, ref: Titres.id}
+  - {name: date_de_naissance, type: Datetime}
+  - {name: lieu_de_naissance, type: String}
+  - {name: precision, type: String}
+  - {name: famille, type: Int, ref: Personnes.id}
+  - {name: externe, type: Boolean}
+  - name: descriptif
+    type: String
+    formula: "@nom\\upper! .. (@particule and (' (' .. @particule .. ')') or '') .. ' ' .. (@prenom or '') .. (@precision and (' ' .. @precision) or '')"
+  - name: classe_actuelle
+    type: Int
+    description: Classe de l'année en cours (sans date de départ)
+    formula: |
+      ([ce.classe for ce in *space('ClassesEleves') when ce.eleve == @id and (ce.depart or '') == '' and #[c for c in *space('Classes') when c.id == ce.classe and #[a for a in *space('Annee') when a.id == c.annee and a.en_cours] > 0] > 0])[1]
+  - name: emprunts_en_cours
+    type: Int
+    formula: "#[e for e in *space('Emprunts') when e.personne == @id and (e.retour or '') == '']"
+- name: Prefectures
+  description: Groupes de classes par année
+  fields:
+  - {name: nom, type: String, notNull: true}
+  - {name: annee, type: Int, ref: Annee.id}
+  - {name: prefet, type: Int, ref: Personnes.id}
+  - {name: niveau_min, type: Int, ref: Niveaux.id}
+  - {name: niveau_max, type: Int, ref: Niveaux.id}
+  - name: descriptif
+    type: String
+    formula: "@nom .. ' ' .. (@annee and @annee.n or '?')"
+  - name: effectif
+    type: Int
+    formula: "#[ce for ce in *space('ClassesEleves') when (ce.depart or '') == '' and #[c for c in *space('Classes') when c.id == ce.classe and c.prefecture == @id] > 0]"
+- name: Classes
+  description: Classes d'une année scolaire
+  fields:
+  - {name: niveau, type: Int, ref: Niveaux.id}
+  - {name: annee, type: Int, ref: Annee.id}
+  - {name: prefecture, type: Int, ref: Prefectures.id}
+  - {name: professeur_principal, type: Int, ref: Personnes.id}
+  - {name: precision, type: String}
+  - name: descriptif
+    type: String
+    formula: "@niveau.abrege .. (@precision or '')"
+  - name: descriptif_complet
+    type: String
+    formula: "@annee.n .. ' ' .. @descriptif"
+  - name: effectif
+    type: Int
+    formula: "#[ce for ce in *space('ClassesEleves') when ce.classe == @id and (ce.depart or '') == '']"
+  - name: naissance_theorique
+    type: Int
+    formula: "@annee.n - (@niveau.niveau + 2)"
+- name: ClassesEleves
+  description: Affectation des élèves aux classes (liaison N-N)
+  fields:
+  - {name: classe, type: Int, ref: Classes.id}
+  - {name: eleve, type: Int, ref: Personnes.id}
+  - {name: entree, type: Datetime}
+  - {name: depart, type: Datetime}
+  - {name: redoublement, type: Boolean}
+  - name: eleve_nom
+    type: String
+    formula: "@eleve and @eleve.descriptif"
+  - name: classe_nom
+    type: String
+    formula: "@classe and @classe.descriptif_complet"
+  - name: annee
+    type: Int
+    formula: "@classe and @classe.annee and @classe.annee.id"
+  - name: annee_en_cours
+    type: Boolean
+    formula: "not not (@classe and @classe.annee and @classe.annee.en_cours and not @depart)"

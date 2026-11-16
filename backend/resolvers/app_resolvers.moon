@@ -19,7 +19,13 @@ app_apply   = require 'core/app_apply'
 { :require_admin } = require 'resolvers.utils'
 
 -- Item types whose delivered content is executable third-party code (spec §4).
-CODE_TYPES = { plugin: true, page: true, dataview: true }
+-- `preset` belongs here: its content carries a MoonScript filter formula
+-- (`self.age > 3`, tests/test_view_presets.moon:37) evaluated against each
+-- record like every other `filter` formula (resolvers/graphql_view_resolvers.moon:
+-- 140-169 compiles it with triggers.compile_formula formula, 'filter',
+-- 'moonscript'). `dataview` is here for the computed-field formulas embedded in
+-- its config (core/data_views.moon:9 compiles them).
+CODE_TYPES = { plugin: true, page: true, dataview: true, preset: true }
 
 SEMVER_PATTERN = '^%d+%.%d+%.%d+$'
 

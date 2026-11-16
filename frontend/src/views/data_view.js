@@ -60,12 +60,16 @@
       this._fkOptions = {}; // field name → [{ text, value }]
       this._formulaFilter = ''; // Lua/MoonScript formula for server-side row filtering
       this._formulaTimer = null; // debounce handle
+      this._sortState = []; // tri demandé (survit aux resetData de Toast UI Grid)
+      this._applyingSort = false; // true pendant la réapplication du tri
       this._focusedColumnName = null;
       this._colWidthsCache = {};
       this._saveWidthsTimer = null;
+      this._activeRowKey = null; // rowKey of the row highlighted by depends_on cascade
     }
 
-    // Build FK display maps for all relation fields.
+    
+      // Build FK display maps for all relation fields.
     async _buildFkMaps() {
       var data, display, e, field, fkId, formula, j, l, len, len1, map, options, rec, records, ref, ref1, ref2, ref3, ref4, ref5, ref6, rel, results1;
       ref = this._relations;
@@ -123,7 +127,7 @@
     }
 
     async mount() {
-      var allCols, boolNames, col, columns, editableCols, editableSet, escapeHtml, f, fields, fkMap, fkOptions, fmtError, formulaNames, moveTo, ref, saved, seqNames, setFocusedColumn, toBool, wrapper;
+      var allCols, boolNames, col, columns, editableCols, editableSet, escapeHtml, f, fields, fkMap, fkOptions, fmtError, formulaNames, moveTo, navColumns, ref, saved, seqNames, setFocusedColumn, toBool, wrapper;
       this._mounted = true;
       this.container.innerHTML = '';
       wrapper = document.createElement('div');
@@ -273,6 +277,12 @@
               })(f.name);
             }
           }
+          if (f.hidden) {
+            // Champ de liaison chargé mais non affiché (T21) : la colonne reste dans
+            // la grille et dans la requête, mais Toast UI Grid la masque (en-tête,
+            // panneau de largeurs) ; elle est aussi exclue de la navigation Tab.
+            col.hidden = true;
+          }
           results1.push(col);
         }
         return results1;
@@ -328,7 +338,10 @@
       });
       this._grid.on('click', (ev) => {
         if (ev != null ? ev.columnName : void 0) {
-          return setFocusedColumn(ev.columnName);
+          setFocusedColumn(ev.columnName);
+        }
+        if ((ev != null ? ev.rowKey : void 0) != null) {
+          return this.setActiveRow(ev.rowKey);
         }
       });
       this._grid.on('mouseover', (ev) => {
@@ -351,16 +364,27 @@
           return cellEl.removeAttribute('title');
         }
       });
+      // Clic sur un en-tête : mémoriser le tri pour qu'il survive au prochain
+      // resetData (rechargement du filtre, insertion, suppression…).
+      this._grid.on('afterSort', (ev) => {
+        return this._onGridSortChanged();
+      });
+      this._grid.on('afterUnsort', (ev) => {
+        return this._onGridSortChanged();
+      });
       // Tab / Shift+Tab: move to next/prev cell (all columns), wrapping at row
       // boundaries. Start editing only if the target cell is editable.
       // Listener on document (capture) so it fires even when focus is on wrapper
       // itself (non-editable cell); guarded by wrapper.contains(activeElement).
-      editableCols = columns.filter(function(c) {
+      navColumns = columns.filter(function(c) {
+        return !c.hidden;
+      });
+      editableCols = navColumns.filter(function(c) {
         return c.editor;
       }).map(function(c) {
         return c.name;
       });
-      allCols = columns.map(function(c) {
+      allCols = navColumns.map(function(c) {
         return c.name;
       });
       editableSet = new Set(editableCols);
@@ -597,12 +621,18 @@
     }
 
     async load() {
-      var data, e, f, fieldList, fields, focus, focusedRow, formulaNames, gqlFilter, nm, ref, ref1, ref2, ref3, ref4, reprNames, spaceQuery, tname;
+      var computedNames, data, e, f, fieldList, fields, focus, focusedRow, gqlFilter, gridHasFocus, nm, ref, ref1, ref2, ref3, ref4, ref5, ref6, ref7, ref8, ref9, reprNames, spaceFilter, spaceQuery, tname;
       if (!this._mounted) {
         return;
       }
-      // Save current focus to restore it after resetData
-      focus = (ref = this._grid) != null ? ref.getFocusedCell() : void 0;
+      // Save current focus to restore it after resetData — but only when the browser
+      // focus is actually inside the grid. A reload triggered from an input outside
+      // the grid (e.g. the live formula filter) must not steal the focus back.
+      this._lastFocus = null;
+      gridHasFocus = (ref = this.container) != null ? ref.contains(document.activeElement) : void 0;
+      if (gridHasFocus) {
+        focus = (ref1 = this._grid) != null ? ref1.getFocusedCell() : void 0;
+      }
       if (((focus != null ? focus.rowKey : void 0) != null) && focus.columnName) {
         focusedRow = this._grid.getRow(focus.rowKey);
         if (focusedRow) {
@@ -614,12 +644,14 @@
         }
       }
       fields = this.space.fields || [];
-      formulaNames = new Set((function() {
+      // Every field carrying a formula (trigger or not) must be read through the
+      // dynamic space query: a trigger formula may have no stored value yet.
+      computedNames = new Set((function() {
         var j, len, results1;
         results1 = [];
         for (j = 0, len = fields.length; j < len; j++) {
           f = fields[j];
-          if (f.formula && f.formula !== '' && !f.triggerFields) {
+          if (f.formula && f.formula !== '') {
             results1.push(f.name);
           }
         }
@@ -654,7 +686,7 @@
           this._showError(`Erreur d'exécution de la vue : ${e.message}`);
           this._rows = [];
         }
-      } else if ((formulaNames.size > 0 || reprNames.size > 0) && !this._formulaFilter) {
+      } else if (computedNames.size > 0 || reprNames.size > 0) {
         // Use the space-specific dynamic resolver so formula fields are evaluated.
         tname = gqlName(this.space.name);
         fieldList = (function() {
@@ -672,9 +704,18 @@
           return results1;
         })();
         fieldList = fieldList.join(' ');
-        spaceQuery = `query { ${tname}(limit: 2000) { items { _id ${fieldList} } } }`;
+        // The dynamic space query also accepts a RecordFilter (dynamic.moon), so an
+        // active formula filter no longer forces the plain records query — which
+        // would drop read-computed columns (no stored value for them).
+        spaceFilter = this._formulaFilter ? {
+          formula: this._formulaFilter,
+          language: 'moonscript'
+        } : void 0;
+        spaceQuery = `query($filter: RecordFilter) { ${tname}(limit: 2000, filter: $filter) { items { _id ${fieldList} } } }`;
         try {
-          data = (await GQL.query(spaceQuery, {}));
+          data = (await GQL.query(spaceQuery, {
+            filter: spaceFilter
+          }));
           if (!this._mounted) {
             return;
           }
@@ -684,9 +725,23 @@
             row.__rowId = item._id;
             return row;
           });
+          if ((ref2 = this._formulaInputEl) != null) {
+            ref2.classList.remove('input-error');
+          }
+          if ((ref3 = document.getElementById('formula-filter-input')) != null) {
+            ref3.classList.remove('input-error');
+          }
         } catch (error) {
           e = error;
           this._showError(`Erreur de colonne calculée : ${e.message}`);
+          if (this._formulaFilter) {
+            if ((ref4 = this._formulaInputEl) != null) {
+              ref4.classList.add('input-error');
+            }
+            if ((ref5 = document.getElementById('formula-filter-input')) != null) {
+              ref5.classList.add('input-error');
+            }
+          }
           this._rows = [];
         }
       } else {
@@ -710,19 +765,19 @@
             row.__rowId = r.id;
             return row;
           });
-          if ((ref1 = this._formulaInputEl) != null) {
-            ref1.classList.remove('input-error');
+          if ((ref6 = this._formulaInputEl) != null) {
+            ref6.classList.remove('input-error');
           }
-          if ((ref2 = document.getElementById('formula-filter-input')) != null) {
-            ref2.classList.remove('input-error');
+          if ((ref7 = document.getElementById('formula-filter-input')) != null) {
+            ref7.classList.remove('input-error');
           }
         } catch (error) {
           e = error;
-          if ((ref3 = this._formulaInputEl) != null) {
-            ref3.classList.add('input-error');
+          if ((ref8 = this._formulaInputEl) != null) {
+            ref8.classList.add('input-error');
           }
-          if ((ref4 = document.getElementById('formula-filter-input')) != null) {
-            ref4.classList.add('input-error');
+          if ((ref9 = document.getElementById('formula-filter-input')) != null) {
+            ref9.classList.add('input-error');
           }
           this._rows = [];
           this._rows = [];
@@ -733,8 +788,16 @@
     }
 
     _applyData() {
-      var base, base1, base2, columnName, displayVal, f, isError, isNew, j, l, lastIdx, len, len1, name1, ref, ref1, row, rowId, rows, sentinel, sentinelRow, targetRow, val;
+      var base, base1, base2, columnName, displayVal, f, isError, isNew, j, l, len, len1, name1, ref, ref1, ref2, row, rowId, rows, sentinel, sentinelRow, targetRow, val;
       if (!this._grid) {
+        return;
+      }
+      // « aucun résultat » : un widget dépendant dont la source n'a aucune ligne
+      // correspondante n'affiche aucune ligne (ni donnée, ni sentinelle).
+      if (this.filter && this.filter.none) {
+        this._currentData = [];
+        this._activeRowKey = null;
+        this._grid.resetData(this._currentData);
         return;
       }
       rows = this._rows;
@@ -783,6 +846,16 @@
         }
       }
       this._grid.resetData(this._currentData);
+      // resetData rebuilds rows: the highlighted row key is no longer tracked.
+      this._activeRowKey = null;
+      // resetData remet le tri de Toast UI Grid à zéro : réapplique celui demandé
+      // (préréglage ou tri manuel mémorisé) pour qu'il persiste après un load.
+      // Le tri porte sur TOUTES les lignes, sentinelle comprise : on la remet
+      // ensuite en dernière position (cf. _pinSentinelLast).
+      if ((ref2 = this._sortState) != null ? ref2.length : void 0) {
+        this._applySortState();
+        this._pinSentinelLast();
+      }
       // Restore focus if we have saved it
       if (this._lastFocus) {
         ({rowId, isNew, columnName} = this._lastFocus);
@@ -800,9 +873,11 @@
           }), 0);
         }
       }
-      // Find the actual rowKey tui.Grid assigned to the sentinel (last visual row)
-      lastIdx = this._currentData.length - 1;
-      sentinelRow = this._grid.getRowAt(lastIdx);
+      // La sentinelle se repère par `__isNew`, jamais par son index : le tri peut
+      // avoir changé l'ordre visuel. Repli par index pour une grille sans getData.
+      sentinelRow = typeof this._grid.getData === 'function' ? (this._grid.getData() || []).find(function(row) {
+        return row != null ? row.__isNew : void 0;
+      }) : this._grid.getRowAt(this._currentData.length - 1);
       if (sentinelRow != null) {
         return this._grid.addRowClassName(sentinelRow.rowKey, 'tdb-new-row');
       }
@@ -940,22 +1015,29 @@
 
     // ── Cleanup ───────────────────────────────────────────────────────────────────
     unmount() {
-      var ref;
+      var ref, ref1;
       this._mounted = false;
       clearTimeout(this._formulaTimer);
       clearTimeout(this._saveWidthsTimer);
+      if ((ref = this._viewPresetsMenu) != null) {
+        if (typeof ref.destroy === "function") {
+          ref.destroy();
+        }
+      }
+      this._viewPresetsMenu = null;
       if (this._pasteListener) {
         document.removeEventListener('keydown', this._pasteListener);
       }
       if (this._tabListener) {
         document.removeEventListener('keydown', this._tabListener, true);
       }
-      if ((ref = this._grid) != null) {
-        ref.destroy();
+      if ((ref1 = this._grid) != null) {
+        ref1.destroy();
       }
       this._grid = null;
       this._currentData = [];
       this._rows = [];
+      this._activeRowKey = null;
       return this.container.innerHTML = '';
     }
 

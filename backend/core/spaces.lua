@@ -4,6 +4,7 @@ do
   local _obj_0 = require('core.config')
   validate_input, safe_formula_call = _obj_0.validate_input, _obj_0.safe_formula_call
 end
+local widget_ids = require('core.widget_ids')
 local FIELD_TYPES = {
   'String',
   'Int',
@@ -352,6 +353,66 @@ local SYSTEM_SPACES = {
           'name'
         },
         unique = true,
+        type = 'TREE'
+      }
+    }
+  },
+  _tdb_view_presets = {
+    format = {
+      {
+        name = 'id',
+        type = 'string'
+      },
+      {
+        name = 'scope',
+        type = 'string'
+      },
+      {
+        name = 'space_id',
+        type = 'string'
+      },
+      {
+        name = 'name',
+        type = 'string'
+      },
+      {
+        name = 'filter',
+        type = 'string'
+      },
+      {
+        name = 'sort',
+        type = 'string'
+      },
+      {
+        name = 'created_at',
+        type = 'number'
+      },
+      {
+        name = 'updated_at',
+        type = 'number'
+      }
+    },
+    indexes = {
+      primary = {
+        parts = {
+          'id'
+        },
+        unique = true,
+        type = 'HASH'
+      },
+      by_scope_name = {
+        parts = {
+          'scope',
+          'name'
+        },
+        unique = true,
+        type = 'TREE'
+      },
+      by_space = {
+        parts = {
+          'space_id'
+        },
+        unique = false,
         type = 'TREE'
       }
     }
@@ -1014,13 +1075,18 @@ bootstrap = function()
       return log.info("tdb_v3: added cardinality to _tdb_relations — relations existantes : cardinalité 'one' par défaut")
     end
   end)
-  return box.once('tdb_v4', function()
+  box.once('tdb_v4', function()
     local flagged = migrate_must_change_password()
     log.info('tdb_v4: added must_change_password to _tdb_users')
     if flagged > 0 then
       return log.warn("tdb_v4: " .. tostring(flagged) .. " user(s) still use the default password — change required")
     end
   end)
+  widget_ids.install_trigger()
+  local normalized = widget_ids.migrate_stored_pages()
+  if normalized > 0 then
+    return log.info("tdb widget ids: " .. tostring(normalized) .. " page(s) normalized")
+  end
 end
 local create_user_space
 create_user_space = function(name, description)
@@ -1538,6 +1604,7 @@ migrate = function()
   for name, desc in pairs(SYSTEM_SPACES) do
     create_space(name, desc)
   end
+  widget_ids.install_trigger()
   local _list_0 = box.space._tdb_fields:select({ })
   for _index_0 = 1, #_list_0 do
     local t = _list_0[_index_0]
@@ -1584,6 +1651,15 @@ delete_user_space = function(name)
   local sp = box.space["data_" .. tostring(name)]
   if sp then
     sp:drop()
+  end
+  if box.space._tdb_view_presets then
+    local _list_1 = box.space._tdb_view_presets.index.by_space:select({
+      sid
+    })
+    for _index_0 = 1, #_list_1 do
+      local t = _list_1[_index_0]
+      box.space._tdb_view_presets:delete(t[1])
+    end
   end
   return box.space._tdb_spaces:delete(sid)
 end

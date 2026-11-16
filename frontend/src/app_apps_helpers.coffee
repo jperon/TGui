@@ -47,13 +47,15 @@ window.AppAppsHelpers =
     }
 
   # Vrai si un élément créé/mis à jour/en conflit porte du code tiers.
+  # La liste des types reprend celle du résolveur (CODE_TYPES,
+  # backend/resolvers/app_resolvers.moon) : `preset` porte une formule de filtre.
   hasCodeChanges: (plan) ->
     groups = [(plan.create or []), (plan.update or []), (plan.conflict or [])]
     for group in groups
       for item in group
         return true if item.isCode == true
         t = item.type
-        return true if t == 'plugin' or t == 'page' or t == 'dataview'
+        return true if t == 'plugin' or t == 'page' or t == 'dataview' or t == 'preset'
     false
 
   # ── Aides DOM (jamais d'innerHTML) ─────────────────────────────────────────
@@ -163,7 +165,8 @@ window.AppAppsHelpers =
         app._t 'ui.apps.unchanged', { count: summary.unchanged }
 
   _isCodeItem: (item) ->
-    item.isCode == true or item.type == 'plugin' or item.type == 'page' or item.type == 'dataview'
+    item.isCode == true or item.type == 'plugin' or item.type == 'page' or
+      item.type == 'dataview' or item.type == 'preset'
 
   _appendItemLabel: (app, li, item) ->
     li.appendChild window.AppAppsHelpers._makeEl 'code', null, String item.key
@@ -268,6 +271,10 @@ window.AppAppsHelpers =
     if r.error
       box.appendChild window.AppAppsHelpers._makeEl 'div', 'apps-apply-error', String r.error
 
+  _reloadAppsAndMenu: (app) ->
+    app._loadApps?()
+    app._loadAll?()
+
   applyPackage: (app) ->
     return unless app._appPlan and app._appPackageYaml
     decisions = window.AppAppsHelpers.buildDecisions app._appPlan.conflict, (app._appChoices or {})
@@ -284,7 +291,8 @@ window.AppAppsHelpers =
       .then (data) ->
         r = data.applyAppUpdate
         window.AppAppsHelpers.renderApplyReport app, r
-        app._loadApps?() if r.ok
+        changed = r.ok or (r.created or []).length > 0 or (r.updated or []).length > 0
+        window.AppAppsHelpers._reloadAppsAndMenu app if changed
       .catch (err) ->
         app.el.appsApplyBtn().disabled = false
         tdbAlert app._err(err), 'error'
@@ -467,7 +475,7 @@ window.AppAppsHelpers =
           app._t 'ui.apps.purgeErr', { error: r.error or '' }
         if r.ok
           app.el.appsPurgeBox().classList.add 'hidden'
-          app._loadApps?()
+          window.AppAppsHelpers._reloadAppsAndMenu app
       .catch (err) -> tdbAlert app._err(err), 'error'
 
   # ── Liaison des évènements ─────────────────────────────────────────────────

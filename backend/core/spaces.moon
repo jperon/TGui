@@ -4,6 +4,7 @@
 
 log = require 'log'
 { :validate_input, :safe_formula_call } = require 'core.config'
+widget_ids = require 'core.widget_ids'
 
 -- Field type constants (mirrors GraphQL scalar names)
 FIELD_TYPES = { 'String', 'Int', 'Float', 'Boolean', 'ID', 'UUID', 'Sequence', 'Any', 'Map', 'Array', 'Datetime', 'Relation' }
@@ -113,6 +114,25 @@ SYSTEM_SPACES =
     indexes:
       primary: { parts: {'id'},   unique: true,  type: 'HASH' }
       by_name: { parts: {'name'}, unique: true,  type: 'TREE' }
+
+  -- Named view presets: one filter formula + sort order per widget (or per
+  -- main grid of a space). scope is an opaque key: 'widget:<pageId>:<widgetId>'
+  -- or 'space:<spaceId>'. space_id identifies the displayed space (permissions).
+  _tdb_view_presets:
+    format: {
+      { name: 'id',          type: 'string' }
+      { name: 'scope',       type: 'string' }
+      { name: 'space_id',    type: 'string' }
+      { name: 'name',        type: 'string' }
+      { name: 'filter',      type: 'string' }
+      { name: 'sort',        type: 'string' }
+      { name: 'created_at',  type: 'number' }
+      { name: 'updated_at',  type: 'number' }
+    }
+    indexes:
+      primary:       { parts: {'id'},              unique: true,  type: 'HASH' }
+      by_scope_name: { parts: {'scope','name'},    unique: true,  type: 'TREE' }
+      by_space:      { parts: {'space_id'},        unique: false, type: 'TREE' }
 
   -- Custom widget plugins (script/template code used by custom views)
   _tdb_widget_plugins:
@@ -377,6 +397,14 @@ bootstrap = ->
     log.info 'tdb_v4: added must_change_password to _tdb_users'
     if flagged > 0
       log.warn "tdb_v4: #{flagged} user(s) still use the default password — change required"
+
+  -- Widget ids: every widget of a page carries a stable id, which is the key of
+  -- the widget-scoped records (named view presets: 'widget:<pageId>:<widgetId>').
+  -- Tarantool does not persist before_replace triggers, so it is registered on
+  -- every start; pages written before this module are normalized once here.
+  widget_ids.install_trigger!
+  normalized = widget_ids.migrate_stored_pages!
+  log.info "tdb widget ids: #{normalized} page(s) normalized" if normalized > 0
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- Runtime space management
@@ -700,6 +728,10 @@ migrate = ->
   for name, desc in pairs SYSTEM_SPACES
     create_space name, desc
 
+  -- A system space (re)created above has no trigger yet; before_replace
+  -- replaces the previous trigger, so the bootstrap call is not duplicated.
+  widget_ids.install_trigger!
+
   -- Ensure sequences exist for all Sequence-type fields
   for t in *box.space._tdb_fields\select {}
     if t[4] == 'Sequence'
@@ -728,6 +760,11 @@ delete_user_space = (name) ->
   -- Drop the underlying box.space
   sp = box.space["data_#{name}"]
   sp\drop! if sp
+  -- Cascade: remove the view presets attached to this space
+  -- (core/view_presets.moon, index by_space).
+  if box.space._tdb_view_presets
+    for t in *box.space._tdb_view_presets.index.by_space\select { sid }
+      box.space._tdb_view_presets\delete t[1]
   -- Remove metadata
   box.space._tdb_spaces\delete sid
 

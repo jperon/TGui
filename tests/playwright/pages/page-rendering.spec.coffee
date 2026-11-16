@@ -39,8 +39,9 @@ test.describe 'Page rendering', ->
     sortableLoaded = await page.evaluate -> typeof Sortable isnt 'undefined'
     expect(sortableLoaded, 'SortableJS doit être chargé').toBe true
 
-    # Crée une page avec un widget sur l'espace de démo "Livres"
-    yaml = "layout:\\n  direction: vertical\\n  children:\\n    - widget:\\n        id: w1\\n        title: Catalogue\\n        space: Livres\\n        columns: [titre, isbn]"
+    # Crée une page avec un widget sur l'espace "Livres" (jeu d'exemple de la
+    # bibliothèque installée par backend/fixtures.moon)
+    yaml = "layout:\\n  direction: vertical\\n  children:\\n    - widget:\\n        id: w1\\n        title: Catalogue\\n        space: Livres\\n        columns: [titre, note]"
     res = await gql page, "mutation { createCustomView(input: { name: \"#{pageName}\", yaml: \"#{yaml}\" }) { id name } }"
     expect(res?.data?.createCustomView?.id, "createCustomView a échoué: #{JSON.stringify(res)}").toBeTruthy()
     createdId = res.data.createCustomView.id
@@ -57,5 +58,5 @@ test.describe 'Page rendering', ->
     await expect(container).toBeVisible()
     grid = container.locator '.tui-grid-container, [class*="tui-grid"]'
     await expect(grid.first()).toBeVisible()
-    # Au moins une ligne de données (les livres de démo)
+    # Au moins une ligne de données (les livres de la bibliothèque)
     await expect(container.locator('.tui-grid-cell').first()).toBeVisible()

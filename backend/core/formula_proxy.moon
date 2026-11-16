@@ -7,10 +7,17 @@
 -- formula evaluation through the module-level helpers below (T14 step 4), with
 -- no observable change. The `fk_cache.can_read` read guard is enforced in both
 -- make_space_helper (space() calls) and ensure_space (FK target loading).
+--
+-- T10: the host work done FOR a formula (space() select + decode, relation
+-- maps, formula compilation) runs through config.run_unguarded so it is not
+-- charged to the formula's 20M-instruction guard budget; only the formula's
+-- own code stays guarded. Per-request caches live in fk_cache (keyed by space
+-- name); without an fk_cache (write-time triggers) nothing is memoized and
+-- the loading stays under the guard.
 
 json                   = require 'json'
 log                    = require 'log'
-{ :safe_formula_call } = require 'core.config'
+{ :safe_formula_call, :run_unguarded } = require 'core.config'
 { :compile_formula }   = require 'core.formula_sandbox'
 { :build_fk_def_map }  = require 'core.relation_maps'
 
@@ -71,7 +78,8 @@ ensure_formulas = (space_name) ->
       formula = field[8]
       language = field[10] or 'lua'
 
-      compiled = compile_formula formula, field_name, language
+      -- Compilation is host work: unguarded (already cached below).
+      compiled = run_unguarded compile_formula, formula, field_name, language
       if compiled
         formulas[field_name] = compiled
 
@@ -86,17 +94,72 @@ decode_tuple = (t) ->
   d._id = tostring t[1]
   d
 
+-- Load a whole data space once: records indexed by _id (FK lookups) plus the
+-- select-ordered list (space() calls). Shared entry for fk_cache.spaces.
+load_space_records = (s_name) ->
+  sc = { records: {}, by_field: {}, list: {} }
+  tb = box.space["data_#{s_name}"]
+  if tb
+    for tup in *tb\select {}
+      d = decode_tuple tup
+      sc.records[d._id] = d
+      table.insert sc.list, d
+  sc
+
+-- ── Read-only rows ────────────────────────────────────────────────────────────
+
+-- A read-only view of one cached row: reads go to the shared row, any write
+-- raises. The view holds no key of its own, so __newindex fires for a stored
+-- field (`r.prix = 0`) exactly like for a new one — a plain copy would have let
+-- an assignment to an existing field through.
+make_read_only_view = (row, space_name) ->
+  setmetatable {}, {
+    __index: row
+    __newindex: (_, k) ->
+      error "space('#{space_name}') returns read-only records: assignment to '#{k}' refused", 2
+  }
+
+-- Views of a loaded space, built once per request (one per row, shared by every
+-- call, exactly like the rows themselves).
+read_only_views = (sname, sc) ->
+  return sc.readonly if sc.readonly
+  views = {}
+  for i = 1, #sc.list
+    views[i] = make_read_only_view sc.list[i], sname
+  sc.readonly = views
+  views
+
 -- fk_cache: optional per-request cache carrying a `can_read(space_name)`
 -- predicate (set by resolvers.utils.fk_cache_for for user-facing reads). When
 -- present and refusing a target space, space(name) returns an empty list so a
 -- formula cannot read a space the user has no `read` grant on. Absent for
 -- write-time triggers, which then keep full access.
+--
+-- With an fk_cache, the space is loaded once per request into
+-- fk_cache.spaces (unguarded host work, T10) and every call returns a fresh
+-- shallow copy of the row list: a formula that sorts or rewrites the list
+-- cannot contaminate the cache or another formula. The rows themselves are
+-- shared, so they are handed out as read-only views (make_read_only_view): a
+-- formula writing `r.prix = …` raises instead of silently contaminating the
+-- next evaluation and the FK resolutions that read the same rows. can_read is
+-- re-checked on EVERY call, so a refusal is never served from the cache.
+-- Without an fk_cache (long-lived trigger helper, core/triggers.moon) nothing
+-- is memoized — the data must stay fresh between writes — and the loading stays
+-- under the formula guard, otherwise `while true do space('X') end` in a
+-- trigger would reload X on every iteration and become a denial of service.
 make_space_helper = (fk_cache) ->
   (sname) ->
     return {} if fk_cache and fk_cache.can_read and not fk_cache.can_read sname
-    sp = box.space["data_#{sname}"]
-    return {} unless sp
-    [decode_tuple t for t in *sp\select {}]
+    unless fk_cache
+      sp = box.space["data_#{sname}"]
+      return {} unless sp
+      return [decode_tuple t for t in *sp\select {}]
+    fk_cache.spaces = fk_cache.spaces or {}
+    sc = fk_cache.spaces[sname]
+    unless sc
+      sc = run_unguarded load_space_records, sname
+      fk_cache.spaces[sname] = sc
+    [v for v in *read_only_views sname, sc]
 
 -- Ensure the shared caches exist on an fk_cache table (created when absent).
 prepare_cache = (fk_cache) ->
@@ -113,18 +176,18 @@ ensure_space = (fk_cache, s_name, to_field_name) ->
     return { records: {}, by_field: {} }
   sc = fk_cache.spaces[s_name]
   unless sc
-    sc = { records: {}, by_field: {} }
-    tb = box.space["data_#{s_name}"]
-    if tb
-      for tup in *tb\select {}
-        d = decode_tuple tup
-        sc.records[d._id] = d
+    -- Tuple loading is host work: unguarded (result cached below, T10).
+    sc = run_unguarded load_space_records, s_name
     fk_cache.spaces[s_name] = sc
 
-  -- Always build _id index for primary lookup
+  -- Always build _id index for primary lookup. Numeric loop over the ordered
+  -- list (not pairs): under the formula count hook every pairs()/next() step
+  -- is charged ~FORMULA_HOOK_INTERVAL instructions, which made honest FK
+  -- traversals trip the guard (T12).
   unless sc.by_field['_id']
     idx = {}
-    for _, d in pairs sc.records
+    for i = 1, #sc.list
+      d = sc.list[i]
       if d._id ~= nil
         key = tostring(d._id)
         idx[key] = d
@@ -133,7 +196,8 @@ ensure_space = (fk_cache, s_name, to_field_name) ->
   -- Build specific field index if needed and different from _id
   if to_field_name != '_id' and not sc.by_field[to_field_name]
     idx = {}
-    for _, d in pairs sc.records
+    for i = 1, #sc.list
+      d = sc.list[i]
       if d[to_field_name] ~= nil
         key = tostring(d[to_field_name])
         idx[key] = d
@@ -144,7 +208,8 @@ ensure_space = (fk_cache, s_name, to_field_name) ->
 -- Get or build a nested fk_def_map (cached, avoids repeated metadata scans).
 ensure_fk_def_map = (fk_cache, space_id) ->
   return fk_cache.fk_def_maps[space_id] if fk_cache.fk_def_maps[space_id]
-  fk_def_map = build_fk_def_map space_id
+  -- Building the map is host work: unguarded (cached below, T10).
+  fk_def_map = run_unguarded build_fk_def_map, space_id
   fk_cache.fk_def_maps[space_id] = fk_def_map
   fk_def_map
 
@@ -200,6 +265,11 @@ make_self_proxy = (record, fk_def_map, fk_cache, space_name) ->
           rawset t, k, nested
           return nested
         return nil
+      -- Cache the plain stored value in the proxy itself: otherwise every
+      -- `@field` in a formula re-enters __index AND runs eval_computed_formula
+      -- again, each call costing a count-hook event under the formula guard
+      -- (T12: repeated @id in a nested comprehension tripped the guard).
+      rawset t, k, v
       v
   }
   proxy
@@ -218,8 +288,11 @@ make_self_proxy_extended = (record, single_fk_map, multiple_fk_map, fk_cache, sp
     sc = ensure_space fk_cache, relation_def.toSpaceName, relation_def.toFieldName
     results = {}
 
-    -- Find all records in target space that reference the source record
-    for _, d in pairs sc.records
+    -- Find all records in target space that reference the source record.
+    -- Numeric loop over the ordered list (not pairs): each pairs()/next() step
+    -- is charged a count-hook event under the formula guard (T12).
+    for i = 1, #sc.list
+      d = sc.list[i]
       if d[relation_def.toFieldName] == source_id
         -- Create a nested proxy for each found record
         nested = make_self_proxy_extended d, single_fk_map, multiple_fk_map, fk_cache, relation_def.toSpaceName
@@ -273,8 +346,68 @@ make_self_proxy_extended = (record, single_fk_map, multiple_fk_map, fk_cache, sp
           rawset t, k, nested
           return nested
         return nil
+      -- Cache plain stored values in the proxy (see make_self_proxy).
+      rawset t, k, v
       v
   }
   proxy
 
-{ :make_self_proxy, :make_self_proxy_extended, :make_space_helper, :format_formula_error, :invalidate_formula_cache }
+-- ── Relation fields backed by a read-time formula ──────────────────────────────
+
+-- Space id from its name, memoized on the per-request cache: the self proxy
+-- built for a relation formula needs that space's fk_def_map.
+space_id_for = (fk_cache, space_name) ->
+  fk_cache.space_ids = fk_cache.space_ids or {}
+  id = fk_cache.space_ids[space_name]
+  return id if id
+  meta = box.space._tdb_spaces.index.by_name\get { space_name }
+  id = meta and meta[1]
+  fk_cache.space_ids[space_name] = id if id
+  id
+
+-- The `self` a relation formula sees is the same proxy as a computed column's
+-- (make_self_proxy): `@exemplaire.livre` (FK traversal) and other computed
+-- columns must resolve, instead of the raw stored Int of a relation field.
+record_proxy_for = (record, space_name, fk_cache, fk_def_map) ->
+  unless fk_def_map
+    space_id = space_id_for fk_cache, space_name
+    fk_def_map = if space_id then ensure_fk_def_map(fk_cache, space_id) else {}
+  make_self_proxy record, fk_def_map, fk_cache, space_name
+
+-- Value of a relation (FK source) field on read: the stored value when there is
+-- one, otherwise the read-time formula's result, evaluated against a self proxy
+-- (fk_def_map is optional: it is looked up when the caller has none).
+-- Returns (value, is_error): is_error=true means `value` is the formatted error
+-- string of a broken formula.
+relation_field_value = (record, field_name, space_name, fk_cache, fk_def_map) ->
+  fk_cache = prepare_cache fk_cache
+  v = record[field_name]
+  -- No formula for this field: the stored value is the answer, no proxy needed.
+  fns = if space_name then ensure_formulas space_name else {}
+  return v, false unless (v == nil or v == '') and fns[field_name]
+  proxy = record_proxy_for record, space_name, fk_cache, fk_def_map
+  eval_computed_formula proxy, field_name, v, space_name, fk_cache
+
+-- Fill, on `record`, the computed relation fields listed in `field_names`
+-- (relation fields of the space that carry a read-time formula). Consumers that
+-- only read the raw record — the executor's raw FK value for a grid column,
+-- Query.records, back-references — then see the same Int a stored relation
+-- would provide, instead of a missing column.
+fill_computed_relation_values = (record, field_names, space_name, fk_cache, fk_def_map) ->
+  return record unless space_name and field_names
+  fk_cache = prepare_cache fk_cache
+  for field_name in *field_names
+    v = record[field_name]
+    continue unless v == nil or v == ''
+    -- Same self proxy as a computed column, rebuilt for every field: evaluating
+    -- a formula caches its raw Int on the proxy it was given (eval_computed_formula),
+    -- which would hide the FK resolution of that field from the next formula.
+    proxy = record_proxy_for record, space_name, fk_cache, fk_def_map
+    val, is_err = eval_computed_formula proxy, field_name, v, space_name, fk_cache
+    -- eval_computed_formula stores a successful value on the proxy; copy it
+    -- back so raw consumers see the Int. A broken formula surfaces its
+    -- [ERROR|…] text (the grid renders it), as before.
+    record[field_name] = val if val != nil and val != ''
+  record
+
+{ :make_self_proxy, :make_self_proxy_extended, :make_space_helper, :format_formula_error, :invalidate_formula_cache, :relation_field_value, :fill_computed_relation_values }

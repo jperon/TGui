@@ -55,9 +55,13 @@ R.describe "DataViews — system storage", ->
 
   R.it "execute view returns filtered/sorted data", ->
     ctx = trusted_ctx 'admin'
-    -- Fetch the view
+    -- Fetch the view by name (les vues de la bibliothèque installées par les
+    -- fixtures rendent l'ordre de la liste non déterministe).
     views = resolvers.Query.dataViews nil, nil, ctx
-    dv_id = views[#views].id
+    dv_id = nil
+    for v in *views
+      dv_id = v.id if v.name == "test_view_1"
+    R.ok dv_id, 'test_view_1 listée'
     
     -- Execute
     res = resolvers.Query.executeDataView nil, { id: dv_id }, ctx

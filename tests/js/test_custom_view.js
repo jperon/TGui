@@ -567,7 +567,7 @@
   describe('CustomView — surface API', function() {
     return it('exposes the frozen set of prototype methods', function() {
       var expected;
-      expected = ['constructor', '_setMessage', 'mount', '_renderZoneOrWidget', '_renderWidget', '_renderAggregate', '_wireDepends', '_applyDependencySelection', '_setPluginSelectionListener', '_emitPluginSelection', '_renderPluginWidget', '_mountPluginIframe', '_compilePlugin', '_buildPluginIframeDoc', '_sendPluginMessage', '_findSpace', 'unmount', '_addResizeHandle', '_showResizeTooltip', '_hideResizeTooltip', '_onZoneResize', 'toggleGrid', 'isGridVisible', 'togglePresentationMode', 'isPresentationMode'];
+      expected = ['constructor', '_setMessage', '_refreshGridLayouts', '_setupResizeObserver', '_createSplitter', '_saveChildFactors', 'mount', '_renderZoneOrWidget', '_renderWidget', '_collectWidgetNodes', '_widgetLinkFields', '_renderAggregate', '_wireDepends', '_applyDependencySelection', '_dependentEntries', '_firstRow', '_selectRow', '_cascadeToDependents', '_cascadeNone', '_initializeCascade', '_setPluginSelectionListener', '_emitPluginSelection', '_renderPluginWidget', '_mountPluginIframe', '_compilePlugin', '_buildPluginIframeDoc', '_sendPluginMessage', '_findSpace', 'unmount', '_addResizeHandle', '_showResizeTooltip', '_hideResizeTooltip', '_onZoneResize', 'toggleGrid', 'isGridVisible', 'togglePresentationMode', 'isPresentationMode'];
       return deepEq(Object.getOwnPropertyNames(CV.prototype).sort(), expected.sort());
     });
   });

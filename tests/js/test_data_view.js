@@ -462,6 +462,50 @@
     });
   });
 
+  describe('DataView hidden link columns', function() {
+    return it('transmits a hidden field to tui.Grid as a hidden column', async function() {
+      var cols, dv, hidden, nom, sp;
+      sp = makeSpace({
+        fields: [
+          {
+            id: 'f1',
+            name: 'nom',
+            fieldType: 'String',
+            formula: null,
+            triggerFields: null
+          },
+          {
+            id: 'f2',
+            name: 'livre',
+            fieldType: 'Int',
+            formula: null,
+            triggerFields: null,
+            hidden: true
+          }
+        ]
+      });
+      dv = new DV(container(), sp);
+      dv._loadColWidths = function() {
+        return Promise.resolve({});
+      };
+      dv.load = function() {
+        return Promise.resolve([]);
+      };
+      await dv.mount();
+      cols = dv._grid.getColumns();
+      hidden = cols.find(function(c) {
+        return c.name === 'livre';
+      });
+      assert(hidden, 'hidden field must keep a grid column');
+      assert(hidden.hidden === true, 'hidden column must carry hidden:true');
+      nom = cols.find(function(c) {
+        return c.name === 'nom';
+      });
+      assert(!nom.hidden, 'visible column must not be hidden');
+      return dv.unmount();
+    });
+  });
+
   describe('DataView FK fuzzy autocomplete editor', function() {
     return it('supports fuzzy search and maps label -> id', async function() {
       var Editor, dv, editor, el, fkCol, matches, ref, rels, sp;
@@ -560,12 +604,322 @@
     });
   });
 
+  describe('DataView.setActiveRow', function() {
+    var makeGrid;
+    makeGrid = function() {
+      var classes, grid;
+      classes = {};
+      grid = {
+        resetData: function() {
+          return this._data = arguments[0];
+        },
+        getRowAt: function() {
+          return null;
+        },
+        addRowClassName: function(key, cls) {
+          var name;
+          return (classes[name = String(key)] != null ? classes[name] : classes[name] = {})[cls] = true;
+        },
+        removeRowClassName: function(key, cls) {
+          var ref;
+          return (ref = classes[String(key)]) != null ? delete ref[cls] : void 0;
+        },
+        hasClass: function(key, cls) {
+          var ref;
+          return !!((ref = classes[String(key)]) != null ? ref[cls] : void 0);
+        },
+        countClass: function(cls) {
+          var _k, n, v;
+          n = 0;
+          for (_k in classes) {
+            v = classes[_k];
+            if (v[cls]) {
+              n += 1;
+            }
+          }
+          return n;
+        }
+      };
+      return {grid, classes};
+    };
+    it('marks the given row and clears the previous one', function() {
+      var dv, grid;
+      dv = new DV(container(), makeSpace());
+      ({grid} = makeGrid());
+      dv._grid = grid;
+      dv.setActiveRow(0);
+      assert(grid.hasClass(0, 'tdb-selected-row'), 'row 0 not marked');
+      dv.setActiveRow(1);
+      assert(grid.hasClass(1, 'tdb-selected-row'), 'row 1 not marked');
+      assert(!grid.hasClass(0, 'tdb-selected-row'), 'row 0 should be cleared');
+      return eq(grid.countClass('tdb-selected-row'), 1);
+    });
+    return it('clears the active row when rowKey is null', function() {
+      var dv, grid;
+      dv = new DV(container(), makeSpace());
+      ({grid} = makeGrid());
+      dv._grid = grid;
+      dv.setActiveRow(2);
+      dv.setActiveRow(null);
+      eq(grid.countClass('tdb-selected-row'), 0);
+      return eq(dv._activeRowKey, null);
+    });
+  });
+
+  describe('DataView filter none', function() {
+    it('setFilter {none:true} shows zero rows (no sentinel)', function() {
+      var dv, gridData;
+      dv = new DV(container(), makeSpace());
+      gridData = [];
+      dv._grid = {
+        resetData: function(d) {
+          return gridData = d;
+        },
+        getRowAt: function() {
+          return null;
+        },
+        addRowClassName: function() {},
+        removeRowClassName: function() {}
+      };
+      dv._rows = [
+        {
+          __rowId: '1',
+          nom: 'Alice'
+        },
+        {
+          __rowId: '2',
+          nom: 'Bob'
+        }
+      ];
+      dv.setFilter({
+        field: 'nom',
+        value: null,
+        none: true
+      });
+      eq(gridData.length, 0);
+      return eq(dv._currentData.length, 0);
+    });
+    return it('a normal setFilter still works after a none filter', function() {
+      var dv, gridData;
+      dv = new DV(container(), makeSpace());
+      gridData = [];
+      dv._grid = {
+        resetData: function(d) {
+          return gridData = d;
+        },
+        getRowAt: function() {
+          return null;
+        },
+        addRowClassName: function() {},
+        removeRowClassName: function() {}
+      };
+      dv._rows = [
+        {
+          __rowId: '1',
+          nom: 'Alice'
+        }
+      ];
+      dv.setFilter({
+        field: 'nom',
+        value: null,
+        none: true
+      });
+      dv.setFilter({
+        field: 'nom',
+        value: 'Alice'
+      });
+      eq(gridData.length, 2); // Alice + sentinel
+      return assert(gridData[1].__isNew);
+    });
+  });
+
+  describe('DataView.load computed path selection', function() {
+    it('uses the dynamic space query when the only computed field is a trigger (triggerFields = [])', async function() {
+      var dv, oldQuery, queries, sp;
+      oldQuery = global.GQL.query;
+      queries = [];
+      global.GQL.query = function(q, vars) {
+        queries.push(q);
+        return Promise.resolve({
+          test_space: {
+            items: []
+          },
+          records: {
+            items: [],
+            total: 0
+          }
+        });
+      };
+      sp = makeSpace({
+        fields: [
+          {
+            id: 'f1',
+            name: 'eleve_nom',
+            fieldType: 'Str',
+            formula: '@first',
+            triggerFields: []
+          }
+        ]
+      });
+      dv = new DV(container(), sp);
+      dv._mounted = true;
+      await dv.load();
+      global.GQL.query = oldQuery;
+      assert(queries.length > 0, 'no GraphQL query issued');
+      return assert(queries[0].indexOf('test_space(limit: 2000') >= 0, `expected the dynamic space query, got: ${queries[0].substring(0, 60)}`);
+    });
+    return it('still uses the plain records query for a space without computed fields', async function() {
+      var dv, oldQuery, queries;
+      oldQuery = global.GQL.query;
+      queries = [];
+      global.GQL.query = function(q, vars) {
+        queries.push(q);
+        return Promise.resolve({
+          test_space: {
+            items: []
+          },
+          records: {
+            items: [],
+            total: 0
+          }
+        });
+      };
+      dv = new DV(container(), makeSpace());
+      dv._mounted = true;
+      await dv.load();
+      global.GQL.query = oldQuery;
+      assert(queries.length > 0, 'no GraphQL query issued');
+      return assert(queries[0].indexOf('query Records') >= 0, `expected the plain records query, got: ${queries[0].substring(0, 60)}`);
+    });
+  });
+
+  // An active formula filter must not push a computed space onto the plain
+  // records query: read-computed columns have no stored value, so the dynamic
+  // space query (which accepts a RecordFilter) has to serve the filtered rows.
+  describe('DataView.load with formula filter', function() {
+    var computedSpace;
+    computedSpace = function() {
+      return makeSpace({
+        fields: [
+          {
+            id: 'f1',
+            name: 'nom',
+            fieldType: 'Str',
+            formula: null,
+            triggerFields: null
+          },
+          {
+            id: 'f2',
+            name: 'eleve_nom',
+            fieldType: 'Str',
+            formula: '@eleve and @eleve.descriptif',
+            triggerFields: null
+          }
+        ]
+      });
+    };
+    it('routes an active filter through the dynamic query with a $filter variable', async function() {
+      var dv, oldQuery, queries, varBodies;
+      oldQuery = global.GQL.query;
+      queries = [];
+      varBodies = [];
+      global.GQL.query = function(q, vars) {
+        queries.push(q);
+        varBodies.push(vars);
+        return Promise.resolve({
+          test_space: {
+            items: []
+          },
+          records: {
+            items: [],
+            total: 0
+          }
+        });
+      };
+      dv = new DV(container(), computedSpace());
+      dv._mounted = true;
+      dv._formulaFilter = '@x';
+      await dv.load();
+      global.GQL.query = oldQuery;
+      assert(queries.length > 0, 'no GraphQL query issued');
+      assert(queries[0].indexOf('query') >= 0, `not a GraphQL query: ${queries[0].substring(0, 60)}`);
+      assert(queries[0].indexOf('test_space(limit: 2000') >= 0, `expected the dynamic space query, got: ${queries[0].substring(0, 80)}`);
+      assert(queries[0].indexOf('$filter') >= 0, `expected a $filter variable, got: ${queries[0].substring(0, 80)}`);
+      return deepEq(varBodies[0].filter, {
+        formula: '@x',
+        language: 'moonscript'
+      });
+    });
+    it('still uses the plain records query with an active filter on a space without computed fields', async function() {
+      var dv, oldQuery, queries;
+      oldQuery = global.GQL.query;
+      queries = [];
+      global.GQL.query = function(q, vars) {
+        queries.push(q);
+        return Promise.resolve({
+          test_space: {
+            items: []
+          },
+          records: {
+            items: [],
+            total: 0
+          }
+        });
+      };
+      dv = new DV(container(), makeSpace());
+      dv._mounted = true;
+      dv._formulaFilter = '@x';
+      await dv.load();
+      global.GQL.query = oldQuery;
+      assert(queries.length > 0, 'no GraphQL query issued');
+      return assert(queries[0].indexOf('query Records') >= 0, `expected the plain records query, got: ${queries[0].substring(0, 60)}`);
+    });
+    return it('flags the formula inputs on a failing filtered query and clears them on success', async function() {
+      var byId, dv, failing, input, oldQuery;
+      oldQuery = global.GQL.query;
+      input = global.document.createElement('input');
+      byId = global.document.createElement('div');
+      global.document._setById('formula-filter-input', byId);
+      failing = true;
+      global.GQL.query = function() {
+        if (failing) {
+          return Promise.reject(new Error('bad formula'));
+        } else {
+          return Promise.resolve({
+            test_space: {
+              items: []
+            },
+            records: {
+              items: [],
+              total: 0
+            }
+          });
+        }
+      };
+      dv = new DV(container(), computedSpace());
+      dv._mounted = true;
+      dv._formulaFilter = '@x';
+      dv._formulaInputEl = input;
+      await dv.load();
+      clearTimeout(dv._errorTimer);
+      assert(input.classList.contains('input-error'), 'input-error missing on @_formulaInputEl');
+      assert(byId.classList.contains('input-error'), 'input-error missing on #formula-filter-input');
+      eq(dv._rows.length, 0);
+      failing = false;
+      await dv.load();
+      assert(!input.classList.contains('input-error'), 'input-error not cleared on @_formulaInputEl');
+      assert(!byId.classList.contains('input-error'), 'input-error not cleared on #formula-filter-input');
+      global.GQL.query = oldQuery;
+      return global.document._setById('formula-filter-input', null);
+    });
+  });
+
   // Freeze the public prototype surface so the data_view / data_view_helpers split
   // cannot silently drop or rename a method.
   describe('DataView prototype surface (frozen)', function() {
     return it('exposes exactly the expected set of methods', function() {
       var expected;
-      expected = ['_actionContext', '_applyData', '_buildFkMaps', '_clearError', '_cloneJson', '_coerceCellValue', '_columnWidth', '_defaultCellValue', '_escapeHtml', '_extractInsertedRecords', '_formatFormulaError', '_loadColWidths', '_lsKey', '_saveColWidths', '_sentinel', '_serializeRowForMutation', '_showError', '_toBoolean', 'constructor', 'deleteSelected', 'getFocusedColumnName', 'insertBlank', 'load', 'mount', 'setDefaultValues', 'setFilter', 'setFormulaFilter', 'unmount'];
+      expected = ['_actionContext', '_applyData', '_applySortState', '_buildFkMaps', '_clearError', '_cloneJson', '_coerceCellValue', '_columnWidth', '_defaultCellValue', '_escapeHtml', '_extractInsertedRecords', '_formatFormulaError', '_loadColWidths', '_lsKey', '_onGridSortChanged', '_pinSentinelLast', '_saveColWidths', '_sentinel', '_serializeRowForMutation', '_showError', '_sortEntriesFromGrid', '_toBoolean', 'applySortEntries', 'constructor', 'deleteSelected', 'getFocusedColumnName', 'getSortEntries', 'insertBlank', 'load', 'mount', 'setActiveRow', 'setDefaultValues', 'setFilter', 'setFormulaFilter', 'unmount'];
       return deepEq(Object.getOwnPropertyNames(DV.prototype).sort(), expected);
     });
   });

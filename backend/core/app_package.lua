@@ -10,6 +10,7 @@ local ITEM_TYPES = {
   view = 'view',
   page = 'page',
   dataview = 'dataview',
+  preset = 'preset',
   plugin = 'plugin',
   group = 'group',
   perm = 'perm',
@@ -22,6 +23,7 @@ local TYPE_ORDER = {
   'view',
   'page',
   'dataview',
+  'preset',
   'plugin',
   'group',
   'perm',
@@ -151,6 +153,16 @@ field_name_by_id = function(fid)
   local t = box.space._tdb_fields:get(fid)
   return t and t[3] or nil
 end
+local page_id_by_name
+page_id_by_name = function(name)
+  local row = box.space._tdb_custom_views.index.by_name:get(name)
+  return row and row[1]
+end
+local page_name_by_id
+page_name_by_id = function(pid)
+  local row = box.space._tdb_custom_views:get(pid)
+  return row and row[2]
+end
 local resolve_space_name
 resolve_space_name = function(value)
   if value == nil or value == '' then
@@ -164,6 +176,58 @@ resolve_space_name = function(value)
     return value
   end
   return value
+end
+local preset_scope_portable
+preset_scope_portable = function(scope)
+  if not (type(scope) == 'string') then
+    return scope
+  end
+  local page_id, widget_id = scope:match('^widget:([^:]+):(.+)$')
+  if page_id then
+    local page_name = page_name_by_id(page_id)
+    return "widget:" .. tostring(page_name or page_id) .. ":" .. tostring(widget_id)
+  end
+  local space_id = scope:match('^space:(.+)$')
+  if not (space_id) then
+    return scope
+  end
+  return "space:" .. tostring(resolve_space_name(space_id))
+end
+local preset_scope_local
+preset_scope_local = function(scope)
+  if not (type(scope) == 'string') then
+    return scope
+  end
+  local page_name, widget_id = scope:match('^widget:(.*):([^:]+)$')
+  if page_name then
+    local page_id = page_id_by_name(page_name)
+    return page_id and "widget:" .. tostring(page_id) .. ":" .. tostring(widget_id) or nil
+  end
+  local space_name = scope:match('^space:(.+)$')
+  if not (space_name) then
+    return scope
+  end
+  local sp = spaces_mod.get_space_by_name(space_name)
+  return sp and "space:" .. tostring(sp.id) or nil
+end
+local preset_row_orphan
+preset_row_orphan = function(row)
+  if not (row[3] and space_name_by_id(row[3])) then
+    return true
+  end
+  local scope = row[2]
+  local page_id = type(scope) == 'string' and scope:match('^widget:([^:]+):(.+)$')
+  if page_id then
+    return box.space._tdb_custom_views:get(page_id) == nil
+  end
+  return false
+end
+local preset_sort
+preset_sort = function(value)
+  if value == nil or value == '' then
+    return { }
+  end
+  return decode_config(value)
 end
 local resource_name
 resource_name = function(rid)
@@ -187,14 +251,17 @@ space_content = function(sp)
 end
 local field_content
 field_content = function(f)
-  return {
+  local content = {
     fieldType = f.fieldType,
     notNull = f.notNull == true,
     description = f.description or '',
     formula = f.formula or '',
-    triggerFields = f.triggerFields or { },
     language = f.language or 'lua'
   }
+  if f.triggerFields ~= nil then
+    content.triggerFields = f.triggerFields
+  end
+  return content
 end
 local relation_cardinality
 relation_cardinality = function(value)
@@ -237,6 +304,16 @@ dataview_content = function(row)
     description = row[3] or '',
     sourceSpace = resolve_space_name(row[4]),
     config = decode_config(row[5])
+  }
+end
+local preset_content
+preset_content = function(row)
+  return {
+    scope = preset_scope_portable(row[2]),
+    space = resolve_space_name(row[3]),
+    name = row[4],
+    filter = row[5] or '',
+    sort = preset_sort(row[6])
   }
 end
 local plugin_content
@@ -320,14 +397,17 @@ _normalize_space_content = function(c)
 end
 local _normalize_field_content
 _normalize_field_content = function(c)
-  return {
+  local content = {
     fieldType = c.fieldType,
     notNull = c.notNull == true,
     description = c.description or '',
     formula = c.formula or '',
-    triggerFields = _table_or_empty(c.triggerFields),
     language = _nonempty_or(c.language, 'lua')
   }
+  if type(c.triggerFields) == 'table' then
+    content.triggerFields = c.triggerFields
+  end
+  return content
 end
 local _normalize_relation_content
 _normalize_relation_content = function(c)
@@ -363,6 +443,16 @@ _normalize_dataview_content = function(c)
     description = c.description or '',
     sourceSpace = resolve_space_name(c.sourceSpace),
     config = decode_config(c.config)
+  }
+end
+local _normalize_preset_content
+_normalize_preset_content = function(c)
+  return {
+    scope = preset_scope_portable(c.scope),
+    space = resolve_space_name(c.space),
+    name = c.name,
+    filter = c.filter or '',
+    sort = preset_sort(c.sort)
   }
 end
 local _normalize_plugin_content
@@ -407,6 +497,7 @@ local CONTENT_NORMALIZERS = {
   view = _normalize_view_content,
   page = _normalize_page_content,
   dataview = _normalize_dataview_content,
+  preset = _normalize_preset_content,
   plugin = _normalize_plugin_content,
   group = _normalize_group_content,
   perm = _normalize_perm_content,
@@ -580,6 +671,30 @@ collect_dataviews = function(bucket)
     })
   end
 end
+local collect_presets
+collect_presets = function(bucket)
+  local _list_0 = box.space._tdb_view_presets:select({ })
+  for _index_0 = 1, #_list_0 do
+    local _continue_0 = false
+    repeat
+      local row = _list_0[_index_0]
+      if preset_row_orphan(row) then
+        _continue_0 = true
+        break
+      end
+      local scope = preset_scope_portable(row[2])
+      table.insert(bucket, {
+        type = ITEM_TYPES.preset,
+        key = "preset:" .. tostring(key_part(scope)) .. "|" .. tostring(key_part(row[4])),
+        content = preset_content(row)
+      })
+      _continue_0 = true
+    until true
+    if not _continue_0 then
+      break
+    end
+  end
+end
 local collect_plugins
 collect_plugins = function(bucket)
   local _list_0 = box.space._tdb_widget_plugins:select({ })
@@ -713,6 +828,17 @@ find_dataview_row = function(name)
     end
   end
   return nil
+end
+local find_preset_row
+find_preset_row = function(scope, name)
+  local local_scope = preset_scope_local(scope)
+  if not (local_scope) then
+    return nil
+  end
+  return box.space._tdb_view_presets.index.by_scope_name:get({
+    local_scope,
+    name
+  })
 end
 local find_plugin_row
 find_plugin_row = function(name)
@@ -879,6 +1005,24 @@ describe_dataview = function(key)
   end
   return dataview_content(row)
 end
+local describe_preset
+describe_preset = function(key)
+  local rest = strip_prefix(key, 'preset:')
+  if not (rest) then
+    return nil
+  end
+  local idx = rest:find('|')
+  if not (idx) then
+    return nil
+  end
+  local scope = unkey_part(rest:sub(1, idx - 1))
+  local name = unkey_part(rest:sub(idx + 1))
+  local row = find_preset_row(scope, name)
+  if not (row) then
+    return nil
+  end
+  return preset_content(row)
+end
 local describe_plugin
 describe_plugin = function(key)
   local name = strip_prefix(key, 'plugin:')
@@ -955,6 +1099,7 @@ local DESCRIBERS = {
   view = describe_view,
   page = describe_page,
   dataview = describe_dataview,
+  preset = describe_preset,
   plugin = describe_plugin,
   group = describe_group,
   perm = describe_perm,
@@ -1047,6 +1192,7 @@ build_package = function(meta, opts)
   collect_views(buckets.view, space_list)
   collect_pages(buckets.page)
   collect_dataviews(buckets.dataview)
+  collect_presets(buckets.preset)
   collect_plugins(buckets.plugin)
   collect_groups_and_perms(buckets.group, buckets.perm)
   collect_seeds(buckets.seed, seed_keys)
@@ -1085,5 +1231,8 @@ return {
   key_part = key_part,
   unkey_part = unkey_part,
   strip_null = strip_null,
-  normalize_content = normalize_content
+  normalize_content = normalize_content,
+  preset_scope_portable = preset_scope_portable,
+  preset_scope_local = preset_scope_local,
+  preset_row_orphan = preset_row_orphan
 }

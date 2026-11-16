@@ -51,7 +51,15 @@
     },
     loadSpaces: function(app) {
       return Spaces.list().then(function(spaces) {
+        var ref;
         app._allSpaces = spaces;
+        // Liste de champs rechargée : les noms gardés en cache pour
+        // l'autocomplétion du filtre « λ » peuvent avoir changé.
+        if ((ref = window.FieldAutocomplete) != null) {
+          if (typeof ref._reset === "function") {
+            ref._reset();
+          }
+        }
         return app.renderSpaceList(spaces);
       }).catch(function(err) {
         return tdbAlert(app._err(err), 'error');
@@ -127,7 +135,7 @@
       });
     },
     syncSpaceFields: function(app, space) {
-      var ref, ref1;
+      var ref, ref1, ref2;
       app._allSpaces = (app._allSpaces || []).map(function(s) {
         if (s.id === space.id) {
           return space;
@@ -135,12 +143,19 @@
           return s;
         }
       });
-      if (app._activeCustomView && ((ref = app._currentCustomView) != null ? (ref1 = ref.yaml) != null ? ref1.trim() : void 0 : void 0)) {
+      // Appelé après toute mutation de champ ou de relation : les noms de champs
+      // mis en cache pour l'autocomplétion du filtre « λ » ne sont plus valides.
+      if ((ref = window.FieldAutocomplete) != null) {
+        if (typeof ref._reset === "function") {
+          ref._reset();
+        }
+      }
+      if (app._activeCustomView && ((ref1 = app._currentCustomView) != null ? (ref2 = ref1.yaml) != null ? ref2.trim() : void 0 : void 0)) {
         return app._renderCustomViewPreview(app._currentCustomView.yaml);
       }
     },
     mountDataView: async function(app, space) {
-      var container, input, ref, ref1, relations;
+      var container, input, ref, ref1, ref2, relations;
       if ((ref = app._activeDataView) != null) {
         if (typeof ref.unmount === "function") {
           ref.unmount();
@@ -158,8 +173,20 @@
       if (input) {
         input.value = '';
         input.classList.remove('active');
+        // Menu « Trier / Filtrer » : un seul module pour la grille principale et
+        // les widgets de page (portée `space:<id>` ici).
+        if ((ref1 = window.ViewPresetsMenu) != null) {
+          ref1.attach(input.parentNode, {
+            getDataView: function() {
+              return app._activeDataView;
+            },
+            scope: `space:${space.id}`,
+            spaceId: space.id,
+            filterInput: input
+          });
+        }
       }
-      return (ref1 = window.AppUndoHelpers) != null ? typeof ref1.refreshUI === "function" ? ref1.refreshUI(app) : void 0 : void 0;
+      return (ref2 = window.AppUndoHelpers) != null ? typeof ref2.refreshUI === "function" ? ref2.refreshUI(app) : void 0 : void 0;
     },
     bindDataToolbar: function(app) {
       var ref, ref1, ref2, ref3, ref4;

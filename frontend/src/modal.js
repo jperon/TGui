@@ -4,7 +4,7 @@
   //   await tdbAlert "Error message", 'error'
   //   if await tdbConfirm "Delete?"
   //   name = await tdbPrompt "Name:", "default value"
-  var _box, _cancelBtn, _hide, _init, _input, _msg, _okBtn, _overlay, _show, _t;
+  var _box, _cancelBtn, _close, _hide, _init, _input, _msg, _okBtn, _overlay, _show, _t;
 
   _overlay = null;
 
@@ -89,20 +89,27 @@
     return _input.value = '';
   };
 
+  // Retire le handler keydown puis cache la modale. Utilisé par TOUS les chemins
+  // de fermeture (clic OK, clic Annuler, Échap, Entrée) : sans cela, fermer par
+  // clic laissait le handler attaché (fuite d'écouteurs + handler périmé).
+  _close = function(handler) {
+    document.removeEventListener('keydown', handler);
+    return _hide();
+  };
+
   // alert-like: shows a message and resolves when the user clicks OK.
   window.tdbAlert = function(msg, type = 'info') {
     return new Promise(function(resolve) {
       var handler;
       _show(msg, type, false, '', false);
       _okBtn.onclick = function() {
-        _hide();
+        _close(handler);
         return resolve();
       };
       // Also close on Escape.
       handler = function(e) {
         if (e.key === 'Escape' || e.key === 'Enter') {
-          document.removeEventListener('keydown', handler);
-          _hide();
+          _close(handler);
           return resolve();
         }
       };
@@ -116,21 +123,19 @@
       var handler;
       _show(msg, type, false, '', true);
       _okBtn.onclick = function() {
-        _hide();
+        _close(handler);
         return resolve(true);
       };
       _cancelBtn.onclick = function() {
-        _hide();
+        _close(handler);
         return resolve(false);
       };
       handler = function(e) {
         if (e.key === 'Escape') {
-          document.removeEventListener('keydown', handler);
-          _hide();
+          _close(handler);
           return resolve(false);
         } else if (e.key === 'Enter') {
-          document.removeEventListener('keydown', handler);
-          _hide();
+          _close(handler);
           return resolve(true);
         }
       };
@@ -146,23 +151,21 @@
       _okBtn.onclick = function() {
         var val;
         val = _input.value;
-        _hide();
+        _close(handler);
         return resolve(val.trim() ? val : null);
       };
       _cancelBtn.onclick = function() {
-        _hide();
+        _close(handler);
         return resolve(null);
       };
       handler = function(e) {
         var val;
         if (e.key === 'Escape') {
-          document.removeEventListener('keydown', handler);
-          _hide();
+          _close(handler);
           return resolve(null);
         } else if (e.key === 'Enter') {
-          document.removeEventListener('keydown', handler);
           val = _input.value;
-          _hide();
+          _close(handler);
           return resolve(val.trim() ? val : null);
         }
       };

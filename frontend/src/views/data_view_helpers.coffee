@@ -1,6 +1,20 @@
 # data_view_helpers.coffee — utility methods extracted from views/data_view.coffee
 # (error banner, column-width persistence, cell coercion, default values).
 # Loaded after data_view.js and extends DataView.prototype. No functional change.
+
+# Un tri est une liste de { column, ascending }. On ignore la colonne technique
+# `sortKey` que Toast UI Grid utilise pour représenter « aucun tri ».
+normalizeSortEntries = (entries) ->
+  out = []
+  return out unless Array.isArray entries
+  for entry in entries
+    continue unless entry
+    name = entry.column ? entry.columnName
+    continue unless name
+    continue if name == 'sortKey'
+    out.push { column: String(name), ascending: !!entry.ascending }
+  out
+
 Object.assign window.DataView::,
   setDefaultValues: (values) ->
     @_defaultValues = values or {}
@@ -9,9 +23,101 @@ Object.assign window.DataView::,
     @filter = filter
     @_applyData()
 
+  # Marque une ligne comme active (classe CSS) sans voler le focus clavier ni
+  # ouvrir l'édition d'une cellule. Une seule ligne active par grille.
+  setActiveRow: (rowKey) ->
+    return unless @_grid
+    if @_activeRowKey? and @_activeRowKey != rowKey
+      @_grid.removeRowClassName @_activeRowKey, 'tdb-selected-row'
+    @_activeRowKey = null
+    return unless rowKey?
+    @_grid.addRowClassName rowKey, 'tdb-selected-row'
+    @_activeRowKey = rowKey
+
   setFormulaFilter: (formula) ->
     @_formulaFilter = formula or ''
     @load()
+
+  # ── Tri persistant ───────────────────────────────────────────────────────────
+  # `grid.resetData` remet le tri interne de Toast UI Grid à « sortKey » : un tri
+  # appliqué par un préréglage serait donc perdu au moindre rechargement (filtre
+  # modifié, données rechargées). On garde le tri demandé et on le réapplique
+  # après chaque resetData (voir _applyData dans views/data_view.coffee).
+  getSortEntries: ->
+    (@_sortState or []).slice()
+
+  applySortEntries: (entries) ->
+    @_sortState = normalizeSortEntries entries
+    @_applySortState()
+    @_pinSentinelLast()
+    @_sortState
+
+  _sortEntriesFromGrid: ->
+    return [] unless @_grid and typeof @_grid.getSortState == 'function'
+    state = null
+    try
+      state = @_grid.getSortState()
+    catch e
+      state = null
+    normalizeSortEntries state?.columns
+
+  _applySortState: ->
+    return unless @_grid
+    entries = @_sortState or []
+    @_applyingSort = true
+    try
+      @_grid.unsort?()
+      for entry, i in entries
+        @_grid.sort? entry.column, entry.ascending, i > 0
+    finally
+      @_applyingSort = false
+
+  # Tri/retri manuel (clic sur un en-tête) : mémoriser l'état réel de la grille
+  # pour qu'il survive au prochain rechargement. Ignoré pendant nos propres
+  # réapplications, sinon la remise à zéro de resetData écraserait le tri.
+  _onGridSortChanged: ->
+    return if @_applyingSort
+    @_sortState = @_sortEntriesFromGrid()
+    @_pinSentinelLast()
+    @_onSortChanged?()
+    @_sortState
+
+  # Toast UI Grid trie TOUTES les lignes, sentinelle comprise, et inverse même le
+  # résultat d'un comparateur en tri descendant : aucun comparateur ne peut donc
+  # la maintenir en fin de grille. On réinjecte l'ordre obtenu par la grille en
+  # terminant par la sentinelle. Le `sortState` transmis à `resetData` ne sert
+  # qu'à réafficher les flèches d'en-tête : il ne réordonne pas les lignes (cf.
+  # la documentation de `resetData` dans Toast UI Grid, options.sortState).
+  _pinSentinelLast: ->
+    grid = @_grid
+    return unless grid and typeof grid.getData == 'function'
+    data = grid.getData() or []
+    sentinel = data.find (row) -> row?.__isNew
+    return unless sentinel
+    # Déjà en dernière position : rien à réordonner (cas sans tri).
+    return if data[data.length - 1]?.__isNew
+    ordered = (row for row in data when not row?.__isNew)
+    ordered.push sentinel
+    options = {}
+    first = (@_sortState or [])[0]
+    if first
+      options.sortState =
+        columnName: first.column
+        ascending:  first.ascending
+        multiple:   (@_sortState or []).length > 1
+    # resetData efface les classes de ligne : mémoriser la ligne active pour la
+    # remettre en évidence après le réordonnancement.
+    activeRowId = null
+    if @_activeRowKey? and typeof grid.getRow == 'function'
+      activeRowId = grid.getRow(@_activeRowKey)?.__rowId ? null
+    grid.resetData ordered, options
+    @_currentData = ordered
+    @_activeRowKey = null
+    if activeRowId?
+      idx = ordered.findIndex (row) -> row.__rowId == activeRowId
+      if idx >= 0 and ordered[idx].rowKey?
+        @_activeRowKey = ordered[idx].rowKey
+        grid.addRowClassName @_activeRowKey, 'tdb-selected-row'
 
   # ── Error display ─────────────────────────────────────────────────────────────
   _showError: (msg) ->

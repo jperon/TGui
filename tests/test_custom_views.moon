@@ -6,6 +6,7 @@ R   = require 'tests.runner'
 cvr = require 'resolvers.custom_view_resolvers'
 auth = require 'core.auth'
 spaces = require 'core.spaces'
+yaml = require 'yaml'
 
 SUFFIX  = tostring math.random(100000, 999999)
 CV_NAME = "test_cv_#{SUFFIX}"
@@ -90,7 +91,15 @@ R.describe "CustomViews — update", ->
   R.it "updateCustomView with partial fields keeps previous values", ->
     res = cvr.Mutation.updateCustomView {}, { id: cv_id, input: { name: CV_NAME .. '_v2' } }, CTX
     R.ok res
-    R.eq res.yaml, YAML_FACTOR  -- yaml not provided -> preserved
+    -- yaml not provided -> preserved; each widget also carries the id assigned
+    -- at storage time (core/widget_ids), so compare the structure, not the text.
+    kept = yaml.decode res.yaml
+    saved = yaml.decode YAML_FACTOR
+    R.eq #(kept.layout.children), #(saved.layout.children)
+    for i, child in ipairs saved.layout.children
+      R.eq kept.layout.children[i].widget.title, child.widget.title
+      R.eq kept.layout.children[i].factor, child.factor
+      R.matches tostring(kept.layout.children[i].widget.id), '^w_%x%x%x%x%x%x%x%x$'
 
   R.it "updateCustomView on unknown id -> error", ->
     R.raises (-> cvr.Mutation.updateCustomView {}, { id: 'no-such-id', input: { name: 'x' } }, CTX), 'not found'

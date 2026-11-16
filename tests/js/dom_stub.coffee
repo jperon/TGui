@@ -29,6 +29,16 @@ makeElement = (tag) ->
     appendChild: (child) ->
       el._children.push child
       el.children.push child
+      # Non énumérable pour ne pas casser JSON.stringify(el) dans les tests.
+      Object.defineProperty child, 'parentNode',
+        value: el, configurable: true, writable: true, enumerable: false
+      child
+    removeChild: (child) ->
+      i = el._children.indexOf child
+      el._children.splice i, 1 if i != -1
+      j = el.children.indexOf child
+      el.children.splice j, 1 if j != -1
+      child.parentNode = null
       child
     insertBefore: (child, _ref) ->
       el._children.unshift child
@@ -45,6 +55,11 @@ makeElement = (tag) ->
     addEventListener: (ev, fn) ->
       el._listeners[ev] ?= []
       el._listeners[ev].push fn
+    removeEventListener: (ev, fn) ->
+      list = el._listeners[ev]
+      return unless list
+      i = list.indexOf fn
+      list.splice i, 1 if i != -1
     # Retourne un élément stub (mémoïsé par sélecteur) plutôt que null, afin que
     # le code qui enchaîne .querySelector(x).addEventListener(...) ne plante pas.
     querySelector: (sel) ->
@@ -52,6 +67,10 @@ makeElement = (tag) ->
       el._qsCache[sel] ?= makeElement 'div'
     querySelectorAll:   -> []
     getBoundingClientRect: -> { top: 0, left: 0, width: 100, height: 100 }
+    contains: (node) ->
+      return false unless node?
+      return true if node is el
+      el._children.indexOf(node) != -1
   el
 
 _elementsById = {}
@@ -83,6 +102,7 @@ global.document =
   querySelectorAll:      -> []
   addEventListener:      ->
   removeEventListener:   ->
+  activeElement:         null
   _setById: (id, el) -> _elementsById[id] = el   # helper for tests
 
 module.exports = { makeElement, localStorageStub }

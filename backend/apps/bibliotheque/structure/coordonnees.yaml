@@ -1,0 +1,22 @@
+spaces:
+- name: TypesCoordonnees
+  description: Types de coordonnées (tel, courriel, adresse)
+  fields:
+  - {name: type, type: String, notNull: true}
+- name: Coordonnees
+  description: Coordonnées (texte libre typé)
+  fields:
+  - {name: type_coordonnee, type: Int, ref: TypesCoordonnees.id}
+  - {name: valeur, type: String, notNull: true}
+- name: PersonnesCoordonnees
+  description: Liaison N-N personnes / coordonnées
+  fields:
+  - {name: personne, type: Int, ref: Personnes.id}
+  - {name: coordonnee, type: Int, ref: Coordonnees.id}
+  - {name: libelle, type: String}
+  - name: personne_nom
+    type: String
+    formula: "@personne and @personne.descriptif"
+  - name: coordonnee_valeur
+    type: String
+    formula: "@coordonnee and @coordonnee.valeur"

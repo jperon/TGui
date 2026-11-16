@@ -39,6 +39,7 @@
 | `dataViews` | `-` | `[DataView!]!` | Create, update and execute Data Views (server-side filters, joins and aggregations). |
 | `dataView` | `id: ID!` | `DataView` | Create, update and execute Data Views (server-side filters, joins and aggregations). |
 | `executeDataView` | `id: ID!, limit: Int, offset: Int` | `[JSON!]!` | Create, update and execute Data Views (server-side filters, joins and aggregations). |
+| `viewPresets` | `scope: String!, spaceId: ID!` | `[ViewPreset!]!` | List the named view presets (filter + sort) of one widget or space grid. |
 
 ### Widget Plugins
 
@@ -131,6 +132,8 @@
 | `updateDataView` | `id: ID!, input: DataViewInput!` | `DataView!` | Create, update and execute Data Views (server-side filters, joins and aggregations). |
 | `deleteDataView` | `id: ID!` | `Boolean!` | Create, update and execute Data Views (server-side filters, joins and aggregations). |
 | `addDataViewToPage` | `pageId: ID!, dataViewId: ID!` | `CustomView!` | Create, update and execute Data Views (server-side filters, joins and aggregations). |
+| `saveViewPreset` | `scope: String!, spaceId: ID!, name: String!, filter: String, sort: String` | `ViewPreset!` | Create or overwrite a named view preset (filter + sort) for one widget or space grid. |
+| `deleteViewPreset` | `id: ID!` | `Boolean!` | Delete a named view preset. |
 
 ### Widget Plugins
 

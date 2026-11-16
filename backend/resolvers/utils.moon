@@ -55,11 +55,14 @@ require_admin = (ctx) ->
   uid
 
 -- Builds an explicitly trusted in-process context. Such a context opts out of
--- permission evaluation; the bootstrap fixtures (backend/fixtures.moon:13-14)
--- and the test suite use it for code paths that run without a user-facing
--- session. Only code that builds a context can set `trusted`: the user-facing
--- context is built from scratch in backend/http_server.moon:96-116, which never
--- copies a `trusted` field out of the request body, so a client cannot forge it.
+-- permission evaluation; it exists for in-process code that runs without a
+-- user-facing session. The real callers are in the test suite (tests/ :
+-- test_data_views, test_relations, test_permissions, test_data_filters,
+-- test_relation_cardinality, test_tuple_converters) — no resolver and no HTTP
+-- route builds one. Only code that builds a context can set `trusted`: the
+-- user-facing context is built from scratch in backend/http_server.moon, which
+-- never copies a `trusted` field out of the request body, so a client cannot
+-- forge it.
 trusted_ctx = (user_id) ->
   { user_id: user_id, trusted: true }
 
