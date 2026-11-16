@@ -1041,7 +1041,8 @@ return R.describe("app_package — normalize_content (T22)", function()
         scriptLanguage = 'coffeescript',
         templateLanguage = 'pug',
         scriptCode = '',
-        templateCode = ''
+        templateCode = '',
+        manifest = ''
       },
       group = {
         description = ''

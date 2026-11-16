@@ -661,7 +661,8 @@ _create_plugin = (entry) ->
   now = clock.time!
   box.space._tdb_widget_plugins\insert {
     id, c.name, c.description or '', c.scriptLanguage or 'coffeescript',
-    c.templateLanguage or 'pug', c.scriptCode or '', c.templateCode or '', now, now
+    c.templateLanguage or 'pug', c.scriptCode or '', c.templateCode or '',
+    now, now, c.manifest or ''
   }
   { id: id }
 
@@ -674,6 +675,7 @@ _update_plugin = (entry, old) ->
     { '=', 6, c.scriptCode or '' }
     { '=', 7, c.templateCode or '' }
     { '=', 9, clock.time! }
+    { '=', 10, c.manifest or '' }
   }
   { id: old.local_id }
 

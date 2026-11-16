@@ -1,5 +1,6 @@
 local uuid_mod = require('uuid')
 local clock = require('clock')
+local yaml = require('yaml')
 local require_auth, require_perm
 do
   local _obj_0 = require('resolvers.utils')
@@ -87,6 +88,150 @@ validate_template_lang = function(lang)
   end
   return l
 end
+local MAX_MANIFEST_LEN = 20000
+local VALID_ACCESS = {
+  none = true,
+  read = true,
+  full = true
+}
+local is_mapping
+is_mapping = function(value)
+  if not (type(value) == 'table') then
+    return false
+  end
+  for key in pairs(value) do
+    if type(key) == 'string' then
+      return true
+    end
+  end
+  return false
+end
+local is_sequence
+is_sequence = function(value)
+  return type(value) == 'table' and not is_mapping(value)
+end
+local manifest_error
+manifest_error = function(msg)
+  return error("WidgetPlugin manifest: " .. tostring(msg))
+end
+local manifest_name
+manifest_name = function(entry, where)
+  local name = entry.name
+  if not (type(name) == 'string' and name ~= '') then
+    manifest_error(tostring(where) .. ".name is required and must be a string")
+  end
+  if not (name:match('^[%a_][%w_%-]*$')) then
+    manifest_error(tostring(where) .. ".name must match [A-Za-z_][A-Za-z0-9_-]*")
+  end
+  return name
+end
+local validate_manifest_entries
+validate_manifest_entries = function(entries, field)
+  if not (entries ~= nil) then
+    return 
+  end
+  if not (is_sequence(entries)) then
+    manifest_error(tostring(field) .. " must be a list of {name, type, ...} entries")
+  end
+  local seen = { }
+  local index = 0
+  for _index_0 = 1, #entries do
+    local entry = entries[_index_0]
+    index = index + 1
+    local where = tostring(field) .. "[" .. tostring(index) .. "]"
+    if not (is_mapping(entry)) then
+      manifest_error(tostring(where) .. " must be a mapping like {name: titre, type: String}")
+    end
+    local name = manifest_name(entry, where)
+    if seen[name] then
+      local singular
+      if field == 'columns' then
+        singular = 'column'
+      else
+        singular = 'option'
+      end
+      manifest_error("duplicate " .. tostring(singular) .. " name: " .. tostring(name))
+    end
+    seen[name] = true
+    if not (type(entry.type) == 'string' and entry.type ~= '') then
+      manifest_error(tostring(where) .. ".type is required and must be a string")
+    end
+  end
+  return nil
+end
+local validate_manifest_columns
+validate_manifest_columns = function(columns)
+  validate_manifest_entries(columns, 'columns')
+  if not (columns ~= nil) then
+    return 
+  end
+  local index = 0
+  for _index_0 = 1, #columns do
+    local entry = columns[_index_0]
+    index = index + 1
+    if entry.optional ~= nil and type(entry.optional) ~= 'boolean' then
+      manifest_error("columns[" .. tostring(index) .. "].optional must be a boolean")
+    end
+  end
+  return nil
+end
+local validate_manifest_options
+validate_manifest_options = function(options)
+  validate_manifest_entries(options, 'options')
+  if not (options ~= nil) then
+    return 
+  end
+  local index = 0
+  for _index_0 = 1, #options do
+    local entry = options[_index_0]
+    index = index + 1
+    local default = entry.default
+    if default ~= nil and default ~= box.NULL then
+      local t = type(default)
+      if not (t == 'string' or t == 'number' or t == 'boolean') then
+        manifest_error("options[" .. tostring(index) .. "].default must be a scalar")
+      end
+    end
+  end
+  return nil
+end
+local validate_manifest
+validate_manifest = function(text)
+  local raw
+  if text == nil then
+    raw = ''
+  else
+    raw = tostring(text)
+  end
+  if raw:match('^%s*$') then
+    return ''
+  end
+  if #raw > MAX_MANIFEST_LEN then
+    error("WidgetPlugin manifest too long: " .. tostring(#raw))
+  end
+  local ok, parsed = pcall(yaml.decode, raw)
+  if not (ok) then
+    manifest_error("invalid YAML: " .. tostring(tostring(parsed)))
+  end
+  if parsed == nil then
+    return ''
+  end
+  if not (type(parsed) == 'table') then
+    manifest_error('must be a YAML mapping (access, columns, options)')
+  end
+  if is_sequence(parsed) and next(parsed) ~= nil then
+    manifest_error('must be a YAML mapping (access, columns, options)')
+  end
+  if parsed.access ~= nil and parsed.access ~= box.NULL then
+    local access = tostring(parsed.access)
+    if not (VALID_ACCESS[access]) then
+      manifest_error("access must be one of none, read, full (got '" .. tostring(access) .. "')")
+    end
+  end
+  validate_manifest_columns(parsed.columns)
+  validate_manifest_options(parsed.options)
+  return raw
+end
 local tuple_to_plugin
 tuple_to_plugin = function(t)
   if not (t) then
@@ -100,6 +245,7 @@ tuple_to_plugin = function(t)
     templateLanguage = t[5] or 'pug',
     scriptCode = t[6] or '',
     templateCode = t[7] or '',
+    manifest = t[10] or '',
     createdAt = tostring(t[8]),
     updatedAt = tostring(t[9])
   }
@@ -145,6 +291,7 @@ create_widget_plugin = function(input)
   local template_lang = validate_template_lang(input.templateLanguage)
   local script_code = validate_script_code(input.scriptCode)
   local template_code = validate_template_code(input.templateCode)
+  local manifest = validate_manifest(input.manifest)
   assert_unique_name(name)
   local id = tostring(uuid_mod.new())
   local now = clock.time()
@@ -157,7 +304,8 @@ create_widget_plugin = function(input)
     script_code,
     template_code,
     now,
-    now
+    now,
+    manifest
   })
   return tuple_to_plugin(box.space._tdb_widget_plugins:get(id))
 end
@@ -203,6 +351,12 @@ update_widget_plugin = function(id, input)
   else
     template_code = (t[7] or '')
   end
+  local manifest
+  if input.manifest ~= nil then
+    manifest = validate_manifest(input.manifest)
+  else
+    manifest = (t[10] or '')
+  end
   assert_unique_name(name, id)
   local now = clock.time()
   box.space._tdb_widget_plugins:replace({
@@ -214,7 +368,8 @@ update_widget_plugin = function(id, input)
     script_code,
     template_code,
     t[8],
-    now
+    now,
+    manifest
   })
   return tuple_to_plugin(box.space._tdb_widget_plugins:get(id))
 end
@@ -252,5 +407,6 @@ local Mutation = {
 }
 return {
   Query = Query,
-  Mutation = Mutation
+  Mutation = Mutation,
+  validate_manifest = validate_manifest
 }

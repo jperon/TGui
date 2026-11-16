@@ -1342,7 +1342,8 @@ local OPTIONAL_KEYS = {
     'scriptLanguage',
     'templateLanguage',
     'scriptCode',
-    'templateCode'
+    'templateCode',
+    'manifest'
   },
   group = {
     'description'

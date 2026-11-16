@@ -324,7 +324,8 @@ plugin_content = function(row)
     scriptLanguage = row[4] or 'coffeescript',
     templateLanguage = row[5] or 'pug',
     scriptCode = row[6] or '',
-    templateCode = row[7] or ''
+    templateCode = row[7] or '',
+    manifest = row[10] or ''
   }
 end
 local group_content
@@ -463,7 +464,14 @@ _normalize_plugin_content = function(c)
     scriptLanguage = _nonempty_or(c.scriptLanguage, 'coffeescript'),
     templateLanguage = _nonempty_or(c.templateLanguage, 'pug'),
     scriptCode = c.scriptCode or '',
-    templateCode = c.templateCode or ''
+    templateCode = c.templateCode or '',
+    manifest = (function()
+      if type(c.manifest) == 'string' then
+        return c.manifest
+      else
+        return ''
+      end
+    end)()
   }
 end
 local _normalize_group_content
@@ -1234,5 +1242,6 @@ return {
   normalize_content = normalize_content,
   preset_scope_portable = preset_scope_portable,
   preset_scope_local = preset_scope_local,
-  preset_row_orphan = preset_row_orphan
+  preset_row_orphan = preset_row_orphan,
+  plugin_content = plugin_content
 }

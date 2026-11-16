@@ -1058,7 +1058,8 @@ _create_plugin = function(entry)
     c.scriptCode or '',
     c.templateCode or '',
     now,
-    now
+    now,
+    c.manifest or ''
   })
   return {
     id = id
@@ -1097,6 +1098,11 @@ _update_plugin = function(entry, old)
       '=',
       9,
       clock.time()
+    },
+    {
+      '=',
+      10,
+      c.manifest or ''
     }
   })
   return {

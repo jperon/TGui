@@ -277,6 +277,7 @@ type WidgetPlugin {
   templateLanguage: String!
   scriptCode:       String!
   templateCode:     String!
+  manifest:         String
   createdAt:        String!
   updatedAt:        String!
 }
@@ -298,6 +299,7 @@ input WidgetInput {
   type:        String!
   spaceId:     ID!
   fields:      [String!]!
+  columns:     JSON
   groupBy:     String
   params:      JSON
   position:    PositionInput
@@ -487,6 +489,7 @@ input CreateWidgetPluginInput {
   templateLanguage: String
   scriptCode:       String!
   templateCode:     String!
+  manifest:         String
 }
 
 input UpdateWidgetPluginInput {
@@ -496,6 +499,7 @@ input UpdateWidgetPluginInput {
   templateLanguage: String
   scriptCode:       String
   templateCode:     String
+  manifest:         String
 }
 
 input CreateUserInput {

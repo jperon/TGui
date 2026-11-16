@@ -887,7 +887,7 @@ OPTIONAL_KEYS = {
   relation: { 'cardinality' }
   page: { 'description' }
   dataview: { 'description' }
-  plugin: { 'description', 'scriptLanguage', 'templateLanguage', 'scriptCode', 'templateCode' }
+  plugin: { 'description', 'scriptLanguage', 'templateLanguage', 'scriptCode', 'templateCode', 'manifest' }
   group: { 'description' }
 }
 

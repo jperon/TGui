@@ -454,6 +454,11 @@ local SYSTEM_SPACES = {
       {
         name = 'updated_at',
         type = 'number'
+      },
+      {
+        name = 'manifest',
+        type = 'string',
+        is_nullable = true
       }
     },
     indexes = {
@@ -930,6 +935,77 @@ migrate_must_change_password = function()
   end
   return flagged
 end
+local migrate_widget_plugin_manifest
+migrate_widget_plugin_manifest = function()
+  local sp = box.space._tdb_widget_plugins
+  if not (sp) then
+    return 0
+  end
+  sp:format({
+    {
+      name = 'id',
+      type = 'string'
+    },
+    {
+      name = 'name',
+      type = 'string'
+    },
+    {
+      name = 'description',
+      type = 'string'
+    },
+    {
+      name = 'script_language',
+      type = 'string'
+    },
+    {
+      name = 'template_language',
+      type = 'string'
+    },
+    {
+      name = 'script_code',
+      type = 'string'
+    },
+    {
+      name = 'template_code',
+      type = 'string'
+    },
+    {
+      name = 'created_at',
+      type = 'number'
+    },
+    {
+      name = 'updated_at',
+      type = 'number'
+    },
+    {
+      name = 'manifest',
+      type = 'string',
+      is_nullable = true
+    }
+  })
+  local normalized = 0
+  local _list_0 = sp:select({ })
+  for _index_0 = 1, #_list_0 do
+    local t = _list_0[_index_0]
+    if t[10] == nil then
+      sp:replace({
+        t[1],
+        t[2],
+        t[3],
+        t[4],
+        t[5],
+        t[6],
+        t[7],
+        t[8],
+        t[9],
+        ''
+      })
+      normalized = normalized + 1
+    end
+  end
+  return normalized
+end
 local create_space
 create_space = function(name, desc)
   if box.space[name] then
@@ -1081,6 +1157,10 @@ bootstrap = function()
     if flagged > 0 then
       return log.warn("tdb_v4: " .. tostring(flagged) .. " user(s) still use the default password — change required")
     end
+  end)
+  box.once('tdb_v5', function()
+    local normalized = migrate_widget_plugin_manifest()
+    return log.info("tdb_v5: added manifest to _tdb_widget_plugins (" .. tostring(normalized) .. " row(s) normalized)")
   end)
   widget_ids.install_trigger()
   local normalized = widget_ids.migrate_stored_pages()
@@ -1670,6 +1750,7 @@ return {
   bootstrap = bootstrap,
   migrate = migrate,
   migrate_must_change_password = migrate_must_change_password,
+  migrate_widget_plugin_manifest = migrate_widget_plugin_manifest,
   create_user_space = create_user_space,
   delete_user_space = delete_user_space,
   add_field = add_field,
