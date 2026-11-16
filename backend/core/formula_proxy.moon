@@ -106,6 +106,29 @@ load_space_records = (s_name) ->
       table.insert sc.list, d
   sc
 
+-- ── Read-only rows ────────────────────────────────────────────────────────────
+
+-- A read-only view of one cached row: reads go to the shared row, any write
+-- raises. The view holds no key of its own, so __newindex fires for a stored
+-- field (`r.prix = 0`) exactly like for a new one — a plain copy would have let
+-- an assignment to an existing field through.
+make_read_only_view = (row, space_name) ->
+  setmetatable {}, {
+    __index: row
+    __newindex: (_, k) ->
+      error "space('#{space_name}') returns read-only records: assignment to '#{k}' refused", 2
+  }
+
+-- Views of a loaded space, built once per request (one per row, shared by every
+-- call, exactly like the rows themselves).
+read_only_views = (sname, sc) ->
+  return sc.readonly if sc.readonly
+  views = {}
+  for i = 1, #sc.list
+    views[i] = make_read_only_view sc.list[i], sname
+  sc.readonly = views
+  views
+
 -- fk_cache: optional per-request cache carrying a `can_read(space_name)`
 -- predicate (set by resolvers.utils.fk_cache_for for user-facing reads). When
 -- present and refusing a target space, space(name) returns an empty list so a
@@ -115,13 +138,15 @@ load_space_records = (s_name) ->
 -- With an fk_cache, the space is loaded once per request into
 -- fk_cache.spaces (unguarded host work, T10) and every call returns a fresh
 -- shallow copy of the row list: a formula that sorts or rewrites the list
--- cannot contaminate the cache or another formula (the rows themselves stay
--- shared). can_read is re-checked on EVERY call, so a refusal is never served
--- from the cache. Without an fk_cache (long-lived trigger helper,
--- core/triggers.moon) nothing is memoized — the data must stay fresh between
--- writes — and the loading stays under the formula guard, otherwise
--- `while true do space('X') end` in a trigger would reload X on every
--- iteration and become a denial of service.
+-- cannot contaminate the cache or another formula. The rows themselves are
+-- shared, so they are handed out as read-only views (make_read_only_view): a
+-- formula writing `r.prix = …` raises instead of silently contaminating the
+-- next evaluation and the FK resolutions that read the same rows. can_read is
+-- re-checked on EVERY call, so a refusal is never served from the cache.
+-- Without an fk_cache (long-lived trigger helper, core/triggers.moon) nothing
+-- is memoized — the data must stay fresh between writes — and the loading stays
+-- under the formula guard, otherwise `while true do space('X') end` in a
+-- trigger would reload X on every iteration and become a denial of service.
 make_space_helper = (fk_cache) ->
   (sname) ->
     return {} if fk_cache and fk_cache.can_read and not fk_cache.can_read sname
@@ -134,7 +159,7 @@ make_space_helper = (fk_cache) ->
     unless sc
       sc = run_unguarded load_space_records, sname
       fk_cache.spaces[sname] = sc
-    [r for r in *sc.list]
+    [v for v in *read_only_views sname, sc]
 
 -- Ensure the shared caches exist on an fk_cache table (created when absent).
 prepare_cache = (fk_cache) ->

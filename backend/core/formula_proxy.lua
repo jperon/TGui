@@ -106,6 +106,27 @@ load_space_records = function(s_name)
   end
   return sc
 end
+local make_read_only_view
+make_read_only_view = function(row, space_name)
+  return setmetatable({ }, {
+    __index = row,
+    __newindex = function(_, k)
+      return error("space('" .. tostring(space_name) .. "') returns read-only records: assignment to '" .. tostring(k) .. "' refused", 2)
+    end
+  })
+end
+local read_only_views
+read_only_views = function(sname, sc)
+  if sc.readonly then
+    return sc.readonly
+  end
+  local views = { }
+  for i = 1, #sc.list do
+    views[i] = make_read_only_view(sc.list[i], sname)
+  end
+  sc.readonly = views
+  return views
+end
 local make_space_helper
 make_space_helper = function(fk_cache)
   return function(sname)
@@ -135,10 +156,10 @@ make_space_helper = function(fk_cache)
     end
     local _accum_0 = { }
     local _len_0 = 1
-    local _list_0 = sc.list
+    local _list_0 = read_only_views(sname, sc)
     for _index_0 = 1, #_list_0 do
-      local r = _list_0[_index_0]
-      _accum_0[_len_0] = r
+      local v = _list_0[_index_0]
+      _accum_0[_len_0] = v
       _len_0 = _len_0 + 1
     end
     return _accum_0
