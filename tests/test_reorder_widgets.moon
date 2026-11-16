@@ -5,12 +5,13 @@ R   = require 'tests.runner'
 cvr = require 'resolvers.custom_view_resolvers'
 auth = require 'core.auth'
 spaces = require 'core.spaces'
+yaml = require 'yaml'
 
 SUFFIX  = tostring math.random(100000, 999999)
 CV_NAME = "test_reorder_cv_#{SUFFIX}"
 SPACE_NAME = "test_reorder_space_#{SUFFIX}"
 
-local cv_id, space_id
+local cv_id, space_id, plugin_cv_id
 admin = auth.get_user_by_username 'admin'
 CTX = { user_id: admin and admin.id }
 
@@ -92,6 +93,61 @@ R.describe "ReorderWidgets — basic reordering", ->
     R.ok res
     R.eq res.yaml, original_yaml
 
+R.describe "ReorderWidgets — widget personnalisé (plugin)", ->
+  R.it "reorderWidgets keeps type and params of plugin widgets", ->
+    yaml_content = "layout:\n" ..
+      "  direction: vertical\n" ..
+      "  children:\n" ..
+      "    - widget:\n" ..
+      "        id: plugin_w\n" ..
+      "        title: Calendrier\n" ..
+      "        space: #{SPACE_NAME}\n" ..
+      "        position: 1\n" ..
+      "        type: mon_plugin\n" ..
+      "        params:\n" ..
+      "          couleur: '#c33'\n" ..
+      "    - zone:\n" ..
+      "        id: zone_a\n" ..
+      "        title: Zone A\n" ..
+      "        direction: vertical\n" ..
+      "        children:\n" ..
+      "          - widget:\n" ..
+      "              id: plugin_in_zone\n" ..
+      "              title: Dans une zone\n" ..
+      "              space: #{SPACE_NAME}\n" ..
+      "              position: 1\n" ..
+      "              type: mon_plugin\n" ..
+      "              params:\n" ..
+      "                titre: Zone\n"
+    created = cvr.Mutation.createCustomView {}, { name: "#{CV_NAME}_plugin", yaml: yaml_content }, CTX
+    R.ok created
+    plugin_cv_id = created.id
+
+    widget_positions = { { widgetId: 'plugin_w', index: 2 } }
+    res = cvr.Mutation.reorderWidgets {}, { pageId: plugin_cv_id, widgetPositions: widget_positions }, CTX
+    R.ok res.yaml
+
+    -- Le YAML réécrit doit rester lisible et conserver type + params, y compris
+    -- pour un widget placé dans une zone.
+    parsed = yaml.decode res.yaml
+    widgets = {}
+    collect = (node) ->
+      return unless type(node) == 'table'
+      table.insert widgets, node.widget if node.widget
+      for key, value in pairs node
+        collect value if key != 'widget'
+    collect parsed.layout
+
+    by_id = {}
+    for w in *widgets
+      by_id[w.id] = w
+    R.ok by_id.plugin_w, "le widget racine doit survivre au réordonnancement"
+    R.eq by_id.plugin_w.type, 'mon_plugin'
+    R.eq by_id.plugin_w.params.couleur, '#c33'
+    R.ok by_id.plugin_in_zone, "le widget de la zone doit survivre au réordonnancement"
+    R.eq by_id.plugin_in_zone.type, 'mon_plugin'
+    R.eq by_id.plugin_in_zone.params.titre, 'Zone'
+
 R.describe "ReorderWidgets — error handling", ->
   R.it "reorderWidgets on unknown page -> error", ->
     widget_positions = { { widgetId: 'widget1', index: 1 } }
@@ -146,6 +202,8 @@ R.describe "ReorderWidgets — edge cases", ->
 
 R.describe "ReorderWidgets — cleanup", ->
   R.it "cleanup test space and page", ->
+    if plugin_cv_id
+      cvr.Mutation.deleteCustomView {}, { id: plugin_cv_id }, CTX
     if cv_id
       cvr.Mutation.deleteCustomView {}, { id: cv_id }, CTX
     if space_id

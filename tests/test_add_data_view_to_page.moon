@@ -7,6 +7,7 @@ cvr = require 'resolvers.custom_view_resolvers'
 auth = require 'core.auth'
 spaces = require 'core.spaces'
 data_views = require 'core.data_views'
+yaml = require 'yaml'
 
 SUFFIX  = tostring math.random(100000, 999999)
 SPACE_NAME = "test_space_#{SUFFIX}"
@@ -64,11 +65,18 @@ R.describe "AddDataViewToPage — mutation", ->
     
     -- Verify the YAML contains a widget with the dataViewId field
     R.ok res.yaml\find("dataViewId:"), "YAML should contain the dataViewId"
-    R.ok res.yaml\find("title: Data View: #{DATA_VIEW_NAME}"), "YAML should contain the correct title"
     R.ok res.yaml\find("space: #{DATA_VIEW_NAME}"), "YAML should contain the data view name as space"
-    
+
     -- Verify the widget is correctly structured
     R.ok res.yaml\find("- widget:"), "YAML should contain a widget entry"
+
+    -- Le YAML généré doit être relisible (un titre contenant « : » est mis
+    -- entre guillemets simples, sinon le document devient invalide).
+    parsed = yaml.decode res.yaml
+    widget = parsed.layout.children[1].widget
+    R.eq widget.title, "Data View: #{DATA_VIEW_NAME}"
+    R.eq widget.space, DATA_VIEW_NAME
+    R.eq widget.dataViewId, dv_id
 
   R.it "returns error when pageId does not exist", ->
     R.raises (-> cvr.Mutation.addDataViewToPage {}, { pageId: 'non-existent-id', dataViewId: dv_id }, ctx), 'not found'

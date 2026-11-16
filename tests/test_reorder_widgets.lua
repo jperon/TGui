@@ -2,10 +2,11 @@ local R = require('tests.runner')
 local cvr = require('resolvers.custom_view_resolvers')
 local auth = require('core.auth')
 local spaces = require('core.spaces')
+local yaml = require('yaml')
 local SUFFIX = tostring(math.random(100000, 999999))
 local CV_NAME = "test_reorder_cv_" .. tostring(SUFFIX)
 local SPACE_NAME = "test_reorder_space_" .. tostring(SUFFIX)
-local cv_id, space_id
+local cv_id, space_id, plugin_cv_id
 local admin = auth.get_user_by_username('admin')
 local CTX = {
   user_id = admin and admin.id
@@ -109,6 +110,56 @@ R.describe("ReorderWidgets — basic reordering", function()
     return R.eq(res.yaml, original_yaml)
   end)
 end)
+R.describe("ReorderWidgets — widget personnalisé (plugin)", function()
+  return R.it("reorderWidgets keeps type and params of plugin widgets", function()
+    local yaml_content = "layout:\n" .. "  direction: vertical\n" .. "  children:\n" .. "    - widget:\n" .. "        id: plugin_w\n" .. "        title: Calendrier\n" .. ("        space: " .. tostring(SPACE_NAME) .. "\n") .. "        position: 1\n" .. "        type: mon_plugin\n" .. "        params:\n" .. "          couleur: '#c33'\n" .. "    - zone:\n" .. "        id: zone_a\n" .. "        title: Zone A\n" .. "        direction: vertical\n" .. "        children:\n" .. "          - widget:\n" .. "              id: plugin_in_zone\n" .. "              title: Dans une zone\n" .. ("              space: " .. tostring(SPACE_NAME) .. "\n") .. "              position: 1\n" .. "              type: mon_plugin\n" .. "              params:\n" .. "                titre: Zone\n"
+    local created = cvr.Mutation.createCustomView({ }, {
+      name = tostring(CV_NAME) .. "_plugin",
+      yaml = yaml_content
+    }, CTX)
+    R.ok(created)
+    plugin_cv_id = created.id
+    local widget_positions = {
+      {
+        widgetId = 'plugin_w',
+        index = 2
+      }
+    }
+    local res = cvr.Mutation.reorderWidgets({ }, {
+      pageId = plugin_cv_id,
+      widgetPositions = widget_positions
+    }, CTX)
+    R.ok(res.yaml)
+    local parsed = yaml.decode(res.yaml)
+    local widgets = { }
+    local collect
+    collect = function(node)
+      if not (type(node) == 'table') then
+        return 
+      end
+      if node.widget then
+        table.insert(widgets, node.widget)
+      end
+      for key, value in pairs(node) do
+        if key ~= 'widget' then
+          collect(value)
+        end
+      end
+    end
+    collect(parsed.layout)
+    local by_id = { }
+    for _index_0 = 1, #widgets do
+      local w = widgets[_index_0]
+      by_id[w.id] = w
+    end
+    R.ok(by_id.plugin_w, "le widget racine doit survivre au réordonnancement")
+    R.eq(by_id.plugin_w.type, 'mon_plugin')
+    R.eq(by_id.plugin_w.params.couleur, '#c33')
+    R.ok(by_id.plugin_in_zone, "le widget de la zone doit survivre au réordonnancement")
+    R.eq(by_id.plugin_in_zone.type, 'mon_plugin')
+    return R.eq(by_id.plugin_in_zone.params.titre, 'Zone')
+  end)
+end)
 R.describe("ReorderWidgets — error handling", function()
   R.it("reorderWidgets on unknown page -> error", function()
     local widget_positions = {
@@ -206,6 +257,11 @@ R.describe("ReorderWidgets — edge cases", function()
 end)
 return R.describe("ReorderWidgets — cleanup", function()
   return R.it("cleanup test space and page", function()
+    if plugin_cv_id then
+      cvr.Mutation.deleteCustomView({ }, {
+        id = plugin_cv_id
+      }, CTX)
+    end
     if cv_id then
       cvr.Mutation.deleteCustomView({ }, {
         id = cv_id

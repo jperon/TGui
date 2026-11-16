@@ -140,6 +140,63 @@ layout:
     widget_input = title: "Test", type: "table", spaceId: space_id, fields: {"id"}
     R.raises (-> cvr.Mutation.addWidgetToView {}, { viewId: 'no-such-id', widget: widget_input }, CTX), 'not found'
 
+  R.it "addWidgetToView keeps a custom widget type and params in the YAML", ->
+    empty_yaml = [[
+layout:
+  direction: vertical
+  children: []
+]]
+    cv = cvr.Mutation.createCustomView {}, { name: "test_plugin_cv_#{SUFFIX}", yaml: empty_yaml }, CTX
+
+    -- Un widget personnalisé : pas de colonnes, `type` = nom du plugin, et des
+    -- paramètres libres (valeurs avec apostrophe et « # » pour le YAML).
+    widget_input =
+      title: "Calendrier"
+      type: "mon_plugin"
+      spaceId: space_id
+      fields: {}
+      params: { couleur: '#c33', titre: "L'été" }
+
+    res = cvr.Mutation.addWidgetToView {}, { viewId: cv.id, widget: widget_input }, CTX
+    R.ok res.yaml
+
+    parsed = yaml.decode res.yaml
+    R.eq #(parsed.layout.children), 1
+    node = parsed.layout.children[1].widget
+    R.eq node.type, 'mon_plugin'
+    R.eq node.params.couleur, '#c33'
+    R.eq node.params.titre, "L'été"
+    R.eq node.space, SPACE_NAME
+    R.ok node.id, "le nœud YAML doit garder son identifiant"
+    R.eq node.columns, nil
+
+    cvr.Mutation.deleteCustomView {}, { id: cv.id }, CTX
+
+  R.it "addWidgetToView accepts a layout position without breaking the YAML", ->
+    empty_yaml = [[
+layout:
+  direction: vertical
+  children: []
+]]
+    cv = cvr.Mutation.createCustomView {}, { name: "test_pos_cv_#{SUFFIX}", yaml: empty_yaml }, CTX
+
+    -- La fenêtre « ＋ Widget » envoie { x, y, w, h } : la page est une liste
+    -- ordonnée, le YAML garde un index entier et reste relisible.
+    widget_input =
+      title: "Avec position"
+      type: "table"
+      spaceId: space_id
+      fields: {"id"}
+      position: { x: 0, y: 0, w: 6, h: 4 }
+
+    res = cvr.Mutation.addWidgetToView {}, { viewId: cv.id, widget: widget_input }, CTX
+    parsed = yaml.decode res.yaml
+    node = parsed.layout.children[1].widget
+    R.eq node.position, 1
+    R.eq node.title, 'Avec position'
+
+    cvr.Mutation.deleteCustomView {}, { id: cv.id }, CTX
+
 R.describe "CustomViews — deletion", ->
   R.it "deleteCustomView returns true", ->
     if cv_id
