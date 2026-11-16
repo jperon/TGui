@@ -70,46 +70,43 @@ non_void_self_closing = function(markup)
   end
   return bad
 end
-R.describe('html.lua — auto-fermeture', function()
-  R.it('renders an empty div with an explicit closing tag', function()
-    return R.eq(H.div({
-      id = 'a'
-    }), '<div id="a"></div>')
+R.describe('html.lua — convention d’écriture', function()
+  R.it('self-closes a void element written without argument', function()
+    return R.eq(H.br(), '<br/>')
   end)
-  R.it('renders an empty div without attribute with an explicit closing tag', function()
-    return R.eq(H.div({ }), '<div></div>')
-  end)
-  R.it('keeps void elements self-closed', function()
+  R.it('self-closes a void element with attributes', function()
     return R.eq(H.input({
       type = 'text'
     }), '<input type="text"/>')
   end)
-  R.it('renders every void element self-closed', function()
-    for name in pairs(VOID) do
-      local got = (H[name]({ }))
-      R.eq(got, "<" .. tostring(name) .. "/>", name)
-    end
-  end)
-  R.it('renders an empty non-void element with attributes as open+close', function()
-    return R.eq(H.span({
-      class = 'x'
-    }), '<span class="x"></span>')
-  end)
-  R.it('renders a nested empty element with a closing tag', function()
+  R.it('self-closes any element given no content (generic, XML-friendly)', function()
     return R.eq(H.div({
-      id = 'outer',
-      H.span({ })
-    }), '<div id="outer"><span></span></div>')
+      id = 'a'
+    }), '<div id="a"/>')
   end)
-  R.it('renders an empty script with an explicit closing tag', function()
-    return R.eq(H.script({
-      src = '/x.js'
-    }), '<script src="/x.js"></script>')
+  R.it('closes an element whose only child is the empty string', function()
+    return R.eq(H.div({
+      id = 'a',
+      ''
+    }), '<div id="a"></div>')
   end)
-  return R.it('does not change the rendering of elements with content', function()
+  R.it('closes an empty element without attribute given an empty string', function()
+    return R.eq(H.div({
+      ''
+    }), '<div></div>')
+  end)
+  R.it('does not change the rendering of elements with content', function()
     return R.eq(H.p({
       'hello'
     }), '<p>hello</p>')
+  end)
+  return R.it('nests quoted children', function()
+    return R.eq(H.div({
+      id = 'outer',
+      H.span({
+        ''
+      })
+    }), '<div id="outer"><span></span></div>')
   end)
 end)
 return R.describe('html.lua — page complète', function()

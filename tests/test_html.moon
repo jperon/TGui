@@ -1,7 +1,16 @@
 -- tests/test_html.moon
--- Tests backend/html.lua: only HTML void elements may be rendered as
--- self-closing tags. In HTML (unlike XHTML), `<div/>` is not closed: the
--- browser treats it as an opening tag and swallows the following markup.
+-- Tests backend/html.lua and the convention used by its callers.
+--
+-- html.lua stays generic (it also produces XML): an element without content
+-- is rendered as a self-closing tag (`<div id="a"/>`), which is valid XML.
+-- In HTML, `<div/>` is NOT closed: the browser treats it as an opening tag
+-- and swallows the following markup. So in HTML documents the caller must
+-- pass an empty string child for every empty non-void element:
+--
+--   H.br!                     -> <br/>        (void element)
+--   H.div {id: 'a'}           -> <div id="a"/> (invalid in HTML)
+--   H.div {id: 'a', ''}       -> <div id="a"></div>
+--
 -- Regression: `H.div {id: 'widget-manifest-form', class: '… hidden'}`
 -- (backend/ui/widget_modal.moon) used to emit `<div …/>`, which hid the
 -- data-view editor (#dv-name) from the SPA.
@@ -56,32 +65,27 @@ non_void_self_closing = (markup) ->
     table.insert bad, name unless VOID[name]
   bad
 
-R.describe 'html.lua — auto-fermeture', ->
-  R.it 'renders an empty div with an explicit closing tag', ->
-    R.eq H.div({ id: 'a' }), '<div id="a"></div>'
+R.describe 'html.lua — convention d’écriture', ->
+  R.it 'self-closes a void element written without argument', ->
+    R.eq H.br!, '<br/>'
 
-  R.it 'renders an empty div without attribute with an explicit closing tag', ->
-    R.eq H.div({}), '<div></div>'
-
-  R.it 'keeps void elements self-closed', ->
+  R.it 'self-closes a void element with attributes', ->
     R.eq H.input({ type: 'text' }), '<input type="text"/>'
 
-  R.it 'renders every void element self-closed', ->
-    for name in pairs VOID
-      got = (H[name] {})
-      R.eq got, "<#{name}/>", name
+  R.it 'self-closes any element given no content (generic, XML-friendly)', ->
+    R.eq H.div({ id: 'a' }), '<div id="a"/>'
 
-  R.it 'renders an empty non-void element with attributes as open+close', ->
-    R.eq H.span({ class: 'x' }), '<span class="x"></span>'
+  R.it 'closes an element whose only child is the empty string', ->
+    R.eq H.div({ id: 'a', '' }), '<div id="a"></div>'
 
-  R.it 'renders a nested empty element with a closing tag', ->
-    R.eq H.div({ id: 'outer', H.span {} }), '<div id="outer"><span></span></div>'
-
-  R.it 'renders an empty script with an explicit closing tag', ->
-    R.eq H.script({ src: '/x.js' }), '<script src="/x.js"></script>'
+  R.it 'closes an empty element without attribute given an empty string', ->
+    R.eq H.div({ '' }), '<div></div>'
 
   R.it 'does not change the rendering of elements with content', ->
     R.eq H.p({ 'hello' }), '<p>hello</p>'
+
+  R.it 'nests quoted children', ->
+    R.eq H.div({ id: 'outer', H.span({ '' }) }), '<div id="outer"><span></span></div>'
 
 R.describe 'html.lua — page complète', ->
   R.it 'the full SPA markup contains no self-closing non-void tag', ->

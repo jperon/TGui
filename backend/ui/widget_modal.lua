@@ -188,11 +188,13 @@ _widgetParamsSection = function()
       }),
       H.div({
         id = 'widget-manifest-form',
-        class = 'widget-manifest-form hidden'
+        class = 'widget-manifest-form hidden',
+        ''
       }),
       H.div({
         id = 'widget-manifest-hint',
-        class = 'widget-type-hint hidden'
+        class = 'widget-type-hint hidden',
+        ''
       })
     })
   })
