@@ -80,9 +80,13 @@ compile_formula = function(formula, field_name, language)
       formula = formula:gsub('@([%w_]+)', 'self.%1')
     end
     local moon_src = "return (self, space) -> " .. formula
-    local ok_c, lua_or_err = pcall(moon.to_lua, moon_src)
+    local ok_c, lua_or_err, compile_err = pcall(moon.to_lua, moon_src)
     if not (ok_c) then
       log.error("tdb triggers: MoonScript parse error for '" .. tostring(field_name) .. "': " .. tostring(lua_or_err))
+      return nil
+    end
+    if not (lua_or_err) then
+      log.error("tdb triggers: MoonScript parse error for '" .. tostring(field_name) .. "': " .. tostring(compile_err))
       return nil
     end
     lua_chunk = lua_or_err

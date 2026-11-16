@@ -1487,9 +1487,12 @@ change_field_type = function(field_id, new_type, conversion_formula, language)
         error("MoonScript non disponible: " .. tostring(moon))
       end
       local moon_src = "return (self, space) -> " .. conversion_formula
-      local ok_c, lua_or_err = pcall(moon.to_lua, moon_src)
+      local ok_c, lua_or_err, compile_err = pcall(moon.to_lua, moon_src)
       if not (ok_c) then
         error("MoonScript parse error: " .. tostring(lua_or_err))
+      end
+      if not (lua_or_err) then
+        error("MoonScript parse error: " .. tostring(compile_err))
       end
       lua_chunk = lua_or_err
     else
