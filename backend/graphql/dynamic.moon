@@ -71,7 +71,13 @@ apply_filter = (all, flt, fk_def_map, fk_cache, space_name) ->
     lang = flt.language or 'moonscript'
     ok_c, fn = pcall triggers.compile_formula, flt.formula, 'filter', lang
     flt._formula_fn = if ok_c and type(fn) == 'function' then fn else false
-  [r for r in *all when matches_filter (if fk_def_map then triggers.make_self_proxy(r, fk_def_map, fk_cache, space_name) else r), flt]
+  filtered = {}
+  for i, r in ipairs all
+    -- Filter formulas are evaluated per row: yield periodically.
+    config.yield_every i
+    self_val = if fk_def_map then triggers.make_self_proxy(r, fk_def_map, fk_cache, space_name) else r
+    table.insert filtered, r if matches_filter self_val, flt
+  filtered
 
 -- Build a record object from a raw Tarantool tuple
 decode_tuple = (t) ->
@@ -161,7 +167,13 @@ generate = ->
           return { items: {}, total: 0, offset: 0, limit: 0 }
         limit  = args.limit  or 100
         offset = args.offset or 0
-        all    = [decode_tuple(t) for t in *sp_box\select {}]
+        -- One tuple per row: decode with a periodic yield (full scan of a
+        -- large space is the first long step of a grid read).
+        all = {}
+        tuples = sp_box\select {}
+        for i, t in ipairs tuples
+          config.yield_every i
+          table.insert all, decode_tuple t
         -- Build FK def map for this space so filter formulas can traverse FK chains
         ok_fk, fk_def_map = pcall triggers.build_fk_def_map, sp_cap.id
         fk_def_map = if ok_fk then fk_def_map else {}
@@ -169,7 +181,11 @@ generate = ->
         -- Computed relation fields: materialize their Int so a raw read
         -- (grid FK column requested without sub-selection) gets a value.
         if #cfk_cap > 0
-          all = [fill_computed_relation_values(r, cfk_cap, sp_cap.name, ctx._fk_cache) for r in *all]
+          -- Computed relation fields are materialized per row: yield between
+          -- rows (each row evaluates its own formulas).
+          for i, r in ipairs all
+            config.yield_every i
+            fill_computed_relation_values r, cfk_cap, sp_cap.name, ctx._fk_cache
         all    = apply_filter all, args.filter, fk_def_map, ctx._fk_cache, sp_cap.name
         total  = #all
         items  = [all[i] for i = offset + 1, math.min(offset + limit, total)]

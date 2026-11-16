@@ -84,7 +84,9 @@ apply_filter = (tuples, filter, fk_def_map, fk_cache, space_name) ->
     filter._formula_fn = if ok_c and type(fn) == 'function' then fn else false
   triggers_mod = require 'core.triggers'
   filtered = {}
-  for rec in *tuples
+  for i, rec in ipairs tuples
+    -- Filter formula per row: yield periodically so other requests progress.
+    config_mod.yield_every i
     -- Use proxy if available for formula filters, otherwise create one
     self_val = if filter.formula and filter.formula != '' and rec.proxy
       rec.proxy
@@ -261,7 +263,12 @@ Query =
     -- Collect all records, injecting _repr and per-field repr when available
     all = {}
     has_field_reprs = next(field_reprs) != nil
-    for t in *sp\select {}
+    tuples = sp\select {}
+    for i, t in ipairs tuples
+      -- One row per iteration: repr formulas and computed FK columns are
+      -- evaluated below, so this is the heavy per-row read loop of the grid
+      -- path. Yield periodically to keep other requests alive.
+      config_mod.yield_every i
       parsed = json.decode t[2]
       parsed._id = tostring t[1]
       if #computed_fk_names > 0

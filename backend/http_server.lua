@@ -5,8 +5,11 @@ local fio = require('fio')
 local log = require('log')
 local graphql = require('graphql.executor')
 local index = require('index')
-local FRONTEND_DIR
-FRONTEND_DIR = require('core.config').FRONTEND_DIR
+local FRONTEND_DIR, set_request_slice
+do
+  local _obj_0 = require('core.config')
+  FRONTEND_DIR, set_request_slice = _obj_0.FRONTEND_DIR, _obj_0.set_request_slice
+end
 local mime_types = {
   txt = 'text/plain',
   html = 'text/html',
@@ -155,6 +158,7 @@ handle_graphql = function(req)
       ctx.must_change_password = user and user.must_change_password or false
     end
   end
+  set_request_slice()
   local result = graphql.execute({
     query,
     variables,
@@ -243,6 +247,7 @@ handle_export = function(req)
       body = 'Unauthorized'
     }
   end
+  set_request_slice()
   local export_resolvers = require('resolvers.export_resolvers')
   local snap = export_resolvers.build_snapshot(include_data)
   local yaml_str = require('yaml').encode(snap)

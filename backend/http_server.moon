@@ -19,7 +19,7 @@ log = require 'log'
 
 graphql = require 'graphql.executor'
 index  = require 'index'
-{ :FRONTEND_DIR } = require 'core.config'
+{ :FRONTEND_DIR, :set_request_slice } = require 'core.config'
 
 mime_types = {
   txt:  'text/plain'
@@ -120,6 +120,10 @@ handle_graphql = (req) ->
       user = auth_mod.get_user_by_id session.user_id
       ctx.must_change_password = user and user.must_change_password or false
 
+  -- The request gets its own fiber slice: the instance-wide default stays
+  -- untouched (a heavy read must not block every other fiber), and this bound
+  -- applies to this request fiber only (core.config.REQUEST_SLICE).
+  set_request_slice!
   result = graphql.execute { query, variables, op_name, context: ctx }
   req\render { status: 200, json: result }
 
@@ -171,6 +175,9 @@ handle_export = (req) ->
       return { status: 403, headers: {}, body: 'Admin access required' }
     return { status: 401, headers: {}, body: 'Unauthorized' }
 
+  -- Snapshot building scans every space in this fiber: same per-request bound
+  -- as GraphQL (the instance-wide default is left untouched).
+  set_request_slice!
   -- Build snapshot
   export_resolvers = require 'resolvers.export_resolvers'
   snap = export_resolvers.build_snapshot include_data

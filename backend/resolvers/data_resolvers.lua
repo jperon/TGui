@@ -137,8 +137,8 @@ apply_filter = function(tuples, filter, fk_def_map, fk_cache, space_name)
   end
   local triggers_mod = require('core.triggers')
   local filtered = { }
-  for _index_0 = 1, #tuples do
-    local rec = tuples[_index_0]
+  for i, rec in ipairs(tuples) do
+    config_mod.yield_every(i)
     local self_val
     if filter.formula and filter.formula ~= '' and rec.proxy then
       self_val = rec.proxy
@@ -429,9 +429,9 @@ local Query = {
     end
     local all = { }
     local has_field_reprs = next(field_reprs) ~= nil
-    local _list_0 = sp:select({ })
-    for _index_0 = 1, #_list_0 do
-      local t = _list_0[_index_0]
+    local tuples = sp:select({ })
+    for i, t in ipairs(tuples) do
+      config_mod.yield_every(i)
       local parsed = json.decode(t[2])
       parsed._id = tostring(t[1])
       if #computed_fk_names > 0 then

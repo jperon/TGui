@@ -1,5 +1,7 @@
 local json = require('json')
 local log = require('log')
+local yield_every
+yield_every = require('core.config').yield_every
 local make_self_proxy, build_fk_def_map
 do
   local _obj_0 = require('core.triggers')
@@ -44,9 +46,9 @@ execute_view = function(source_space_ref, config_json, params)
   local fk_def_map = build_fk_def_map(space_id)
   local fk_cache = { }
   local records = { }
-  local _list_0 = sp:select({ })
-  for _index_0 = 1, #_list_0 do
-    local t = _list_0[_index_0]
+  local tuples = sp:select({ })
+  for i, t in ipairs(tuples) do
+    yield_every(i)
     local d
     if type(t[2]) == 'string' then
       d = json.decode(t[2])
@@ -63,8 +65,8 @@ execute_view = function(source_space_ref, config_json, params)
   if config.filter then
     local resolvers = require('resolvers.data_resolvers')
     local filtered = { }
-    for _index_0 = 1, #records do
-      local rec = records[_index_0]
+    for i, rec in ipairs(records) do
+      yield_every(i)
       if resolvers.matches_filter(rec.proxy, config.filter) then
         table.insert(filtered, rec)
       end
@@ -74,15 +76,15 @@ execute_view = function(source_space_ref, config_json, params)
   if config.groupBy and #config.groupBy > 0 then
     local groups = { }
     local group_keys = { }
-    for _index_0 = 1, #records do
-      local rec = records[_index_0]
+    for i, rec in ipairs(records) do
+      yield_every(i)
       local parts
       do
         local _accum_0 = { }
         local _len_0 = 1
-        local _list_1 = config.groupBy
-        for _index_1 = 1, #_list_1 do
-          local f = _list_1[_index_1]
+        local _list_0 = config.groupBy
+        for _index_0 = 1, #_list_0 do
+          local f = _list_0[_index_0]
           _accum_0[_len_0] = tostring(field_value(rec, f, fk_def_map, source_space_name, fk_cache) or '')
           _len_0 = _len_0 + 1
         end
@@ -96,15 +98,15 @@ execute_view = function(source_space_ref, config_json, params)
           _vals = { }
         }
         table.insert(group_keys, key)
-        local _list_1 = config.groupBy
-        for _index_1 = 1, #_list_1 do
-          local f = _list_1[_index_1]
+        local _list_0 = config.groupBy
+        for _index_0 = 1, #_list_0 do
+          local f = _list_0[_index_0]
           groups[key]._g[f] = field_value(rec, f, fk_def_map, source_space_name, fk_cache)
         end
         if config.aggregates then
-          local _list_2 = config.aggregates
-          for _index_1 = 1, #_list_2 do
-            local agg = _list_2[_index_1]
+          local _list_1 = config.aggregates
+          for _index_0 = 1, #_list_1 do
+            local agg = _list_1[_index_0]
             groups[key]._vals[agg] = {
               count = 0,
               sum = 0,
@@ -116,9 +118,9 @@ execute_view = function(source_space_ref, config_json, params)
       end
       local g = groups[key]
       if config.aggregates then
-        local _list_1 = config.aggregates
-        for _index_1 = 1, #_list_1 do
-          local agg = _list_1[_index_1]
+        local _list_0 = config.aggregates
+        for _index_0 = 1, #_list_0 do
+          local agg = _list_0[_index_0]
           local acc = g._vals[agg]
           acc.count = acc.count + 1
           if agg.field then
@@ -145,15 +147,15 @@ execute_view = function(source_space_ref, config_json, params)
       local key = group_keys[_index_0]
       local g = groups[key]
       local row = { }
-      local _list_1 = config.groupBy
-      for _index_1 = 1, #_list_1 do
-        local f = _list_1[_index_1]
+      local _list_0 = config.groupBy
+      for _index_1 = 1, #_list_0 do
+        local f = _list_0[_index_1]
         row[f] = g._g[f]
       end
       if config.aggregates then
-        local _list_2 = config.aggregates
-        for _index_1 = 1, #_list_2 do
-          local agg = _list_2[_index_1]
+        local _list_1 = config.aggregates
+        for _index_1 = 1, #_list_1 do
+          local agg = _list_1[_index_1]
           local alias = agg.as or ((function()
             if agg.field then
               return tostring(agg.fn) .. "_" .. tostring(agg.field)
@@ -198,11 +200,11 @@ execute_view = function(source_space_ref, config_json, params)
   end
   if config.orderBy and #config.orderBy > 0 then
     table.sort(records, function(a, b)
-      local _list_1 = config.orderBy
-      for _index_0 = 1, #_list_1 do
+      local _list_0 = config.orderBy
+      for _index_0 = 1, #_list_0 do
         local _continue_0 = false
         repeat
-          local order = _list_1[_index_0]
+          local order = _list_0[_index_0]
           local field = order.field
           local vA = a.proxy[field]
           local vB = b.proxy[field]
@@ -240,12 +242,12 @@ execute_view = function(source_space_ref, config_json, params)
   end
   if config.columns and #config.columns > 0 then
     local mapped = { }
-    for _index_0 = 1, #records do
-      local rec = records[_index_0]
+    for i, rec in ipairs(records) do
+      yield_every(i)
       local row = { }
-      local _list_1 = config.columns
-      for _index_1 = 1, #_list_1 do
-        local col = _list_1[_index_1]
+      local _list_0 = config.columns
+      for _index_0 = 1, #_list_0 do
+        local col = _list_0[_index_0]
         if type(col) == 'string' then
           row[col] = rec.proxy[col]
         elseif type(col) == 'table' and col.field then

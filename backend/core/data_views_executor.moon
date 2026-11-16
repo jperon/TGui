@@ -4,6 +4,7 @@
 
 json = require 'json'
 log = require 'log'
+{ :yield_every } = require 'core.config'
 { :make_self_proxy, :build_fk_def_map } = require 'core.triggers'
 { :relation_field_value } = require 'core.formula_proxy'
 
@@ -41,7 +42,11 @@ execute_view = (source_space_ref, config_json, params) ->
   
   -- Gather all records
   records = {}
-  for t in *sp\select {}
+  tuples = sp\select {}
+  for i, t in ipairs tuples
+    -- One row per iteration, each building a self proxy (formulas resolved
+    -- lazily below): yield so other requests progress during a full scan.
+    yield_every i
     d = if type(t[2]) == 'string' then json.decode(t[2]) else t[2]
     d._id = tostring t[1]
     proxy = make_self_proxy d, fk_def_map, fk_cache, source_space_name
@@ -51,7 +56,9 @@ execute_view = (source_space_ref, config_json, params) ->
   if config.filter
     resolvers = require 'resolvers.data_resolvers'
     filtered = {}
-    for rec in *records
+    for i, rec in ipairs records
+      -- Filter formulas are evaluated per row: yield periodically.
+      yield_every i
       if resolvers.matches_filter(rec.proxy, config.filter)
         table.insert filtered, rec
     records = filtered
@@ -64,7 +71,9 @@ execute_view = (source_space_ref, config_json, params) ->
     groups = {}
     group_keys = {}
     
-    for rec in *records
+    for i, rec in ipairs records
+      -- Grouping reads computed fields per row (field_value -> proxy).
+      yield_every i
       -- compute key
       parts = [tostring(field_value(rec, f, fk_def_map, source_space_name, fk_cache) or '') for f in *config.groupBy]
       key = table.concat parts, '\t'
@@ -141,7 +150,9 @@ execute_view = (source_space_ref, config_json, params) ->
   -- 6. Map Columns
   if config.columns and #config.columns > 0
     mapped = {}
-    for rec in *records
+    for i, rec in ipairs records
+      -- Mapping reads computed fields per row (rec.proxy[col]).
+      yield_every i
       row = {}
       for col in *config.columns
         if type(col) == 'string'

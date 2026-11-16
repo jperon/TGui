@@ -21,6 +21,27 @@ local LIMITS = {
     max_length = DEFAULT_FIELD_NAME_MAX_LENGTH
   }
 }
+local REQUEST_SLICE = {
+  warn = 1,
+  err = 5
+}
+local YIELD_EVERY = 64
+local set_request_slice
+set_request_slice = function()
+  return fiber.self():set_max_slice(REQUEST_SLICE)
+end
+local yield_every
+yield_every = function(i)
+  if not (YIELD_EVERY > 0 and i % YIELD_EVERY == 0) then
+    return false
+  end
+  local in_txn = box and box.is_in_txn and box.is_in_txn() or false
+  if in_txn then
+    return false
+  end
+  fiber.yield()
+  return true
+end
 local FORMULA_INSTRUCTION_LIMIT = 20 * 1000 * 1000
 local FORMULA_HOOK_INTERVAL = 10000
 local run_unguarded
@@ -168,5 +189,9 @@ return {
   clear_formula_metrics = clear_formula_metrics,
   FORMULA_INSTRUCTION_LIMIT = FORMULA_INSTRUCTION_LIMIT,
   FORMULA_HOOK_INTERVAL = FORMULA_HOOK_INTERVAL,
+  REQUEST_SLICE = REQUEST_SLICE,
+  YIELD_EVERY = YIELD_EVERY,
+  set_request_slice = set_request_slice,
+  yield_every = yield_every,
   run_unguarded = run_unguarded
 }
