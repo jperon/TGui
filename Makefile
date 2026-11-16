@@ -77,8 +77,11 @@ $(NATIVE_SO): $(MOONSCRIPT_DIR)/moonscript/parse/native.c
 
 # Message explicite quand le sous-module n'a pas été récupéré (clone sans
 # --recurse-submodules) : la règle ci-dessus ne peut pas s'appliquer.
+# La recette ne se déclenche que si le fichier est réellement absent ; un
+# `make -B build` la rejoue alors que native.c est présent, d'où le test
+# (sans lui, ce cas échouait à tort).
 $(MOONSCRIPT_DIR)/moonscript/parse/native.c:
-	@echo "❌ sous-module MoonScript absent : lancer 'git submodule update --init'"; exit 1
+	@test -f $@ || { echo "❌ sous-module MoonScript absent : lancer 'git submodule update --init'"; exit 1; }
 
 %.lua: %.moon | $(NATIVE_SO)
 	$(MOONC) $<
