@@ -52,6 +52,7 @@ Backend/frontend test panorama and per-file intent.
 | `tests/test_validation.moon` | Write-time record validation (core.validation), through validate_record and |
 | `tests/test_views_core.moon` | Non-regression tests for the two bugs of core/views.moon (task T5). |
 | `tests/test_widget_plugins.moon` | Tests CRUD operations on widget plugins (resolvers/widget_plugin_resolvers.moon). |
+| `tests/test_widget_plugin_lua.moon` | Définitions Lua / MoonScript des widgets (spec widgets personnalisés §7) : compilation serveur dans `compiled`, refus d'un script invalide avec la ligne, migration tdb_v7. |
 | `tests/test_zone_merge_split.moon` | Tests for the mergeZones and splitZone mutations. |
 | `tests/js/dom_stub.coffee` | tests/js/dom_stub.coffee — minimal DOM stub for Node.js |
 | `tests/js/run.coffee` | tests/js/run.coffee — runs all test_*.coffee files sequentially |
@@ -71,4 +72,5 @@ Backend/frontend test panorama and per-file intent.
 | `tests/js/test_view_helpers.coffee` | Régression pour AppViewHelpers.renderCustomViewPreview. |
 | `tests/js/test_view_helpers_dedup.coffee` | T11 refactor guard: AppViewHelpers must not define any key twice, and every |
 | `tests/js/test_widget_plugins_dedup.coffee` | T13 guard: LIST_WIDGET_PLUGINS must be defined in exactly one frontend source |
+| `tests/js/test_widget_lua_runtime.coffee` | Widgets Lua/MoonScript : compilation côté parent (aucun wasmoon), iframe wasmoon (registre, global `widget`, `unpack`, erreurs Lua). |
 | `tests/js/test_yaml_builder.coffee` | tests/js/test_yaml_builder.coffee — tests for YamlBuilder (yaml_builder.js) |

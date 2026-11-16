@@ -2,7 +2,7 @@
 
 > Auto-generated file. Do not edit manually.
 >
-> Generated at: 2026-11-16 17:25:26 UTC
+> Generated at: 2026-11-16 18:02:51 UTC
 
 Backend/frontend test panorama and per-file intent.
 
@@ -77,6 +77,7 @@ Backend/frontend test panorama and per-file intent.
 | `tests/test_widget_detach.moon` | « Détacher » une instance de widget personnalisé (spec |
 | `tests/test_widget_gql_policy.moon` | Requêtes relayées depuis une iframe de widget (en-tête `X-TDB-Widget: 1` |
 | `tests/test_widget_ids.moon` | Tests core/widget_ids: every widget of a page YAML text carries a stable id, |
+| `tests/test_widget_plugin_lua.moon` | Définitions Lua / MoonScript des widgets personnalisés (spec |
 | `tests/test_widget_plugin_manifest.moon` | Manifest des widgets personnalisés (spec |
 | `tests/test_widget_plugin_permissions.moon` | Écriture du code d'un widget plugin = exécution de code dans le navigateur |
 | `tests/test_widget_plugins.moon` | Tests CRUD operations on widget plugins (resolvers/widget_plugin_resolvers.moon). |
@@ -123,6 +124,7 @@ Backend/frontend test panorama and per-file intent.
 | `tests/js/test_view_helpers_dedup.coffee` | T11 refactor guard: AppViewHelpers must not define any key twice, and every |
 | `tests/js/test_view_presets_menu.coffee` | Menu « Trier / Filtrer » : sérialisation du tri, application d'un préréglage |
 | `tests/js/test_widget_detach.coffee` | Action « Détacher » d'une instance de widget personnalisé (spec |
+| `tests/js/test_widget_lua_runtime.coffee` | Widgets Lua / MoonScript (spec docs/superpowers/specs/2026-11-16-custom-widgets-design.md §7) : |
 | `tests/js/test_widget_manifest_access.coffee` | Manifest des widgets personnalisés : accès effectif (none/read/full), |
 | `tests/js/test_widget_plugins_dedup.coffee` | T13 guard: LIST_WIDGET_PLUGINS must be defined in exactly one frontend source |
 | `tests/js/test_widget_relay_header.coffee` | Le relais des requêtes d'un widget (custom_view_plugins.coffee) doit passer |
