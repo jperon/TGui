@@ -394,13 +394,18 @@ _type_line_value = (value) ->
     v = v\sub 2, -2 if (q == '"' or q == "'") and v\sub(-1) == q
   v
 
--- Réécrit les lignes `type: <ancien nom>` d'une seule ligne du YAML.
+-- Réécrit les lignes `type: <ancien nom>` d'une seule ligne du YAML, en
+-- conservant l'indentation, les guillemets et le saut de ligne.
 _rewrite_type_line = (line, renames) ->
-  prefix, value = line\match '^(%s*type:%s*)(.-)%s*$'
+  prefix, value, suffix = line\match '^(%s*type:%s*)(.-)(%s*)$'
   return line unless prefix and value
   name = _type_line_value value
   return line unless renames[name]
-  prefix .. renames[name]
+  new_name = renames[name]
+  quote = value\match "^(['\"])"
+  new_name = "'#{new_name}'" if quote == "'"
+  new_name = '"' .. new_name .. '"' if quote == '"'
+  prefix .. new_name .. suffix
 
 -- Réécrit les lignes `type: <ancien nom>` du YAML d'une page. Seules les
 -- valeurs renommées sont touchées, le reste du texte (mise en forme, autres
@@ -439,14 +444,16 @@ _rename_targets = (pkg, plan, decisions, new_names) ->
   targets
 
 -- Paquet réécrit : définitions renommées (clé, contenu, empreinte recalculée)
--- et pages dont les `type:` référencent l'ancien nom.
+-- et pages dont les `type:` référencent l'ancien nom. Renvoie aussi les clés des
+-- pages réécrites : leur YAML livré fait foi (voir apply_update).
 _apply_renames = (pkg, targets) ->
-  return pkg if next(targets) == nil
+  return { package: pkg, pages: {} } if next(targets) == nil
   renames = {}
   for key, new_name in pairs targets
     old_name = _after key, 'plugin:'
     renames[app_package.unkey_part old_name] = new_name if old_name
   items = {}
+  pages = {}
   for it in *pkg.items
     if it.type == 'plugin' and targets[it.key]
       new_name = targets[it.key]
@@ -465,6 +472,7 @@ _apply_renames = (pkg, targets) ->
       content = {}
       content[k] = v for k, v in pairs it.content
       content.yaml = _rename_page_types content.yaml, renames
+      pages[it.key] = true
       table.insert items, {
         type: it.type
         key: it.key
@@ -473,7 +481,7 @@ _apply_renames = (pkg, targets) ->
       }
     else
       table.insert items, it
-  { app: pkg.app, items: items, seed_keys: pkg.seed_keys }
+  { package: { app: pkg.app, items: items, seed_keys: pkg.seed_keys }, pages: pages }
 
 
 _empty_report = ->
@@ -877,16 +885,26 @@ _do_updates = (ctx) ->
     table.insert ctx.report.updated, entry.key
     ctx.touched[result.space] = true if result.space
 
+-- Conflit sur une installation neuve : l'élément existe localement sans ligne
+-- de suivi (auteur qui installe son propre export, page réécrite par un
+-- renommage). On le retrouve par sa clé stable.
+_local_old_of = (ctx, entry) ->
+  old = _effective_old ctx, entry
+  return old if old
+  local_id = _resolve_local_id entry.type, entry.key, entry.app_scope
+  local_id and { local_id: local_id } or nil
+
 _do_conflicts = (ctx) ->
   for c in *_order_conflicts ctx.plan.conflict
     entry = c[1]
     continue if _skip entry, ctx.report
     continue if entry.type == 'seed'
-    old = _effective_old ctx, entry
+    old = _local_old_of ctx, entry
     resolution = ctx.decisions[entry.key]
     if resolution == 'delivered'
       ex = EXECUTORS[entry.type]
       error "unsupported type '#{entry.type}'" unless ex and ex.update
+      error "cannot replace unknown item '#{entry.key}'" unless old
       result = ex.update entry, old
       _record ctx.pkg.app.id, ctx.pkg.app.version, entry.type, entry.key, result.id, entry.fingerprint, 'actif'
       ctx.touched[result.space] = true if result.space
@@ -1441,13 +1459,20 @@ apply_update = (package, decisions, opts) ->
   -- pages devant référencer le nouveau nom dès leur création.
   targets = _rename_targets pkg, plan, decisions, opts.rename_names
   if next(targets) != nil
-    pkg = _apply_renames pkg, targets
+    rewritten = _apply_renames pkg, targets
+    pkg = rewritten.package
     pkg_map = {}
     for it in *pkg.items
       pkg_map[it.key] = it
     local_states = _build_local_states pkg, installed
     plan = plan_update installed, pkg, local_states, _effective_opts(pkg.app.id, opts)
     return _abort report, plan.errors if #plan.errors > 0
+    -- Les pages réécrites ont changé de `type:` : leur contenu livré fait foi,
+    -- sans redemander une décision à l'utilisateur (le choix « importer sous un
+    -- autre nom » implique que les pages importées pointent vers la copie).
+    for c in *plan.conflict
+      entry = c[1]
+      decisions[entry.key] = 'delivered' if rewritten.pages[entry.key] and decisions[entry.key] == nil
     conflict_error = _check_decisions plan.conflict, decisions
     return _abort report, { conflict_error } if conflict_error
   for key in *plan.obsolete

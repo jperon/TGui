@@ -108,7 +108,7 @@ plan_item_of = (entry) ->
 conflict_of = (conflict) ->
   entry = conflict[1]
   local_state = conflict[2]
-  result = { key: entry.key, type: entry.type, delivered: entry.content }
+  result = { key: entry.key, type: entry.type, delivered: entry.content, pages: {} }
   result['local'] = local_state and local_state.content or nil
   if entry.type == 'plugin'
     scope = (local_state and local_state.app_id) or entry.app_scope

@@ -117,7 +117,8 @@ conflict_of = function(conflict)
   local result = {
     key = entry.key,
     type = entry.type,
-    delivered = entry.content
+    delivered = entry.content,
+    pages = { }
   }
   result['local'] = local_state and local_state.content or nil
   if entry.type == 'plugin' then

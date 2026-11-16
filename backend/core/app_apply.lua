@@ -560,7 +560,7 @@ _type_line_value = function(value)
 end
 local _rewrite_type_line
 _rewrite_type_line = function(line, renames)
-  local prefix, value = line:match('^(%s*type:%s*)(.-)%s*$')
+  local prefix, value, suffix = line:match('^(%s*type:%s*)(.-)(%s*)$')
   if not (prefix and value) then
     return line
   end
@@ -568,7 +568,15 @@ _rewrite_type_line = function(line, renames)
   if not (renames[name]) then
     return line
   end
-  return prefix .. renames[name]
+  local new_name = renames[name]
+  local quote = value:match("^(['\"])")
+  if quote == "'" then
+    new_name = "'" .. tostring(new_name) .. "'"
+  end
+  if quote == '"' then
+    new_name = '"' .. new_name .. '"'
+  end
+  return prefix .. new_name .. suffix
 end
 local _rename_page_types
 _rename_page_types = function(text, renames)
@@ -629,7 +637,10 @@ end
 local _apply_renames
 _apply_renames = function(pkg, targets)
   if next(targets) == nil then
-    return pkg
+    return {
+      package = pkg,
+      pages = { }
+    }
   end
   local renames = { }
   for key, new_name in pairs(targets) do
@@ -639,6 +650,7 @@ _apply_renames = function(pkg, targets)
     end
   end
   local items = { }
+  local pages = { }
   local _list_0 = pkg.items
   for _index_0 = 1, #_list_0 do
     local it = _list_0[_index_0]
@@ -663,6 +675,7 @@ _apply_renames = function(pkg, targets)
         content[k] = v
       end
       content.yaml = _rename_page_types(content.yaml, renames)
+      pages[it.key] = true
       table.insert(items, {
         type = it.type,
         key = it.key,
@@ -674,9 +687,12 @@ _apply_renames = function(pkg, targets)
     end
   end
   return {
-    app = pkg.app,
-    items = items,
-    seed_keys = pkg.seed_keys
+    package = {
+      app = pkg.app,
+      items = items,
+      seed_keys = pkg.seed_keys
+    },
+    pages = pages
   }
 end
 local _empty_report
@@ -1447,6 +1463,17 @@ _do_updates = function(ctx)
     end
   end
 end
+local _local_old_of
+_local_old_of = function(ctx, entry)
+  local old = _effective_old(ctx, entry)
+  if old then
+    return old
+  end
+  local local_id = _resolve_local_id(entry.type, entry.key, entry.app_scope)
+  return local_id and {
+    local_id = local_id
+  } or nil
+end
 local _do_conflicts
 _do_conflicts = function(ctx)
   local _list_0 = _order_conflicts(ctx.plan.conflict)
@@ -1463,12 +1490,15 @@ _do_conflicts = function(ctx)
         _continue_0 = true
         break
       end
-      local old = _effective_old(ctx, entry)
+      local old = _local_old_of(ctx, entry)
       local resolution = ctx.decisions[entry.key]
       if resolution == 'delivered' then
         local ex = EXECUTORS[entry.type]
         if not (ex and ex.update) then
           error("unsupported type '" .. tostring(entry.type) .. "'")
+        end
+        if not (old) then
+          error("cannot replace unknown item '" .. tostring(entry.key) .. "'")
         end
         local result = ex.update(entry, old)
         _record(ctx.pkg.app.id, ctx.pkg.app.version, entry.type, entry.key, result.id, entry.fingerprint, 'actif')
@@ -2537,7 +2567,8 @@ apply_update = function(package, decisions, opts)
   end
   local targets = _rename_targets(pkg, plan, decisions, opts.rename_names)
   if next(targets) ~= nil then
-    pkg = _apply_renames(pkg, targets)
+    local rewritten = _apply_renames(pkg, targets)
+    pkg = rewritten.package
     pkg_map = { }
     local _list_1 = pkg.items
     for _index_0 = 1, #_list_1 do
@@ -2548,6 +2579,14 @@ apply_update = function(package, decisions, opts)
     plan = plan_update(installed, pkg, local_states, _effective_opts(pkg.app.id, opts))
     if #plan.errors > 0 then
       return _abort(report, plan.errors)
+    end
+    local _list_2 = plan.conflict
+    for _index_0 = 1, #_list_2 do
+      local c = _list_2[_index_0]
+      local entry = c[1]
+      if rewritten.pages[entry.key] and decisions[entry.key] == nil then
+        decisions[entry.key] = 'delivered'
+      end
     end
     conflict_error = _check_decisions(plan.conflict, decisions)
     if conflict_error then
