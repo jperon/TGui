@@ -109,7 +109,7 @@ R.describe "WidgetPlugins — stockage du manifest", ->
         }
       }, CTX
     ), 'access must be one of'
-    R.is_nil box.space._tdb_widget_plugins.index.by_name\get "#{NAME}_bad"
+    R.is_nil box.space._tdb_widget_plugins.index.by_scope_name\get { '', "#{NAME}_bad" }
 
   R.it "updateWidgetPlugin partiel conserve le manifest existant", ->
     res = wpr.Mutation.updateWidgetPlugin {}, {
@@ -160,9 +160,10 @@ R.describe "WidgetPlugins — migration d’un tuple d’ancien format", ->
     spaces = require 'core.spaces'
     n = spaces.migrate_widget_plugin_manifest!
     R.ok n >= 1, "au moins un tuple normalisé (obtenu #{n})"
-    old = box.space._tdb_widget_plugins.index.by_name\get "wpman_old_name_#{SUFFIX}"
-    R.eq #old, 10, 'le tuple a maintenant 10 champs'
+    old = box.space._tdb_widget_plugins.index.by_scope_name\get { '', "wpman_old_name_#{SUFFIX}" }
+    R.eq #old, 11, 'le tuple a maintenant 11 champs (manifest, app_id)'
     R.eq old[10], ''
+    R.eq old[11], '', 'définition globale (bibliothèque)'
     R.eq spaces.migrate_widget_plugin_manifest!, 0, 'idempotente'
     box.space._tdb_widget_plugins\delete old[1]
 
@@ -260,18 +261,19 @@ R.describe "WidgetPlugins — export et installation d’app", ->
     R.eq pkg.canonical(norm), pkg.canonical(content)
 
   R.it "l’installation recrée le manifest", ->
-    built = pkg.build_package {
-      id: APP_ID, name: "wpman #{SUFFIX}", version: '1.0.0', description: ''
-    }, {}
-    items = [it for it in *built.items when it.key == "plugin:#{NAME}"]
-    R.eq #items, 1, 'un élément plugin dans le paquet'
+    -- Le paquet ne livre que les définitions référencées par ses pages ; ici la
+    -- définition est posée directement (contenu de paquet, portée bibliothèque).
+    row = box.space._tdb_widget_plugins\get plugin_id
+    items = {
+      { type: 'plugin', key: "plugin:#{NAME}", content: pkg.plugin_content(row), origin: 'library' }
+    }
     R.eq items[1].content.manifest, MANIFEST
 
     -- Retire le plugin local : l'installation doit le recréer depuis le paquet.
     box.space._tdb_widget_plugins\delete plugin_id
     R.is_nil pkg.describe_local 'plugin', "plugin:#{NAME}"
 
-    p = { app: built.app, items: items, seed_keys: {} }
+    p = { app: { id: APP_ID, name: "wpman #{SUFFIX}", version: '1.0.0', description: '' }, items: items, seed_keys: {} }
     plan = apply.preview_update p
     R.eq #plan.errors, 0, 'preview errors'
     R.eq #plan.create, 1, 'plugin à créer'

@@ -7,6 +7,7 @@ perms_mod   = require 'core.permissions'
 auth_mod    = require 'core.auth'
 view_presets = require 'core.view_presets'
 app_package = require 'core.app_package'
+widget_scopes = require 'core.widget_scopes'
 executor    = require 'graphql.executor'
 uuid_mod    = require 'uuid'
 yaml        = require 'yaml'
@@ -470,9 +471,11 @@ do_import = (snap, mode) ->
         view_presets.save_preset scope, sid, ivp.name, ivp.filter or '', ivp.sort or '[]'
       if ok then created += 1 else table.insert errors, "view_preset #{ivp.name}: #{err}"
 
-  -- Widget plugins
+  -- Widget plugins. A snapshot carries no scope (it predates widget scopes):
+  -- definitions are imported into the library, and an existing library
+  -- definition of the same name is left untouched.
   for iwp in *(snap.schema and snap.schema.widget_plugins or {})
-    existing_wp = box.space._tdb_widget_plugins.index.by_name\get iwp.name
+    existing_wp = widget_scopes.find_row iwp.name, nil
     if existing_wp
       skipped += 1
     else
@@ -490,6 +493,7 @@ do_import = (snap, mode) ->
           now
           now
           iwp.manifest or ''
+          ''
         }
       if ok then created += 1 else table.insert errors, "widget_plugin #{iwp.name}: #{err}"
 

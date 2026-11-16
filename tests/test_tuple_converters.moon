@@ -58,6 +58,7 @@ USER_KEYS  = {"createdAt", "email", "id", "must_change_password", "username"}
 VIEW_KEYS  = {"config", "createdAt", "id", "name", "spaceId", "updatedAt", "viewType"}
 CV_KEYS    = {"createdAt", "description", "id", "name", "updatedAt", "yaml"}
 DV_KEYS    = {"config", "createdAt", "description", "id", "name", "sourceSpace", "updatedAt"}
+-- `appId` est facultatif (absent/nil = bibliothèque) : vérifié à part.
 PLUGIN_KEYS = {
   "createdAt", "description", "id", "manifest", "name"
   "scriptCode", "scriptLanguage", "templateCode", "templateLanguage", "updatedAt"
@@ -283,6 +284,8 @@ R.describe "tuple converters — widget plugin", ->
   R.it "widgetPlugin returns the public plugin keys", ->
     p = wpr.Query.widgetPlugin nil, { id: FIX.plugin_id }, ADMIN_CTX
     R.ok p
+    R.is_nil p.appId, 'définition de bibliothèque sans appId'
+
     assert_keys p, PLUGIN_KEYS, "widgetPlugin"
     assert_eq_all p, {
       id: FIX.plugin_id

@@ -60,7 +60,7 @@ plugin_input = (name) ->
   }
 
 plugin_exists = (name) ->
-  p = box.space._tdb_widget_plugins.index.by_name\get name
+  p = box.space._tdb_widget_plugins.index.by_scope_name\get { '', name }
   p != nil
 
 -- ── Tests ────────────────────────────────────────────────────────────────────

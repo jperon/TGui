@@ -29,8 +29,11 @@ type Query {
   dataViews:              [DataView!]!
   dataView(id: ID!):      DataView
   executeDataView(id: ID!, limit: Int, offset: Int): [JSON!]!
-  widgetPlugins:          [WidgetPlugin!]!
-  widgetPlugin(id: ID, name: String): WidgetPlugin
+  # Custom widget definitions. Arg-less: every definition (editor). `pageId`:
+  # those the page resolves (its app's definition, else the library one).
+  widgetPlugins(appId: String, pageId: ID): [WidgetPlugin!]!
+  # `pageId` + `name`: the definition an instance of that page resolves.
+  widgetPlugin(id: ID, name: String, pageId: ID): WidgetPlugin
 
   # View presets (named filter + sort per widget or space grid)
   viewPresets(scope: String!, spaceId: ID!): [ViewPreset!]!
@@ -278,6 +281,8 @@ type WidgetPlugin {
   scriptCode:       String!
   templateCode:     String!
   manifest:         String
+  # App the definition belongs to; null = library (global).
+  appId:            String
   createdAt:        String!
   updatedAt:        String!
 }
@@ -490,6 +495,8 @@ input CreateWidgetPluginInput {
   scriptCode:       String!
   templateCode:     String!
   manifest:         String
+  # App scope; null or "" = library.
+  appId:            String
 }
 
 input UpdateWidgetPluginInput {
@@ -500,6 +507,8 @@ input UpdateWidgetPluginInput {
   scriptCode:       String
   templateCode:     String
   manifest:         String
+  # Move the definition to another scope; absent = unchanged.
+  appId:            String
 }
 
 input CreateUserInput {
@@ -591,8 +600,11 @@ input AppSeedInput {
 }
 
 input AppDecisionInput {
-  key:    String!
-  choice: String!
+  key:     String!
+  # local | delivered | rename (widget definitions only; rename is the default)
+  choice:  String!
+  # rename only: the name to import under (default <name>_imported)
+  newName: String
 }
 
 type AppInfo {
@@ -625,6 +637,8 @@ type AppConflict {
   type:      String!
   local:     JSON
   delivered: JSON
+  # Pages using the local definition (widget definition conflicts).
+  pages:     [String!]!
 }
 
 type AppRename {

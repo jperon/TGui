@@ -55,6 +55,10 @@ layout:
     - widget:
         title: App apply
         space: aap
+    - widget:
+        title: Custom
+        space: aap
+        type: ]] .. PLUGIN_NAME .. [[
 ]]
 
 FIX = {}

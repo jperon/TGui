@@ -52,7 +52,10 @@ local YAML_PAGE = [[layout:
     - widget:
         title: App resolvers
         space: ar
-]]
+    - widget:
+        title: Custom
+        space: ar
+        type: ]] .. PLUGIN_NAME .. [[]]
 local FIX = { }
 local YAML1 = nil
 local DECODED1 = nil

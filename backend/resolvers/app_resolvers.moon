@@ -54,16 +54,25 @@ seed_map_of = (entries) ->
       result[entry.space] = entry.keyField
   result
 
--- [AppDecisionInput!] -> { [key] = 'local' | 'delivered' }
+-- [AppDecisionInput!] -> { choices: { [key] = 'local'|'delivered'|'rename' },
+--                         names: { [key] = nouveau nom } }
+-- `rename` (« importer sous un autre nom », spec widgets personnalisés §5) ne
+-- vaut que pour une définition de widget ; le nouveau nom est facultatif.
 decisions_map_of = (entries) ->
-  result = {}
+  choices = {}
+  names = {}
   for entry in *(entries or {})
     continue unless type(entry) == 'table' and entry.key
     choice = entry.choice
-    unless choice == 'local' or choice == 'delivered'
-      error "Invalid decision '#{tostring choice}' for '#{entry.key}': expected 'local' or 'delivered'"
-    result[entry.key] = choice
-  result
+    unless choice == 'local' or choice == 'delivered' or choice == 'rename'
+      error "Invalid decision '#{tostring choice}' for '#{entry.key}': expected 'local', 'delivered' or 'rename'"
+    if choice == 'rename'
+      if entry.newName != nil and entry.newName != ''
+        unless widget_scopes.valid_name entry.newName
+          error "Invalid new name '#{tostring entry.newName}' for '#{entry.key}'"
+        names[entry.key] = entry.newName
+    choices[entry.key] = choice
+  { choices: choices, names: names }
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- Plan shape
@@ -93,11 +102,16 @@ plan_item_of = (entry) ->
 
 -- A plan conflict is { entry, local_state|nil, delivered_fingerprint }.
 -- `local` is a reserved Lua word: assign it with a bracket key.
+-- `pages` : pages qui utilisent la définition locale en conflit — c'est la
+-- liste affichée pour « remplacer » (spec widgets personnalisés §5).
 conflict_of = (conflict) ->
   entry = conflict[1]
   local_state = conflict[2]
   result = { key: entry.key, type: entry.type, delivered: entry.content }
   result['local'] = local_state and local_state.content or nil
+  if entry.type == 'plugin'
+    scope = (local_state and local_state.app_id) or entry.app_scope
+    result.pages = widget_scopes.pages_using_name entry.content.name, scope
   result
 
 plan_shape = (plan) ->
@@ -229,8 +243,11 @@ Mutation =
   applyAppUpdate: (_, args, ctx) ->
     require_admin ctx
     package = require_valid_package parse_yaml(args.yaml)
-    decisions = decisions_map_of args.decisions
-    report = app_apply.apply_update package, decisions, { allow_downgrade: args.allowDowngrade == true }
+    decision_info = decisions_map_of args.decisions
+    report = app_apply.apply_update package, decision_info.choices, {
+      allow_downgrade: args.allowDowngrade == true
+      rename_names: decision_info.names
+    }
     apply_report_shape report
 
   purgeAppObsolete: (_, args, ctx) ->

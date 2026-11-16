@@ -122,7 +122,10 @@ R.describe("WidgetPlugins — stockage du manifest", function()
         }
       }, CTX)
     end), 'access must be one of')
-    return R.is_nil(box.space._tdb_widget_plugins.index.by_name:get(tostring(NAME) .. "_bad"))
+    return R.is_nil(box.space._tdb_widget_plugins.index.by_scope_name:get({
+      '',
+      tostring(NAME) .. "_bad"
+    }))
   end)
   R.it("updateWidgetPlugin partiel conserve le manifest existant", function()
     local res = wpr.Mutation.updateWidgetPlugin({ }, {
@@ -191,9 +194,13 @@ R.describe("WidgetPlugins — migration d’un tuple d’ancien format", functio
     local spaces = require('core.spaces')
     local n = spaces.migrate_widget_plugin_manifest()
     R.ok(n >= 1, "au moins un tuple normalisé (obtenu " .. tostring(n) .. ")")
-    local old = box.space._tdb_widget_plugins.index.by_name:get("wpman_old_name_" .. tostring(SUFFIX))
-    R.eq(#old, 10, 'le tuple a maintenant 10 champs')
+    local old = box.space._tdb_widget_plugins.index.by_scope_name:get({
+      '',
+      "wpman_old_name_" .. tostring(SUFFIX)
+    })
+    R.eq(#old, 11, 'le tuple a maintenant 11 champs (manifest, app_id)')
     R.eq(old[10], '')
+    R.eq(old[11], '', 'définition globale (bibliothèque)')
     R.eq(spaces.migrate_widget_plugin_manifest(), 0, 'idempotente')
     return box.space._tdb_widget_plugins:delete(old[1])
   end)
@@ -321,32 +328,25 @@ return R.describe("WidgetPlugins — export et installation d’app", function()
     return R.eq(pkg.canonical(norm), pkg.canonical(content))
   end)
   R.it("l’installation recrée le manifest", function()
-    local built = pkg.build_package({
-      id = APP_ID,
-      name = "wpman " .. tostring(SUFFIX),
-      version = '1.0.0',
-      description = ''
-    }, { })
-    local items
-    do
-      local _accum_0 = { }
-      local _len_0 = 1
-      local _list_0 = built.items
-      for _index_0 = 1, #_list_0 do
-        local it = _list_0[_index_0]
-        if it.key == "plugin:" .. tostring(NAME) then
-          _accum_0[_len_0] = it
-          _len_0 = _len_0 + 1
-        end
-      end
-      items = _accum_0
-    end
-    R.eq(#items, 1, 'un élément plugin dans le paquet')
+    local row = box.space._tdb_widget_plugins:get(plugin_id)
+    local items = {
+      {
+        type = 'plugin',
+        key = "plugin:" .. tostring(NAME),
+        content = pkg.plugin_content(row),
+        origin = 'library'
+      }
+    }
     R.eq(items[1].content.manifest, MANIFEST)
     box.space._tdb_widget_plugins:delete(plugin_id)
     R.is_nil(pkg.describe_local('plugin', "plugin:" .. tostring(NAME)))
     local p = {
-      app = built.app,
+      app = {
+        id = APP_ID,
+        name = "wpman " .. tostring(SUFFIX),
+        version = '1.0.0',
+        description = ''
+      },
       items = items,
       seed_keys = { }
     }

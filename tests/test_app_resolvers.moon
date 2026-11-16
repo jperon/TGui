@@ -61,6 +61,10 @@ layout:
     - widget:
         title: App resolvers
         space: ar
+    - widget:
+        title: Custom
+        space: ar
+        type: ]] .. PLUGIN_NAME .. [[
 ]]
 
 FIX = {}

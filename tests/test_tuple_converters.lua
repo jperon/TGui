@@ -328,6 +328,7 @@ R.describe("tuple converters — widget plugin", function()
       id = FIX.plugin_id
     }, ADMIN_CTX)
     R.ok(p)
+    R.is_nil(p.appId, 'définition de bibliothèque sans appId')
     assert_keys(p, PLUGIN_KEYS, "widgetPlugin")
     return assert_eq_all(p, {
       id = FIX.plugin_id,

@@ -39,7 +39,10 @@ local YAML_PAGE = [[layout:
     - widget:
         title: App apply
         space: aap
-]]
+    - widget:
+        title: Custom
+        space: aap
+        type: ]] .. PLUGIN_NAME .. [[]]
 local FIX = { }
 local PKG = nil
 local PKG2 = nil

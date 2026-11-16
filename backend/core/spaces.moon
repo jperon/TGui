@@ -147,10 +147,15 @@ SYSTEM_SPACES =
       { name: 'created_at',        type: 'number' }
       { name: 'updated_at',        type: 'number' }
       { name: 'manifest',          type: 'string', is_nullable: true }
+      { name: 'app_id',            type: 'string', is_nullable: true }
     }
     indexes:
       primary: { parts: {'id'},   unique: true,  type: 'HASH' }
-      by_name: { parts: {'name'}, unique: true,  type: 'TREE' }
+      -- Unicité du nom PAR PORTÉE (spec widgets personnalisés §5) : app_id
+      -- vide = bibliothèque. by_name reste non unique pour les recherches par
+      -- nom seul (app_package.describe_local, compatibilité).
+      by_scope_name: { parts: {'app_id','name'}, unique: true,  type: 'TREE' }
+      by_name: { parts: {'name'}, unique: false, type: 'TREE' }
 
   -- Foreign-key relations between fields in different spaces
   _tdb_relations:
@@ -313,6 +318,8 @@ migrate_must_change_password = ->
 -- format and nullable so pre-existing tuples stay valid and read as
 -- "no manifest" (= full access, the behaviour before manifests). Existing rows
 -- are rewritten with an empty manifest so their arity matches the format.
+-- Le format inclut `app_id` (migration tdb_v6) : cette migration reste
+-- idempotente quand elle est rejouée après, sans perdre la portée.
 -- Returns the number of rows normalized. Exposed for the test suite.
 migrate_widget_plugin_manifest = ->
   sp = box.space._tdb_widget_plugins
@@ -328,12 +335,53 @@ migrate_widget_plugin_manifest = ->
     { name: 'created_at',        type: 'number' }
     { name: 'updated_at',        type: 'number' }
     { name: 'manifest',          type: 'string', is_nullable: true }
+    { name: 'app_id',            type: 'string', is_nullable: true }
   }
   normalized = 0
   for t in *sp\select {}
     if t[10] == nil
-      sp\replace { t[1], t[2], t[3], t[4], t[5], t[6], t[7], t[8], t[9], '' }
+      sp\replace { t[1], t[2], t[3], t[4], t[5], t[6], t[7], t[8], t[9], '', t[11] or '' }
       normalized += 1
+  normalized
+
+-- Migration tdb_v6 (spec widgets personnalisés §5) : portée des définitions.
+-- Ajoute `app_id` (nullable, en fin de format) et rend le nom unique PAR
+-- PORTÉE : app_id vide = bibliothèque. Les définitions existantes deviennent
+-- globales (`app_id` = '') — c'est ce qu'elles étaient avant les portées.
+-- L'index by_name devient non unique (deux apps peuvent livrer le même nom) ;
+-- la recherche par (portée, nom) passe par by_scope_name.
+-- Returns the number of rows normalized. Exposed for the test suite.
+migrate_widget_plugin_app_id = ->
+  sp = box.space._tdb_widget_plugins
+  return 0 unless sp
+  -- Index d'abord : changer le format d'un espace non vide est refusé tant
+  -- qu'un index unique porte sur un champ dont la définition change.
+  if sp.index.by_name and sp.index.by_name.unique
+    sp\drop_index 'by_name'
+  sp\format {
+    { name: 'id',                type: 'string' }
+    { name: 'name',              type: 'string' }
+    { name: 'description',       type: 'string' }
+    { name: 'script_language',   type: 'string' }
+    { name: 'template_language', type: 'string' }
+    { name: 'script_code',       type: 'string' }
+    { name: 'template_code',     type: 'string' }
+    { name: 'created_at',        type: 'number' }
+    { name: 'updated_at',        type: 'number' }
+    { name: 'manifest',          type: 'string', is_nullable: true }
+    { name: 'app_id',            type: 'string', is_nullable: true }
+  }
+  normalized = 0
+  for t in *sp\select {}
+    if t[11] == nil
+      sp\replace { t[1], t[2], t[3], t[4], t[5], t[6], t[7], t[8], t[9], t[10] or '', '' }
+      normalized += 1
+  sp\create_index 'by_scope_name', {
+    parts: {'app_id', 'name'}, unique: true, type: 'TREE', if_not_exists: true
+  }
+  sp\create_index 'by_name', {
+    parts: {'name'}, unique: false, type: 'TREE', if_not_exists: true
+  }
   normalized
 
 create_space = (name, desc) ->
@@ -432,6 +480,13 @@ bootstrap = ->
   box.once 'tdb_v5', ->
     normalized = migrate_widget_plugin_manifest!
     log.info "tdb_v5: added manifest to _tdb_widget_plugins (#{normalized} row(s) normalized)"
+
+  -- Widget definition scopes (spec widgets personnalisés §5). Existing
+  -- definitions become library (global), as they were; the name is now unique
+  -- per scope.
+  box.once 'tdb_v6', ->
+    normalized = migrate_widget_plugin_app_id!
+    log.info "tdb_v6: added app_id to _tdb_widget_plugins (#{normalized} row(s) normalized)"
 
   -- Widget ids: every widget of a page carries a stable id, which is the key of
   -- the widget-scoped records (named view presets: 'widget:<pageId>:<widgetId>').
@@ -806,4 +861,4 @@ delete_user_space = (name) ->
   -- Remove metadata
   box.space._tdb_spaces\delete sid
 
-{ :bootstrap, :migrate, :migrate_must_change_password, :migrate_widget_plugin_manifest, :create_user_space, :delete_user_space, :add_field, :remove_field, :update_field, :reorder_fields, :change_field_type, :list_spaces, :list_fields, :get_space, :get_space_by_name, :FIELD_TYPES }
+{ :bootstrap, :migrate, :migrate_must_change_password, :migrate_widget_plugin_manifest, :migrate_widget_plugin_app_id, :create_user_space, :delete_user_space, :add_field, :remove_field, :update_field, :reorder_fields, :change_field_type, :list_spaces, :list_fields, :get_space, :get_space_by_name, :FIELD_TYPES }

@@ -3,6 +3,7 @@ local digest = require('digest')
 local spaces_mod = require('core.spaces')
 local views_mod = require('core.views')
 local perms_mod = require('core.permissions')
+local widget_scopes = require('core.widget_scopes')
 local ITEM_TYPES = {
   space = 'space',
   field = 'field',
@@ -657,15 +658,18 @@ collect_views = function(bucket, space_list)
 end
 local collect_pages
 collect_pages = function(bucket)
+  local rows = { }
   local _list_0 = box.space._tdb_custom_views:select({ })
   for _index_0 = 1, #_list_0 do
     local row = _list_0[_index_0]
+    table.insert(rows, row)
     table.insert(bucket, {
       type = ITEM_TYPES.page,
       key = "page:" .. tostring(key_part(row[2])),
       content = page_content(row)
     })
   end
+  return rows
 end
 local collect_dataviews
 collect_dataviews = function(bucket)
@@ -704,14 +708,74 @@ collect_presets = function(bucket)
   end
 end
 local collect_plugins
-collect_plugins = function(bucket)
-  local _list_0 = box.space._tdb_widget_plugins:select({ })
-  for _index_0 = 1, #_list_0 do
-    local row = _list_0[_index_0]
+collect_plugins = function(bucket, page_rows, app_id)
+  local wanted = { }
+  local ordered
+  do
+    local _accum_0 = { }
+    local _len_0 = 1
+    local _list_0 = (page_rows or { })
+    for _index_0 = 1, #_list_0 do
+      local row = _list_0[_index_0]
+      _accum_0[_len_0] = row
+      _len_0 = _len_0 + 1
+    end
+    ordered = _accum_0
+  end
+  table.sort(ordered, function(a, b)
+    return a[2] < b[2]
+  end)
+  for _index_0 = 1, #ordered do
+    local page = ordered[_index_0]
+    local _list_0 = widget_scopes.referenced_plugin_names(page[4])
+    for _index_1 = 1, #_list_0 do
+      local _continue_0 = false
+      repeat
+        local name = _list_0[_index_1]
+        if wanted[name] then
+          _continue_0 = true
+          break
+        end
+        local row = nil
+        if app_id then
+          row = widget_scopes.find_row(name, app_id)
+        end
+        row = row or widget_scopes.resolve_row(name, widget_scopes.page_app_id(page[1]))
+        if row then
+          wanted[name] = row
+        end
+        _continue_0 = true
+      until true
+      if not _continue_0 then
+        break
+      end
+    end
+  end
+  local names
+  do
+    local _accum_0 = { }
+    local _len_0 = 1
+    for name, _ in pairs(wanted) do
+      _accum_0[_len_0] = name
+      _len_0 = _len_0 + 1
+    end
+    names = _accum_0
+  end
+  table.sort(names)
+  for _index_0 = 1, #names do
+    local name = names[_index_0]
+    local row = wanted[name]
     table.insert(bucket, {
       type = ITEM_TYPES.plugin,
-      key = "plugin:" .. tostring(key_part(row[2])),
-      content = plugin_content(row)
+      key = "plugin:" .. tostring(key_part(name)),
+      content = plugin_content(row),
+      origin = (function()
+        if widget_scopes.row_app_id(row) then
+          return 'app'
+        else
+          return 'library'
+        end
+      end)()
     })
   end
 end
@@ -849,8 +913,8 @@ find_preset_row = function(scope, name)
   })
 end
 local find_plugin_row
-find_plugin_row = function(name)
-  return box.space._tdb_widget_plugins.index.by_name:get(name)
+find_plugin_row = function(name, app_id)
+  return widget_scopes.find_row(name, app_id)
 end
 local find_group
 find_group = function(name)
@@ -1032,12 +1096,12 @@ describe_preset = function(key)
   return preset_content(row)
 end
 local describe_plugin
-describe_plugin = function(key)
+describe_plugin = function(key, app_id)
   local name = strip_prefix(key, 'plugin:')
   if not (name) then
     return nil
   end
-  local row = find_plugin_row(unkey_part(name))
+  local row = find_plugin_row(unkey_part(name), app_id)
   if not (row) then
     return nil
   end
@@ -1114,7 +1178,7 @@ local DESCRIBERS = {
   seed = describe_seed
 }
 local describe_local
-describe_local = function(item_type, key)
+describe_local = function(item_type, key, app_id)
   if not (type(key) == 'string') then
     return nil
   end
@@ -1122,7 +1186,7 @@ describe_local = function(item_type, key)
   if not (describe) then
     return nil
   end
-  return describe(key)
+  return describe(key, app_id)
 end
 local by_key
 by_key = function(a, b)
@@ -1198,10 +1262,10 @@ build_package = function(meta, opts)
   collect_spaces_and_fields(buckets.space, buckets.field, space_list)
   collect_relations(buckets.relation, space_list)
   collect_views(buckets.view, space_list)
-  collect_pages(buckets.page)
+  local page_rows = collect_pages(buckets.page)
   collect_dataviews(buckets.dataview)
   collect_presets(buckets.preset)
-  collect_plugins(buckets.plugin)
+  collect_plugins(buckets.plugin, page_rows, meta.id)
   collect_groups_and_perms(buckets.group, buckets.perm)
   collect_seeds(buckets.seed, seed_keys)
   for _index_0 = 1, #TYPE_ORDER do

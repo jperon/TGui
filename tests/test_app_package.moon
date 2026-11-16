@@ -64,6 +64,10 @@ layout:
     - widget:
         title: App package
         space: apkg
+    - widget:
+        title: Custom
+        space: apkg
+        type: ]] .. PLUGIN_NAME .. [[
 ]]
 
 FIX = {}

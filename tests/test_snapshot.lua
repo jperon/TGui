@@ -261,11 +261,17 @@ R.describe("importSnapshot — widget plugins", function()
     }, ADMIN_CTX)
     R.ok(result)
     R.ok(result.ok)
-    local tuple = box.space._tdb_widget_plugins.index.by_name:get(PLUGIN)
+    local tuple = box.space._tdb_widget_plugins.index.by_scope_name:get({
+      '',
+      PLUGIN
+    })
     return R.ok(tuple)
   end)
   return R.it("cleanup imported widget plugin", function()
-    local tuple = box.space._tdb_widget_plugins.index.by_name:get(PLUGIN)
+    local tuple = box.space._tdb_widget_plugins.index.by_scope_name:get({
+      '',
+      PLUGIN
+    })
     if tuple then
       return box.space._tdb_widget_plugins:delete(tuple[1])
     end

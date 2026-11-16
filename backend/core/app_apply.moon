@@ -38,6 +38,7 @@ perms_mod    = require 'core.permissions'
 data_views   = require 'core.data_views'
 view_presets = require 'core.view_presets'
 app_package  = require 'core.app_package'
+widget_scopes = require 'core.widget_scopes'
 { :plan_update } = require 'core.app_plan'
 
 TYPE_ORDER = { 'space', 'field', 'relation', 'view', 'page', 'dataview', 'preset', 'plugin', 'group', 'perm', 'seed' }
@@ -76,7 +77,12 @@ _split_scope = (key, prefix) ->
 -- (core/app_package.moon) : la normaliser en `{}` transformerait chaque
 -- colonne calculée en trigger d'écriture à l'installation (correctif T3b,
 -- tests/test_app_trigger_fields.moon).
-_normalize_item = (entry, errors) ->
+-- `origin` (facultatif) : portée d'installation d'une définition de widget
+-- personnalisé (spec widgets personnalisés §5). 'library' = bibliothèque,
+-- 'app' = l'app du paquet. Absent (paquet antérieur aux portées) = 'library',
+-- c'est-à-dire le comportement d'avant. `scope` est l'app_id de destination,
+-- nil pour la bibliothèque.
+_normalize_item = (entry, errors, package_app_id) ->
   unless type(entry) == 'table'
     table.insert errors, 'package item must be a table'
     return nil
@@ -89,6 +95,10 @@ _normalize_item = (entry, errors) ->
   unless type(entry.content) == 'table'
     table.insert errors, "package item #{entry.key} is missing content"
     return nil
+  origin = entry.origin
+  if origin != nil and origin != 'app' and origin != 'library'
+    table.insert errors, "package item #{entry.key} has an unknown origin '#{tostring origin}' (expected 'app' or 'library')"
+    return nil
   content = app_package.normalize_content entry.type, app_package.strip_null entry.content
   item = {
     type: entry.type
@@ -97,6 +107,11 @@ _normalize_item = (entry, errors) ->
     fingerprint: app_package.fingerprint content
   }
   item.renamed_from = entry.renamed_from if entry.renamed_from
+  -- La portée ne fait pas partie du contenu : elle n'entre donc pas dans
+  -- l'empreinte (deux définitions identiques dans deux portées ont la même).
+  item.origin = origin or 'library' if entry.type == 'plugin'
+  if item.origin == 'app' and package_app_id
+    item.app_scope = package_app_id
   item
 
 -- Best-effort : renvoie un paquet normalisé même invalide, plus la liste d'erreurs.
@@ -120,7 +135,7 @@ _normalize = (package) ->
     table.insert errors, 'package items must be a list'
     return { package: pkg, errors: errors }
   for entry in *package.items
-    item = _normalize_item entry, errors
+    item = _normalize_item entry, errors, pkg.app.id
     table.insert pkg.items, item if item
   pkg.seed_keys = app_package.strip_null(package.seed_keys) or {}
   { package: pkg, errors: errors }
@@ -150,10 +165,10 @@ _installed_version = (app_id) ->
   t = box.space._tdb_apps\get app_id
   t and t[3] or nil
 
-_local_state = (item_type, key) ->
-  content = app_package.describe_local item_type, key
+_local_state = (item_type, key, app_scope) ->
+  content = app_package.describe_local item_type, key, app_scope
   return nil unless content
-  { fingerprint: app_package.fingerprint(content), content: content }
+  { fingerprint: app_package.fingerprint(content), content: content, app_id: app_scope }
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- PARTIE 3 (V3b) : expansion des renommages d'espace
@@ -250,7 +265,8 @@ _expand_renames = (package, installed) ->
     -- élément installé ordinaire pour qu'il ne soit jamais recréé.
     if it.renamed_from and not installed[it.renamed_from] and installed[it.key]
       table.insert items, { type: it.type, key: it.key, content: it.content,
-                            fingerprint: it.fingerprint }
+                            fingerprint: it.fingerprint, origin: it.origin,
+                            app_scope: it.app_scope }
       continue
     if it.renamed_from or it.type == 'space'
       table.insert items, it
@@ -258,7 +274,8 @@ _expand_renames = (package, installed) ->
     old_key = _child_old_key it.key, space_renames, page_renames
     if old_key and installed[old_key]
       table.insert items, { type: it.type, key: it.key, content: it.content,
-                            fingerprint: it.fingerprint, renamed_from: old_key }
+                            fingerprint: it.fingerprint, renamed_from: old_key,
+                            origin: it.origin, app_scope: it.app_scope }
     else
       table.insert items, it
   { app: package.app, items: items, seed_keys: package.seed_keys }
@@ -266,6 +283,8 @@ _expand_renames = (package, installed) ->
 -- local_states pour toutes les clés concernées : clés du paquet, clés
 -- installées, et clés d'où l'on renomme.
 _build_local_states = (package, installed) ->
+  scopes = {}
+  scopes[it.key] = it.app_scope for it in *package.items when it.key
   types = {}
   for it in *package.items
     types[it.key] = it.type if it.key
@@ -274,7 +293,7 @@ _build_local_states = (package, installed) ->
     types[key] = info.type
   states = {}
   for key, item_type in pairs types
-    state = _local_state item_type, key
+    state = _local_state item_type, key, scopes[key]
     states[key] = state if state
   states
 
@@ -339,14 +358,120 @@ _effective_old = (ctx, entry) ->
 _skip = (entry, report) ->
   false
 
+-- Décision de conflit. `rename` (« importer sous un autre nom ») n'a de sens
+-- que pour une définition de widget personnalisé (spec widgets personnalisés
+-- §5) et c'est son défaut : la définition locale est conservée, la définition
+-- livrée est créée sous un autre nom et les pages importées pointent vers elle.
 _check_decisions = (conflicts, decisions) ->
   for c in *conflicts
     entry = c[1]
     continue if entry.type == 'seed'
     d = decisions[entry.key]
+    if d == nil and entry.type == 'plugin'
+      decisions[entry.key] = 'rename'
+      continue
+    if d == 'rename' and entry.type != 'plugin'
+      return "conflict on '#{entry.key}' cannot be resolved by importing under another name (only widget definitions can)"
     unless d == 'local' or d == 'delivered'
-      return "conflict on '#{entry.key}' requires a decision ('local' or 'delivered')"
+      return "conflict on '#{entry.key}' requires a decision ('local', 'delivered' or, for a widget definition, 'rename')"
   nil
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- « Importer sous un autre nom » (spec widgets personnalisés §5)
+-- Les pages sont appliquées AVANT les définitions (TYPE_ORDER) : le renommage
+-- est donc décidé sur le plan, puis le paquet est réécrit avant d'être replané
+-- et appliqué.
+-- ────────────────────────────────────────────────────────────────────────────
+
+-- Valeur d'une ligne `type:` du YAML de page, sans guillemets ni commentaire.
+_type_line_value = (value) ->
+  v = value\match '^([^#]*)' or value
+  v = v\match '^%s*(.-)%s*$'
+  if #v >= 2
+    q = v\sub 1, 1
+    v = v\sub 2, -2 if (q == '"' or q == "'") and v\sub(-1) == q
+  v
+
+-- Réécrit les lignes `type: <ancien nom>` du YAML d'une page. Seules les
+-- valeurs renommées sont touchées, le reste du texte (mise en forme, autres
+-- clés) est conservé tel quel.
+_rename_page_types = (text, renames) ->
+  return text if type(text) != 'string' or next(renames) == nil
+  out = {}
+  pos = 1
+  while pos <= #text
+    nl = text\find '\n', pos, true
+    if nl
+      line = text\sub pos, nl
+      pos = nl + 1
+    else
+      line = text\sub pos
+      pos = #text + 1
+    prefix, value = line\match '^(%s*type:%s*)(.-)%s*$'
+    if prefix and value
+      name = _type_line_value value
+      line = prefix .. renames[name] if renames[name]
+    table.insert out, line
+  table.concat out
+
+-- Noms retenus pour les conflits résolus par « rename » : nom fourni par la
+-- décision (AppDecisionInput.newName) ou `<nom>_imported`, suffixé tant qu'il
+-- est pris (dans la portée cible ou par un autre renommage du paquet).
+_rename_targets = (pkg, plan, decisions, new_names) ->
+  targets = {}
+  used = {}
+  for c in *plan.conflict
+    entry = c[1]
+    continue unless entry.type == 'plugin' and decisions[entry.key] == 'rename'
+    requested = new_names and new_names[entry.key]
+    requested = entry.content.name .. '_imported' unless widget_scopes.valid_name requested
+    base = requested
+    candidate = base
+    suffix = 2
+    while widget_scopes.find_row(candidate, entry.app_scope) or used[candidate]
+      candidate = "#{base}_#{suffix}"
+      suffix += 1
+    used[candidate] = true
+    targets[entry.key] = candidate
+  targets
+
+-- Paquet réécrit : définitions renommées (clé, contenu, empreinte recalculée)
+-- et pages dont les `type:` référencent l'ancien nom.
+_apply_renames = (pkg, targets) ->
+  return pkg if next(targets) == nil
+  renames = {}
+  for key, new_name in pairs targets
+    old_name = _after key, 'plugin:'
+    renames[app_package.unkey_part old_name] = new_name if old_name
+  items = {}
+  for it in *pkg.items
+    if it.type == 'plugin' and targets[it.key]
+      new_name = targets[it.key]
+      content = {}
+      content[k] = v for k, v in pairs it.content
+      content.name = new_name
+      table.insert items, {
+        type: it.type
+        key: "plugin:#{app_package.key_part new_name}"
+        content: content
+        fingerprint: app_package.fingerprint content
+        origin: it.origin
+        app_scope: it.app_scope
+      }
+    elseif it.type == 'page'
+      content = {}
+      content[k] = v for k, v in pairs it.content
+      content.yaml = _rename_page_types content.yaml, renames
+      table.insert items, {
+        type: it.type
+        key: it.key
+        content: content
+        fingerprint: app_package.fingerprint content
+      }
+    else
+      table.insert items, it
+  { app: pkg.app, items: items, seed_keys: pkg.seed_keys }
+
 
 _empty_report = ->
   {
@@ -456,9 +581,9 @@ _resolve_preset_id = (key) ->
   row = box.space._tdb_view_presets.index.by_scope_name\get { local_scope, parts.name }
   row and row[1]
 
-_resolve_plugin_id = (key) ->
+_resolve_plugin_id = (key, app_scope) ->
   name = _after key, 'plugin:'
-  row = name and box.space._tdb_widget_plugins.index.by_name\get app_package.unkey_part name
+  row = name and widget_scopes.find_row app_package.unkey_part(name), app_scope
   row and row[1]
 
 _resolve_group_id = (key) ->
@@ -468,7 +593,7 @@ _resolve_group_id = (key) ->
 
 -- Dispatch défini après tous les résolveurs de type (en Lua, un upvalue
 -- référencé avant sa déclaration locale deviendrait une globale nil).
-_resolve_local_id = (item_type, key) ->
+_resolve_local_id = (item_type, key, app_scope) ->
   return nil unless key
   if item_type == 'space'
     name = _after key, 'space:'
@@ -480,7 +605,7 @@ _resolve_local_id = (item_type, key) ->
   return _resolve_page_id key if item_type == 'page'
   return _resolve_dataview_id key if item_type == 'dataview'
   return _resolve_preset_id key if item_type == 'preset'
-  return _resolve_plugin_id key if item_type == 'plugin'
+  return _resolve_plugin_id key, app_scope if item_type == 'plugin'
   return _resolve_group_id key if item_type == 'group'
   return _resolve_perm_id key if item_type == 'perm'
   nil
@@ -662,7 +787,7 @@ _create_plugin = (entry) ->
   box.space._tdb_widget_plugins\insert {
     id, c.name, c.description or '', c.scriptLanguage or 'coffeescript',
     c.templateLanguage or 'pug', c.scriptCode or '', c.templateCode or '',
-    now, now, c.manifest or ''
+    now, now, c.manifest or '', widget_scopes.scope_column(entry.app_scope)
   }
   { id: id }
 
@@ -722,7 +847,7 @@ _record = (app_id, version, item_type, key, local_id, fingerprint, state) ->
   }
 
 _record_kept = (ctx, entry, old, fingerprint) ->
-  local_id = old and old.local_id or _resolve_local_id(entry.type, entry.key)
+  local_id = old and old.local_id or _resolve_local_id(entry.type, entry.key, entry.app_scope)
   _record ctx.pkg.app.id, ctx.pkg.app.version, entry.type, entry.key, local_id, fingerprint, 'actif'
 
 _do_creates = (ctx) ->
@@ -779,7 +904,7 @@ _do_unchanged = (ctx) ->
     continue unless item
     continue if item.type == 'seed'
     old = _effective_old ctx, item
-    local_id = old and old.local_id or _resolve_local_id(item.type, key)
+    local_id = old and old.local_id or _resolve_local_id(item.type, key, item.app_scope)
     _record ctx.pkg.app.id, ctx.pkg.app.version, item.type, key, local_id, item.fingerprint, 'actif'
     table.insert ctx.report.unchanged, key
 
@@ -1309,6 +1434,19 @@ apply_update = (package, decisions, opts) ->
   return _abort report, { rename_error } if rename_error
   conflict_error = _check_decisions plan.conflict, decisions
   return _abort report, { conflict_error } if conflict_error
+  -- « Importer sous un autre nom » : le paquet est réécrit puis replané, les
+  -- pages devant référencer le nouveau nom dès leur création.
+  targets = _rename_targets pkg, plan, decisions, opts.rename_names
+  if next(targets) != nil
+    pkg = _apply_renames pkg, targets
+    pkg_map = {}
+    for it in *pkg.items
+      pkg_map[it.key] = it
+    local_states = _build_local_states pkg, installed
+    plan = plan_update installed, pkg, local_states, _effective_opts(pkg.app.id, opts)
+    return _abort report, plan.errors if #plan.errors > 0
+    conflict_error = _check_decisions plan.conflict, decisions
+    return _abort report, { conflict_error } if conflict_error
   for key in *plan.obsolete
     table.insert report.obsolete, key
   err = _do_apply plan, pkg, pkg_map, decisions, opts, installed, report

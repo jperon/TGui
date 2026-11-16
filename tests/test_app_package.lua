@@ -47,7 +47,10 @@ local YAML_PAGE = [[layout:
     - widget:
         title: App package
         space: apkg
-]]
+    - widget:
+        title: Custom
+        space: apkg
+        type: ]] .. PLUGIN_NAME .. [[]]
 local FIX = { }
 local FIX_SEED = { }
 local PKG = nil
