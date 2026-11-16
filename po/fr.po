@@ -166,8 +166,8 @@ msgstr "| Ajouter un critère depuis le menu | **+ Ajouter un critère** : chois
 msgid "| Invert a criterion | Click its ↑ / ↓ button in the menu, or Shift+click its header |"
 msgstr "| Inverser un critère | Cliquez son bouton ↑ / ↓ dans le menu, ou faites Maj+clic sur son en-tête |"
 
-msgid "| Change a criterion's priority | Click ▲ (up) or ▼ (down) in the menu |"
-msgstr "| Changer la priorité d'un critère | Cliquez ▲ (monter) ou ▼ (descendre) dans le menu |"
+msgid "| Change a criterion's priority | Drag the row by its ⠿ handle onto another row: a blue bar shows the drop position, and the row order becomes the priority order |"
+msgstr "| Changer la priorité d'un critère | Glissez la ligne par sa poignée ⠿ sur une autre ligne : une barre bleue indique la position de dépôt, et l'ordre des lignes devient l'ordre de priorité |"
 
 msgid "| Remove a criterion | Click ✕ in the menu |"
 msgstr "| Retirer un critère | Cliquez ✕ dans le menu |"

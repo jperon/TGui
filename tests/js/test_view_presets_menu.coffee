@@ -94,6 +94,22 @@ sortButton = (row, action) ->
 
 sortRow = (api, index) -> api.elements.sortList.children[index]
 
+# Simule un glisser-déposer natif : dragstart sur la source, dragover sur la
+# cible (moitié haute → insérer avant, moitié basse → insérer après), drop.
+# `getBoundingClientRect` du stub renvoie top 0 / height 100 : clientY 10 = haut.
+dragRow = (api, from, to, after = false) ->
+  rows = api.elements.sortList.children
+  source = rows[from]
+  target = rows[to]
+  dt = { types: ['text/plain'], setData: (->), getData: (-> '') }
+  source._listeners.dragstart[0] { dataTransfer: dt, stopPropagation: -> }
+  target._listeners.dragover[0]
+    dataTransfer: dt
+    preventDefault: ->
+    clientY: if after then 80 else 10
+  target._listeners.drop[0] { dataTransfer: dt, preventDefault: ->, stopPropagation: -> }
+  source._listeners.dragend?[0] {}
+
 describe 'ViewPresetsMenu — sérialisation du tri', ->
   it 'lit getSortState et ignore la colonne technique sortKey', ->
     dv = _grid: getSortState: -> {
@@ -118,6 +134,38 @@ describe 'ViewPresetsMenu — sérialisation du tri', ->
       { column: 'date', ascending: false }
     ]
     deepEq VPM.parseSort('pas du json'), []
+
+describe 'ViewPresetsMenu — réordonnancement pur (moveEntry)', ->
+  entries = [
+    { column: 'a', ascending: true }
+    { column: 'b', ascending: false }
+    { column: 'c', ascending: true }
+  ]
+
+  it 'déplace un critère vers un index plus grand', ->
+    deepEq VPM.moveEntry(entries, 0, 2), [
+      { column: 'b', ascending: false }
+      { column: 'c', ascending: true }
+      { column: 'a', ascending: true }
+    ]
+
+  it 'déplace un critère vers un index plus petit', ->
+    deepEq VPM.moveEntry(entries, 2, 0), [
+      { column: 'c', ascending: true }
+      { column: 'a', ascending: true }
+      { column: 'b', ascending: false }
+    ]
+
+  it 'ne mute pas la liste d’origine', ->
+    before = (Object.assign({}, e) for e in entries)
+    VPM.moveEntry entries, 0, 2
+    deepEq entries, before
+
+  it 'renvoie une copie inchangée pour un déplacement identité ou hors bornes', ->
+    deepEq VPM.moveEntry(entries, 1, 1), entries
+    deepEq VPM.moveEntry(entries, -1, 1), entries
+    deepEq VPM.moveEntry(entries, 0, 9), entries
+    deepEq VPM.moveEntry(null, 0, 1), []
 
 describe 'ViewPresetsMenu — application d’un préréglage', ->
   it 'applique le filtre et le tri du préréglage', ->
@@ -177,7 +225,7 @@ describe 'ViewPresetsMenu — application d’un préréglage', ->
     eq h.api.elements.sortList.children.length, 1
 
 describe 'ViewPresetsMenu — tri multicritère', ->
-  it 'affiche le rang, la colonne, le sens et les boutons de priorité', ->
+  it 'affiche la poignée, le rang, la colonne, le sens et le retrait', ->
     h = makeHarness 'widget:page1:w1', 's1', [
       { column: 'titre', ascending: true }
       { column: 'note', ascending: false }
@@ -186,12 +234,27 @@ describe 'ViewPresetsMenu — tri multicritère', ->
     row = sortRow h.api, 0
     eq row.dataset.rank, '1'
     eq sortRow(h.api, 1).dataset.rank, '2'
-    eq row.children[0].textContent, '1.'
-    eq row.children[1].textContent, 'titre'
+    eq row.draggable, true
+    eq row.children[0].className, 'view-presets-sort-handle'
+    eq row.children[0].textContent, '⠿'
+    eq row.children[1].textContent, '1.'
+    eq row.children[2].textContent, 'titre'
     eq sortButton(row, 'dir').textContent, '↑'
     eq sortButton(sortRow(h.api, 1), 'dir').textContent, '↓'
-    eq sortButton(row, 'up').disabled, true
-    eq sortButton(sortRow(h.api, 1), 'down').disabled, true
+    eq sortButton(row, 'remove').textContent, '✕'
+
+  it 'n’a plus de boutons monter/descendre', ->
+    h = makeHarness 'widget:page1:w1', 's1', [
+      { column: 'titre', ascending: true }
+      { column: 'note', ascending: false }
+    ]
+    h.api.open()
+    for row in h.api.elements.sortList.children
+      eq sortButton(row, 'up'), null
+      eq sortButton(row, 'down'), null
+      for child in row.children
+        assert child.className.indexOf('view-presets-sort-move') == -1,
+          "bouton de priorité encore présent : #{child.className}"
 
   it 'rappelle l’astuce Maj/Ctrl+clic dans le texte vide', ->
     h = makeHarness()
@@ -216,26 +279,62 @@ describe 'ViewPresetsMenu — tri multicritère', ->
     eq h.api.elements.sortList.children.length, 2
     eq sortRow(h.api, 1).dataset.column, 'note'
 
-  it 'réordonne les critères avec monter/descendre', ->
+  it 'réordonne les critères par glisser-déposer', ->
     h = makeHarness 'widget:page1:w1', 's1', [
       { column: 'titre', ascending: true }
       { column: 'note', ascending: false }
       { column: 'nom', ascending: true }
     ]
     h.api.open()
-    sortButton(sortRow(h.api, 2), 'up')._listeners.click[0]()
+    # Dépose le 1er critère après le 3e : il devient le dernier.
+    dragRow h.api, 0, 2, true
     deepEq h.dv._state.sort, [
-      { column: 'titre', ascending: true }
-      { column: 'nom', ascending: true }
       { column: 'note', ascending: false }
-    ]
-    eq sortRow(h.api, 1).children[1].textContent, 'nom'
-    sortButton(sortRow(h.api, 0), 'down')._listeners.click[0]()
-    deepEq h.dv._state.sort, [
       { column: 'nom', ascending: true }
       { column: 'titre', ascending: true }
+    ]
+    eq sortRow(h.api, 0).dataset.column, 'note'
+    eq sortRow(h.api, 2).dataset.column, 'titre'
+    # Puis le dernier avant le premier : il reprend la priorité maximale.
+    dragRow h.api, 2, 0, false
+    deepEq h.dv._state.sort, [
+      { column: 'titre', ascending: true }
+      { column: 'note', ascending: false }
+      { column: 'nom', ascending: true }
+    ]
+    eq sortRow(h.api, 0).dataset.column, 'titre'
+
+  it 'affiche une barre d’insertion sur la ligne survolée, effacée au dépôt', ->
+    h = makeHarness 'widget:page1:w1', 's1', [
+      { column: 'titre', ascending: true }
       { column: 'note', ascending: false }
     ]
+    h.api.open()
+    rows = h.api.elements.sortList.children
+    dt = { setData: (->), getData: (-> ''), types: [] }
+    rows[0]._listeners.dragstart[0] { dataTransfer: dt, stopPropagation: -> }
+    rows[1]._listeners.dragover[0] { dataTransfer: dt, preventDefault: ->, clientY: 80 }
+    eq rows[1].classList.contains('drop-after'), true
+    eq rows[1].classList.contains('drop-before'), false
+    eq rows[0].classList.contains('dragging'), true
+    rows[1]._listeners.dragover[0] { dataTransfer: dt, preventDefault: ->, clientY: 10 }
+    eq rows[1].classList.contains('drop-before'), true
+    eq rows[1].classList.contains('drop-after'), false
+    rows[1]._listeners.drop[0] { dataTransfer: dt, preventDefault: ->, stopPropagation: -> }
+    for row in h.api.elements.sortList.children
+      eq row.classList.contains('drop-before'), false
+      eq row.classList.contains('drop-after'), false
+      eq row.classList.contains('dragging'), false
+
+  it 'laisse le menu ouvert pendant et après un glissement', ->
+    h = makeHarness 'widget:page1:w1', 's1', [
+      { column: 'titre', ascending: true }
+      { column: 'note', ascending: false }
+    ]
+    h.api.open()
+    dragRow h.api, 0, 1, true
+    eq h.api.isOpen(), true
+    eq h.api.menu.classList.contains('hidden'), false
 
   it 'bascule le sens d’un critère sans changer sa priorité', ->
     h = makeHarness 'widget:page1:w1', 's1', [
@@ -256,7 +355,7 @@ describe 'ViewPresetsMenu — tri multicritère', ->
       { column: 'note', ascending: false }
     ]
     h.api.open()
-    sortButton(sortRow(h.api, 1), 'up')._listeners.click[0]()
+    dragRow h.api, 1, 0, false
     promptAnswers.push 'Priorité'
     h.api.saveCurrent().then ->
       call = (c for c in mutationCalls when c.vars.name == 'Priorité')[0]

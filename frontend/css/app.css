@@ -1339,16 +1339,25 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .view-presets-sort-label { font-family: monospace; }
-/* Critère de tri : rang, colonne, sens, priorité, retrait. */
+/* Critère de tri : poignée de glissement, rang, colonne, sens, retrait. */
+.view-presets-sort-row { cursor: default; }
+.view-presets-sort-handle {
+  flex: 0 0 auto; padding: 0 .1rem; line-height: 1;
+  color: #9ca3af; font-size: .85rem; cursor: grab; user-select: none;
+}
+.view-presets-sort-handle:active { cursor: grabbing; }
+.view-presets-sort-row.dragging { opacity: .45; }
+/* Barre d'insertion : la ligne survolée indique où le critère sera déposé. */
+.view-presets-sort-row.drop-before { box-shadow: inset 0 2px 0 #4338ca; }
+.view-presets-sort-row.drop-after { box-shadow: inset 0 -2px 0 #4338ca; }
 .view-presets-sort-rank { flex: 0 0 1.4rem; color: #9ca3af; font-size: .7rem; text-align: right; }
-.view-presets-sort-dir, .view-presets-sort-move {
+.view-presets-sort-dir {
   flex: 0 0 auto; padding: 0 .2rem; line-height: 1;
   background: none; border: none; cursor: pointer; color: #6b7280;
 }
 .view-presets-sort-dir { font-size: .9rem; }
-.view-presets-sort-move { font-size: .65rem; }
-.view-presets-sort-dir:hover, .view-presets-sort-move:hover { color: #3730a3; }
-.view-presets-sort-dir:disabled, .view-presets-sort-move:disabled { opacity: .25; cursor: default; }
+.view-presets-sort-dir:hover { color: #3730a3; }
+.view-presets-sort-dir:disabled { opacity: .25; cursor: default; }
 .view-presets-add { display: flex; align-items: center; gap: .3rem; padding: .3rem .35rem 0; }
 .view-presets-add-column, .view-presets-add-direction {
   min-width: 0; padding: .1rem .2rem; font-size: .72rem;

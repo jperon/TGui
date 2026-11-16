@@ -1210,7 +1210,7 @@ Le tri est hiérarchique : le premier critère décide, les égalités sont dép
 | Ajouter un critère secondaire | Maj+clic, Ctrl+clic ou Cmd+clic sur la flèche de tri d'une autre colonne |
 | Ajouter un critère depuis le menu | **+ Ajouter un critère** : choisissez une colonne et un sens, puis cliquez le bouton ; le critère est ajouté en dernier |
 | Inverser un critère | Cliquez son bouton ↑ / ↓ dans le menu, ou faites Maj+clic sur son en-tête |
-| Changer la priorité d'un critère | Cliquez ▲ (monter) ou ▼ (descendre) dans le menu |
+| Changer la priorité d'un critère | Glissez la ligne par sa poignée ⠿ sur une autre ligne : une barre bleue indique la position de dépôt, et l'ordre des lignes devient l'ordre de priorité |
 | Retirer un critère | Cliquez ✕ dans le menu |
 
 Chaque modification est appliquée immédiatement et survit à un rechargement des données (changement de filtre, insertion, suppression). Modifier le tri retire la mise en évidence du préréglage actif, puisqu'il ne correspond plus.

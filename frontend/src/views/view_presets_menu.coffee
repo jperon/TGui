@@ -40,6 +40,21 @@ createEl = (tag, className, text) ->
 clearChildren = (el) ->
   el.removeChild el.children[0] while el.children and el.children.length > 0
 
+# Réordonne une liste de critères par glisser-déposer : `from` et `to` sont des
+# index de la liste finale. Fonction pure (l'entrée n'est pas mutée), isolée du
+# DOM pour être testable seule. Un déplacement identité ou hors bornes renvoie
+# une copie inchangée.
+moveEntry = (entries, from, to) ->
+  list = []
+  return list unless Array.isArray entries
+  list.push entry for entry in entries
+  return list if from == to
+  return list if from < 0 or from >= list.length
+  return list if to < 0 or to >= list.length
+  moved = list.splice from, 1
+  list.splice to, 0, moved[0]
+  list
+
 # Un tri est une liste de { column, ascending }. On ignore la colonne technique
 # `sortKey` que Toast UI Grid utilise pour représenter « aucun tri ».
 normalizeEntries = (entries) ->
@@ -107,6 +122,7 @@ columnNamesFrom = (dv) ->
 window.ViewPresetsMenu =
   sortEntriesFrom: sortEntriesFrom
   normalizeEntries: normalizeEntries
+  moveEntry: moveEntry
   parseSort: parseSort
   serializeSort: serializeSort
   columnNamesFrom: columnNamesFrom
@@ -218,16 +234,10 @@ window.ViewPresetsMenu =
           entry.ascending = not entry.ascending
         entries
 
-    moveSortEntry = (column, delta) ->
-      mutateSort (entries) ->
-        index = entries.findIndex (e) -> e.column == column
-        return entries if index < 0
-        target = index + delta
-        return entries if target < 0 or target >= entries.length
-        moved = entries[index]
-        entries[index] = entries[target]
-        entries[target] = moved
-        entries
+    # Réordonnancement : la source est l'index de départ, la cible l'index
+    # d'arrivée dans la liste finale (cf. moveEntry).
+    reorderSortEntry = (from, to) ->
+      mutateSort (entries) -> moveEntry entries, from, to
 
     addSortCriterion = ->
       return if addColumnSelect.disabled
@@ -249,26 +259,97 @@ window.ViewPresetsMenu =
         handler()
       btn
 
-    buildSortRow = (entry, index, total) ->
+    # ── Glisser-déposer natif (HTML5) des critères ──────────────────────────
+    # Chaque ligne est `draggable` ; la position de dépôt (avant/après la ligne
+    # survolée) suit la moitié haute/basse du curseur et se voit via une barre
+    # d'insertion (classes drop-before / drop-after). Aucun glisser ne doit
+    # fermer le menu : le clic de fermeture global est neutralisé pendant le
+    # glissement, et juste après le dépôt.
+    dragState = { from: null, to: null, after: false }
+    suppressCloseUntil = 0
+
+    clearDropMarks = ->
+      for el in (sortList.children or [])
+        el.classList.remove 'drop-before'
+        el.classList.remove 'drop-after'
+
+    endDrag = ->
+      dragState.from = null
+      dragState.to = null
+      dragState.after = false
+      for el in (sortList.children or [])
+        el.classList.remove 'dragging'
+      clearDropMarks()
+
+    onRowDragStart = (row, index, ev) ->
+      dragState.from = index
+      dragState.to = index
+      dragState.after = false
+      row.classList.add 'dragging'
+      dt = ev?.dataTransfer
+      if dt
+        dt.effectAllowed = 'move'
+        dt.setData? 'text/plain', "#{index}"
+      ev?.stopPropagation?()
+
+    onRowDragOver = (row, index, ev) ->
+      return unless dragState.from?
+      ev?.preventDefault?()
+      dt = ev?.dataTransfer
+      dt.dropEffect = 'move' if dt
+      after = false
+      rect = row.getBoundingClientRect?()
+      y = ev?.clientY
+      if rect? and y? and rect.height
+        after = y > rect.top + rect.height / 2
+      dragState.to = index
+      dragState.after = after
+      clearDropMarks()
+      row.classList.add if after then 'drop-after' else 'drop-before'
+
+    # Index final du dépôt : insérer « après la ligne i » revient à i+1 dans la
+    # liste d'origine, puis à i quand la ligne déplacée vient d'avant.
+    dropIndex = ->
+      return null unless dragState.from? and dragState.to?
+      insertAt = if dragState.after then dragState.to + 1 else dragState.to
+      if insertAt > dragState.from then insertAt - 1 else insertAt
+
+    onRowDrop = (row, index, ev) ->
+      return unless dragState.from?
+      ev?.preventDefault?()
+      ev?.stopPropagation?()
+      from = dragState.from
+      to = dropIndex()
+      endDrag()
+      suppressCloseUntil = Date.now() + 400
+      return unless to? and to != from
+      reorderSortEntry from, to
+
+    onRowDragEnd = (row, ev) ->
+      endDrag()
+      suppressCloseUntil = Date.now() + 400
+
+    buildSortRow = (entry, index) ->
       row = createEl 'div', 'view-presets-sort-row'
       row.dataset.column = entry.column
       row.dataset.rank = "#{index + 1}"
+      row.draggable = true
+      handle = createEl 'span', 'view-presets-sort-handle', '⠿'
+      handle.title = 'Glisser pour changer la priorité du critère'
+      handle.setAttribute 'aria-hidden', 'true'
+      row.appendChild handle
       row.appendChild createEl('span', 'view-presets-sort-rank', "#{index + 1}.")
       row.appendChild createEl('span', 'view-presets-sort-label', entry.column)
       dirText = if entry.ascending then '↑' else '↓'
       dirTitle = if entry.ascending then 'Croissant — cliquer pour trier en décroissant' else 'Décroissant — cliquer pour trier en croissant'
       row.appendChild makeSortButton 'view-presets-sort-dir', dirText, dirTitle,
         'dir', -> toggleSortDirection entry.column
-      upBtn = makeSortButton 'view-presets-sort-move', '▲', 'Monter ce critère (priorité plus forte)',
-        'up', -> moveSortEntry entry.column, -1
-      upBtn.disabled = index == 0
-      row.appendChild upBtn
-      downBtn = makeSortButton 'view-presets-sort-move', '▼', 'Descendre ce critère (priorité plus faible)',
-        'down', -> moveSortEntry entry.column, 1
-      downBtn.disabled = index == total - 1
-      row.appendChild downBtn
       row.appendChild makeSortButton 'view-presets-remove', '✕', 'Retirer ce critère de tri',
         'remove', -> removeSortColumn entry.column
+      row.addEventListener 'dragstart', (ev) -> onRowDragStart row, index, ev
+      row.addEventListener 'dragover', (ev) -> onRowDragOver row, index, ev
+      row.addEventListener 'drop', (ev) -> onRowDrop row, index, ev
+      row.addEventListener 'dragend', (ev) -> onRowDragEnd row, ev
       row
 
     # Options de « + Ajouter un critère » : uniquement les colonnes non triées.
@@ -301,7 +382,7 @@ window.ViewPresetsMenu =
         sortList.appendChild createEl('div', 'view-presets-empty',
           "Aucun tri — ajoutez un critère ci-dessous, ou cliquez un en-tête de colonne (Maj+clic ou Ctrl/Cmd+clic pour en ajouter un autre)")
       for entry, index in entries
-        sortList.appendChild buildSortRow entry, index, entries.length
+        sortList.appendChild buildSortRow entry, index
       renderAddSortRow entries
 
     renderPresets = ->
@@ -468,6 +549,11 @@ window.ViewPresetsMenu =
 
     onDocumentClick = (ev) ->
       return unless isOpen()
+      # Ne jamais fermer le menu pendant un glissement de critère, ni dans les
+      # 400 ms qui suivent le dépôt (un navigateur peut émettre un clic tardif
+      # sur le fond après un glisser-déposer).
+      return if dragState.from?
+      return if Date.now() < suppressCloseUntil
       target = ev?.target
       return if target and wrapEl.contains? target
       close()

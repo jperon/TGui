@@ -5,7 +5,7 @@
   // Le test crée son propre espace (deux colonnes, doublons sur la première) via
   // l'API GraphQL puis vérifie l'ordre RÉEL des lignes de la grille :
   //   - deux critères ajoutés par le menu : le premier décide, le second départage ;
-  //   - monter le second critère change l'ordre (priorité) ;
+  //   - glisser le second critère au-dessus du premier change l'ordre (priorité) ;
   //   - un préréglage enregistré puis réappliqué restitue les deux critères ;
   //   - Maj+clic et Ctrl+clic sur un en-tête ajoutent un critère sans effacer l'autre.
   var addCriterion, criterionColumns, expect, generateUniqueName, gql, gridPairs, openMenu, performLogin, test;
@@ -156,9 +156,17 @@
       await addCriterion(page, 'nom', 'asc');
       expect((await criterionColumns(page))).toEqual(['groupe', 'nom']);
       expect((await gridPairs(page))).toEqual([['A', 'a'], ['A', 'b'], ['B', 'a'], ['B', 'b']]);
-      // Monter le second critère : il devient prioritaire et change l'ordre.
-      await page.locator('.view-presets-sort-row').nth(1).locator('[data-action="up"]').click();
+      // Glisser le second critère au-dessus du premier (moitié haute de la ligne) :
+      // il devient prioritaire et change l'ordre réel des lignes.
+      await page.locator('.view-presets-sort-row').nth(1).dragTo(page.locator('.view-presets-sort-row').nth(0), {
+        targetPosition: {
+          x: 40,
+          y: 4
+        }
+      });
       await page.waitForTimeout(300);
+      // Le menu ne doit pas s'être fermé pendant le glissement.
+      await expect(page.locator('.view-presets-menu')).toBeVisible();
       expect((await criterionColumns(page))).toEqual(['nom', 'groupe']);
       expect((await gridPairs(page))).toEqual([['A', 'a'], ['B', 'a'], ['A', 'b'], ['B', 'b']]);
       // Bascule du sens du premier critère (nom décroissant, groupe départage).

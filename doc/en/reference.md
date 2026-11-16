@@ -1210,7 +1210,7 @@ Sorting is hierarchical: the first criterion decides, ties are broken by the sec
 | Add a secondary criterion | Shift+click, Ctrl+click or Cmd+click the sort arrow of another column |
 | Add a criterion from the menu | **+ Ajouter un critère**: choose a column and a direction, then click the button; the criterion is appended last |
 | Invert a criterion | Click its ↑ / ↓ button in the menu, or Shift+click its header |
-| Change a criterion's priority | Click ▲ (up) or ▼ (down) in the menu |
+| Change a criterion's priority | Drag the row by its ⠿ handle onto another row: a blue bar shows the drop position, and the row order becomes the priority order |
 | Remove a criterion | Click ✕ in the menu |
 
 Every change is applied immediately and survives a data reload (filter change, insertion, deletion). Modifying the sort clears the highlight of the active preset, since the preset no longer matches.
