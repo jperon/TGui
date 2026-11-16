@@ -19,6 +19,7 @@ TGui exposes all its features via a **GraphQL API** at `http://localhost:8080/gr
 11. [Export and Import Snapshots](#11-export-and-import-snapshots)
 12. [Full GraphQL API](#12-full-graphql-api)
 13. [Applications (packaging and updates)](#13-applications-packaging-and-updates)
+14. [Sorting and filtering a grid](#14-sorting-and-filtering-a-grid)
 
 ---
 
@@ -1192,3 +1193,28 @@ mutation {
 - `previewAppUpdate` and `previewAppPurge` never write.
 - `applyAppUpdate` is atomic and requires a decision (`local`, `delivered` or, for a widget definition, `rename`) for each conflict; without a decision, a widget definition is imported under another name.
 - `purgeAppObsolete` requires `confirmed: true` and only accepts items whose tracked state is obsolete.
+
+---
+
+## 14. Sorting and filtering a grid
+
+The **Trier / Filtrer** button in the space toolbar, and in every data widget of a page, opens the sort and filter menu.
+
+### Sorting on several criteria
+
+Sorting is hierarchical: the first criterion decides, ties are broken by the second, and so on. The menu lists the current criteria in priority order (1 is the highest).
+
+| Action | How |
+|--------|-----|
+| Sort on one column | Click the column header: this replaces the current sort |
+| Add a secondary criterion | Shift+click, Ctrl+click or Cmd+click another column header |
+| Add a criterion from the menu | **+ Ajouter un critère**: choose a column and a direction, then click the button; the criterion is appended last |
+| Invert a criterion | Click its ↑ / ↓ button in the menu, or Shift+click its header |
+| Change a criterion's priority | Click ▲ (up) or ▼ (down) in the menu |
+| Remove a criterion | Click ✕ in the menu |
+
+Every change is applied immediately and survives a data reload (filter change, insertion, deletion). Modifying the sort clears the highlight of the active preset, since the preset no longer matches.
+
+### Named presets
+
+**Enregistrer sous…** stores the current filter and sort under a name, either for the whole space grid or for one widget of a page. Clicking a preset applies it: its filter and its sort criteria, in order, are restored.

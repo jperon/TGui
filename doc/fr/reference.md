@@ -19,6 +19,7 @@ TGui exposes all its features via a **GraphQL API** at `http://localhost:8080/gr
 11. [Export and Import Snapshots](#11-export-and-import-snapshots)
 12. [Full GraphQL API](#12-full-graphql-api)
 13. [Applications (packaging and updates)](#13-applications-packaging-and-updates)
+14. [Trier et filtrer une grille](#14-trier-et-filtrer-une-grille)
 
 ---
 
@@ -1192,3 +1193,28 @@ mutation {
 - `previewAppUpdate` et `previewAppPurge` n'écrivent jamais.
 - `applyAppUpdate` est atomique et exige une décision (`local`, `delivered` ou, pour une définition de widget, `rename`) pour chaque conflit ; sans décision, une définition de widget est importée sous un autre nom.
 - `purgeAppObsolete` exige `confirmed: true` et n'accepte que les éléments dont l'état suivi est obsolète.
+
+---
+
+## 14. Trier et filtrer une grille
+
+Le bouton **Trier / Filtrer** de la barre d'outils d'un espace, et de chaque widget de données d'une page, ouvre le menu de tri et de filtre.
+
+### Trier sur plusieurs critères
+
+Le tri est hiérarchique : le premier critère décide, les égalités sont départagées par le second, et ainsi de suite. Le menu liste les critères courants par ordre de priorité (1 est le plus fort).
+
+| Action | Comment |
+|--------|-----|
+| Trier sur une colonne | Cliquez l'en-tête de la colonne : cela remplace le tri courant |
+| Ajouter un critère secondaire | Maj+clic, Ctrl+clic ou Cmd+clic sur un autre en-tête de colonne |
+| Ajouter un critère depuis le menu | **+ Ajouter un critère** : choisissez une colonne et un sens, puis cliquez le bouton ; le critère est ajouté en dernier |
+| Inverser un critère | Cliquez son bouton ↑ / ↓ dans le menu, ou faites Maj+clic sur son en-tête |
+| Changer la priorité d'un critère | Cliquez ▲ (monter) ou ▼ (descendre) dans le menu |
+| Retirer un critère | Cliquez ✕ dans le menu |
+
+Chaque modification est appliquée immédiatement et survit à un rechargement des données (changement de filtre, insertion, suppression). Modifier le tri retire la mise en évidence du préréglage actif, puisqu'il ne correspond plus.
+
+### Préréglages nommés
+
+**Enregistrer sous…** mémorise le filtre et le tri courants sous un nom, pour la grille entière d'un espace ou pour un widget d'une page. Cliquer un préréglage l'applique : son filtre et ses critères de tri, dans l'ordre, sont restaurés.
