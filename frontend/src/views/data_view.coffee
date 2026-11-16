@@ -107,6 +107,7 @@ window.DataView = class DataView
     wrapper.style.cssText = 'width:100%;height:100%;'
     wrapper.tabIndex = -1   # focusable programmatically, invisible in tab order
     @container.appendChild wrapper
+    @_gridWrapper = wrapper
 
     fields   = @space.fields or []
     seqNames     = new Set (f.name for f in fields when f.fieldType == 'Sequence')
@@ -234,6 +235,20 @@ window.DataView = class DataView
     # resetData (rechargement du filtre, insertion, suppression…).
     @_grid.on 'afterSort', (ev) => @_onGridSortChanged()
     @_grid.on 'afterUnsort', (ev) => @_onGridSortChanged()
+
+    # Maj+clic sur un en-tête : Toast UI Grid ne fait du tri multiple qu'avec
+    # Ctrl/Cmd (comportement natif). On intercepte Maj+clic en phase de capture
+    # pour ajouter (ou inverser) un critère secondaire sans effacer les autres.
+    @_shiftSortListener = (ev) =>
+      return unless ev?.shiftKey
+      btn = ev.target?.closest? '.btn-sorting'
+      return unless btn
+      columnName = btn.closest?('[data-column-name]')?.getAttribute? 'data-column-name'
+      return unless columnName
+      ev.preventDefault?()
+      ev.stopPropagation?()
+      @sortWithShiftClick columnName
+    wrapper.addEventListener 'click', @_shiftSortListener, true
 
     # Tab / Shift+Tab: move to next/prev cell (all columns), wrapping at row
     # boundaries. Start editing only if the target cell is editable.
@@ -604,6 +619,8 @@ window.DataView = class DataView
     @_viewPresetsMenu = null
     document.removeEventListener 'keydown', @_pasteListener if @_pasteListener
     document.removeEventListener 'keydown', @_tabListener,  true if @_tabListener
+    @_gridWrapper?.removeEventListener? 'click', @_shiftSortListener, true if @_shiftSortListener
+    @_gridWrapper = null
     @_grid?.destroy()
     @_grid = null
     @_currentData = []

@@ -82,6 +82,22 @@ Object.assign window.DataView::,
     @_onSortChanged?()
     @_sortState
 
+  # Maj+clic sur un en-tête (cf. le listener posé dans mount) : ajoute le
+  # critère en fin de liste, ou inverse son sens s'il est déjà trié, sans
+  # effacer les autres critères. Contrairement au Ctrl/Cmd+clic natif de
+  # Toast UI Grid, la priorité d'un critère existant n'est pas modifiée.
+  sortWithShiftClick: (columnName) ->
+    entries = @getSortEntries()
+    return entries unless columnName
+    index = entries.findIndex (entry) -> entry.column == columnName
+    if index < 0
+      entries.push { column: columnName, ascending: true }
+    else
+      entries[index] = { column: columnName, ascending: not entries[index].ascending }
+    @applySortEntries entries
+    @_onSortChanged?()
+    entries
+
   # Toast UI Grid trie TOUTES les lignes, sentinelle comprise, et inverse même le
   # résultat d'un comparateur en tri descendant : aucun comparateur ne peut donc
   # la maintenir en fin de grille. On réinjecte l'ordre obtenu par la grille en

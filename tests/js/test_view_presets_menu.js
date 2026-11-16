@@ -2,7 +2,7 @@
   // tests/js/test_view_presets_menu.coffee
   // Menu « Trier / Filtrer » : sérialisation du tri, application d'un préréglage
   // (filtre + tri), « Enregistrer sous », suppression, mise en évidence.
-  var P_FILTERED, P_SORTED, VPM, assert, confirmAnswers, deepEq, describe, eq, it, makeDv, makeHarness, mutationCalls, promptAnswers, queries, serverPresets, summary;
+  var P_FILTERED, P_SORTED, VPM, assert, confirmAnswers, deepEq, describe, eq, it, makeDv, makeHarness, mutationCalls, promptAnswers, queries, serverPresets, sortButton, sortRow, summary;
 
   require('./dom_stub');
 
@@ -89,8 +89,8 @@
     sort: '[]'
   };
 
-  makeDv = function(entries = []) {
-    var dv, e, state;
+  makeDv = function(entries = [], fieldNames = ['date', 'titre', 'note', 'nom', 'age']) {
+    var dv, e, n, state;
     state = {
       sort: (function() {
         var i, len, results;
@@ -106,6 +106,22 @@
     };
     dv = {
       _state: state,
+      space: {
+        id: 's1',
+        name: 'test',
+        fields: (function() {
+          var i, len, results;
+          results = [];
+          for (i = 0, len = fieldNames.length; i < len; i++) {
+            n = fieldNames[i];
+            results.push({
+              name: n,
+              fieldType: 'Str'
+            });
+          }
+          return results;
+        })()
+      },
       _grid: {
         getSortState: function() {
           return {
@@ -183,6 +199,23 @@
       filterInput: input
     });
     return {wrap, input, dv, api};
+  };
+
+  // Bouton d'une ligne de critère (le rang et le libellé ne sont pas des boutons).
+  sortButton = function(row, action) {
+    var btn, i, len, ref;
+    ref = row.children;
+    for (i = 0, len = ref.length; i < len; i++) {
+      btn = ref[i];
+      if (btn.dataset.action === action) {
+        return btn;
+      }
+    }
+    return null;
+  };
+
+  sortRow = function(api, index) {
+    return api.elements.sortList.children[index];
   };
 
   describe('ViewPresetsMenu — sérialisation du tri', function() {
@@ -311,7 +344,7 @@
       return eq(h.api.button.textContent, 'Trier / Filtrer');
     });
     return it('permet de retirer un critère de tri', function() {
-      var h, removeBtn, rows;
+      var h, rows;
       h = makeHarness('widget:page1:w1', 's1', [
         {
           column: 'titre',
@@ -325,8 +358,7 @@
       h.api.open();
       rows = h.api.elements.sortList.children;
       eq(rows.length, 2);
-      removeBtn = rows[0].children[1];
-      removeBtn._listeners.click[0]();
+      sortButton(rows[0], 'remove')._listeners.click[0]();
       deepEq(h.dv._state.sort, [
         {
           column: 'note',
@@ -334,6 +366,194 @@
         }
       ]);
       return eq(h.api.elements.sortList.children.length, 1);
+    });
+  });
+
+  describe('ViewPresetsMenu — tri multicritère', function() {
+    it('affiche le rang, la colonne, le sens et les boutons de priorité', function() {
+      var h, row;
+      h = makeHarness('widget:page1:w1', 's1', [
+        {
+          column: 'titre',
+          ascending: true
+        },
+        {
+          column: 'note',
+          ascending: false
+        }
+      ]);
+      h.api.open();
+      row = sortRow(h.api, 0);
+      eq(row.dataset.rank, '1');
+      eq(sortRow(h.api, 1).dataset.rank, '2');
+      eq(row.children[0].textContent, '1.');
+      eq(row.children[1].textContent, 'titre');
+      eq(sortButton(row, 'dir').textContent, '↑');
+      eq(sortButton(sortRow(h.api, 1), 'dir').textContent, '↓');
+      eq(sortButton(row, 'up').disabled, true);
+      return eq(sortButton(sortRow(h.api, 1), 'down').disabled, true);
+    });
+    it('rappelle l’astuce Maj/Ctrl+clic dans le texte vide', function() {
+      var h, txt;
+      h = makeHarness();
+      h.api.open();
+      txt = h.api.elements.sortList.children[0].textContent;
+      return assert(/Maj\+clic/.test(txt), `astuce absente : ${txt}`);
+    });
+    it('ajoute un critère non trié en fin de liste', function() {
+      var h, opt, select, values;
+      h = makeHarness('widget:page1:w1', 's1', [
+        {
+          column: 'titre',
+          ascending: true
+        }
+      ]);
+      h.api.open();
+      select = h.api.elements.addColumnSelect;
+      values = (function() {
+        var i, len, ref, results;
+        ref = select.children;
+        results = [];
+        for (i = 0, len = ref.length; i < len; i++) {
+          opt = ref[i];
+          results.push(opt.value);
+        }
+        return results;
+      })();
+      assert(values.indexOf('titre') === -1, `la colonne déjà triée ne doit pas être proposée : ${values}`);
+      assert(values.indexOf('note') !== -1, `la colonne note doit être proposée : ${values}`);
+      select.value = 'note';
+      h.api.elements.addDirectionSelect.value = 'desc';
+      h.api.elements.addBtn._listeners.click[0]();
+      deepEq(h.dv._state.applied[h.dv._state.applied.length - 1], [
+        {
+          column: 'titre',
+          ascending: true
+        },
+        {
+          column: 'note',
+          ascending: false
+        }
+      ]);
+      eq(h.api.elements.sortList.children.length, 2);
+      return eq(sortRow(h.api, 1).dataset.column, 'note');
+    });
+    it('réordonne les critères avec monter/descendre', function() {
+      var h;
+      h = makeHarness('widget:page1:w1', 's1', [
+        {
+          column: 'titre',
+          ascending: true
+        },
+        {
+          column: 'note',
+          ascending: false
+        },
+        {
+          column: 'nom',
+          ascending: true
+        }
+      ]);
+      h.api.open();
+      sortButton(sortRow(h.api, 2), 'up')._listeners.click[0]();
+      deepEq(h.dv._state.sort, [
+        {
+          column: 'titre',
+          ascending: true
+        },
+        {
+          column: 'nom',
+          ascending: true
+        },
+        {
+          column: 'note',
+          ascending: false
+        }
+      ]);
+      eq(sortRow(h.api, 1).children[1].textContent, 'nom');
+      sortButton(sortRow(h.api, 0), 'down')._listeners.click[0]();
+      return deepEq(h.dv._state.sort, [
+        {
+          column: 'nom',
+          ascending: true
+        },
+        {
+          column: 'titre',
+          ascending: true
+        },
+        {
+          column: 'note',
+          ascending: false
+        }
+      ]);
+    });
+    it('bascule le sens d’un critère sans changer sa priorité', function() {
+      var h;
+      h = makeHarness('widget:page1:w1', 's1', [
+        {
+          column: 'titre',
+          ascending: true
+        },
+        {
+          column: 'note',
+          ascending: false
+        }
+      ]);
+      h.api.open();
+      sortButton(sortRow(h.api, 1), 'dir')._listeners.click[0]();
+      deepEq(h.dv._state.sort, [
+        {
+          column: 'titre',
+          ascending: true
+        },
+        {
+          column: 'note',
+          ascending: true
+        }
+      ]);
+      return eq(sortButton(sortRow(h.api, 1), 'dir').textContent, '↑');
+    });
+    it('sérialise les critères dans l’ordre de priorité', function() {
+      var h;
+      h = makeHarness('space:s1', 's1', [
+        {
+          column: 'titre',
+          ascending: true
+        },
+        {
+          column: 'note',
+          ascending: false
+        }
+      ]);
+      h.api.open();
+      sortButton(sortRow(h.api, 1), 'up')._listeners.click[0]();
+      promptAnswers.push('Priorité');
+      return h.api.saveCurrent().then(function() {
+        var c, call;
+        call = ((function() {
+          var i, len, results;
+          results = [];
+          for (i = 0, len = mutationCalls.length; i < len; i++) {
+            c = mutationCalls[i];
+            if (c.vars.name === 'Priorité') {
+              results.push(c);
+            }
+          }
+          return results;
+        })())[0];
+        assert(call, 'mutation saveViewPreset attendue');
+        return eq(call.vars.sort, '[{"column":"note","ascending":false},{"column":"titre","ascending":true}]');
+      });
+    });
+    return it('retire la mise en évidence du préréglage actif quand le tri change', function() {
+      var h;
+      h = makeHarness();
+      h.api.applyPreset(P_SORTED);
+      eq(h.api.button.textContent, 'Trier / Filtrer · Récents');
+      h.api.open();
+      h.api.elements.addColumnSelect.value = 'titre';
+      h.api.elements.addBtn._listeners.click[0]();
+      return eq(h.api.button.textContent, 'Trier / Filtrer');
     });
   });
 

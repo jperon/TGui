@@ -124,6 +124,36 @@
       }
       return this._sortState;
     },
+    // Maj+clic sur un en-tête (cf. le listener posé dans mount) : ajoute le
+    // critère en fin de liste, ou inverse son sens s'il est déjà trié, sans
+    // effacer les autres critères. Contrairement au Ctrl/Cmd+clic natif de
+    // Toast UI Grid, la priorité d'un critère existant n'est pas modifiée.
+    sortWithShiftClick: function(columnName) {
+      var entries, index;
+      entries = this.getSortEntries();
+      if (!columnName) {
+        return entries;
+      }
+      index = entries.findIndex(function(entry) {
+        return entry.column === columnName;
+      });
+      if (index < 0) {
+        entries.push({
+          column: columnName,
+          ascending: true
+        });
+      } else {
+        entries[index] = {
+          column: columnName,
+          ascending: !entries[index].ascending
+        };
+      }
+      this.applySortEntries(entries);
+      if (typeof this._onSortChanged === "function") {
+        this._onSortChanged();
+      }
+      return entries;
+    },
     // Toast UI Grid trie TOUTES les lignes, sentinelle comprise, et inverse même le
     // résultat d'un comparateur en tri descendant : aucun comparateur ne peut donc
     // la maintenir en fin de grille. On réinjecte l'ordre obtenu par la grille en

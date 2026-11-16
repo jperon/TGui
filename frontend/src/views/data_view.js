@@ -134,6 +134,7 @@
       wrapper.style.cssText = 'width:100%;height:100%;';
       wrapper.tabIndex = -1; // focusable programmatically, invisible in tab order
       this.container.appendChild(wrapper);
+      this._gridWrapper = wrapper;
       fields = this.space.fields || [];
       seqNames = new Set((function() {
         var j, len, results1;
@@ -372,6 +373,31 @@
       this._grid.on('afterUnsort', (ev) => {
         return this._onGridSortChanged();
       });
+      // Maj+clic sur un en-tête : Toast UI Grid ne fait du tri multiple qu'avec
+      // Ctrl/Cmd (comportement natif). On intercepte Maj+clic en phase de capture
+      // pour ajouter (ou inverser) un critère secondaire sans effacer les autres.
+      this._shiftSortListener = (ev) => {
+        var btn, columnName, ref1, ref2;
+        if (!(ev != null ? ev.shiftKey : void 0)) {
+          return;
+        }
+        btn = (ref1 = ev.target) != null ? typeof ref1.closest === "function" ? ref1.closest('.btn-sorting') : void 0 : void 0;
+        if (!btn) {
+          return;
+        }
+        columnName = typeof btn.closest === "function" ? (ref2 = btn.closest('[data-column-name]')) != null ? typeof ref2.getAttribute === "function" ? ref2.getAttribute('data-column-name') : void 0 : void 0 : void 0;
+        if (!columnName) {
+          return;
+        }
+        if (typeof ev.preventDefault === "function") {
+          ev.preventDefault();
+        }
+        if (typeof ev.stopPropagation === "function") {
+          ev.stopPropagation();
+        }
+        return this.sortWithShiftClick(columnName);
+      };
+      wrapper.addEventListener('click', this._shiftSortListener, true);
       // Tab / Shift+Tab: move to next/prev cell (all columns), wrapping at row
       // boundaries. Start editing only if the target cell is editable.
       // Listener on document (capture) so it fires even when focus is on wrapper
@@ -1015,7 +1041,7 @@
 
     // ── Cleanup ───────────────────────────────────────────────────────────────────
     unmount() {
-      var ref, ref1;
+      var ref, ref1, ref2;
       this._mounted = false;
       clearTimeout(this._formulaTimer);
       clearTimeout(this._saveWidthsTimer);
@@ -1031,8 +1057,16 @@
       if (this._tabListener) {
         document.removeEventListener('keydown', this._tabListener, true);
       }
-      if ((ref1 = this._grid) != null) {
-        ref1.destroy();
+      if (this._shiftSortListener) {
+        if ((ref1 = this._gridWrapper) != null) {
+          if (typeof ref1.removeEventListener === "function") {
+            ref1.removeEventListener('click', this._shiftSortListener, true);
+          }
+        }
+      }
+      this._gridWrapper = null;
+      if ((ref2 = this._grid) != null) {
+        ref2.destroy();
       }
       this._grid = null;
       this._currentData = [];

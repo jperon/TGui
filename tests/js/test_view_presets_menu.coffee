@@ -46,13 +46,17 @@ P_FILTERED =
   filter: 'self.actif'
   sort: '[]'
 
-makeDv = (entries = []) ->
+makeDv = (entries = [], fieldNames = ['date', 'titre', 'note', 'nom', 'age']) ->
   state =
     sort: (Object.assign({}, e) for e in entries)
     filters: []
     applied: []
   dv =
     _state: state
+    space:
+      id: 's1'
+      name: 'test'
+      fields: ({ name: n, fieldType: 'Str' } for n in fieldNames)
     _grid:
       getSortState: ->
         columns: [{ columnName: 'sortKey', ascending: true }].concat(
@@ -81,6 +85,14 @@ makeHarness = (scope = 'widget:page1:w1', spaceId = 's1', entries = []) ->
     filterInput: input
   }
   { wrap, input, dv, api }
+
+# Bouton d'une ligne de critère (le rang et le libellé ne sont pas des boutons).
+sortButton = (row, action) ->
+  for btn in row.children
+    return btn if btn.dataset.action == action
+  null
+
+sortRow = (api, index) -> api.elements.sortList.children[index]
 
 describe 'ViewPresetsMenu — sérialisation du tri', ->
   it 'lit getSortState et ignore la colonne technique sortKey', ->
@@ -160,10 +172,105 @@ describe 'ViewPresetsMenu — application d’un préréglage', ->
     h.api.open()
     rows = h.api.elements.sortList.children
     eq rows.length, 2
-    removeBtn = rows[0].children[1]
-    removeBtn._listeners.click[0]()
+    sortButton(rows[0], 'remove')._listeners.click[0]()
     deepEq h.dv._state.sort, [{ column: 'note', ascending: false }]
     eq h.api.elements.sortList.children.length, 1
+
+describe 'ViewPresetsMenu — tri multicritère', ->
+  it 'affiche le rang, la colonne, le sens et les boutons de priorité', ->
+    h = makeHarness 'widget:page1:w1', 's1', [
+      { column: 'titre', ascending: true }
+      { column: 'note', ascending: false }
+    ]
+    h.api.open()
+    row = sortRow h.api, 0
+    eq row.dataset.rank, '1'
+    eq sortRow(h.api, 1).dataset.rank, '2'
+    eq row.children[0].textContent, '1.'
+    eq row.children[1].textContent, 'titre'
+    eq sortButton(row, 'dir').textContent, '↑'
+    eq sortButton(sortRow(h.api, 1), 'dir').textContent, '↓'
+    eq sortButton(row, 'up').disabled, true
+    eq sortButton(sortRow(h.api, 1), 'down').disabled, true
+
+  it 'rappelle l’astuce Maj/Ctrl+clic dans le texte vide', ->
+    h = makeHarness()
+    h.api.open()
+    txt = h.api.elements.sortList.children[0].textContent
+    assert /Maj\+clic/.test(txt), "astuce absente : #{txt}"
+
+  it 'ajoute un critère non trié en fin de liste', ->
+    h = makeHarness 'widget:page1:w1', 's1', [{ column: 'titre', ascending: true }]
+    h.api.open()
+    select = h.api.elements.addColumnSelect
+    values = (opt.value for opt in select.children)
+    assert values.indexOf('titre') == -1, "la colonne déjà triée ne doit pas être proposée : #{values}"
+    assert values.indexOf('note') != -1, "la colonne note doit être proposée : #{values}"
+    select.value = 'note'
+    h.api.elements.addDirectionSelect.value = 'desc'
+    h.api.elements.addBtn._listeners.click[0]()
+    deepEq h.dv._state.applied[h.dv._state.applied.length - 1], [
+      { column: 'titre', ascending: true }
+      { column: 'note', ascending: false }
+    ]
+    eq h.api.elements.sortList.children.length, 2
+    eq sortRow(h.api, 1).dataset.column, 'note'
+
+  it 'réordonne les critères avec monter/descendre', ->
+    h = makeHarness 'widget:page1:w1', 's1', [
+      { column: 'titre', ascending: true }
+      { column: 'note', ascending: false }
+      { column: 'nom', ascending: true }
+    ]
+    h.api.open()
+    sortButton(sortRow(h.api, 2), 'up')._listeners.click[0]()
+    deepEq h.dv._state.sort, [
+      { column: 'titre', ascending: true }
+      { column: 'nom', ascending: true }
+      { column: 'note', ascending: false }
+    ]
+    eq sortRow(h.api, 1).children[1].textContent, 'nom'
+    sortButton(sortRow(h.api, 0), 'down')._listeners.click[0]()
+    deepEq h.dv._state.sort, [
+      { column: 'nom', ascending: true }
+      { column: 'titre', ascending: true }
+      { column: 'note', ascending: false }
+    ]
+
+  it 'bascule le sens d’un critère sans changer sa priorité', ->
+    h = makeHarness 'widget:page1:w1', 's1', [
+      { column: 'titre', ascending: true }
+      { column: 'note', ascending: false }
+    ]
+    h.api.open()
+    sortButton(sortRow(h.api, 1), 'dir')._listeners.click[0]()
+    deepEq h.dv._state.sort, [
+      { column: 'titre', ascending: true }
+      { column: 'note', ascending: true }
+    ]
+    eq sortButton(sortRow(h.api, 1), 'dir').textContent, '↑'
+
+  it 'sérialise les critères dans l’ordre de priorité', ->
+    h = makeHarness 'space:s1', 's1', [
+      { column: 'titre', ascending: true }
+      { column: 'note', ascending: false }
+    ]
+    h.api.open()
+    sortButton(sortRow(h.api, 1), 'up')._listeners.click[0]()
+    promptAnswers.push 'Priorité'
+    h.api.saveCurrent().then ->
+      call = (c for c in mutationCalls when c.vars.name == 'Priorité')[0]
+      assert call, 'mutation saveViewPreset attendue'
+      eq call.vars.sort, '[{"column":"note","ascending":false},{"column":"titre","ascending":true}]'
+
+  it 'retire la mise en évidence du préréglage actif quand le tri change', ->
+    h = makeHarness()
+    h.api.applyPreset P_SORTED
+    eq h.api.button.textContent, 'Trier / Filtrer · Récents'
+    h.api.open()
+    h.api.elements.addColumnSelect.value = 'titre'
+    h.api.elements.addBtn._listeners.click[0]()
+    eq h.api.button.textContent, 'Trier / Filtrer'
 
 describe 'ViewPresetsMenu — enregistrement et suppression', ->
   it '« Enregistrer sous… » envoie la portée du widget, le filtre et le tri', ->
