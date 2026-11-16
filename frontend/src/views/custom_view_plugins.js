@@ -6,7 +6,7 @@
   // Mutations d'enregistrements autorisées depuis un widget (spec §6). Elles sont
   // relayées avec l'en-tête widget : le serveur garde sa propre liste blanche
   // (backend/graphql/executor.moon WIDGET_ALLOWED_MUTATIONS).
-  var BUILTIN_WIDGET_TYPES, DELETE_RECORD_MUTATION, DETACHED_PAGE_QUERY, DETACH_WIDGET_PLUGIN_MUTATION, INSERT_RECORD_MUTATION, UPDATE_RECORD_MUTATION,
+  var BUILTIN_WIDGET_TYPES, DELETE_RECORD_MUTATION, DETACHED_PAGE_QUERY, DETACH_WIDGET_PLUGIN_MUTATION, INSERT_RECORD_MUTATION, SERVER_COMPILED_LANGS, UPDATE_RECORD_MUTATION, loadWasmoonBytes, wasmoonBytesPromise,
     indexOf = [].indexOf;
 
   UPDATE_RECORD_MUTATION = `mutation WidgetUpdateRecord($spaceId: ID!, $id: ID!, $data: JSON!) {
@@ -51,6 +51,38 @@
 
   // Types fournis par le programme : ils n'ont pas de définition à détacher.
   BUILTIN_WIDGET_TYPES = ['aggregate', 'table'];
+
+  // Lua compilé côté serveur (spec §7) : `compiled` porte le chunk que l'iframe
+  // exécute avec wasmoon. `lua` garde son source tel quel (déjà vérifié).
+  SERVER_COMPILED_LANGS = ['lua', 'moonscript'];
+
+  // Binaire wasmoon, récupéré par le parent (même origine) et transmis à l'iframe
+  // par postMessage : l'iframe sandboxée a une origine opaque, son fetch serait
+  // cross-origin et bloqué. Une seule récupération par session, seulement pour un
+  // widget lua/moonscript (les autres widgets ne touchent jamais au .wasm).
+  wasmoonBytesPromise = null;
+
+  loadWasmoonBytes = function(lang) {
+    var ref, url;
+    url = (ref = window.PluginRuntimes) != null ? typeof ref.wasmSrc === "function" ? ref.wasmSrc(lang) : void 0 : void 0;
+    if (!url) {
+      return Promise.reject(new Error(`wasmoon : aucun binaire déclaré pour le langage ${lang}`));
+    }
+    if (wasmoonBytesPromise) {
+      return wasmoonBytesPromise;
+    }
+    return wasmoonBytesPromise = fetch(url).then(function(res) {
+      if (!res.ok) {
+        throw new Error(`wasmoon : chargement de ${url} impossible (${res.status})`);
+      }
+      return res.arrayBuffer();
+    }).catch(function(err) {
+      // Échec transitoire : on oublie la promesse pour autoriser une nouvelle
+      // tentative au prochain widget (même règle que PluginRuntimes).
+      wasmoonBytesPromise = null;
+      throw err;
+    });
+  };
 
   Object.assign(window.CustomView.prototype, {
     _setPluginSelectionListener: function(widgetId, listener) {
@@ -462,6 +494,7 @@
         mapping: ctx.mapping || null,
         space: ctx.space || null,
         node: ctx.node || null,
+        scriptLanguage: String((plugin != null ? plugin.scriptLanguage : void 0) || '').toLowerCase(),
         ready: false,
         rows: [],
         rawRows: []
@@ -544,6 +577,25 @@
           case 'plugin_ready':
             state.ready = true;
             return reload();
+          case 'wasm_request':
+            // L'iframe a chargé wasmoon et attend le binaire (origine opaque :
+            // elle ne peut pas le fetch elle-même). Transfert du buffer.
+            return loadWasmoonBytes(state.scriptLanguage).then((bytes) => {
+              var buf;
+              if (!iframe.contentWindow) {
+                return;
+              }
+              buf = bytes.slice(0);
+              return iframe.contentWindow.postMessage(Object.assign({widgetId}, {
+                type: 'wasm_binary',
+                bytes: buf
+              }), '*', [buf]);
+            }).catch((err) => {
+              return postToFrame({
+                type: 'lua_error',
+                error: (err != null ? err.message : void 0) || String(err)
+              });
+            });
           case 'setCursor':
             raw = null;
             ref1 = state.rawRows;
@@ -641,9 +693,11 @@
     },
     // Compile a widget definition. Asynchronous: the compilers (CoffeeScript,
     // pug) are loaded on demand (§7), only for the languages it uses. A widget
-    // written in javascript + html triggers no load at all.
+    // written in javascript + html triggers no load at all. Lua/MoonScript are
+    // compiled by Tarantool at save time: the parent loads nothing for them (the
+    // iframe fetches wasmoon once mounted, and the .wasm comes from here).
     _compilePlugin: function(plugin, pluginParams = {}) {
-      var pluginName, runtimes, scriptLanguage, templateLanguage;
+      var j, lang, len, needed, pluginName, ref, runtimes, scriptLanguage, templateLanguage;
       scriptLanguage = (plugin.scriptLanguage || 'coffeescript').toLowerCase();
       templateLanguage = (plugin.templateLanguage || 'pug').toLowerCase();
       pluginName = plugin.name || plugin.id || '(sans nom)';
@@ -651,12 +705,21 @@
       if (!(runtimes && typeof runtimes.ensure === 'function')) {
         return Promise.reject(new Error(`Plugin ${pluginName} — chargeur de compilateurs absent (views/plugin_runtimes.js non chargé)`));
       }
-      return runtimes.ensure([scriptLanguage, templateLanguage]).then(() => {
+      needed = [];
+      ref = [scriptLanguage, templateLanguage];
+      for (j = 0, len = ref.length; j < len; j++) {
+        lang = ref[j];
+        if (typeof runtimes.serverCompiled === 'function' && runtimes.serverCompiled(lang)) {
+          continue;
+        }
+        needed.push(lang);
+      }
+      return runtimes.ensure(needed).then(() => {
         return this._compilePluginCode(plugin, pluginParams, scriptLanguage, templateLanguage);
       });
     },
     _compilePluginCode: function(plugin, pluginParams, scriptLanguage, templateLanguage) {
-      var csCompile, err, fn, htmlTemplate, jsScript, makeCompileError, pluginName, pugCompile, ref, ref1, scriptCode, templateCode;
+      var csCompile, err, fn, htmlTemplate, jsScript, luaSource, makeCompileError, pluginName, pugCompile, ref, ref1, scriptCode, templateCode;
       scriptCode = plugin.scriptCode || '';
       templateCode = plugin.templateCode || '';
       pluginName = plugin.name || plugin.id || '(sans nom)';
@@ -676,7 +739,20 @@
         return new Error(`Plugin ${pluginName} — ${source} ${language} invalide${loc} : ${msg}`);
       };
       jsScript = scriptCode;
-      if (scriptLanguage === 'coffeescript') {
+      luaSource = null;
+      if (indexOf.call(SERVER_COMPILED_LANGS, scriptLanguage) >= 0) {
+        // MoonScript is never executed by the browser (§7): use the Lua chunk
+        // cached by the server. `lua` may safely fall back to its own source.
+        luaSource = typeof plugin.compiled === 'string' ? plugin.compiled : '';
+        if (luaSource.trim() === '') {
+          if (scriptLanguage === 'lua') {
+            luaSource = scriptCode;
+          } else {
+            throw new Error(`Plugin ${pluginName} — code MoonScript non compilé : réenregistrez la définition`);
+          }
+        }
+        jsScript = '';
+      } else if (scriptLanguage === 'coffeescript') {
         csCompile = (ref = window.PluginRuntimes) != null ? typeof ref.compiler === "function" ? ref.compiler('coffeescript') : void 0 : void 0;
         if (!csCompile) {
           throw new Error(`Plugin ${pluginName} — runtime CoffeeScript indisponible`);
@@ -706,10 +782,15 @@
           throw makeCompileError('template', 'Pug', err);
         }
       }
-      return {jsScript, htmlTemplate};
+      return {
+        jsScript,
+        htmlTemplate,
+        luaSource,
+        luaLanguage: (luaSource != null ? scriptLanguage : null)
+      };
     },
     _buildPluginIframeDoc: function(widgetId, params, compiled, plugin, ctx = {}) {
-      var access, canRead, canWrite, dataApiJs, gqlExposed, js, paramsJson, pluginName, tpl, writeApiJs;
+      var access, callbackErrorJs, canRead, canWrite, dataApiJs, gqlExposed, isLua, js, luaLanguage, luaLanguageJson, luaSource, luaSourceJson, paramsJson, pluginName, registryScriptTag, scriptTailJs, tpl, writeApiJs;
       paramsJson = JSON.stringify(params || {});
       tpl = JSON.stringify(compiled.htmlTemplate || '');
       js = compiled.jsScript || '';
@@ -718,23 +799,46 @@
       canRead = access === 'read' || access === 'full';
       canWrite = access === 'full';
       gqlExposed = access === 'read' || access === 'full';
-      dataApiJs = canRead ? `var latestRows = [];
-var recordsLoaded = false;
-var recordCallbacks = [];
-var currentRecord = null;
-var recordListeners = [];
-function notifyAll(list, value) {
-  list.forEach(function(fn) { try { fn(value); } catch (e) {} });
+      // Lua / MoonScript (§7): the iframe loads wasmoon itself and runs the Lua
+      // chunk compiled by Tarantool; the API table is exposed as global `widget`.
+      luaSource = compiled.luaSource || null;
+      isLua = luaSource != null;
+      luaSourceJson = JSON.stringify(luaSource || '');
+      luaLanguage = String(compiled.luaLanguage || (plugin != null ? plugin.scriptLanguage : void 0) || 'lua').toLowerCase();
+      luaLanguageJson = JSON.stringify(luaLanguage);
+      // The registry lives in the iframe (spec §7): same file as the page uses,
+      // so there is one language table, and its lazy load inserts the <script>.
+      registryScriptTag = isLua ? "<script src='/src/views/plugin_runtimes.js'></script>" : '';
+      // Une erreur dans un rappel Lua doit s'afficher (les erreurs JS restent
+      // silencieuses, comportement historique).
+      callbackErrorJs = isLua ? 'renderLuaError' : 'function(){}';
+      dataApiJs = canRead ? `function notifyAll(list, value) {
+  list.forEach(function(fn) {
+    try {
+      var r = fn(value);
+      if (r && typeof r.catch === 'function') r.catch(callbackError);
+    } catch (e) { callbackError(e); }
+  });
 }
 function onRecords(cb) {
   if (typeof cb !== 'function') return;
   recordCallbacks.push(cb);
-  if (recordsLoaded) { try { cb(latestRows); } catch (e) {} }
+  if (recordsLoaded) {
+    try {
+      var r = cb(latestRows);
+      if (r && typeof r.catch === 'function') r.catch(callbackError);
+    } catch (e) { callbackError(e); }
+  }
 }
 function onRecord(cb) {
   if (typeof cb !== 'function') return;
   recordListeners.push(cb);
-  if (currentRecord !== null) { try { cb(currentRecord); } catch (e) {} }
+  if (currentRecord !== null) {
+    try {
+      var r = cb(currentRecord);
+      if (r && typeof r.catch === 'function') r.catch(callbackError);
+    } catch (e) { callbackError(e); }
+  }
 }` : '';
       writeApiJs = canWrite ? `var pendingWrites = {};
 var writeSeq = 1;
@@ -748,9 +852,63 @@ function writeRequest(type, payload) {
 function updateRecord(id, values) { return writeRequest('updateRecord', { id: id, values: values || {} }); }
 function insertRecord(values) { return writeRequest('insertRecord', { values: values || {} }); }
 function deleteRecord(id) { return writeRequest('deleteRecord', { id: id }); }` : '';
+      // Tail executed once the API table exists. Lua: load wasmoon, ask the parent
+      // for the .wasm bytes (opaque origin: the iframe cannot fetch them), run the
+      // cached Lua chunk, then signal `plugin_ready` so records are sent.
+      scriptTailJs = isLua ? `var luaSource = ${luaSourceJson};
+var luaLanguage = ${luaLanguageJson};
+var luaStarted = false;
+function renderLuaError(err) {
+  var msg = err && err.message ? err.message : String(err);
+  var txt = "Plugin " + pluginName + " — exécution " + luaLanguage + " invalide : " + msg;
+  root.innerHTML = "<div style='padding:.5rem;color:#c55;white-space:pre-wrap'>" +
+    escapeHtml(txt) + "</div>";
+}
+function startLua(bytes) {
+  if (luaStarted) return;
+  luaStarted = true;
+  if (!window.wasmoon || typeof window.wasmoon.LuaFactory !== 'function') {
+    renderLuaError(new Error("runtime wasmoon indisponible"));
+    return;
+  }
+  var wasmUrl = null;
+  try {
+    wasmUrl = URL.createObjectURL(new Blob([bytes], { type: 'application/wasm' }));
+  } catch (e) {
+    renderLuaError(e);
+    return;
+  }
+  var factory = new window.wasmoon.LuaFactory(wasmUrl);
+  factory.createEngine().then(function(engine) {
+    engine.global.set('widget', api);
+    return engine.doString('unpack = table.unpack').then(function() {
+      return engine.doString(luaSource);
+    });
+  }).then(function() {
+    post({ type: 'plugin_ready' });
+  }).catch(renderLuaError);
+}
+window.addEventListener('message', function(ev) {
+  var msg = ev.data || {};
+  if (msg.widgetId !== widgetId) return;
+  if (msg.type === 'wasm_binary') {
+    startLua(msg.bytes);
+  } else if (msg.type === 'lua_error') {
+    renderLuaError(new Error(msg.error || 'wasmoon indisponible'));
+  }
+});
+PluginRuntimes.ensure([luaLanguage]).then(function() {
+  post({ type: 'wasm_request' });
+}).catch(renderLuaError);` : `try {
+${js}
+  if (typeof module.exports === 'function') module.exports(api);
+} catch (e) {
+  renderRuntimeError(e);
+}
+post({ type: 'plugin_ready' });`;
       return `<!doctype html>
 <html>
-<head><meta charset='utf-8'><style>body{margin:0;font-family:sans-serif}.plugin-root{padding:.5rem}</style></head>
+<head><meta charset='utf-8'><style>body{margin:0;font-family:sans-serif}.plugin-root{padding:.5rem}</style>${registryScriptTag}</head>
 <body>
   <div id='root'></div>
   <script>
@@ -762,6 +920,12 @@ function deleteRecord(id) { return writeRequest('deleteRecord', { id: id }); }` 
       var listeners = [];
       var pending = {};
       var reqSeq = 1;
+      var latestRows = [];
+      var recordsLoaded = false;
+      var recordCallbacks = [];
+      var currentRecord = null;
+      var recordListeners = [];
+      var callbackError = ${callbackErrorJs};
       function escapeHtml(txt) {
         return String(txt == null ? '' : txt)
           .replace(/&/g, '&amp;')
@@ -811,8 +975,14 @@ ${writeApiJs}
         } else if (msg.type === 'records') {
           latestRows = msg.rows || [];
           recordsLoaded = true;
-          notifyAll(recordCallbacks, latestRows);
-          if (msg.error) renderRuntimeError(new Error('Chargement des données : ' + msg.error));
+          if (typeof notifyAll === 'function') notifyAll(recordCallbacks, latestRows);
+          if (msg.error) {
+            if (typeof renderLuaError === 'function' && ${isLua ? 'true' : 'false'}) {
+              renderLuaError(new Error('Chargement des données : ' + msg.error));
+            } else {
+              renderRuntimeError(new Error('Chargement des données : ' + msg.error));
+            }
+          }
         } else if (msg.type === 'write_response' && pendingWrites[msg.requestId]) {
           pendingWrites[msg.requestId].resolve(msg.data);
           delete pendingWrites[msg.requestId];
@@ -821,9 +991,14 @@ ${writeApiJs}
           delete pendingWrites[msg.requestId];
         } else if (msg.type === 'updateInputSelection') {
           inputSelection = msg.selection || null;
-          listeners.forEach(function(fn) { try { fn(inputSelection); } catch (e) {} });
+          listeners.forEach(function(fn) {
+            try {
+              var r = fn(inputSelection);
+              if (r && typeof r.catch === 'function') r.catch(callbackError);
+            } catch (e) { callbackError(e); }
+          });
           currentRecord = (msg.record === undefined) ? null : msg.record;
-          notifyAll(recordListeners, currentRecord);
+          if (typeof notifyAll === 'function') notifyAll(recordListeners, currentRecord);
         }
       });
 
@@ -840,13 +1015,7 @@ ${writeApiJs}
       ${gqlExposed ? 'api.gql = gql;' : ''}
       ${canRead ? 'api.onRecords = onRecords; api.onRecord = onRecord;' : ''}
       ${canWrite ? 'api.updateRecord = updateRecord; api.insertRecord = insertRecord; api.deleteRecord = deleteRecord;' : ''}
-      try {
-${js}
-        if (typeof module.exports === 'function') module.exports(api);
-      } catch (e) {
-        renderRuntimeError(e);
-      }
-      post({ type: 'plugin_ready' });
+${scriptTailJs}
     })();
   </script>
 </body>

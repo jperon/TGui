@@ -29,6 +29,7 @@
     templateCode
     manifest
     appId
+    compiled
     updatedAt
   }
 }`;

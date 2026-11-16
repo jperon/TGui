@@ -26,6 +26,7 @@ REFERENCE = """
       templateCode
       manifest
       appId
+      compiled
       updatedAt
     }
   }

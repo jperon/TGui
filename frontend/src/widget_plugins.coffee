@@ -19,6 +19,7 @@ LIST_WIDGET_PLUGINS = """
       templateCode
       manifest
       appId
+      compiled
       updatedAt
     }
   }
@@ -36,6 +37,7 @@ GET_WIDGET_PLUGIN = """
       templateCode
       manifest
       appId
+      compiled
       updatedAt
     }
   }
