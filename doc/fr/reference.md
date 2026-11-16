@@ -1206,8 +1206,8 @@ Le tri est hiérarchique : le premier critère décide, les égalités sont dép
 
 | Action | Comment |
 |--------|-----|
-| Trier sur une colonne | Cliquez l'en-tête de la colonne : cela remplace le tri courant |
-| Ajouter un critère secondaire | Maj+clic, Ctrl+clic ou Cmd+clic sur un autre en-tête de colonne |
+| Trier sur une colonne | Cliquez la flèche de tri d'un en-tête de colonne : cela remplace le tri courant |
+| Ajouter un critère secondaire | Maj+clic, Ctrl+clic ou Cmd+clic sur la flèche de tri d'une autre colonne |
 | Ajouter un critère depuis le menu | **+ Ajouter un critère** : choisissez une colonne et un sens, puis cliquez le bouton ; le critère est ajouté en dernier |
 | Inverser un critère | Cliquez son bouton ↑ / ↓ dans le menu, ou faites Maj+clic sur son en-tête |
 | Changer la priorité d'un critère | Cliquez ▲ (monter) ou ▼ (descendre) dans le menu |

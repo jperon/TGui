@@ -1206,8 +1206,8 @@ Sorting is hierarchical: the first criterion decides, ties are broken by the sec
 
 | Action | How |
 |--------|-----|
-| Sort on one column | Click the column header: this replaces the current sort |
-| Add a secondary criterion | Shift+click, Ctrl+click or Cmd+click another column header |
+| Sort on one column | Click the sort arrow in a column header: this replaces the current sort |
+| Add a secondary criterion | Shift+click, Ctrl+click or Cmd+click the sort arrow of another column |
 | Add a criterion from the menu | **+ Ajouter un critère**: choose a column and a direction, then click the button; the criterion is appended last |
 | Invert a criterion | Click its ↑ / ↓ button in the menu, or Shift+click its header |
 | Change a criterion's priority | Click ▲ (up) or ▼ (down) in the menu |
