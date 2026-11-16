@@ -387,8 +387,7 @@ Object.assign window.CustomView::,
 
     jsScript = scriptCode
     if scriptLanguage == 'coffeescript'
-      csRuntime = window.CoffeeScript
-      csCompile = csRuntime?.compile or csRuntime?.default?.compile or csRuntime?.CoffeeScript?.compile
+      csCompile = window.PluginRuntimes?.compiler? 'coffeescript'
       unless csCompile
         throw new Error "Plugin #{pluginName} — runtime CoffeeScript indisponible"
       try
@@ -398,8 +397,7 @@ Object.assign window.CustomView::,
 
     htmlTemplate = templateCode
     if templateLanguage == 'pug'
-      pugRuntime = window.pug
-      pugCompile = pugRuntime?.compile or pugRuntime?.default?.compile
+      pugCompile = window.PluginRuntimes?.compiler? 'pug'
       unless pugCompile
         throw new Error "Plugin #{pluginName} — runtime Pug indisponible"
       try

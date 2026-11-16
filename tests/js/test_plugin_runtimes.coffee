@@ -138,4 +138,26 @@ describe 'PluginRuntimes — chargement à la demande', ->
         restore()
         throw e
 
+describe 'PluginRuntimes — résolution du compilateur', ->
+  it 'reconnaît la forme du bundle (CoffeeScript.CoffeeScript.compile)', -> serial ->
+    resetHead()
+    fn = -> 'js'
+    # Forme réelle de /vendor/plugin-runtime.bundle.js (interop ESM de rollup).
+    global.window.CoffeeScript = { CoffeeScript: { compile: fn } }
+    eq R.compiler('coffeescript'), fn, 'compilateur CoffeeScript non résolu'
+    eq R.compiler('javascript'), null, 'javascript ne doit pas avoir de compilateur'
+    R.ensure ['coffeescript']
+      .then ->
+        eq R.compiler('pug'), null, 'pug absent doit valoir null'
+      .catch (e) -> throw e
+
+  it 'reconnaît window.pug.compile et window.CoffeeScript.compile', -> serial ->
+    resetHead()
+    csCompile = -> 'js'
+    pugCompile = -> -> '<div></div>'
+    global.window.CoffeeScript = { compile: csCompile }
+    global.window.pug = { compile: pugCompile }
+    eq R.compiler('coffeescript'), csCompile
+    eq R.compiler('pug'), pugCompile
+
 summary()

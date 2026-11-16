@@ -14,17 +14,26 @@
 #
 # Lua / MoonScript (wasmoon, §7 phase 2) only need new LANGUAGES entries.
 
-# lang -> { lang, src, ready }. `ready()` proves the runtime is usable; a
-# language absent from this table (javascript, html, unknown) needs nothing.
+# lang -> { lang, src, runtime }. `runtime()` returns the global installed by
+# the bundle; a language absent from this table (javascript, html, unknown)
+# needs nothing. Lua / MoonScript (wasmoon, §7 phase 2) will add entries here.
 LANGUAGES =
   coffeescript:
     lang: 'coffeescript'
     src: '/vendor/plugin-runtime.bundle.js'
-    ready: -> typeof window.CoffeeScript?.compile == 'function'
+    runtime: -> window.CoffeeScript
   pug:
     lang: 'pug'
     src: '/vendor/plugin-runtime.bundle.js'
-    ready: -> typeof window.pug?.compile == 'function'
+    runtime: -> window.pug
+
+# Le bundle expose le compilateur CoffeeScript sous `window.CoffeeScript.CoffeeScript`
+# (interop ESM/CJS de rollup) et pug directement sous `window.pug` ; `default`
+# couvre les autres formes d'export. Même résolution pour `ready`/`compiler`.
+_compileFn = (runtime) ->
+  runtime?.compile or runtime?.default?.compile or runtime?.CoffeeScript?.compile
+
+_ready = (spec) -> typeof _compileFn(spec.runtime()) == 'function'
 
 # src -> Promise. One entry per bundle: concurrent widgets share the same load.
 loads = {}
@@ -71,15 +80,24 @@ ensure = (langs) ->
   jobs = []
   for src in srcs
     users = (s for s in specs when s.src == src)
-    continue if users.every (s) -> s.ready()
+    continue if users.every (s) -> _ready s
     jobs.push _loadScript src
   Promise.all(jobs).then ->
-    missing = (s.lang for s in specs when not s.ready())
+    missing = (s.lang for s in specs when not _ready s)
     return unless missing.length > 0
     throw new Error "Compilateur(s) de widget indisponible(s) : #{missing.join ', '}"
 
+# Compilateur utilisable pour `lang`, ou null. Utilisé par _compilePluginCode :
+# une seule résolution, partagée avec `ensure`.
+compiler = (lang) ->
+  spec = LANGUAGES[String(lang or '').toLowerCase()]
+  return null unless spec
+  fn = _compileFn spec.runtime()
+  if typeof fn == 'function' then fn else null
+
 window.PluginRuntimes =
   ensure: ensure
+  compiler: compiler
   languages: LANGUAGES
   # Tests only: forget memoised loads (the DOM and the globals stay as they are).
   _reset: -> loads = {}

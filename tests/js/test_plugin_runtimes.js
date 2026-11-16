@@ -189,6 +189,53 @@
     });
   });
 
+  describe('PluginRuntimes — résolution du compilateur', function() {
+    it('reconnaît la forme du bundle (CoffeeScript.CoffeeScript.compile)', function() {
+      return serial(function() {
+        var fn;
+        resetHead();
+        fn = function() {
+          return 'js';
+        };
+        // Forme réelle de /vendor/plugin-runtime.bundle.js (interop ESM de rollup).
+        global.window.CoffeeScript = {
+          CoffeeScript: {
+            compile: fn
+          }
+        };
+        eq(R.compiler('coffeescript'), fn, 'compilateur CoffeeScript non résolu');
+        eq(R.compiler('javascript'), null, 'javascript ne doit pas avoir de compilateur');
+        return R.ensure(['coffeescript']).then(function() {
+          return eq(R.compiler('pug'), null, 'pug absent doit valoir null');
+        }).catch(function(e) {
+          throw e;
+        });
+      });
+    });
+    return it('reconnaît window.pug.compile et window.CoffeeScript.compile', function() {
+      return serial(function() {
+        var csCompile, pugCompile;
+        resetHead();
+        csCompile = function() {
+          return 'js';
+        };
+        pugCompile = function() {
+          return function() {
+            return '<div></div>';
+          };
+        };
+        global.window.CoffeeScript = {
+          compile: csCompile
+        };
+        global.window.pug = {
+          compile: pugCompile
+        };
+        eq(R.compiler('coffeescript'), csCompile);
+        return eq(R.compiler('pug'), pugCompile);
+      });
+    });
+  });
+
   summary();
 
 }).call(this);

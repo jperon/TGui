@@ -15,28 +15,39 @@
 
   // Lua / MoonScript (wasmoon, §7 phase 2) only need new LANGUAGES entries.
 
-  // lang -> { lang, src, ready }. `ready()` proves the runtime is usable; a
-  // language absent from this table (javascript, html, unknown) needs nothing.
-  var LANGUAGES, _loadScript, ensure, loads,
+  // lang -> { lang, src, runtime }. `runtime()` returns the global installed by
+  // the bundle; a language absent from this table (javascript, html, unknown)
+  // needs nothing. Lua / MoonScript (wasmoon, §7 phase 2) will add entries here.
+  var LANGUAGES, _compileFn, _loadScript, _ready, compiler, ensure, loads,
     indexOf = [].indexOf;
 
   LANGUAGES = {
     coffeescript: {
       lang: 'coffeescript',
       src: '/vendor/plugin-runtime.bundle.js',
-      ready: function() {
-        var ref;
-        return typeof ((ref = window.CoffeeScript) != null ? ref.compile : void 0) === 'function';
+      runtime: function() {
+        return window.CoffeeScript;
       }
     },
     pug: {
       lang: 'pug',
       src: '/vendor/plugin-runtime.bundle.js',
-      ready: function() {
-        var ref;
-        return typeof ((ref = window.pug) != null ? ref.compile : void 0) === 'function';
+      runtime: function() {
+        return window.pug;
       }
     }
+  };
+
+  // Le bundle expose le compilateur CoffeeScript sous `window.CoffeeScript.CoffeeScript`
+  // (interop ESM/CJS de rollup) et pug directement sous `window.pug` ; `default`
+  // couvre les autres formes d'export. Même résolution pour `ready`/`compiler`.
+  _compileFn = function(runtime) {
+    var ref, ref1;
+    return (runtime != null ? runtime.compile : void 0) || (runtime != null ? (ref = runtime.default) != null ? ref.compile : void 0 : void 0) || (runtime != null ? (ref1 = runtime.CoffeeScript) != null ? ref1.compile : void 0 : void 0);
+  };
+
+  _ready = function(spec) {
+    return typeof _compileFn(spec.runtime()) === 'function';
   };
 
   // src -> Promise. One entry per bundle: concurrent widgets share the same load.
@@ -118,7 +129,7 @@
         return results;
       })();
       if (users.every(function(s) {
-        return s.ready();
+        return _ready(s);
       })) {
         continue;
       }
@@ -131,7 +142,7 @@
         results = [];
         for (k = 0, len2 = specs.length; k < len2; k++) {
           s = specs[k];
-          if (!s.ready()) {
+          if (!_ready(s)) {
             results.push(s.lang);
           }
         }
@@ -144,8 +155,25 @@
     });
   };
 
+  // Compilateur utilisable pour `lang`, ou null. Utilisé par _compilePluginCode :
+  // une seule résolution, partagée avec `ensure`.
+  compiler = function(lang) {
+    var fn, spec;
+    spec = LANGUAGES[String(lang || '').toLowerCase()];
+    if (!spec) {
+      return null;
+    }
+    fn = _compileFn(spec.runtime());
+    if (typeof fn === 'function') {
+      return fn;
+    } else {
+      return null;
+    }
+  };
+
   window.PluginRuntimes = {
     ensure: ensure,
+    compiler: compiler,
     languages: LANGUAGES,
     // Tests only: forget memoised loads (the DOM and the globals stay as they are).
     _reset: function() {

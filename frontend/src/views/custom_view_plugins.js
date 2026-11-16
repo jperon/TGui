@@ -622,7 +622,7 @@
       });
     },
     _compilePluginCode: function(plugin, pluginParams, scriptLanguage, templateLanguage) {
-      var csCompile, csRuntime, err, fn, htmlTemplate, jsScript, makeCompileError, pluginName, pugCompile, pugRuntime, ref, ref1, ref2, scriptCode, templateCode;
+      var csCompile, err, fn, htmlTemplate, jsScript, makeCompileError, pluginName, pugCompile, ref, ref1, scriptCode, templateCode;
       scriptCode = plugin.scriptCode || '';
       templateCode = plugin.templateCode || '';
       pluginName = plugin.name || plugin.id || '(sans nom)';
@@ -643,8 +643,7 @@
       };
       jsScript = scriptCode;
       if (scriptLanguage === 'coffeescript') {
-        csRuntime = window.CoffeeScript;
-        csCompile = (csRuntime != null ? csRuntime.compile : void 0) || (csRuntime != null ? (ref = csRuntime.default) != null ? ref.compile : void 0 : void 0) || (csRuntime != null ? (ref1 = csRuntime.CoffeeScript) != null ? ref1.compile : void 0 : void 0);
+        csCompile = (ref = window.PluginRuntimes) != null ? typeof ref.compiler === "function" ? ref.compiler('coffeescript') : void 0 : void 0;
         if (!csCompile) {
           throw new Error(`Plugin ${pluginName} — runtime CoffeeScript indisponible`);
         }
@@ -659,8 +658,7 @@
       }
       htmlTemplate = templateCode;
       if (templateLanguage === 'pug') {
-        pugRuntime = window.pug;
-        pugCompile = (pugRuntime != null ? pugRuntime.compile : void 0) || (pugRuntime != null ? (ref2 = pugRuntime.default) != null ? ref2.compile : void 0 : void 0);
+        pugCompile = (ref1 = window.PluginRuntimes) != null ? typeof ref1.compiler === "function" ? ref1.compiler('pug') : void 0 : void 0;
         if (!pugCompile) {
           throw new Error(`Plugin ${pluginName} — runtime Pug indisponible`);
         }
