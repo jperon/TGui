@@ -410,12 +410,30 @@ local Query = {
         error("Custom view not found: " .. tostring(page_id))
       end
       local scope = scopes.page_app_id(page_id)
-    else
-      local scope = scopes.scope_of(args.appId)
+      local _accum_0 = { }
+      local _len_0 = 1
+      local _list_0 = scopes.visible_for_scope(scope)
+      for _index_0 = 1, #_list_0 do
+        local row = _list_0[_index_0]
+        _accum_0[_len_0] = tuple_to_plugin(row)
+        _len_0 = _len_0 + 1
+      end
+      return _accum_0
+    end
+    if args.appId ~= nil then
+      local _accum_0 = { }
+      local _len_0 = 1
+      local _list_0 = scopes.visible_for_scope(scopes.scope_of(args.appId))
+      for _index_0 = 1, #_list_0 do
+        local row = _list_0[_index_0]
+        _accum_0[_len_0] = tuple_to_plugin(row)
+        _len_0 = _len_0 + 1
+      end
+      return _accum_0
     end
     local _accum_0 = { }
     local _len_0 = 1
-    local _list_0 = scopes.visible_for_scope(scope)
+    local _list_0 = scopes.all_rows()
     for _index_0 = 1, #_list_0 do
       local row = _list_0[_index_0]
       _accum_0[_len_0] = tuple_to_plugin(row)

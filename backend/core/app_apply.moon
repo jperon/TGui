@@ -370,8 +370,10 @@ _check_decisions = (conflicts, decisions) ->
     if d == nil and entry.type == 'plugin'
       decisions[entry.key] = 'rename'
       continue
-    if d == 'rename' and entry.type != 'plugin'
-      return "conflict on '#{entry.key}' cannot be resolved by importing under another name (only widget definitions can)"
+    if d == 'rename'
+      if entry.type != 'plugin'
+        return "conflict on '#{entry.key}' cannot be resolved by importing under another name (only widget definitions can)"
+      continue
     unless d == 'local' or d == 'delivered'
       return "conflict on '#{entry.key}' requires a decision ('local', 'delivered' or, for a widget definition, 'rename')"
   nil
@@ -392,6 +394,14 @@ _type_line_value = (value) ->
     v = v\sub 2, -2 if (q == '"' or q == "'") and v\sub(-1) == q
   v
 
+-- Réécrit les lignes `type: <ancien nom>` d'une seule ligne du YAML.
+_rewrite_type_line = (line, renames) ->
+  prefix, value = line\match '^(%s*type:%s*)(.-)%s*$'
+  return line unless prefix and value
+  name = _type_line_value value
+  return line unless renames[name]
+  prefix .. renames[name]
+
 -- Réécrit les lignes `type: <ancien nom>` du YAML d'une page. Seules les
 -- valeurs renommées sont touchées, le reste du texte (mise en forme, autres
 -- clés) est conservé tel quel.
@@ -401,17 +411,10 @@ _rename_page_types = (text, renames) ->
   pos = 1
   while pos <= #text
     nl = text\find '\n', pos, true
-    if nl
-      line = text\sub pos, nl
-      pos = nl + 1
-    else
-      line = text\sub pos
-      pos = #text + 1
-    prefix, value = line\match '^(%s*type:%s*)(.-)%s*$'
-    if prefix and value
-      name = _type_line_value value
-      line = prefix .. renames[name] if renames[name]
-    table.insert out, line
+    line_end = if nl then nl else #text
+    line = text\sub pos, line_end
+    pos = line_end + 1
+    table.insert out, _rewrite_type_line(line, renames)
   table.concat out
 
 -- Noms retenus pour les conflits résolus par « rename » : nom fourni par la

@@ -16,6 +16,7 @@
 yaml        = require 'yaml'
 app_package = require 'core.app_package'
 app_apply   = require 'core/app_apply'
+widget_scopes = require 'core.widget_scopes'
 { :require_admin } = require 'resolvers.utils'
 
 -- Item types whose delivered content is executable third-party code (spec §4).

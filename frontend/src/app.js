@@ -29,6 +29,8 @@
     templateLanguage
     scriptCode
     templateCode
+    manifest
+    appId
     updatedAt
   }
 }`;
@@ -42,6 +44,8 @@
     templateLanguage
     scriptCode
     templateCode
+    manifest
+    appId
     updatedAt
   }
 }`;
@@ -315,6 +319,9 @@
       },
       widgetPluginDescription: function() {
         return document.getElementById('widget-plugin-description');
+      },
+      widgetPluginScope: function() {
+        return document.getElementById('widget-plugin-scope');
       },
       widgetPluginScriptLanguage: function() {
         return document.getElementById('widget-plugin-script-language');

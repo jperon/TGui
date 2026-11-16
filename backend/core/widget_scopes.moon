@@ -74,6 +74,17 @@ visible_for_scope = (app_id) ->
   table.sort result, (a, b) -> a[2] < b[2]
   result
 
+-- Toutes les définitions, triées par nom puis portée (bibliothèque d'abord) :
+-- liste de l'éditeur, toutes portées confondues.
+all_rows = ->
+  rows = {}
+  for row in *box.space._tdb_widget_plugins\select {}
+    table.insert rows, row
+  table.sort rows, (a, b) ->
+    return a[2] < b[2] if a[2] != b[2]
+    scope_column(row_app_id(a)) < scope_column(row_app_id(b))
+  rows
+
 -- App qui a livré la page, ou nil pour une page locale.
 -- `_tdb_app_items` : app_id(1) key(2) type(3) local_id(4) fingerprint(5)
 -- state(6) version(7).
@@ -142,8 +153,10 @@ pages_using = (definition) ->
   name = definition[2]
   result = {}
   for page in *box.space._tdb_custom_views\select {}
-    names = referenced_plugin_names page[4]
-    continue unless names[name]
+    used = false
+    for page_name in *referenced_plugin_names page[4]
+      used = true if page_name == name
+    continue unless used
     resolved = resolve_row name, page_app_id(page[1])
     continue unless resolved and resolved[1] == definition[1]
     table.insert result, page[2]
@@ -179,6 +192,7 @@ valid_name = (name) ->
   :find_row
   :rows_in_scope
   :visible_for_scope
+  :all_rows
   :page_app_id
   :resolve_row
   :resolve_for_page

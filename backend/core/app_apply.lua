@@ -528,8 +528,12 @@ _check_decisions = function(conflicts, decisions)
         _continue_0 = true
         break
       end
-      if d == 'rename' and entry.type ~= 'plugin' then
-        return "conflict on '" .. tostring(entry.key) .. "' cannot be resolved by importing under another name (only widget definitions can)"
+      if d == 'rename' then
+        if entry.type ~= 'plugin' then
+          return "conflict on '" .. tostring(entry.key) .. "' cannot be resolved by importing under another name (only widget definitions can)"
+        end
+        _continue_0 = true
+        break
       end
       if not (d == 'local' or d == 'delivered') then
         return "conflict on '" .. tostring(entry.key) .. "' requires a decision ('local', 'delivered' or, for a widget definition, 'rename')"
@@ -554,6 +558,18 @@ _type_line_value = function(value)
   end
   return v
 end
+local _rewrite_type_line
+_rewrite_type_line = function(line, renames)
+  local prefix, value = line:match('^(%s*type:%s*)(.-)%s*$')
+  if not (prefix and value) then
+    return line
+  end
+  local name = _type_line_value(value)
+  if not (renames[name]) then
+    return line
+  end
+  return prefix .. renames[name]
+end
 local _rename_page_types
 _rename_page_types = function(text, renames)
   if type(text) ~= 'string' or next(renames) == nil then
@@ -563,22 +579,15 @@ _rename_page_types = function(text, renames)
   local pos = 1
   while pos <= #text do
     local nl = text:find('\n', pos, true)
+    local line_end
     if nl then
-      local line = text:sub(pos, nl)
-      pos = nl + 1
+      line_end = nl
     else
-      local line = text:sub(pos)
-      pos = #text + 1
+      line_end = #text
     end
-    local prefix, value = line:match('^(%s*type:%s*)(.-)%s*$')
-    if prefix and value then
-      local name = _type_line_value(value)
-      local line
-      if renames[name] then
-        line = prefix .. renames[name]
-      end
-    end
-    table.insert(out, line)
+    local line = text:sub(pos, line_end)
+    pos = line_end + 1
+    table.insert(out, _rewrite_type_line(line, renames))
   end
   return table.concat(out)
 end

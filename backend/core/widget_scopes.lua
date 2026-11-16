@@ -76,6 +76,22 @@ visible_for_scope = function(app_id)
   end)
   return result
 end
+local all_rows
+all_rows = function()
+  local rows = { }
+  local _list_0 = box.space._tdb_widget_plugins:select({ })
+  for _index_0 = 1, #_list_0 do
+    local row = _list_0[_index_0]
+    table.insert(rows, row)
+  end
+  table.sort(rows, function(a, b)
+    if a[2] ~= b[2] then
+      return a[2] < b[2]
+    end
+    return scope_column(row_app_id(a)) < scope_column(row_app_id(b))
+  end)
+  return rows
+end
 local page_app_id
 page_app_id = function(page_id)
   if not (type(page_id) == 'string' and page_id ~= '') then
@@ -195,8 +211,15 @@ pages_using = function(definition)
     local _continue_0 = false
     repeat
       local page = _list_0[_index_0]
-      local names = referenced_plugin_names(page[4])
-      if not (names[name]) then
+      local used = false
+      local _list_1 = referenced_plugin_names(page[4])
+      for _index_1 = 1, #_list_1 do
+        local page_name = _list_1[_index_1]
+        if page_name == name then
+          used = true
+        end
+      end
+      if not (used) then
         _continue_0 = true
         break
       end
@@ -246,6 +269,7 @@ return {
   find_row = find_row,
   rows_in_scope = rows_in_scope,
   visible_for_scope = visible_for_scope,
+  all_rows = all_rows,
   page_app_id = page_app_id,
   resolve_row = resolve_row,
   resolve_for_page = resolve_for_page,

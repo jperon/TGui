@@ -262,6 +262,21 @@ _widgetPluginModal = function()
                 type = 'text',
                 placeholder = 'Description'
               })
+            }),
+            H.div({
+              class = 'widget-plugin-meta-col',
+              H.label({
+                class = 'formula-hint',
+                ['for'] = 'widget-plugin-scope',
+                'Portée'
+              }),
+              H.select({
+                id = 'widget-plugin-scope',
+                H.option({
+                  value = '',
+                  'Bibliothèque (globale)'
+                })
+              })
             })
           }),
           H.div({

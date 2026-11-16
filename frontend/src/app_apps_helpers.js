@@ -13,21 +13,66 @@
     isSemver: function(v) {
       return typeof v === 'string' && /^\d+\.\d+\.\d+$/.test(v);
     },
-    // conflicts: [{key, ...}] — choices: { key: 'local' | 'delivered' }
-    // Retourne [{key, choice}] dans l'ordre des conflits, défaut « local ».
-    buildDecisions: function(conflicts, choices) {
-      var c, choice, j, len, ref, result;
+    // conflicts: [{key, type, ...}] — choices: { key: 'local' | 'delivered' | 'rename' }
+    // newNames: { key: nom } (choix « importer sous un autre nom »).
+    // Retourne [{key, choice, newName}] dans l'ordre des conflits. Défaut :
+    // « rename » pour une définition de widget personnalisé (spec §5 : c'est le
+    // choix qui ne perd rien), « local » sinon.
+    buildDecisions: function(conflicts, choices, newNames) {
+      var c, choice, entry, fallback, j, len, name, ref, result;
       result = [];
       ref = conflicts || [];
       for (j = 0, len = ref.length; j < len; j++) {
         c = ref[j];
-        choice = (choices || {})[c.key] || 'local';
-        result.push({
+        fallback = c.type === 'plugin' ? 'rename' : 'local';
+        choice = (choices || {})[c.key] || fallback;
+        entry = {
           key: c.key,
           choice: choice
-        });
+        };
+        name = (newNames || {})[c.key];
+        if (choice === 'rename' && name) {
+          entry.newName = name;
+        }
+        result.push(entry);
       }
       return result;
+    },
+    // Accès effectif d'une définition livrée, pour l'aperçu : valeur du manifest,
+    // « complet » sans manifest (rétrocompatibilité) et « lecture » si le YAML est
+    // illisible (le parent traite alors la définition comme `read`).
+    pluginAccessOf: function(content) {
+      var access, e, parsed, parser, text;
+      text = content != null ? content.manifest : void 0;
+      if (!(text && String(text).trim() !== '')) {
+        return 'full';
+      }
+      parser = window.jsyaml;
+      if (!(parser && typeof parser.load === 'function')) {
+        return 'read';
+      }
+      try {
+        parsed = parser.load(String(text));
+      } catch (error) {
+        e = error;
+        return 'read';
+      }
+      if (!(parsed && typeof parsed === 'object')) {
+        return 'read';
+      }
+      access = String(parsed.access || 'read').toLowerCase();
+      if (access === 'none' || access === 'read' || access === 'full') {
+        return access;
+      }
+      return 'read';
+    },
+    // Défaut proposé pour « importer sous un autre nom » : <nom>_imported.
+    defaultImportName: function(key) {
+      var base, idx, text;
+      text = String(key || '');
+      idx = text.lastIndexOf(':');
+      base = idx >= 0 ? text.slice(idx + 1) : text;
+      return `${base}_imported`;
     },
     // Un seul élément sélectionné → partie de la clé après le dernier ':' ;
     // plusieurs → identifiant de l'application.
@@ -150,7 +195,7 @@
   previewAppUpdate(yaml: $y, allowDowngrade: $d) {
     create { key type content fingerprint isCode }
     update { key type content fingerprint isCode }
-    conflict { key type local delivered }
+    conflict { key type local delivered pages }
     keepLocal { key type content fingerprint isCode }
     obsolete
     rename { from to }
@@ -214,10 +259,28 @@
     _isCodeItem: function(item) {
       return item.isCode === true || item.type === 'plugin' || item.type === 'page' || item.type === 'dataview' || item.type === 'preset';
     },
+    _accessText: function(app, item) {
+      var access, text;
+      access = window.AppAppsHelpers.pluginAccessOf(item.content);
+      text = (function() {
+        switch (access) {
+          case 'full':
+            return app._t('ui.apps.accessFull');
+          default:
+            return access;
+        }
+      })();
+      return app._t('ui.apps.accessLabel', {
+        access: text
+      });
+    },
     _appendItemLabel: function(app, li, item) {
       var details;
       li.appendChild(window.AppAppsHelpers._makeEl('code', null, String(item.key)));
       li.appendChild(window.AppAppsHelpers._makeEl('span', 'apps-item-type', ` (${item.type || ''})`));
+      if (item.type === 'plugin') {
+        li.appendChild(window.AppAppsHelpers._makeEl('span', 'apps-plugin-access', window.AppAppsHelpers._accessText(app, item)));
+      }
       if (!window.AppAppsHelpers._isCodeItem(item)) {
         return;
       }
@@ -295,7 +358,7 @@
       return parent.appendChild(label);
     },
     _renderConflicts: function(app, box, conflicts) {
-      var c, choice, choices, container, deliveredSide, i, j, len, localSide, name, results, row;
+      var c, choice, choices, container, deliveredSide, fallback, i, input, j, len, localSide, name, nameRow, pages, results, row;
       conflicts || (conflicts = []);
       if (conflicts.length === 0) {
         return;
@@ -325,12 +388,38 @@
         row.appendChild(localSide);
         row.appendChild(deliveredSide);
         container.appendChild(row);
+        pages = c.pages || [];
+        if (c.type === 'plugin' && pages.length > 0) {
+          container.appendChild(window.AppAppsHelpers._makeEl('p', 'apps-conflict-pages', app._t('ui.apps.conflictPages', {
+            pages: pages.join(', ')
+          })));
+        }
         choices = window.AppAppsHelpers._makeEl('div', 'apps-conflict-choices');
         name = `app-conflict-${i}`;
-        choice = app._appChoices[c.key] || 'local';
+        fallback = c.type === 'plugin' ? 'rename' : 'local';
+        choice = app._appChoices[c.key] || fallback;
         window.AppAppsHelpers._radio(app, choices, name, 'local', app._t('ui.apps.keepMine'), choice === 'local', c.key);
         window.AppAppsHelpers._radio(app, choices, name, 'delivered', app._t('ui.apps.takeDelivered'), choice === 'delivered', c.key);
+        if (c.type === 'plugin') {
+          window.AppAppsHelpers._radio(app, choices, name, 'rename', app._t('ui.apps.renameImport'), choice === 'rename', c.key);
+        }
         container.appendChild(choices);
+        if (c.type === 'plugin') {
+          if (app._appNewNames == null) {
+            app._appNewNames = {};
+          }
+          nameRow = window.AppAppsHelpers._makeEl('div', 'apps-conflict-newname');
+          nameRow.appendChild(window.AppAppsHelpers._makeEl('label', null, app._t('ui.apps.renameNewName')));
+          input = document.createElement('input');
+          input.type = 'text';
+          input.className = 'apps-conflict-newname-input';
+          input.value = app._appNewNames[c.key] || window.AppAppsHelpers.defaultImportName(c.key);
+          input.addEventListener('input', function() {
+            return app._appNewNames[c.key] = input.value;
+          });
+          nameRow.appendChild(input);
+          container.appendChild(nameRow);
+        }
         results.push(box.appendChild(container));
       }
       return results;
@@ -375,7 +464,7 @@
       if (!(app._appPlan && app._appPackageYaml)) {
         return;
       }
-      decisions = window.AppAppsHelpers.buildDecisions(app._appPlan.conflict, app._appChoices || {});
+      decisions = window.AppAppsHelpers.buildDecisions(app._appPlan.conflict, app._appChoices || {}, app._appNewNames || {});
       return tdbConfirm(app._t('ui.confirms.appApply')).then(function(ok) {
         if (!ok) {
           return;

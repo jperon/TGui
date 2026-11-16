@@ -106,7 +106,7 @@
       }
       if ((ref1 = app.el.widgetPluginNewBtn()) != null) {
         ref1.addEventListener('click', function(ev) {
-          var defaults, ref2, ref3, ref4, ref5, ref6, ref7;
+          var defaults, ref2, ref3, ref4, ref5, ref6, ref7, ref8;
           window.AppViewHelpers._pulseModalButton(ev.currentTarget);
           defaults = window.AppViewHelpers._defaultWidgetPlugin();
           app._selectedWidgetPlugin = null;
@@ -115,26 +115,29 @@
           }
           app.el.widgetPluginName().value = defaults.name;
           app.el.widgetPluginDescription().value = defaults.description;
+          if ((ref3 = app.el.widgetPluginScope()) != null) {
+            ref3.value = '';
+          }
           app.el.widgetPluginScriptLanguage().value = defaults.scriptLanguage;
           app.el.widgetPluginTemplateLanguage().value = defaults.templateLanguage;
-          if ((ref3 = app._cmWidgetPluginScript) != null) {
-            ref3.setOption('mode', defaults.scriptLanguage);
+          if ((ref4 = app._cmWidgetPluginScript) != null) {
+            ref4.setOption('mode', defaults.scriptLanguage);
           }
-          if ((ref4 = app._cmWidgetPluginTemplate) != null) {
-            ref4.setOption('mode', defaults.templateLanguage);
+          if ((ref5 = app._cmWidgetPluginTemplate) != null) {
+            ref5.setOption('mode', defaults.templateLanguage);
           }
-          if ((ref5 = app._cmWidgetPluginScript) != null) {
-            ref5.setValue(defaults.scriptCode);
+          if ((ref6 = app._cmWidgetPluginScript) != null) {
+            ref6.setValue(defaults.scriptCode);
           }
-          if ((ref6 = app._cmWidgetPluginTemplate) != null) {
-            ref6.setValue(defaults.templateCode);
+          if ((ref7 = app._cmWidgetPluginTemplate) != null) {
+            ref7.setValue(defaults.templateCode);
           }
-          return (ref7 = app._cmWidgetPluginManifest) != null ? ref7.setValue(defaults.manifest) : void 0;
+          return (ref8 = app._cmWidgetPluginManifest) != null ? ref8.setValue(defaults.manifest) : void 0;
         });
       }
       if ((ref2 = app.el.widgetPluginSaveBtn()) != null) {
         ref2.addEventListener('click', function(ev) {
-          var input, mutation, name, previousName, ref3, vars;
+          var input, mutation, name, previousName, ref3, ref4, vars;
           window.AppViewHelpers._pulseModalButton(ev.currentTarget);
           name = app.el.widgetPluginName().value.trim();
           if (!name) {
@@ -148,7 +151,9 @@
             templateLanguage: app.el.widgetPluginTemplateLanguage().value || 'pug',
             scriptCode: app._cmWidgetPluginScript ? app._cmWidgetPluginScript.getValue() : '',
             templateCode: app._cmWidgetPluginTemplate ? app._cmWidgetPluginTemplate.getValue() : '',
-            manifest: app._cmWidgetPluginManifest ? app._cmWidgetPluginManifest.getValue() : ''
+            manifest: app._cmWidgetPluginManifest ? app._cmWidgetPluginManifest.getValue() : '',
+            // Portée : '' = bibliothèque, sinon l'id d'une app installée.
+            appId: ((ref4 = app.el.widgetPluginScope()) != null ? ref4.value : void 0) || ''
           };
           mutation = app._selectedWidgetPlugin ? app._updateWidgetPluginMutation : app._createWidgetPluginMutation;
           vars = app._selectedWidgetPlugin ? {
@@ -206,7 +211,7 @@
         });
       }
       return (ref6 = app.el.widgetPluginSelect()) != null ? ref6.addEventListener('change', function() {
-        var id, plugin, ref10, ref11, ref7, ref8, ref9;
+        var id, plugin, ref10, ref11, ref12, ref7, ref8, ref9;
         id = app.el.widgetPluginSelect().value;
         if (!id) {
           return;
@@ -220,21 +225,24 @@
         app._selectedWidgetPlugin = plugin;
         app.el.widgetPluginName().value = plugin.name || '';
         app.el.widgetPluginDescription().value = plugin.description || '';
+        if ((ref7 = app.el.widgetPluginScope()) != null) {
+          ref7.value = plugin.appId || '';
+        }
         app.el.widgetPluginScriptLanguage().value = plugin.scriptLanguage || 'coffeescript';
         app.el.widgetPluginTemplateLanguage().value = plugin.templateLanguage || 'pug';
-        if ((ref7 = app._cmWidgetPluginScript) != null) {
-          ref7.setOption('mode', app.el.widgetPluginScriptLanguage().value);
+        if ((ref8 = app._cmWidgetPluginScript) != null) {
+          ref8.setOption('mode', app.el.widgetPluginScriptLanguage().value);
         }
-        if ((ref8 = app._cmWidgetPluginTemplate) != null) {
-          ref8.setOption('mode', app.el.widgetPluginTemplateLanguage().value);
+        if ((ref9 = app._cmWidgetPluginTemplate) != null) {
+          ref9.setOption('mode', app.el.widgetPluginTemplateLanguage().value);
         }
-        if ((ref9 = app._cmWidgetPluginScript) != null) {
-          ref9.setValue(plugin.scriptCode || '');
+        if ((ref10 = app._cmWidgetPluginScript) != null) {
+          ref10.setValue(plugin.scriptCode || '');
         }
-        if ((ref10 = app._cmWidgetPluginTemplate) != null) {
-          ref10.setValue(plugin.templateCode || '');
+        if ((ref11 = app._cmWidgetPluginTemplate) != null) {
+          ref11.setValue(plugin.templateCode || '');
         }
-        return (ref11 = app._cmWidgetPluginManifest) != null ? ref11.setValue(plugin.manifest || '') : void 0;
+        return (ref12 = app._cmWidgetPluginManifest) != null ? ref12.setValue(plugin.manifest || '') : void 0;
       }) : void 0;
     },
     _defaultWidgetPlugin: function() {
@@ -266,7 +274,7 @@
     },
     _loadWidgetPlugins: function(app, preferredId = null) {
       return GQL.query(app._listWidgetPluginsQuery).then(function(data) {
-        var defaults, emptyOpt, firstPlugin, i, len, opt, p, plugins, ref, ref1, ref2, ref3, ref4, ref5, sel, selectPlugin, selected, wantedId;
+        var defaults, emptyOpt, firstPlugin, i, len, opt, p, plugins, ref, ref1, ref2, ref3, ref4, ref5, ref6, scopeLabel, sel, selectPlugin, selected, wantedId;
         plugins = data.widgetPlugins || [];
         app._widgetPluginCache = plugins;
         sel = app.el.widgetPluginSelect();
@@ -276,28 +284,31 @@
         }
         sel.innerHTML = '';
         selectPlugin = function(p) {
-          var ref, ref1, ref2, ref3, ref4;
+          var ref, ref1, ref2, ref3, ref4, ref5;
           app._selectedWidgetPlugin = p;
           if (p != null ? p.id : void 0) {
             sel.value = p.id;
           }
           app.el.widgetPluginName().value = p.name || '';
           app.el.widgetPluginDescription().value = p.description || '';
+          if ((ref = app.el.widgetPluginScope()) != null) {
+            ref.value = p.appId || '';
+          }
           app.el.widgetPluginScriptLanguage().value = p.scriptLanguage || 'coffeescript';
           app.el.widgetPluginTemplateLanguage().value = p.templateLanguage || 'pug';
-          if ((ref = app._cmWidgetPluginScript) != null) {
-            ref.setOption('mode', app.el.widgetPluginScriptLanguage().value);
+          if ((ref1 = app._cmWidgetPluginScript) != null) {
+            ref1.setOption('mode', app.el.widgetPluginScriptLanguage().value);
           }
-          if ((ref1 = app._cmWidgetPluginTemplate) != null) {
-            ref1.setOption('mode', app.el.widgetPluginTemplateLanguage().value);
+          if ((ref2 = app._cmWidgetPluginTemplate) != null) {
+            ref2.setOption('mode', app.el.widgetPluginTemplateLanguage().value);
           }
-          if ((ref2 = app._cmWidgetPluginScript) != null) {
-            ref2.setValue(p.scriptCode || '');
+          if ((ref3 = app._cmWidgetPluginScript) != null) {
+            ref3.setValue(p.scriptCode || '');
           }
-          if ((ref3 = app._cmWidgetPluginTemplate) != null) {
-            ref3.setValue(p.templateCode || '');
+          if ((ref4 = app._cmWidgetPluginTemplate) != null) {
+            ref4.setValue(p.templateCode || '');
           }
-          return (ref4 = app._cmWidgetPluginManifest) != null ? ref4.setValue(p.manifest || '') : void 0;
+          return (ref5 = app._cmWidgetPluginManifest) != null ? ref5.setValue(p.manifest || '') : void 0;
         };
         wantedId = preferredId || ((ref = app._selectedWidgetPlugin) != null ? ref.id : void 0);
         firstPlugin = null;
@@ -308,7 +319,8 @@
           }
           opt = document.createElement('option');
           opt.value = p.id;
-          opt.textContent = p.name;
+          scopeLabel = (ref1 = window.WidgetPlugins) != null ? typeof ref1.scopeLabel === "function" ? ref1.scopeLabel(p) : void 0 : void 0;
+          opt.textContent = scopeLabel ? `${p.name} — ${scopeLabel}` : p.name;
           opt.title = p.description || p.name;
           sel.appendChild(opt);
         }
@@ -331,19 +343,19 @@
           app.el.widgetPluginDescription().value = defaults.description;
           app.el.widgetPluginScriptLanguage().value = defaults.scriptLanguage;
           app.el.widgetPluginTemplateLanguage().value = defaults.templateLanguage;
-          if ((ref1 = app._cmWidgetPluginScript) != null) {
-            ref1.setOption('mode', defaults.scriptLanguage);
+          if ((ref2 = app._cmWidgetPluginScript) != null) {
+            ref2.setOption('mode', defaults.scriptLanguage);
           }
-          if ((ref2 = app._cmWidgetPluginTemplate) != null) {
-            ref2.setOption('mode', defaults.templateLanguage);
+          if ((ref3 = app._cmWidgetPluginTemplate) != null) {
+            ref3.setOption('mode', defaults.templateLanguage);
           }
-          if ((ref3 = app._cmWidgetPluginScript) != null) {
-            ref3.setValue(defaults.scriptCode);
+          if ((ref4 = app._cmWidgetPluginScript) != null) {
+            ref4.setValue(defaults.scriptCode);
           }
-          if ((ref4 = app._cmWidgetPluginTemplate) != null) {
-            ref4.setValue(defaults.templateCode);
+          if ((ref5 = app._cmWidgetPluginTemplate) != null) {
+            ref5.setValue(defaults.templateCode);
           }
-          return (ref5 = app._cmWidgetPluginManifest) != null ? ref5.setValue(defaults.manifest) : void 0;
+          return (ref6 = app._cmWidgetPluginManifest) != null ? ref6.setValue(defaults.manifest) : void 0;
         }
       }).catch(function(err) {
         return tdbAlert(app._err(err), 'error');
@@ -464,7 +476,7 @@
       return results;
     },
     _ensureWidgetPluginMetaRow: function(app) {
-      var anchor, base, base1, base2, base3, descCol, descEl, descLabel, ensureLabel, i, len, makeCol, nameCol, nameEl, nameLabel, oldRow, pane, ref, root, row, selCol, selEl, selLabel;
+      var anchor, base, base1, base2, base3, base4, cols, descCol, descEl, descLabel, ensureLabel, i, len, makeCol, nameCol, nameEl, nameLabel, oldRow, pane, ref, root, row, scopeCol, scopeEl, scopeLabel, selCol, selEl, selLabel;
       root = typeof (base = app.el).widgetPluginModal === "function" ? base.widgetPluginModal() : void 0;
       if (!root) {
         return;
@@ -472,6 +484,7 @@
       selEl = typeof (base1 = app.el).widgetPluginSelect === "function" ? base1.widgetPluginSelect() : void 0;
       nameEl = typeof (base2 = app.el).widgetPluginName === "function" ? base2.widgetPluginName() : void 0;
       descEl = typeof (base3 = app.el).widgetPluginDescription === "function" ? base3.widgetPluginDescription() : void 0;
+      scopeEl = typeof (base4 = app.el).widgetPluginScope === "function" ? base4.widgetPluginScope() : void 0;
       if (!(selEl && nameEl && descEl)) {
         return;
       }
@@ -483,7 +496,11 @@
       selCol = selEl.closest('.widget-plugin-meta-col');
       nameCol = nameEl.closest('.widget-plugin-meta-col');
       descCol = descEl.closest('.widget-plugin-meta-col');
-      if (row && selCol && nameCol && descCol && selCol !== nameCol && nameCol !== descCol && selCol.parentElement === row && nameCol.parentElement === row && descCol.parentElement === row) {
+      scopeCol = scopeEl && scopeEl.closest('.widget-plugin-meta-col');
+      cols = [selCol, nameCol, descCol, scopeCol];
+      if (row && cols.every(function(c) {
+        return c && c.parentElement === row;
+      }) && new Set(cols).size === cols.length) {
         return;
       }
       ref = pane.querySelectorAll('.widget-plugin-meta-row');
@@ -494,6 +511,7 @@
       selLabel = root.querySelector("label[for='widget-plugin-select']") || selEl.previousElementSibling;
       nameLabel = root.querySelector("label[for='widget-plugin-name']") || nameEl.previousElementSibling;
       descLabel = root.querySelector("label[for='widget-plugin-description']") || descEl.previousElementSibling;
+      scopeLabel = root.querySelector("label[for='widget-plugin-scope']") || (scopeEl && scopeEl.previousElementSibling);
       ensureLabel = function(lbl, txt, forId) {
         var n;
         if (lbl) {
@@ -508,6 +526,7 @@
       selLabel = ensureLabel(selLabel, 'Plugins existants', 'widget-plugin-select');
       nameLabel = ensureLabel(nameLabel, 'Nom', 'widget-plugin-name');
       descLabel = ensureLabel(descLabel, 'Description', 'widget-plugin-description');
+      scopeLabel = ensureLabel(scopeLabel, 'Portée', 'widget-plugin-scope');
       row = document.createElement('div');
       row.className = 'widget-plugin-meta-row';
       makeCol = function(lbl, inputEl) {
@@ -525,6 +544,9 @@
       row.appendChild(makeCol(selLabel, selEl));
       row.appendChild(makeCol(nameLabel, nameEl));
       row.appendChild(makeCol(descLabel, descEl));
+      if (scopeEl) {
+        row.appendChild(makeCol(scopeLabel, scopeEl));
+      }
       anchor = pane.querySelector('.widget-plugin-editors-row') || pane.querySelector('.formula-lang-row');
       if (anchor) {
         return pane.insertBefore(row, anchor);
@@ -532,11 +554,45 @@
         return pane.appendChild(row);
       }
     },
+    // Portées possibles : la bibliothèque et chaque app installée. La portée
+    // d'une définition ne se choisit qu'à la création, mais un admin peut la
+    // déplacer ensuite (définition livrée propre à une app).
+    _loadWidgetPluginScopes: function(app) {
+      var base, sel;
+      sel = typeof (base = app.el).widgetPluginScope === "function" ? base.widgetPluginScope() : void 0;
+      if (!sel) {
+        return;
+      }
+      return GQL.query('{ listApps { appId name } }').then(function(data) {
+        var current, i, info, len, lib, opt, ref;
+        current = sel.value;
+        sel.innerHTML = '';
+        lib = document.createElement('option');
+        lib.value = '';
+        lib.textContent = 'Bibliothèque (globale)';
+        sel.appendChild(lib);
+        ref = data.listApps || [];
+        for (i = 0, len = ref.length; i < len; i++) {
+          info = ref[i];
+          if (!(info != null ? info.appId : void 0)) {
+            continue;
+          }
+          opt = document.createElement('option');
+          opt.value = info.appId;
+          opt.textContent = `App ${info.name || info.appId}`;
+          sel.appendChild(opt);
+        }
+        return sel.value = current || '';
+      }).catch(function(err) {
+        return console.warn('load widget plugin scopes failed', err);
+      });
+    },
     openWidgetPluginModal: function(app) {
       var ref;
       if ((ref = app.el.widgetPluginModal()) != null) {
         ref.classList.remove('hidden');
       }
+      window.AppViewHelpers._loadWidgetPluginScopes(app);
       app._widgetPluginDirty = false;
       app._widgetPluginDirtyNames = {};
       window.AppViewHelpers._ensureWidgetPluginMetaRow(app);

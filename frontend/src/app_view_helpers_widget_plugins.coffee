@@ -61,6 +61,7 @@ Object.assign window.AppViewHelpers,
       app.el.widgetPluginSelect()?.value = ''
       app.el.widgetPluginName().value = defaults.name
       app.el.widgetPluginDescription().value = defaults.description
+      app.el.widgetPluginScope()?.value = ''
       app.el.widgetPluginScriptLanguage().value = defaults.scriptLanguage
       app.el.widgetPluginTemplateLanguage().value = defaults.templateLanguage
       app._cmWidgetPluginScript?.setOption 'mode', defaults.scriptLanguage
@@ -82,6 +83,8 @@ Object.assign window.AppViewHelpers,
         scriptCode: if app._cmWidgetPluginScript then app._cmWidgetPluginScript.getValue() else ''
         templateCode: if app._cmWidgetPluginTemplate then app._cmWidgetPluginTemplate.getValue() else ''
         manifest: if app._cmWidgetPluginManifest then app._cmWidgetPluginManifest.getValue() else ''
+        # Portée : '' = bibliothèque, sinon l'id d'une app installée.
+        appId: app.el.widgetPluginScope()?.value or ''
       mutation = if app._selectedWidgetPlugin then app._updateWidgetPluginMutation else app._createWidgetPluginMutation
       vars = if app._selectedWidgetPlugin then { id: app._selectedWidgetPlugin.id, input } else { input }
       GQL.mutate(mutation, vars)
@@ -121,6 +124,7 @@ Object.assign window.AppViewHelpers,
       app._selectedWidgetPlugin = plugin
       app.el.widgetPluginName().value = plugin.name or ''
       app.el.widgetPluginDescription().value = plugin.description or ''
+      app.el.widgetPluginScope()?.value = plugin.appId or ''
       app.el.widgetPluginScriptLanguage().value = plugin.scriptLanguage or 'coffeescript'
       app.el.widgetPluginTemplateLanguage().value = plugin.templateLanguage or 'pug'
       app._cmWidgetPluginScript?.setOption 'mode', app.el.widgetPluginScriptLanguage().value
@@ -175,6 +179,7 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
           sel.value = p.id if p?.id
           app.el.widgetPluginName().value = p.name or ''
           app.el.widgetPluginDescription().value = p.description or ''
+          app.el.widgetPluginScope()?.value = p.appId or ''
           app.el.widgetPluginScriptLanguage().value = p.scriptLanguage or 'coffeescript'
           app.el.widgetPluginTemplateLanguage().value = p.templateLanguage or 'pug'
           app._cmWidgetPluginScript?.setOption 'mode', app.el.widgetPluginScriptLanguage().value
@@ -189,7 +194,8 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
           firstPlugin ?= p
           opt = document.createElement 'option'
           opt.value = p.id
-          opt.textContent = p.name
+          scopeLabel = window.WidgetPlugins?.scopeLabel? p
+          opt.textContent = if scopeLabel then "#{p.name} — #{scopeLabel}" else p.name
           opt.title = p.description or p.name
           sel.appendChild opt
 
@@ -311,6 +317,7 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
     selEl = app.el.widgetPluginSelect?()
     nameEl = app.el.widgetPluginName?()
     descEl = app.el.widgetPluginDescription?()
+    scopeEl = app.el.widgetPluginScope?()
     return unless selEl and nameEl and descEl
 
     pane = selEl.closest('.yaml-editor-pane') or nameEl.closest('.yaml-editor-pane') or descEl.closest('.yaml-editor-pane')
@@ -319,7 +326,9 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
     selCol = selEl.closest '.widget-plugin-meta-col'
     nameCol = nameEl.closest '.widget-plugin-meta-col'
     descCol = descEl.closest '.widget-plugin-meta-col'
-    if row and selCol and nameCol and descCol and selCol != nameCol and nameCol != descCol and selCol.parentElement == row and nameCol.parentElement == row and descCol.parentElement == row
+    scopeCol = scopeEl and scopeEl.closest '.widget-plugin-meta-col'
+    cols = [selCol, nameCol, descCol, scopeCol]
+    if row and cols.every((c) -> c and c.parentElement == row) and new Set(cols).size == cols.length
       return
 
     for oldRow in pane.querySelectorAll '.widget-plugin-meta-row'
@@ -328,6 +337,7 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
     selLabel = root.querySelector("label[for='widget-plugin-select']") or selEl.previousElementSibling
     nameLabel = root.querySelector("label[for='widget-plugin-name']") or nameEl.previousElementSibling
     descLabel = root.querySelector("label[for='widget-plugin-description']") or descEl.previousElementSibling
+    scopeLabel = root.querySelector("label[for='widget-plugin-scope']") or (scopeEl and scopeEl.previousElementSibling)
 
     ensureLabel = (lbl, txt, forId) ->
       return lbl if lbl
@@ -340,6 +350,7 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
     selLabel = ensureLabel selLabel, 'Plugins existants', 'widget-plugin-select'
     nameLabel = ensureLabel nameLabel, 'Nom', 'widget-plugin-name'
     descLabel = ensureLabel descLabel, 'Description', 'widget-plugin-description'
+    scopeLabel = ensureLabel scopeLabel, 'Portée', 'widget-plugin-scope'
 
     row = document.createElement 'div'
     row.className = 'widget-plugin-meta-row'
@@ -354,6 +365,7 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
     row.appendChild makeCol selLabel, selEl
     row.appendChild makeCol nameLabel, nameEl
     row.appendChild makeCol descLabel, descEl
+    row.appendChild makeCol scopeLabel, scopeEl if scopeEl
 
     anchor = pane.querySelector('.widget-plugin-editors-row') or pane.querySelector('.formula-lang-row')
     if anchor
@@ -361,8 +373,33 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
     else
       pane.appendChild row
 
+  # Portées possibles : la bibliothèque et chaque app installée. La portée
+  # d'une définition ne se choisit qu'à la création, mais un admin peut la
+  # déplacer ensuite (définition livrée propre à une app).
+  _loadWidgetPluginScopes: (app) ->
+    sel = app.el.widgetPluginScope?()
+    return unless sel
+    GQL.query '{ listApps { appId name } }'
+      .then (data) ->
+        current = sel.value
+        sel.innerHTML = ''
+        lib = document.createElement 'option'
+        lib.value = ''
+        lib.textContent = 'Bibliothèque (globale)'
+        sel.appendChild lib
+        for info in (data.listApps or [])
+          continue unless info?.appId
+          opt = document.createElement 'option'
+          opt.value = info.appId
+          opt.textContent = "App #{info.name or info.appId}"
+          sel.appendChild opt
+        sel.value = current or ''
+      .catch (err) ->
+        console.warn 'load widget plugin scopes failed', err
+
   openWidgetPluginModal: (app) ->
     app.el.widgetPluginModal()?.classList.remove 'hidden'
+    window.AppViewHelpers._loadWidgetPluginScopes app
     app._widgetPluginDirty = false
     app._widgetPluginDirtyNames = {}
     window.AppViewHelpers._ensureWidgetPluginMetaRow app

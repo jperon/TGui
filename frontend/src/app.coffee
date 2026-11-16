@@ -40,6 +40,8 @@ CREATE_WIDGET_PLUGIN = """
       templateLanguage
       scriptCode
       templateCode
+      manifest
+      appId
       updatedAt
     }
   }
@@ -55,6 +57,8 @@ UPDATE_WIDGET_PLUGIN = """
       templateLanguage
       scriptCode
       templateCode
+      manifest
+      appId
       updatedAt
     }
   }
@@ -172,6 +176,7 @@ window.App =
     widgetPluginSelect: -> document.getElementById 'widget-plugin-select'
     widgetPluginName: -> document.getElementById 'widget-plugin-name'
     widgetPluginDescription: -> document.getElementById 'widget-plugin-description'
+    widgetPluginScope: -> document.getElementById 'widget-plugin-scope'
     widgetPluginScriptLanguage: -> document.getElementById 'widget-plugin-script-language'
     widgetPluginTemplateLanguage: -> document.getElementById 'widget-plugin-template-language'
     widgetPluginScriptEditor: -> document.getElementById 'widget-plugin-script-editor'

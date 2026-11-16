@@ -277,9 +277,10 @@ Query =
       page = box.space._tdb_custom_views\get page_id
       error "Custom view not found: #{page_id}" unless page
       scope = scopes.page_app_id page_id
-    else
-      scope = scopes.scope_of args.appId
-    [tuple_to_plugin(row) for row in *scopes.visible_for_scope(scope)]
+      return [tuple_to_plugin(row) for row in *scopes.visible_for_scope(scope)]
+    if args.appId != nil
+      return [tuple_to_plugin(row) for row in *scopes.visible_for_scope(scopes.scope_of(args.appId))]
+    [tuple_to_plugin(row) for row in *scopes.all_rows!]
 
   -- `pageId` + `name` : résolution d'une instance (app de la page, puis
   -- globale). L'id ou le nom seul cherchent dans toutes les portées.

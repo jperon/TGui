@@ -1,6 +1,7 @@
 local yaml = require('yaml')
 local app_package = require('core.app_package')
 local app_apply = require('core/app_apply')
+local widget_scopes = require('core.widget_scopes')
 local require_admin
 require_admin = require('resolvers.utils').require_admin
 local CODE_TYPES = {

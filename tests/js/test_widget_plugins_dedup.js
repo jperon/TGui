@@ -15,10 +15,11 @@
 
   SRC_DIR = path.join(__dirname, '../../frontend/src');
 
-  // Canonical pre-refactor text: the identical heredoc that existed in BOTH
-  // app.coffee (old lines 33-46) and widget_plugins.coffee (lines 4-17).
-  REFERENCE = `query {
-  widgetPlugins {
+  // Canonical text: the single query used by BOTH widget_plugins.coffee and
+  // app.coffee (`_listWidgetPluginsQuery`). Since widget scopes (spec §5) it
+  // takes optional `appId` / `pageId` arguments and selects `appId`.
+  REFERENCE = `query WidgetPlugins($appId: String, $pageId: ID) {
+  widgetPlugins(appId: $appId, pageId: $pageId) {
     id
     name
     description
@@ -27,6 +28,7 @@
     scriptCode
     templateCode
     manifest
+    appId
     updatedAt
   }
 }`;
