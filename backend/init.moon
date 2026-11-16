@@ -20,13 +20,13 @@ box.cfg {
 -- Add /app/backend to the Lua path so all backend modules are reachable
 package.path = '/app/backend/?.lua;/app/backend/?/init.lua;' .. package.path
 
--- Raise the default fiber slice before any request fiber is created.
--- A single GraphQL grid read (100+ rows with ten-ish computed columns, each
--- scanning other spaces through space()) runs in one request fiber: the
--- Tarantool default ({warn = 0.5, err = 1}) is exceeded under load and box
--- aborts the read with "fiber slice is exceeded". This is a higher bound, not
--- a removal: runaway formulas stay bounded by the 20M-instruction guard.
-require('fiber').set_max_slice { warn: 2, err: 20 }
+-- The instance-wide fiber slice stays at the Tarantool default: raising it here
+-- would apply to EVERY fiber, so one heavy grid read (formulas scanning other
+-- spaces through space()) would block all other requests for its whole
+-- duration. The bound now belongs to the request: http_server.handle_graphql
+-- raises the slice of the request fiber only (core.config.REQUEST_SLICE), and
+-- per-row read loops yield periodically (core.config.yield_every). Runaway
+-- formulas stay bounded by the 20M-instruction guard.
 
 system = require('core.spaces')
 system.bootstrap!

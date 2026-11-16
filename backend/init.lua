@@ -4,10 +4,6 @@ box.cfg({
   memtx_memory = 256 * 1024 * 1024
 })
 package.path = '/app/backend/?.lua;/app/backend/?/init.lua;' .. package.path
-require('fiber').set_max_slice({
-  warn = 2,
-  err = 20
-})
 local system = require('core.spaces')
 system.bootstrap()
 system.migrate()

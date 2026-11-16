@@ -51,6 +51,45 @@ LIMITS = {
   }
 }
 
+-- ────────────────────────────────────────────────────────────────────────────
+-- Request fiber slice and cooperative yielding
+-- ────────────────────────────────────────────────────────────────────────────
+
+-- Fiber slice of ONE GraphQL request, set on the request fiber just before the
+-- operation runs (http_server.handle_graphql). The instance-wide default slice
+-- is left untouched (init.moon no longer raises it): a heavy grid read must not
+-- hold every other request for the old 20 s bound. A request fiber raises only
+-- its own bound, so an honest read (computed columns scanning other spaces
+-- through space()) is not aborted, while a runaway one stays bounded well below
+-- the instance-wide value that used to apply.
+REQUEST_SLICE = { warn: 1, err: 5 }
+
+-- Cooperate with other fibers every YIELD_EVERY iterations of a per-row read
+-- loop. Tarantool is cooperative: without an explicit yield, one grid read
+-- starves every other request until it returns. 64 keeps the switching cost
+-- well under the per-row formula cost on the heaviest grids.
+YIELD_EVERY = 64
+
+-- Give the current fiber its own slice: Tarantool 3 per-fiber API
+-- `fiber.self():set_max_slice { warn, err }` (verified on the test instance,
+-- Tarantool 3.7.0; there is no getter in that version — read it back with
+-- `fiber.self():info().max_slice`).
+set_request_slice = ->
+  fiber.self!\set_max_slice REQUEST_SLICE
+
+-- Called once per iteration of a per-row read loop: yields every YIELD_EVERY
+-- iterations, but NEVER inside a transaction. Tarantool forbids yielding in a
+-- transaction ("yield is not allowed in transaction"), and reads do run inside
+-- box.atomic (batch resolvers, app_apply): box.is_in_txn() is the guard, so
+-- the same helper is safe to call from any loop.
+-- Returns true when it actually yielded (test hook), false otherwise.
+yield_every = (i) ->
+  return false unless YIELD_EVERY > 0 and i % YIELD_EVERY == 0
+  in_txn = box and box.is_in_txn and box.is_in_txn! or false
+  return false if in_txn
+  fiber.yield!
+  true
+
 -- Execution guard for formulas (spec §7): maximum number of VM instructions a
 -- single formula call may execute, checked by debug.sethook every
 -- FORMULA_HOOK_INTERVAL instructions. Bounds infinite loops.
@@ -193,5 +232,6 @@ validate_input = (type, value, context) ->
   :LIMITS, :safe_call, :validate_input
   :safe_formula_call, :get_formula_metrics, :clear_formula_metrics
   :FORMULA_INSTRUCTION_LIMIT, :FORMULA_HOOK_INTERVAL
+  :REQUEST_SLICE, :YIELD_EVERY, :set_request_slice, :yield_every
   :run_unguarded
 }
