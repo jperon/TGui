@@ -1,10 +1,23 @@
 name: CI
 
+# La branche principale est `master` (et la branche de travail `wip`).
 on:
   push:
-    branches: [main, wip]
+    branches: [master, wip]
   pull_request:
   workflow_dispatch:
+
+# Notes communes aux trois jobs :
+#   - `submodules: true` est INDISPENSABLE : le compilateur MoonScript est le
+#     sous-module backend/vendor/moonscript (tag v0.8.0), et `make build`
+#     compile son analyseur natif (moonscript/parse/native.c).
+#   - Toute commande `make` passe par `nix develop .#build --command …` : la
+#     compilation MoonScript exige l'interpréteur Lua 5.1 du shell Nix avec
+#     lpeg/argparse/luafilesystem (TGUI_LUA), les en-têtes de Lua pour
+#     native.so et un `coffee` de version déterministe. Hors de ce shell, ces
+#     outils viennent du système et peuvent manquer ou diverger.
+#   - Nix est installé par cachix/install-nix-action (l'ancien
+#     DeterminateSystems/nix-installer-action@v9 échoue avec « Invalid URL »).
 
 jobs:
   # Vérifie que les artefacts commités (.lua/.js) sont en phase avec les sources
@@ -14,7 +27,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@v9
+        with:
+          submodules: true
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
       - name: Compile sources and check artifacts are up to date
         # `make -B` force la recompilation de TOUTES les sources : un `make build`
         # ordinaire est piloté par les dates de fichiers et, sur un clone neuf
@@ -33,24 +51,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          submodules: true
 
-      - name: Install CoffeeScript
-        run: npm install -g coffeescript
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
 
+      # Aucune installation Node/npm séparée : le devShell `.#build` fournit
+      # nodejs et coffeescript, ce dernier étant appelé directement par le
+      # Makefile (`coffee`) et par scripts/moonc.sh.
       - name: make ci (sdl-check + backend tests + JS tests + doc-check)
-        # Sur les runners GitHub le bridge Docker fonctionne ; --network=host
-        # (défaut DOCKER_BUILD_NET) reste valide.
-        run: make ci
+        # Docker (build, compose) vient du runner et reste visible dans le PATH
+        # du shell Nix. Sur les runners GitHub le bridge Docker fonctionne ;
+        # --network=host (défaut DOCKER_BUILD_NET) reste valide.
+        run: nix develop .#build --command make ci
 
   # Tests navigateur Playwright contre l'instance de test (port 8081).
   e2e:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
 
       - uses: actions/setup-node@v4
         with:
@@ -59,19 +88,18 @@ jobs:
       - name: Install JS toolchain
         # Installation reproductible : `npm ci` installe exactement les versions
         # verrouillées dans package-lock.json (ici @playwright/test et
-        # playwright 1.59.1, alignés sur le driver Nix). L'ancien
-        # `npm install --no-save @playwright/test coffeescript` tirait la
-        # dernière version publiée, qui pouvait ne pas correspondre au
-        # navigateur téléchargé par `npx playwright install` ci-dessous
-        # (`npx` résout le binaire local). coffeescript reste installé
-        # globalement car le Makefile appelle directement `coffee`.
-        run: |
-          npm install -g coffeescript
-          npm ci
+        # playwright 1.59.1). Playwright n'est PAS dans le devShell `.#build`
+        # (navigateurs trop lourds pour la seule compilation) : il vient de npm
+        # et tourne hors du shell Nix. `npm install -g coffeescript` n'est plus
+        # nécessaire, `coffee` venant alors de Nix.
+        run: npm ci
 
       - name: Start test instance
+        # `make test-up` compile d'abord les sources (`build`) : il faut donc
+        # le shell Nix. Le nom de conteneur `tgui-tarantool-test` est unique sur
+        # la machine, d'où l'arrêt explicite en fin de job.
         run: |
-          make test-up
+          nix develop .#build --command make test-up
           # Attendre que l'API réponde
           for i in $(seq 1 60); do
             if curl -fsS -o /dev/null http://localhost:8081/; then echo "up"; break; fi
@@ -79,16 +107,18 @@ jobs:
           done
 
       - name: Install Playwright browser
+        # Hors shell Nix : le navigateur téléchargé par npm doit voir les
+        # bibliothèques système du runner (--with-deps les installe).
         run: npx playwright install --with-deps chromium
 
       - name: Compile and run Playwright specs
         run: |
-          make playwright-compile
+          nix develop .#build --command make playwright-compile
           npx playwright test --config=tests/playwright/playwright-optimized.config.js
 
       - name: Stop test instance
         if: always()
-        run: make test-down
+        run: nix develop .#build --command make test-down
 
       - name: Upload Playwright report
         if: failure()
