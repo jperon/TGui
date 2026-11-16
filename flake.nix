@@ -40,6 +40,10 @@
         devShells.build = pkgs.mkShell {
           name = "tgui-build";
           packages = buildTools;
+
+          # Consommés par le Makefile (scripts/moonc.sh, règle native.so).
+          TGUI_LUA = "${luaEnv}/bin/lua";
+          TGUI_LUA_INCDIR = "${pkgs.lua5_1}/include";
         };
 
         devShells.default = pkgs.mkShell {
