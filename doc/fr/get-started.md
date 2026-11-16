@@ -475,7 +475,10 @@ options:                # options typées de l'instance
 - Une erreur d'exécution dans l'iframe affiche `Plugin <nom> — exécution JavaScript
   invalide …` avec le détail.
 - Les messages `runtime CoffeeScript indisponible` / `runtime Pug indisponible` indiquent un
-  bundle fournisseur absent ou cassé.
+  bundle fournisseur absent ou cassé. Ce bundle (`/vendor/plugin-runtime.bundle.js`)
+  n'est chargé **qu'à l'affichage d'un widget qui en a besoin** : un widget
+  `javascript` + `html` ne charge rien. Un échec de chargement s'affiche dans le widget :
+  `Erreur plugin : Échec du chargement de /vendor/plugin-runtime.bundle.js …`.
 - Un refus d'accès affiche dans l'iframe le message explicite du parent (`manifest access:
   read`, `access: none`, « lectures seules », etc.).
 
