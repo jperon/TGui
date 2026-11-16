@@ -360,6 +360,20 @@ R.describe "WidgetScopes — installation", ->
     R.matches stored_page[4], "type: #{name}_imported"
     R.is_nil stored_page[4]\find("type: #{name}\n", 1, true), 'plus aucune référence à l’ancien nom'
 
+  R.it "conflit sur une définition locale non suivie (installation neuve) : remplacer", ->
+    name = "wscope_fresh_#{SUFFIX}"
+    plugin name, nil
+    wpr.Mutation.updateWidgetPlugin {}, {
+      id: (scopes.find_row name, nil)[1]
+      input: { description: 'local seul' }
+    }, CTX
+    p = package_of APP_A, { item_of name, 'library', { description: 'livré neuf' } }
+    plan = apply.preview_update p
+    R.eq #plan.conflict, 1, 'une définition locale non suivie entre en conflit'
+    report = apply.apply_update p, { ["plugin:#{name}"]: 'delivered' }, {}
+    R.ok report.ok, report.error
+    R.eq (scopes.find_row name, nil)[3], 'livré neuf', 'la définition locale est remplacée'
+
   R.it "conflit : importer sous un nom choisi par la décision newName", ->
     name = "wscope_named_#{SUFFIX}"
     p1 = package_of APP_A, { item_of name, 'library' }
