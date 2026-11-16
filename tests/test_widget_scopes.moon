@@ -129,7 +129,21 @@ R.describe "WidgetScopes — unicité du nom par portée", ->
   R.it "refuse une portée inconnue", ->
     R.raises (-> plugin "wscope_orphan_#{SUFFIX}", "org.test.unknown_#{SUFFIX}"), 'Unknown app'
 
-  R.it "déplace une définition vers la bibliothèque sans collision", ->
+  R.it "refuse de changer la portée d’une définition utilisée", ->
+    name = "wscope_move_used_#{SUFFIX}"
+    p = plugin name, nil
+    page = create_page "wscope_move_page_#{SUFFIX}", name
+    ok, err = pcall -> wpr.Mutation.updateWidgetPlugin {}, {
+      id: p.id
+      input: { appId: APP_A }
+    }, CTX
+    R.nok ok, 'changement de portée refusé'
+    R.matches (tostring err), 'cannot change scope'
+    R.matches (tostring err), "wscope_move_page_#{SUFFIX}"
+    R.eq scopes.find_row(name, nil)[1], p.id, 'la définition reste globale'
+    delete_page page
+
+  R.it "déplace une définition non utilisée vers la bibliothèque sans collision", ->
     moved = plugin "wscope_move_#{SUFFIX}", APP_A
     res = wpr.Mutation.updateWidgetPlugin {}, {
       id: moved.id

@@ -152,7 +152,25 @@ R.describe("WidgetScopes — unicité du nom par portée", function()
       return plugin("wscope_orphan_" .. tostring(SUFFIX), "org.test.unknown_" .. tostring(SUFFIX))
     end), 'Unknown app')
   end)
-  return R.it("déplace une définition vers la bibliothèque sans collision", function()
+  R.it("refuse de changer la portée d’une définition utilisée", function()
+    local name = "wscope_move_used_" .. tostring(SUFFIX)
+    local p = plugin(name, nil)
+    local page = create_page("wscope_move_page_" .. tostring(SUFFIX), name)
+    local ok, err = pcall(function()
+      return wpr.Mutation.updateWidgetPlugin({ }, {
+        id = p.id,
+        input = {
+          appId = APP_A
+        }
+      }, CTX)
+    end)
+    R.nok(ok, 'changement de portée refusé')
+    R.matches((tostring(err)), 'cannot change scope')
+    R.matches((tostring(err)), "wscope_move_page_" .. tostring(SUFFIX))
+    R.eq(scopes.find_row(name, nil)[1], p.id, 'la définition reste globale')
+    return delete_page(page)
+  end)
+  return R.it("déplace une définition non utilisée vers la bibliothèque sans collision", function()
     local moved = plugin("wscope_move_" .. tostring(SUFFIX), APP_A)
     local res = wpr.Mutation.updateWidgetPlugin({ }, {
       id = moved.id,

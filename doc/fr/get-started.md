@@ -380,8 +380,9 @@ apps, ou une app et la bibliothèque, peuvent définir le même nom sans se gên
 permet de la choisir à la création (elle peut être changée ensuite).
 
 Supprimer une définition de la bibliothèque encore utilisée par une page est **refusé** :
-le message liste les pages concernées. Une définition propre à une app est supprimée avec
-elle.
+le message liste les pages concernées. De même, changer la portée d'une définition utilisée
+est refusé (les pages qui la résolvent perdraient leur widget). Une définition propre à une
+app est supprimée avec elle.
 
 #### Créer un plugin
 

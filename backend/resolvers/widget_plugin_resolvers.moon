@@ -247,6 +247,12 @@ update_widget_plugin = (id, input) ->
   -- `appId: ''` (ou null) déplace la définition vers la bibliothèque ; absent
   -- la laisse dans sa portée.
   app_id = if input.appId != nil then validate_app_scope(input.appId) else plugin_scope(t)
+  if scopes.scope_column(app_id) != scopes.scope_column(plugin_scope(t))
+    -- Déplacer une définition utilisée casserait les pages qui la résolvent :
+    -- on refuse en les listant (même règle que la suppression).
+    used = scopes.pages_using t
+    if #used > 0
+      error "WidgetPlugin '#{t[2]}' is used by page(s): #{table.concat used, ', '} — it cannot change scope"
 
   assert_unique_name name, id, app_id
 

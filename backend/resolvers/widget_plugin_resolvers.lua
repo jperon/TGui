@@ -370,6 +370,12 @@ update_widget_plugin = function(id, input)
   else
     app_id = plugin_scope(t)
   end
+  if scopes.scope_column(app_id) ~= scopes.scope_column(plugin_scope(t)) then
+    local used = scopes.pages_using(t)
+    if #used > 0 then
+      error("WidgetPlugin '" .. tostring(t[2]) .. "' is used by page(s): " .. tostring(table.concat(used, ', ')) .. " — it cannot change scope")
+    end
+  end
   assert_unique_name(name, id, app_id)
   local now = clock.time()
   box.space._tdb_widget_plugins:replace({

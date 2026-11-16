@@ -379,7 +379,8 @@ editor show the scope (`library` or `app <id>`), and the editor lets you choose 
 creating a definition (it can be changed later).
 
 Deleting a library definition still used by a page is **refused**: the message lists the
-pages. A definition owned by an app goes away with it.
+pages. Changing the scope of a used definition is refused too (the pages resolving it
+would lose their widget). A definition owned by an app goes away with it.
 
 #### Create a plugin
 
