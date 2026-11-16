@@ -328,6 +328,9 @@
       widgetPluginTemplateEditor: function() {
         return document.getElementById('widget-plugin-template-editor');
       },
+      widgetPluginManifestEditor: function() {
+        return document.getElementById('widget-plugin-manifest-editor');
+      },
       // Formula modal (CodeMirror)
       formulaModal: function() {
         return document.getElementById('formula-modal');
