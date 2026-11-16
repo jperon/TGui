@@ -26,6 +26,7 @@
     templateLanguage
     scriptCode
     templateCode
+    manifest
     updatedAt
   }
 }`;

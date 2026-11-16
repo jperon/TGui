@@ -1024,7 +1024,9 @@ transition: all 0.3s ease;`;
           selection: {
             rows: [rowData],
             byField: defaults
-          }
+          },
+          // Ligne courante renommée selon le mappage du widget cible (onRecord).
+          record: this._pluginRenameRow(entry.node, rowData)
         });
       }
     }

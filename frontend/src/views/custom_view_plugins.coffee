@@ -2,6 +2,27 @@
 # Extends the CustomView class (defined in custom_view.js) via its prototype.
 # Loaded after views/custom_view.js.
 
+# Mutations d'enregistrements autorisées depuis un widget (spec §6). Elles sont
+# relayées avec l'en-tête widget : le serveur garde sa propre liste blanche
+# (backend/graphql/executor.moon WIDGET_ALLOWED_MUTATIONS).
+UPDATE_RECORD_MUTATION = """
+  mutation WidgetUpdateRecord($spaceId: ID!, $id: ID!, $data: JSON!) {
+    updateRecord(spaceId: $spaceId, id: $id, data: $data) { id data }
+  }
+"""
+
+INSERT_RECORD_MUTATION = """
+  mutation WidgetInsertRecord($spaceId: ID!, $data: JSON!) {
+    insertRecord(spaceId: $spaceId, data: $data) { id data }
+  }
+"""
+
+DELETE_RECORD_MUTATION = """
+  mutation WidgetDeleteRecord($spaceId: ID!, $id: ID!) {
+    deleteRecord(spaceId: $spaceId, id: $id)
+  }
+"""
+
 Object.assign window.CustomView::,
   _setPluginSelectionListener: (widgetId, listener) ->
     return unless widgetId
@@ -29,6 +50,114 @@ Object.assign window.CustomView::,
   _relayWidgetQuery: (query, variables) ->
     GQL.queryWidget query, variables or {}
 
+  # ── Manifest, accès et mappage (spec widgets personnalisés §3, §6) ─────────
+  # Le manifeste est du YAML analysé côté parent : c'est lui qui décide de ce
+  # que l'iframe reçoit. Un manifeste invalide (import direct en base) est
+  # traité comme `read` : jamais plus de droits que déclaré.
+  _pluginManifest: (plugin) ->
+    text = plugin?.manifest
+    return null unless text and String(text).trim() != ''
+    parser = window.jsyaml
+    return { invalid: true } unless parser and typeof parser.load == 'function'
+    try
+      parsed = parser.load text
+    catch e
+      console.warn 'widget manifest: YAML invalide', e
+      return { invalid: true }
+    # Fichier ne contenant que des commentaires : pas de manifeste.
+    return null unless parsed and typeof parsed == 'object'
+    parsed
+
+  # `access` effectif : valeur du manifeste, `read` si elle manque, `full` sans
+  # manifeste (rétrocompatibilité : aucun plugin existant ne casse).
+  _pluginAccessOf: (plugin) ->
+    manifest = @_pluginManifest plugin
+    return 'full' unless manifest
+    return 'read' if manifest.invalid
+    access = String(manifest.access or 'read').toLowerCase()
+    return access if access in ['none', 'read', 'full']
+    'read'
+
+  # Mappage déclaré → champ de la source. Un tableau (`columns: [a, b]`) est un
+  # widget tableau, pas un mappage.
+  _pluginColumnMapping: (node) ->
+    columns = node?.columns
+    return null unless columns and typeof columns == 'object'
+    return null if Array.isArray columns
+    columns
+
+  # Colonnes obligatoires du manifeste absentes du mappage.
+  _pluginMissingColumns: (manifest, mapping) ->
+    return [] unless manifest and manifest.columns and manifest.columns.length
+    missing = []
+    for col in manifest.columns
+      continue unless col and col.name
+      continue if col.optional == true
+      missing.push col.name unless mapping and mapping[col.name]
+    missing
+
+  # Type d'opération GraphQL, sans faire confiance au texte brut : on saute
+  # espaces, virgules et commentaires `#…`, puis on lit le premier mot. `{` est
+  # une query anonyme ; query/mutation/subscription sont explicites ; tout le
+  # reste (fragment, texte inattendu) renvoie null et sera refusé.
+  _widgetQueryOperation: (query) ->
+    s = String query or ''
+    n = s.length
+    i = 0
+    loop
+      while i < n and /[\s,]/.test s.charAt(i)
+        i++
+      if s.charAt(i) == '#'
+        i++ while i < n and s.charAt(i) != '\n'
+        continue
+      break
+    return null if i >= n
+    return 'query' if s.charAt(i) == '{'
+    m = s.slice(i).match /^([_A-Za-z][_0-9A-Za-z]*)/
+    return null unless m
+    word = m[1].toLowerCase()
+    return word if word in ['query', 'mutation', 'subscription']
+    null
+
+  # nil quand la requête est autorisée, sinon le message de refus (spec §6).
+  # En cas de doute (opération illisible), on refuse.
+  _widgetQueryRefusal: (access, query) ->
+    if access == 'none'
+      return 'Ce widget n’a pas accès aux données (manifest access: none).'
+    op = @_widgetQueryOperation query
+    unless op
+      return 'Requête GraphQL illisible : refusée par sécurité (le type d’opération doit être explicite).'
+    if access == 'read' and op != 'query'
+      return "Seules les lectures sont autorisées (manifest access: read) : opération « #{op} » refusée."
+    if access == 'full' and op == 'subscription'
+      return 'Les souscriptions sont refusées depuis un widget.'
+    null
+
+  # Ligne de la source renommée selon le mappage (+ `id`), pour l'API de
+  # données de l'iframe. Sans mappage : la ligne telle quelle.
+  _pluginRenameRow: (node, row) ->
+    return row unless row
+    mapping = @_pluginColumnMapping node
+    return row unless mapping
+    out = {}
+    out.id = row.id if row.id?
+    for declared, field of mapping
+      continue unless field
+      out[declared] = row[field] if row[field]?
+    out
+
+  # Valeurs de l'iframe (noms déclarés) → noms de champs. Sans mappage, les
+  # noms sont déjà ceux de la source. `id` n'est jamais écrit.
+  _pluginTranslateValues: (mapping, values) ->
+    out = {}
+    return out unless values and typeof values == 'object'
+    for key, value of values
+      continue if key == 'id'
+      field = if mapping then mapping[key] else key
+      continue unless field
+      out[field] = value
+    out
+
   _renderPluginWidget: (container, wNode, runtimeWidgetId = null) ->
     pluginName = wNode.type
     pluginParams = wNode.params or {}
@@ -41,11 +170,71 @@ Object.assign window.CustomView::,
         @_setMessage container, "Plugin introuvable : #{pluginName}", 'color:#c55;padding:.5rem'
         return
       widgetId = runtimeWidgetId or wNode.id or "plugin_#{Math.random().toString(36).slice(2)}"
-      @_mountPluginIframe container, widgetId, plugin, pluginParams
+      manifest = @_pluginManifest plugin
+      access = @_pluginAccessOf plugin
+      mapping = @_pluginColumnMapping wNode
+      space = @_findSpace wNode.space
+      missing = @_pluginMissingColumns manifest, mapping
+      if missing.length > 0
+        # Colonne obligatoire non mappée : message dans le widget, aucun
+        # chargement (spec §3). Le YAML de page doit déclarer
+        # `columns: {<nom déclaré>: <champ>}`.
+        @_setMessage container,
+          "Widget « #{pluginName} » : colonne(s) obligatoire(s) non mappée(s) : #{missing.join ', '}. " +
+          "Ajoutez <code>columns: {#{missing[0]}: <champ>}</code> au widget.",
+          'color:#c55;padding:.5rem'
+        return
+      @_mountPluginIframe container, widgetId, plugin, pluginParams, {
+        access, manifest, mapping, space, node: wNode
+      }
     .catch (err) =>
       @_setMessage container, "Erreur plugin : #{err.message or err}", 'color:#c55;padding:.5rem'
 
-  _mountPluginIframe: (container, widgetId, plugin, pluginParams) ->
+  # Lignes de la source du widget, pour `onRecords`. Même résolution que la
+  # grille (Data View, champs calculés via le résolveur dynamique, ou records
+  # bruts), limitée aux colonnes utiles.
+  _loadPluginSourceRows: (node, space, access) ->
+    return Promise.resolve [] unless access in ['read', 'full']
+    return Promise.resolve [] unless node?.space
+    unless space
+      return Promise.reject new Error "Source introuvable : #{node.space}"
+    if space.isView
+      return DataViews.execute(space.viewId, 2000, 0).then (rows) ->
+        for r in rows or []
+          row = Object.assign {}, r
+          row.id ?= r.id
+          row
+    fields = space.fields or []
+    if not fields.length
+      return Promise.resolve []
+    computed = (f for f in fields when (f.formula and f.formula != '') or (f.reprFormula and f.reprFormula != ''))
+    if computed.length > 0
+      tname = @_pluginGqlName space.name
+      names = (@_pluginGqlName(f.name) for f in fields when f.name)
+      query = "query($limit: Int) { #{tname}(limit: $limit) { items { _id #{names.join ' '} } } }"
+      return GQL.query(query, { limit: 2000 }).then (data) ->
+        for item in (data?[tname]?.items or [])
+          row = Object.assign {}, item
+          row.id = item._id
+          delete row._id
+          row
+    query = """
+      query PluginRecords($spaceId: ID!, $limit: Int) {
+        records(spaceId: $spaceId, limit: $limit) { items { id data } }
+      }
+    """
+    GQL.query(query, { spaceId: space.id, limit: 2000 }).then (data) ->
+      for r in (data?.records?.items or [])
+        parsed = if typeof r.data == 'string' then JSON.parse(r.data) else (r.data or {})
+        row = Object.assign {}, parsed
+        row.id = r.id
+        row
+
+  _pluginGqlName: (name) ->
+    s = String(name or '').replace /[^\w]/g, '_'
+    if /^\d/.test(s) then '_' + s else s
+
+  _mountPluginIframe: (container, widgetId, plugin, pluginParams, ctx = {}) ->
     compiled = @_compilePlugin plugin, pluginParams
     iframe = document.createElement 'iframe'
     iframe.setAttribute 'sandbox', 'allow-scripts'
@@ -58,27 +247,102 @@ Object.assign window.CustomView::,
     listeners = []
     for fn in (@_pluginSelectionListenersByWidgetId[widgetId] or [])
       listeners.push fn
-    @_pluginStateByWidgetId[widgetId] = { iframe, listeners, requestMap, reqSeq }
+    state = {
+      iframe, listeners, requestMap, reqSeq
+      access: ctx.access or 'full'
+      mapping: ctx.mapping or null
+      space: ctx.space or null
+      node: ctx.node or null
+      ready: false
+      rows: []
+      rawRows: []
+    }
+    @_pluginStateByWidgetId[widgetId] = state
+
+    postToFrame = (msg) =>
+      iframe.contentWindow?.postMessage Object.assign({ widgetId }, msg), '*'
+
+    sendRecords = =>
+      return unless state.ready
+      postToFrame { type: 'records', rows: state.rows }
+
+    reload = =>
+      @_loadPluginSourceRows(ctx.node, ctx.space, state.access).then (rawRows) =>
+        return unless @_pluginStateByWidgetId[widgetId] == state
+        state.rawRows = rawRows or []
+        state.rows = (@_pluginRenameRow ctx.node, r for r in state.rawRows)
+        sendRecords()
+      .catch (err) =>
+        postToFrame { type: 'records', rows: [], error: (err?.message or String err) }
 
     onMessage = (ev) =>
       return unless ev.source == iframe.contentWindow
       msg = ev.data or {}
       return unless msg.widgetId == widgetId
-      if msg.type == 'gql_request'
-        q = msg.query or ''
-        vars = msg.variables or {}
-        reqId = msg.requestId
-        @_relayWidgetQuery(q, vars).then (data) =>
-          iframe.contentWindow?.postMessage { type: 'gql_response', widgetId, requestId: reqId, data }, '*'
-        .catch (err) =>
-          iframe.contentWindow?.postMessage { type: 'gql_error', widgetId, requestId: reqId, error: (err.message or String(err)) }, '*'
-      else if msg.type == 'emitSelection'
-        @_emitPluginSelection widgetId, msg.selection or {}
+      switch msg.type
+        when 'gql_request'
+          refusal = @_widgetQueryRefusal state.access, msg.query
+          if refusal
+            postToFrame { type: 'gql_error', requestId: msg.requestId, error: refusal }
+            return
+          @_relayWidgetQuery(msg.query or '', msg.variables or {}).then (data) =>
+            postToFrame { type: 'gql_response', requestId: msg.requestId, data }
+          .catch (err) =>
+            postToFrame { type: 'gql_error', requestId: msg.requestId, error: (err.message or String(err)) }
+        when 'emitSelection'
+          @_emitPluginSelection widgetId, msg.selection or {}
+        when 'plugin_ready'
+          state.ready = true
+          reload()
+        when 'setCursor'
+          raw = null
+          for row in state.rawRows
+            if row.id? and String(row.id) == String(msg.id)
+              raw = row
+              break
+          selection = if raw then { rows: [raw] } else { rows: [{ id: msg.id }] }
+          @_emitPluginSelection widgetId, selection
+        when 'updateRecord', 'insertRecord', 'deleteRecord'
+          @_handlePluginWrite widgetId, state, msg
+        else
+          null
 
     window.addEventListener 'message', onMessage
-    srcDoc = @_buildPluginIframeDoc widgetId, pluginParams, compiled, plugin
+    srcDoc = @_buildPluginIframeDoc widgetId, pluginParams, compiled, plugin, state
     iframe.srcdoc = srcDoc
-    @_pluginStateByWidgetId[widgetId].onMessage = onMessage
+    state.onMessage = onMessage
+    state.reload = reload
+
+  # Écritures demandées par l'iframe : réservées à `access: full`, valeurs
+  # traduites noms déclarés → noms de champs, mutations relayées via
+  # GQL.queryWidget (le serveur garde sa liste blanche), puis rechargement.
+  _handlePluginWrite: (widgetId, state, msg) ->
+    postToFrame = (payload) =>
+      state.iframe.contentWindow?.postMessage Object.assign({ widgetId }, payload), '*'
+    refuse = (error) =>
+      postToFrame { type: 'write_error', requestId: msg.requestId, error }
+    if state.access != 'full'
+      return refuse 'Écriture refusée : ce widget est en lecture seule (manifest access ≠ full).'
+    unless state.space?.id
+      return refuse 'Écriture impossible : aucune source de données pour ce widget.'
+    spaceId = state.space.id
+    mapping = state.mapping
+    promise = null
+    switch msg.type
+      when 'updateRecord'
+        values = @_pluginTranslateValues mapping, msg.values
+        promise = GQL.queryWidget UPDATE_RECORD_MUTATION, { spaceId, id: msg.id, data: values }
+      when 'insertRecord'
+        values = @_pluginTranslateValues mapping, msg.values
+        promise = GQL.queryWidget INSERT_RECORD_MUTATION, { spaceId, data: values }
+      when 'deleteRecord'
+        promise = GQL.queryWidget DELETE_RECORD_MUTATION, { spaceId, id: msg.id }
+    return refuse 'Opération d’écriture inconnue.' unless promise
+    promise.then (data) =>
+      postToFrame { type: 'write_response', requestId: msg.requestId, data }
+      state.reload?()
+    .catch (err) =>
+      refuse err.message or String(err)
 
   _compilePlugin: (plugin, pluginParams = {}) ->
     scriptLanguage = (plugin.scriptLanguage or 'coffeescript').toLowerCase()
@@ -124,13 +388,53 @@ Object.assign window.CustomView::,
         throw makeCompileError 'template', 'Pug', err
     { jsScript, htmlTemplate }
 
-  _buildPluginIframeDoc: (widgetId, params, compiled, plugin) ->
+  _buildPluginIframeDoc: (widgetId, params, compiled, plugin, ctx = {}) ->
     paramsJson = JSON.stringify params or {}
     tpl = JSON.stringify compiled.htmlTemplate or ''
     js = compiled.jsScript or ''
     pluginName = JSON.stringify plugin?.name or plugin?.id or '(sans nom)'
-    """
-<!doctype html>
+    access = ctx?.access or 'full'
+    canRead = access in ['read', 'full']
+    canWrite = access == 'full'
+    gqlExposed = access in ['read', 'full']
+
+    dataApiJs = if canRead then """
+      var latestRows = [];
+      var recordsLoaded = false;
+      var recordCallbacks = [];
+      var currentRecord = null;
+      var recordListeners = [];
+      function notifyAll(list, value) {
+        list.forEach(function(fn) { try { fn(value); } catch (e) {} });
+      }
+      function onRecords(cb) {
+        if (typeof cb !== 'function') return;
+        recordCallbacks.push(cb);
+        if (recordsLoaded) { try { cb(latestRows); } catch (e) {} }
+      }
+      function onRecord(cb) {
+        if (typeof cb !== 'function') return;
+        recordListeners.push(cb);
+        if (currentRecord !== null) { try { cb(currentRecord); } catch (e) {} }
+      }
+    """ else ''
+
+    writeApiJs = if canWrite then """
+      var pendingWrites = {};
+      var writeSeq = 1;
+      function writeRequest(type, payload) {
+        return new Promise(function(resolve, reject) {
+          var requestId = String(writeSeq++);
+          pendingWrites[requestId] = { resolve: resolve, reject: reject };
+          post(Object.assign({ type: type, requestId: requestId }, payload));
+        });
+      }
+      function updateRecord(id, values) { return writeRequest('updateRecord', { id: id, values: values || {} }); }
+      function insertRecord(values) { return writeRequest('insertRecord', { values: values || {} }); }
+      function deleteRecord(id) { return writeRequest('deleteRecord', { id: id }); }
+    """ else ''
+
+    """<!doctype html>
 <html>
 <head><meta charset='utf-8'><style>body{margin:0;font-family:sans-serif}.plugin-root{padding:.5rem}</style></head>
 <body>
@@ -178,7 +482,9 @@ Object.assign window.CustomView::,
       function emitSelection(selection) { post({ type: 'emitSelection', selection: selection || {} }); }
       function onInputSelection(cb) { if (typeof cb === 'function') listeners.push(cb); }
       function render(html) { root.innerHTML = html == null ? '' : String(html); }
-
+      function setCursor(id) { post({ type: 'setCursor', id: id }); }
+#{dataApiJs}
+#{writeApiJs}
       window.addEventListener('message', function(ev) {
         var msg = ev.data || {};
         if (msg.widgetId !== widgetId) return;
@@ -188,23 +494,45 @@ Object.assign window.CustomView::,
         } else if (msg.type === 'gql_error' && pending[msg.requestId]) {
           pending[msg.requestId].reject(new Error(msg.error || 'GraphQL error'));
           delete pending[msg.requestId];
+        } else if (msg.type === 'records') {
+          latestRows = msg.rows || [];
+          recordsLoaded = true;
+          notifyAll(recordCallbacks, latestRows);
+          if (msg.error) renderRuntimeError(new Error('Chargement des données : ' + msg.error));
+        } else if (msg.type === 'write_response' && pendingWrites[msg.requestId]) {
+          pendingWrites[msg.requestId].resolve(msg.data);
+          delete pendingWrites[msg.requestId];
+        } else if (msg.type === 'write_error' && pendingWrites[msg.requestId]) {
+          pendingWrites[msg.requestId].reject(new Error(msg.error || 'Écriture refusée'));
+          delete pendingWrites[msg.requestId];
         } else if (msg.type === 'updateInputSelection') {
           inputSelection = msg.selection || null;
           listeners.forEach(function(fn) { try { fn(inputSelection); } catch (e) {} });
+          currentRecord = (msg.record === undefined) ? null : msg.record;
+          notifyAll(recordListeners, currentRecord);
         }
       });
 
       var params = #{paramsJson};
       render(#{tpl});
       var module = { exports: null };
+      var api = {
+        emitSelection: emitSelection,
+        onInputSelection: onInputSelection,
+        render: render,
+        params: params,
+        setCursor: setCursor
+      };
+      #{if gqlExposed then 'api.gql = gql;' else ''}
+      #{if canRead then 'api.onRecords = onRecords; api.onRecord = onRecord;' else ''}
+      #{if canWrite then 'api.updateRecord = updateRecord; api.insertRecord = insertRecord; api.deleteRecord = deleteRecord;' else ''}
       try {
 #{js}
-        if (typeof module.exports === 'function') {
-          module.exports({ gql: gql, emitSelection: emitSelection, onInputSelection: onInputSelection, render: render, params: params });
-        }
+        if (typeof module.exports === 'function') module.exports(api);
       } catch (e) {
         renderRuntimeError(e);
       }
+      post({ type: 'plugin_ready' });
     })();
   </script>
 </body>

@@ -713,6 +713,8 @@ window.CustomView = class CustomView
           rows: [rowData]
           byField: defaults
         }
+        # Ligne courante renommée selon le mappage du widget cible (onRecord).
+        record: @_pluginRenameRow entry.node, rowData
       }
 
   # ── Sélection en cascade des widgets dépendants ─────────────────────────────
