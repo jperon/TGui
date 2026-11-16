@@ -105,9 +105,19 @@ Object.assign window.DataView::,
         columnName: first.column
         ascending:  first.ascending
         multiple:   (@_sortState or []).length > 1
+    # resetData efface les classes de ligne : mémoriser la ligne active pour la
+    # remettre en évidence après le réordonnancement.
+    activeRowId = null
+    if @_activeRowKey? and typeof grid.getRow == 'function'
+      activeRowId = grid.getRow(@_activeRowKey)?.__rowId ? null
     grid.resetData ordered, options
     @_currentData = ordered
     @_activeRowKey = null
+    if activeRowId?
+      idx = ordered.findIndex (row) -> row.__rowId == activeRowId
+      if idx >= 0 and ordered[idx].rowKey?
+        @_activeRowKey = ordered[idx].rowKey
+        grid.addRowClassName @_activeRowKey, 'tdb-selected-row'
 
   # ── Error display ─────────────────────────────────────────────────────────────
   _showError: (msg) ->

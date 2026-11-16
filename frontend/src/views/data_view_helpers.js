@@ -131,7 +131,7 @@
     // qu'à réafficher les flèches d'en-tête : il ne réordonne pas les lignes (cf.
     // la documentation de `resetData` dans Toast UI Grid, options.sortState).
     _pinSentinelLast: function() {
-      var data, first, grid, options, ordered, ref, row, sentinel;
+      var activeRowId, data, first, grid, idx, options, ordered, ref, ref1, ref2, row, sentinel;
       grid = this._grid;
       if (!(grid && typeof grid.getData === 'function')) {
         return;
@@ -168,9 +168,24 @@
           multiple: (this._sortState || []).length > 1
         };
       }
+      // resetData efface les classes de ligne : mémoriser la ligne active pour la
+      // remettre en évidence après le réordonnancement.
+      activeRowId = null;
+      if ((this._activeRowKey != null) && typeof grid.getRow === 'function') {
+        activeRowId = (ref1 = (ref2 = grid.getRow(this._activeRowKey)) != null ? ref2.__rowId : void 0) != null ? ref1 : null;
+      }
       grid.resetData(ordered, options);
       this._currentData = ordered;
-      return this._activeRowKey = null;
+      this._activeRowKey = null;
+      if (activeRowId != null) {
+        idx = ordered.findIndex(function(row) {
+          return row.__rowId === activeRowId;
+        });
+        if (idx >= 0 && (ordered[idx].rowKey != null)) {
+          this._activeRowKey = ordered[idx].rowKey;
+          return grid.addRowClassName(this._activeRowKey, 'tdb-selected-row');
+        }
+      }
     },
     // ── Error display ─────────────────────────────────────────────────────────────
     _showError: function(msg) {

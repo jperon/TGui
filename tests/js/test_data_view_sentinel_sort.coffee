@@ -7,6 +7,8 @@
 
 require './dom_stub'
 { describe, it, eq, assert, summary } = require './runner'
+fs   = require 'fs'
+path = require 'path'
 
 # TdbHtml.escape is required by data_view._escapeHtml / _formatFormulaError
 require '../../frontend/src/html_escape'
@@ -50,7 +52,7 @@ class SortGrid
   getSortState: -> { columns: (Object.assign {}, c) for c in @_sortState.columns }
   getData: -> @_data
   getRowAt: (i) -> @_data[i] or null
-  getRow: (key) -> @_data[Number key] or null
+  getRow: (key) -> @_data.find((row) -> row.rowKey == Number key) or null
   addRowClassName: (key, cls) ->
     (@_classes[String key] ?= {})[cls] = true
   removeRowClassName: (key, cls) ->
@@ -146,5 +148,35 @@ describe 'DataView — sentinelle et tri', ->
     dv._applyData()
     order = VISUAL_ORDER grid
     eq order[order.length - 1], 'sentinel'
+
+  it 'conserve la ligne active après un tri manuel', ->
+    { dv, grid } = makeView [
+      { __rowId: 'r1', nom: 'Zoe' }
+      { __rowId: 'r2', nom: 'Alice' }
+    ]
+    dv._applyData()
+    dv.setActiveRow 1                      # Alice
+    grid.sort 'nom', true                  # clic sur l'en-tête : la grille trie
+    dv._onGridSortChanged()                # afterSort -> mémorise puis remet la sentinelle en bas
+    assert dv._activeRowKey?, 'une ligne doit rester active'
+    active = grid.getRow dv._activeRowKey
+    eq active.__rowId, 'r2'
+    assert !active.__isNew
+    assert grid.hasClass(dv._activeRowKey, 'tdb-selected-row')
+    order = VISUAL_ORDER grid
+    eq order[order.length - 1], 'sentinel'
+
+describe 'app.css — style de la sentinelle', ->
+  css = fs.readFileSync path.join(__dirname, '../../frontend/css/app.css'), 'utf8'
+
+  it 'stylise .tdb-new-row posé sur une cellule (Toast UI Grid) et sur la ligne', ->
+    m = css.match /(\.tdb-new-row[^{]*)\{([^}]*)\}/
+    assert m, 'règle .tdb-new-row absente de app.css'
+    selectors = m[1]
+    assert selectors.indexOf('.tdb-new-row,') != -1 or /^\s*\.tdb-new-row\s*$/.test(selectors),
+      "le sélecteur doit viser la cellule elle-même, got: #{selectors}"
+    assert selectors.indexOf('.tdb-new-row td') != -1,
+      "le sélecteur descendant doit rester supporté, got: #{selectors}"
+    assert m[2].indexOf('opacity') != -1, 'opacity absente de la règle'
 
 summary()

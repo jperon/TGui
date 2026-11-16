@@ -5,11 +5,15 @@
   // (préréglage de vue, tri manuel mémorisé). Toast UI Grid trie toutes les lignes,
   // sentinelle comprise : sans correctif, la sentinelle remonte au milieu et la
   // classe `tdb-new-row` atterrit sur un vrai enregistrement.
-  var DV, SortGrid, VISUAL_ORDER, assert, compare, container, describe, eq, it, makeSpace, makeView, summary;
+  var DV, SortGrid, VISUAL_ORDER, assert, compare, container, describe, eq, fs, it, makeSpace, makeView, path, summary;
 
   require('./dom_stub');
 
   ({describe, it, eq, assert, summary} = require('./runner'));
+
+  fs = require('fs');
+
+  path = require('path');
 
   // TdbHtml.escape is required by data_view._escapeHtml / _formatFormulaError
   require('../../frontend/src/html_escape');
@@ -138,7 +142,9 @@
     }
 
     getRow(key) {
-      return this._data[Number(key)] || null;
+      return this._data.find(function(row) {
+        return row.rowKey === Number(key);
+      }) || null;
     }
 
     addRowClassName(key, cls) {
@@ -331,7 +337,7 @@
       eq(order[order.length - 1], 'sentinel');
       return eq(order[0], 'r2');
     });
-    return it('sans tri, la sentinelle reste la dernière ligne', function() {
+    it('sans tri, la sentinelle reste la dernière ligne', function() {
       var dv, grid, order;
       ({dv, grid} = makeView([
         {
@@ -346,6 +352,44 @@
       dv._applyData();
       order = VISUAL_ORDER(grid);
       return eq(order[order.length - 1], 'sentinel');
+    });
+    return it('conserve la ligne active après un tri manuel', function() {
+      var active, dv, grid, order;
+      ({dv, grid} = makeView([
+        {
+          __rowId: 'r1',
+          nom: 'Zoe'
+        },
+        {
+          __rowId: 'r2',
+          nom: 'Alice'
+        }
+      ]));
+      dv._applyData();
+      dv.setActiveRow(1); // Alice
+      grid.sort('nom', true); // clic sur l'en-tête : la grille trie
+      dv._onGridSortChanged(); // afterSort -> mémorise puis remet la sentinelle en bas
+      assert(dv._activeRowKey != null, 'une ligne doit rester active');
+      active = grid.getRow(dv._activeRowKey);
+      eq(active.__rowId, 'r2');
+      assert(!active.__isNew);
+      assert(grid.hasClass(dv._activeRowKey, 'tdb-selected-row'));
+      order = VISUAL_ORDER(grid);
+      return eq(order[order.length - 1], 'sentinel');
+    });
+  });
+
+  describe('app.css — style de la sentinelle', function() {
+    var css;
+    css = fs.readFileSync(path.join(__dirname, '../../frontend/css/app.css'), 'utf8');
+    return it('stylise .tdb-new-row posé sur une cellule (Toast UI Grid) et sur la ligne', function() {
+      var m, selectors;
+      m = css.match(/(\.tdb-new-row[^{]*)\{([^}]*)\}/);
+      assert(m, 'règle .tdb-new-row absente de app.css');
+      selectors = m[1];
+      assert(selectors.indexOf('.tdb-new-row,') !== -1 || /^\s*\.tdb-new-row\s*$/.test(selectors), `le sélecteur doit viser la cellule elle-même, got: ${selectors}`);
+      assert(selectors.indexOf('.tdb-new-row td') !== -1, `le sélecteur descendant doit rester supporté, got: ${selectors}`);
+      return assert(m[2].indexOf('opacity') !== -1, 'opacity absente de la règle');
     });
   });
 
