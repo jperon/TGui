@@ -4,7 +4,13 @@
   // Otherwise a fresh clone (CI, new install) serves it as 404 and the page breaks
   // silently (e.g. "SortableJS is not defined on window").
   // See AGENTS.md, "Vendor frontend".
-  var PAGE_SOURCES, ROOT, VENDOR_PATH_RE, assert, describe, execFileSync, extractVendorPaths, fs, isTracked, it, path, summary;
+
+  // Bundle chargés à la demande (spec widgets personnalisés §7) : ils ne sont pas
+  // dans la page, mais frontend/src/views/plugin_runtimes.js les insère plus tard ;
+  // ils doivent donc être committés tout autant. La liste LAZY_SCRIPT_SRCS de
+  // backend/ui/scripts.moon est contrôlée séparément.
+  var PAGE_SOURCES, ROOT, VENDOR_PATH_RE, assert, assertTracked, describe, execFileSync, extractLazyVendorPaths, extractVendorPaths, fs, isTracked, it, path, summary,
+    indexOf = [].indexOf;
 
   ({execFileSync} = require('child_process'));
 
@@ -38,6 +44,16 @@
     return Object.keys(seen).sort();
   };
 
+  // /vendor/... paths declared in LAZY_SCRIPT_SRCS (on-demand bundles).
+  extractLazyVendorPaths = function() {
+    var block, found, src;
+    src = fs.readFileSync(path.join(ROOT, 'backend/ui/scripts.moon'), 'utf8');
+    block = src.match(/LAZY_SCRIPT_SRCS\s*=\s*\{([\s\S]*?)\}/);
+    assert(block, 'LAZY_SCRIPT_SRCS introuvable dans backend/ui/scripts.moon');
+    found = block[1].match(VENDOR_PATH_RE || []);
+    return found.sort();
+  };
+
   // True when git tracks +filePath+ in this checkout.
   isTracked = function(filePath) {
     var e;
@@ -53,6 +69,12 @@
     }
   };
 
+  assertTracked = function(vendorPath, why) {
+    var filePath;
+    filePath = path.posix.join('frontend', vendorPath);
+    return assert(isTracked(filePath), `le bundle ${vendorPath} ${why} mais ${filePath} ` + "n'est pas suivi par git : un clone neuf le recevra en 404. " + `Committer ${filePath} et l'autoriser dans .gitignore ` + '(voir AGENTS.md, « Vendor frontend »).');
+  };
+
   describe('Vendor bundles loaded by the page', function() {
     var i, len, results, vendorPath, vendorPaths;
     vendorPaths = extractVendorPaths();
@@ -64,9 +86,26 @@
       vendorPath = vendorPaths[i];
       results.push((function(vendorPath) {
         return it(`${vendorPath} est suivi par git`, function() {
-          var filePath;
-          filePath = path.posix.join('frontend', vendorPath);
-          return assert(isTracked(filePath), `le bundle ${vendorPath} est chargé par la page mais ${filePath} ` + "n'est pas suivi par git : un clone neuf le recevra en 404. " + `Committer ${filePath} et l'autoriser dans .gitignore ` + '(voir AGENTS.md, « Vendor frontend »).');
+          return assertTracked(vendorPath, 'est référencé par la page');
+        });
+      })(vendorPath));
+    }
+    return results;
+  });
+
+  describe('Vendor bundles loaded on demand (LAZY_SCRIPT_SRCS)', function() {
+    var i, lazyPaths, len, results, vendorPath;
+    lazyPaths = extractLazyVendorPaths();
+    it('LAZY_SCRIPT_SRCS déclare le bundle des compilateurs de widgets', function() {
+      assert(lazyPaths.length > 0, 'LAZY_SCRIPT_SRCS est vide : les compilateurs de widgets ne seraient ' + 'plus chargeables à la demande');
+      return assert(indexOf.call(lazyPaths, '/vendor/plugin-runtime.bundle.js') >= 0, `plugin-runtime.bundle.js absent de LAZY_SCRIPT_SRCS (${lazyPaths.join(', ')})`);
+    });
+    results = [];
+    for (i = 0, len = lazyPaths.length; i < len; i++) {
+      vendorPath = lazyPaths[i];
+      results.push((function(vendorPath) {
+        return it(`${vendorPath} est suivi par git`, function() {
+          return assertTracked(vendorPath, 'est chargé à la demande');
         });
       })(vendorPath));
     }

@@ -20,6 +20,7 @@ global.DataView = class DataView
 
 # Load module under test (exposes window.CustomView) and the files that extend
 # its prototype via Object.assign (loaded after custom_view.js in the SPA).
+require '../../frontend/src/views/plugin_runtimes'
 require '../../frontend/src/views/custom_view'
 require '../../frontend/src/views/custom_view_plugins'
 require '../../frontend/src/views/custom_view_aggregate'
@@ -159,62 +160,69 @@ describe 'CustomView — unmount', ->
     eq cv._widgets.length, 0
     eq Object.keys(cv._widgetsById).length, 0
 
+# Les tests de widgets plugins sont asynchrones : la compilation attend le
+# chargement à la demande des compilateurs (spec §7). Le runner lance tous les
+# `it` du fichier avant que les promesses ne se résolvent ; chaque test remet
+# donc l'état global (runtimes, stubs DOM) en place *synchroniquement*, avant
+# son `flush`.
+setPluginWidgets = (plugin) ->
+  global.WidgetPlugins =
+    getByName: -> syncPlugin plugin
+  global.window.addEventListener = ->
+  global.window.removeEventListener = ->
+
 describe 'CustomView — plugin widgets', ->
   it 'mounts a plugin widget and initializes iframe state', ->
     global.window.CoffeeScript = { compile: -> "module.exports = function(api){ api.render('<div>ok</div>'); }" }
     global.window.pug = { compile: -> -> "<div>tpl</div>" }
-    global.WidgetPlugins =
-      getByName: -> syncPlugin
-        id: 'p1'
-        name: 'sample_plugin'
-        scriptLanguage: 'coffeescript'
-        templateLanguage: 'pug'
-        scriptCode: 'ignored by compile stub'
-        templateCode: 'ignored by pug compile stub'
-    global.window.addEventListener = ->
-    global.window.removeEventListener = ->
-
-    oldCreate = global.document.createElement
-    global.document.createElement = (tag) ->
-      el = oldCreate tag
-      if tag is 'iframe'
-        el.setAttribute ?= ->
-        el.contentWindow = { postMessage: -> }
-      el
+    setPluginWidgets
+      id: 'p1'
+      name: 'sample_plugin'
+      scriptLanguage: 'coffeescript'
+      templateLanguage: 'pug'
+      scriptCode: 'ignored by compile stub'
+      templateCode: 'ignored by pug compile stub'
 
     layout = { layout: { widget: { id: 'plug1', type: 'sample_plugin', title: 'Plugin' } } }
     cv = new CV makeContainer(), yamlJSON(layout), makeSpaces()
-    try
-      cv.mount()
+    cv.mount()
+    flush().then ->
       assert cv._widgetsById['plug1']?, 'plugin indexed by id'
       assert cv._widgetsById['plug1'].plugin is true, 'entry marked as plugin'
       assert cv._pluginStateByWidgetId['plug1']?, 'iframe runtime state created'
-    catch e
-      global.document.createElement = oldCreate
-      throw e
-    global.document.createElement = oldCreate
+
+  it 'a javascript + html widget loads no compiler bundle', ->
+    global.window.PluginRuntimes._reset()
+    setPluginWidgets
+      id: 'p_plain'
+      name: 'plain_plugin'
+      scriptLanguage: 'javascript'
+      templateLanguage: 'html'
+      scriptCode: 'api.render("<div>ok</div>");'
+      templateCode: '<div>init</div>'
+
+    appended = []
+    oldAppend = global.document.head.appendChild
+    global.document.head.appendChild = (el) -> appended.push el
+
+    layout = { layout: { widget: { id: 'plain', type: 'plain_plugin' } } }
+    cv = new CV makeContainer(), yamlJSON(layout), makeSpaces()
+    cv.mount()
+    global.document.head.appendChild = oldAppend
+    flush().then ->
+      eq appended.length, 0, 'aucun bundle de compilateur ne doit être chargé'
+      assert cv._pluginStateByWidgetId['plain']?, 'iframe runtime state created'
 
   it 'propagates depends_on from plugin selection to DataView target', ->
     global.window.CoffeeScript = { compile: -> "module.exports = function(api){}" }
     global.window.pug = { compile: -> -> "<div>tpl</div>" }
-    global.WidgetPlugins =
-      getByName: -> syncPlugin
-        id: 'p2'
-        name: 'sample_plugin_2'
-        scriptLanguage: 'coffeescript'
-        templateLanguage: 'pug'
-        scriptCode: ''
-        templateCode: ''
-    global.window.addEventListener = ->
-    global.window.removeEventListener = ->
-
-    oldCreate = global.document.createElement
-    global.document.createElement = (tag) ->
-      el = oldCreate tag
-      if tag is 'iframe'
-        el.setAttribute ?= ->
-        el.contentWindow = { postMessage: -> }
-      el
+    setPluginWidgets
+      id: 'p2'
+      name: 'sample_plugin_2'
+      scriptLanguage: 'coffeescript'
+      templateLanguage: 'pug'
+      scriptCode: ''
+      templateCode: ''
 
     layout =
       layout:
@@ -230,45 +238,42 @@ describe 'CustomView — plugin widgets', ->
       dv = cv._widgetsById['dst'].dataView
       eq dv.lastDefaults.age, '7'
       deepEq dv.lastFilter, { field: 'age', value: '7' }
-      global.document.createElement = oldCreate
-    .catch (e) ->
-      global.document.createElement = oldCreate
-      throw e
 
-  it 'shows a fallback error when CoffeeScript runtime is missing', ->
+  it 'shows a fallback error when the compiler bundle cannot be loaded', ->
+    savedCs = global.window.CoffeeScript
+    savedPug = global.window.pug
     delete global.window.CoffeeScript
-    global.window.pug = { compile: -> -> "<div>tpl</div>" }
-    global.WidgetPlugins =
-      getByName: -> syncPlugin
-        id: 'p3'
-        name: 'broken_plugin'
-        scriptLanguage: 'coffeescript'
-        templateLanguage: 'pug'
-        scriptCode: 'x = 1'
-        templateCode: 'div hi'
-    global.window.addEventListener = ->
-    global.window.removeEventListener = ->
+    delete global.window.pug
+    global.window.PluginRuntimes._reset()
+    setPluginWidgets
+      id: 'p3'
+      name: 'broken_plugin'
+      scriptLanguage: 'coffeescript'
+      templateLanguage: 'pug'
+      scriptCode: 'x = 1'
+      templateCode: 'div hi'
 
-    oldCreate = global.document.createElement
-    global.document.createElement = (tag) ->
-      el = oldCreate tag
-      if tag is 'iframe'
-        el.setAttribute ?= ->
-        el.contentWindow = { postMessage: -> }
+    # Bundle introuvable : le <script> inséré déclenche onerror.
+    oldAppend = global.document.head.appendChild
+    global.document.head.appendChild = (el) ->
+      el.onerror?()
       el
 
     layout = { layout: { widget: { id: 'plug_err', type: 'broken_plugin' } } }
     cv = new CV makeContainer(), yamlJSON(layout), makeSpaces()
-    try
-      cv.mount()
+    cv.mount()
+    # L'échec est déjà survenu (onerror synchrone) ; on restaure l'état global
+    # tout de suite, seule la promesse rejetée reste en attente.
+    global.document.head.appendChild = oldAppend
+    global.window.CoffeeScript = savedCs if savedCs
+    global.window.pug = savedPug if savedPug
+    flush().then ->
       body = cv._widgets[0].el._children[1]
       p = body._children[0]
       assert p?, 'fallback error element missing'
       assert p.textContent.includes('Erreur plugin'), 'fallback error should be rendered'
-    catch e
-      global.document.createElement = oldCreate
-      throw e
-    global.document.createElement = oldCreate
+      assert p.textContent.includes('plugin-runtime.bundle.js'),
+        "le message doit nommer le bundle en échec, vu : #{p.textContent}"
 
 describe 'CustomView — surface API', ->
   it 'exposes the frozen set of prototype methods', ->
@@ -297,7 +302,9 @@ describe 'CustomView — surface API', ->
       '_emitPluginSelection'
       '_renderPluginWidget'
       '_mountPluginIframe'
+      '_mountCompiledPluginIframe'
       '_compilePlugin'
+      '_compilePluginCode'
       '_buildPluginIframeDoc'
       '_sendPluginMessage'
       '_relayWidgetQuery'

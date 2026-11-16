@@ -64,6 +64,7 @@ global.DataView = class TestDataView extends RealDataView
     @_grid.on 'click', (ev) => @setActiveRow ev.rowKey if ev?.rowKey?
     Promise.resolve()
 
+require '../../frontend/src/views/plugin_runtimes'
 require '../../frontend/src/views/custom_view'
 require '../../frontend/src/views/custom_view_plugins'
 require '../../frontend/src/views/custom_view_aggregate'

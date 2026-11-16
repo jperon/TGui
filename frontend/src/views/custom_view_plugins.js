@@ -394,9 +394,18 @@
         return s;
       }
     },
+    // Compilation d'abord (asynchrone : les compilateurs CoffeeScript/pug sont
+    // chargés à la demande, spec §7), puis construction de l'iframe. Un échec de
+    // chargement ou de compilation s'affiche dans le widget, jamais avalé.
     _mountPluginIframe: function(container, widgetId, plugin, pluginParams, ctx = {}) {
-      var compiled, fn, iframe, j, len, listeners, onMessage, postToFrame, ref, reload, reqSeq, requestMap, sendRecords, srcDoc, state;
-      compiled = this._compilePlugin(plugin, pluginParams);
+      return this._compilePlugin(plugin, pluginParams).then((compiled) => {
+        return this._mountCompiledPluginIframe(container, widgetId, plugin, pluginParams, compiled, ctx);
+      }).catch((err) => {
+        return this._setMessage(container, `Erreur plugin : ${err.message || err}`, 'color:#c55;padding:.5rem');
+      });
+    },
+    _mountCompiledPluginIframe: function(container, widgetId, plugin, pluginParams, compiled, ctx = {}) {
+      var fn, iframe, j, len, listeners, onMessage, postToFrame, ref, reload, reqSeq, requestMap, sendRecords, srcDoc, state;
       iframe = document.createElement('iframe');
       iframe.setAttribute('sandbox', 'allow-scripts');
       iframe.style.cssText = 'width:100%;height:100%;border:0;background:#fff;';
@@ -596,10 +605,24 @@
         return refuse(err.message || String(err));
       });
     },
+    // Compile a widget definition. Asynchronous: the compilers (CoffeeScript,
+    // pug) are loaded on demand (§7), only for the languages it uses. A widget
+    // written in javascript + html triggers no load at all.
     _compilePlugin: function(plugin, pluginParams = {}) {
-      var csCompile, csRuntime, err, fn, htmlTemplate, jsScript, makeCompileError, pluginName, pugCompile, pugRuntime, ref, ref1, ref2, scriptCode, scriptLanguage, templateCode, templateLanguage;
+      var pluginName, runtimes, scriptLanguage, templateLanguage;
       scriptLanguage = (plugin.scriptLanguage || 'coffeescript').toLowerCase();
       templateLanguage = (plugin.templateLanguage || 'pug').toLowerCase();
+      pluginName = plugin.name || plugin.id || '(sans nom)';
+      runtimes = window.PluginRuntimes;
+      if (!(runtimes && typeof runtimes.ensure === 'function')) {
+        return Promise.reject(new Error(`Plugin ${pluginName} — chargeur de compilateurs absent (views/plugin_runtimes.js non chargé)`));
+      }
+      return runtimes.ensure([scriptLanguage, templateLanguage]).then(() => {
+        return this._compilePluginCode(plugin, pluginParams, scriptLanguage, templateLanguage);
+      });
+    },
+    _compilePluginCode: function(plugin, pluginParams, scriptLanguage, templateLanguage) {
+      var csCompile, err, fn, htmlTemplate, jsScript, makeCompileError, pluginName, pugCompile, ref, ref1, scriptCode, templateCode;
       scriptCode = plugin.scriptCode || '';
       templateCode = plugin.templateCode || '';
       pluginName = plugin.name || plugin.id || '(sans nom)';
@@ -620,8 +643,7 @@
       };
       jsScript = scriptCode;
       if (scriptLanguage === 'coffeescript') {
-        csRuntime = window.CoffeeScript;
-        csCompile = (csRuntime != null ? csRuntime.compile : void 0) || (csRuntime != null ? (ref = csRuntime.default) != null ? ref.compile : void 0 : void 0) || (csRuntime != null ? (ref1 = csRuntime.CoffeeScript) != null ? ref1.compile : void 0 : void 0);
+        csCompile = (ref = window.PluginRuntimes) != null ? typeof ref.compiler === "function" ? ref.compiler('coffeescript') : void 0 : void 0;
         if (!csCompile) {
           throw new Error(`Plugin ${pluginName} — runtime CoffeeScript indisponible`);
         }
@@ -636,8 +658,7 @@
       }
       htmlTemplate = templateCode;
       if (templateLanguage === 'pug') {
-        pugRuntime = window.pug;
-        pugCompile = (pugRuntime != null ? pugRuntime.compile : void 0) || (pugRuntime != null ? (ref2 = pugRuntime.default) != null ? ref2.compile : void 0 : void 0);
+        pugCompile = (ref1 = window.PluginRuntimes) != null ? typeof ref1.compiler === "function" ? ref1.compiler('pug') : void 0 : void 0;
         if (!pugCompile) {
           throw new Error(`Plugin ${pluginName} — runtime Pug indisponible`);
         }

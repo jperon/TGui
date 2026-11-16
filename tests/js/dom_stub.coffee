@@ -107,7 +107,12 @@ global.fetch         = fetchStub
 global.history       = { replaceState: -> }
 global.navigator     = { clipboard: { readText: -> Promise.resolve '' } }
 global.document =
-  createElement:   (tag) -> makeElement tag
+  createElement:   (tag) ->
+    el = makeElement tag
+    # Plugin widget iframes: le parent poste des messages via contentWindow.
+    if String(tag).toLowerCase() == 'iframe' and not el.contentWindow
+      el.contentWindow = { postMessage: -> }
+    el
   getElementById:  (id)  -> _elementsById[id] or null
   querySelector:         -> null
   querySelectorAll:      -> []
@@ -115,5 +120,8 @@ global.document =
   removeEventListener:   ->
   activeElement:         null
   _setById: (id, el) -> _elementsById[id] = el   # helper for tests
+
+# <head> used by the on-demand <script> loader (views/plugin_runtimes.js).
+global.document.head = makeElement 'head'
 
 module.exports = { makeElement, localStorageStub }

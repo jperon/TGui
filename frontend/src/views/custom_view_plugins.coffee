@@ -234,8 +234,16 @@ Object.assign window.CustomView::,
     s = String(name or '').replace /[^\w]/g, '_'
     if /^\d/.test(s) then '_' + s else s
 
+  # Compilation d'abord (asynchrone : les compilateurs CoffeeScript/pug sont
+  # chargés à la demande, spec §7), puis construction de l'iframe. Un échec de
+  # chargement ou de compilation s'affiche dans le widget, jamais avalé.
   _mountPluginIframe: (container, widgetId, plugin, pluginParams, ctx = {}) ->
-    compiled = @_compilePlugin plugin, pluginParams
+    @_compilePlugin(plugin, pluginParams).then (compiled) =>
+      @_mountCompiledPluginIframe container, widgetId, plugin, pluginParams, compiled, ctx
+    .catch (err) =>
+      @_setMessage container, "Erreur plugin : #{err.message or err}", 'color:#c55;padding:.5rem'
+
+  _mountCompiledPluginIframe: (container, widgetId, plugin, pluginParams, compiled, ctx = {}) ->
     iframe = document.createElement 'iframe'
     iframe.setAttribute 'sandbox', 'allow-scripts'
     iframe.style.cssText = 'width:100%;height:100%;border:0;background:#fff;'
@@ -344,9 +352,22 @@ Object.assign window.CustomView::,
     .catch (err) =>
       refuse err.message or String(err)
 
+  # Compile a widget definition. Asynchronous: the compilers (CoffeeScript,
+  # pug) are loaded on demand (§7), only for the languages it uses. A widget
+  # written in javascript + html triggers no load at all.
   _compilePlugin: (plugin, pluginParams = {}) ->
     scriptLanguage = (plugin.scriptLanguage or 'coffeescript').toLowerCase()
     templateLanguage = (plugin.templateLanguage or 'pug').toLowerCase()
+    pluginName = plugin.name or plugin.id or '(sans nom)'
+    runtimes = window.PluginRuntimes
+    unless runtimes and typeof runtimes.ensure == 'function'
+      return Promise.reject new Error(
+        "Plugin #{pluginName} — chargeur de compilateurs absent (views/plugin_runtimes.js non chargé)"
+      )
+    runtimes.ensure([scriptLanguage, templateLanguage]).then =>
+      @_compilePluginCode plugin, pluginParams, scriptLanguage, templateLanguage
+
+  _compilePluginCode: (plugin, pluginParams, scriptLanguage, templateLanguage) ->
     scriptCode = plugin.scriptCode or ''
     templateCode = plugin.templateCode or ''
     pluginName = plugin.name or plugin.id or '(sans nom)'
@@ -366,8 +387,7 @@ Object.assign window.CustomView::,
 
     jsScript = scriptCode
     if scriptLanguage == 'coffeescript'
-      csRuntime = window.CoffeeScript
-      csCompile = csRuntime?.compile or csRuntime?.default?.compile or csRuntime?.CoffeeScript?.compile
+      csCompile = window.PluginRuntimes?.compiler? 'coffeescript'
       unless csCompile
         throw new Error "Plugin #{pluginName} — runtime CoffeeScript indisponible"
       try
@@ -377,8 +397,7 @@ Object.assign window.CustomView::,
 
     htmlTemplate = templateCode
     if templateLanguage == 'pug'
-      pugRuntime = window.pug
-      pugCompile = pugRuntime?.compile or pugRuntime?.default?.compile
+      pugCompile = window.PluginRuntimes?.compiler? 'pug'
       unless pugCompile
         throw new Error "Plugin #{pluginName} — runtime Pug indisponible"
       try

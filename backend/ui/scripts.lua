@@ -1,10 +1,12 @@
 local H = require('html')
+local LAZY_SCRIPT_SRCS = {
+  '/vendor/plugin-runtime.bundle.js'
+}
 local SCRIPT_SRCS = {
   '/vendor/tui-grid.bundle.js',
   '/vendor/jsyaml.bundle.js',
   '/vendor/codemirror.bundle.js',
   '/vendor/sortablejs.bundle.js',
-  '/vendor/plugin-runtime.bundle.js',
   '/src/i18n.js',
   '/src/html_escape.js',
   '/src/modal.js',
@@ -32,6 +34,7 @@ local SCRIPT_SRCS = {
   '/src/views/fk_search_editor.js',
   '/src/views/data_view.js',
   '/src/views/data_view_helpers.js',
+  '/src/views/plugin_runtimes.js',
   '/src/views/custom_view.js',
   '/src/views/custom_view_plugins.js',
   '/src/views/custom_view_aggregate.js',
@@ -58,5 +61,7 @@ make_scripts = function()
   return table.concat(parts, '\n')
 end
 return {
-  make_scripts = make_scripts
+  make_scripts = make_scripts,
+  LAZY_SCRIPT_SRCS = LAZY_SCRIPT_SRCS,
+  SCRIPT_SRCS = SCRIPT_SRCS
 }

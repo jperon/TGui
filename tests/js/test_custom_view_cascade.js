@@ -145,6 +145,8 @@
 
   };
 
+  require('../../frontend/src/views/plugin_runtimes');
+
   require('../../frontend/src/views/custom_view');
 
   require('../../frontend/src/views/custom_view_plugins');

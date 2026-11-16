@@ -1,7 +1,7 @@
 (function() {
   // tests/js/test_custom_view.coffee — tests for CustomView (custom_view.js)
   // Covers: YAML parsing, generated DOM structure, flex factor, columns filtering, depends_on.
-  var CV, DataView, assert, deepEq, describe, eq, flush, it, makeContainer, makeSpaces, summary, syncPlugin, yamlJSON;
+  var CV, DataView, assert, deepEq, describe, eq, flush, it, makeContainer, makeSpaces, setPluginWidgets, summary, syncPlugin, yamlJSON;
 
   require('./dom_stub');
 
@@ -42,6 +42,8 @@
 
   // Load module under test (exposes window.CustomView) and the files that extend
   // its prototype via Object.assign (loaded after custom_view.js in the SPA).
+  require('../../frontend/src/views/plugin_runtimes');
+
   require('../../frontend/src/views/custom_view');
 
   require('../../frontend/src/views/custom_view_plugins');
@@ -348,9 +350,24 @@
     });
   });
 
+  // Les tests de widgets plugins sont asynchrones : la compilation attend le
+  // chargement à la demande des compilateurs (spec §7). Le runner lance tous les
+  // `it` du fichier avant que les promesses ne se résolvent ; chaque test remet
+  // donc l'état global (runtimes, stubs DOM) en place *synchroniquement*, avant
+  // son `flush`.
+  setPluginWidgets = function(plugin) {
+    global.WidgetPlugins = {
+      getByName: function() {
+        return syncPlugin(plugin);
+      }
+    };
+    global.window.addEventListener = function() {};
+    return global.window.removeEventListener = function() {};
+  };
+
   describe('CustomView — plugin widgets', function() {
     it('mounts a plugin widget and initializes iframe state', function() {
-      var cv, e, layout, oldCreate;
+      var cv, layout;
       global.window.CoffeeScript = {
         compile: function() {
           return "module.exports = function(api){ api.render('<div>ok</div>'); }";
@@ -363,34 +380,14 @@
           };
         }
       };
-      global.WidgetPlugins = {
-        getByName: function() {
-          return syncPlugin({
-            id: 'p1',
-            name: 'sample_plugin',
-            scriptLanguage: 'coffeescript',
-            templateLanguage: 'pug',
-            scriptCode: 'ignored by compile stub',
-            templateCode: 'ignored by pug compile stub'
-          });
-        }
-      };
-      global.window.addEventListener = function() {};
-      global.window.removeEventListener = function() {};
-      oldCreate = global.document.createElement;
-      global.document.createElement = function(tag) {
-        var el;
-        el = oldCreate(tag);
-        if (tag === 'iframe') {
-          if (el.setAttribute == null) {
-            el.setAttribute = function() {};
-          }
-          el.contentWindow = {
-            postMessage: function() {}
-          };
-        }
-        return el;
-      };
+      setPluginWidgets({
+        id: 'p1',
+        name: 'sample_plugin',
+        scriptLanguage: 'coffeescript',
+        templateLanguage: 'pug',
+        scriptCode: 'ignored by compile stub',
+        templateCode: 'ignored by pug compile stub'
+      });
       layout = {
         layout: {
           widget: {
@@ -401,20 +398,47 @@
         }
       };
       cv = new CV(makeContainer(), yamlJSON(layout), makeSpaces());
-      try {
-        cv.mount();
+      cv.mount();
+      return flush().then(function() {
         assert(cv._widgetsById['plug1'] != null, 'plugin indexed by id');
         assert(cv._widgetsById['plug1'].plugin === true, 'entry marked as plugin');
-        assert(cv._pluginStateByWidgetId['plug1'] != null, 'iframe runtime state created');
-      } catch (error) {
-        e = error;
-        global.document.createElement = oldCreate;
-        throw e;
-      }
-      return global.document.createElement = oldCreate;
+        return assert(cv._pluginStateByWidgetId['plug1'] != null, 'iframe runtime state created');
+      });
+    });
+    it('a javascript + html widget loads no compiler bundle', function() {
+      var appended, cv, layout, oldAppend;
+      global.window.PluginRuntimes._reset();
+      setPluginWidgets({
+        id: 'p_plain',
+        name: 'plain_plugin',
+        scriptLanguage: 'javascript',
+        templateLanguage: 'html',
+        scriptCode: 'api.render("<div>ok</div>");',
+        templateCode: '<div>init</div>'
+      });
+      appended = [];
+      oldAppend = global.document.head.appendChild;
+      global.document.head.appendChild = function(el) {
+        return appended.push(el);
+      };
+      layout = {
+        layout: {
+          widget: {
+            id: 'plain',
+            type: 'plain_plugin'
+          }
+        }
+      };
+      cv = new CV(makeContainer(), yamlJSON(layout), makeSpaces());
+      cv.mount();
+      global.document.head.appendChild = oldAppend;
+      return flush().then(function() {
+        eq(appended.length, 0, 'aucun bundle de compilateur ne doit être chargé');
+        return assert(cv._pluginStateByWidgetId['plain'] != null, 'iframe runtime state created');
+      });
     });
     it('propagates depends_on from plugin selection to DataView target', function() {
-      var cv, layout, oldCreate;
+      var cv, layout;
       global.window.CoffeeScript = {
         compile: function() {
           return "module.exports = function(api){}";
@@ -427,34 +451,14 @@
           };
         }
       };
-      global.WidgetPlugins = {
-        getByName: function() {
-          return syncPlugin({
-            id: 'p2',
-            name: 'sample_plugin_2',
-            scriptLanguage: 'coffeescript',
-            templateLanguage: 'pug',
-            scriptCode: '',
-            templateCode: ''
-          });
-        }
-      };
-      global.window.addEventListener = function() {};
-      global.window.removeEventListener = function() {};
-      oldCreate = global.document.createElement;
-      global.document.createElement = function(tag) {
-        var el;
-        el = oldCreate(tag);
-        if (tag === 'iframe') {
-          if (el.setAttribute == null) {
-            el.setAttribute = function() {};
-          }
-          el.contentWindow = {
-            postMessage: function() {}
-          };
-        }
-        return el;
-      };
+      setPluginWidgets({
+        id: 'p2',
+        name: 'sample_plugin_2',
+        scriptLanguage: 'coffeescript',
+        templateLanguage: 'pug',
+        scriptCode: '',
+        templateCode: ''
+      });
       layout = {
         layout: {
           direction: 'horizontal',
@@ -492,51 +496,32 @@
         });
         dv = cv._widgetsById['dst'].dataView;
         eq(dv.lastDefaults.age, '7');
-        deepEq(dv.lastFilter, {
+        return deepEq(dv.lastFilter, {
           field: 'age',
           value: '7'
         });
-        return global.document.createElement = oldCreate;
-      }).catch(function(e) {
-        global.document.createElement = oldCreate;
-        throw e;
       });
     });
-    return it('shows a fallback error when CoffeeScript runtime is missing', function() {
-      var body, cv, e, layout, oldCreate, p;
+    return it('shows a fallback error when the compiler bundle cannot be loaded', function() {
+      var cv, layout, oldAppend, savedCs, savedPug;
+      savedCs = global.window.CoffeeScript;
+      savedPug = global.window.pug;
       delete global.window.CoffeeScript;
-      global.window.pug = {
-        compile: function() {
-          return function() {
-            return "<div>tpl</div>";
-          };
-        }
-      };
-      global.WidgetPlugins = {
-        getByName: function() {
-          return syncPlugin({
-            id: 'p3',
-            name: 'broken_plugin',
-            scriptLanguage: 'coffeescript',
-            templateLanguage: 'pug',
-            scriptCode: 'x = 1',
-            templateCode: 'div hi'
-          });
-        }
-      };
-      global.window.addEventListener = function() {};
-      global.window.removeEventListener = function() {};
-      oldCreate = global.document.createElement;
-      global.document.createElement = function(tag) {
-        var el;
-        el = oldCreate(tag);
-        if (tag === 'iframe') {
-          if (el.setAttribute == null) {
-            el.setAttribute = function() {};
-          }
-          el.contentWindow = {
-            postMessage: function() {}
-          };
+      delete global.window.pug;
+      global.window.PluginRuntimes._reset();
+      setPluginWidgets({
+        id: 'p3',
+        name: 'broken_plugin',
+        scriptLanguage: 'coffeescript',
+        templateLanguage: 'pug',
+        scriptCode: 'x = 1',
+        templateCode: 'div hi'
+      });
+      // Bundle introuvable : le <script> inséré déclenche onerror.
+      oldAppend = global.document.head.appendChild;
+      global.document.head.appendChild = function(el) {
+        if (typeof el.onerror === "function") {
+          el.onerror();
         }
         return el;
       };
@@ -549,25 +534,31 @@
         }
       };
       cv = new CV(makeContainer(), yamlJSON(layout), makeSpaces());
-      try {
-        cv.mount();
+      cv.mount();
+      // L'échec est déjà survenu (onerror synchrone) ; on restaure l'état global
+      // tout de suite, seule la promesse rejetée reste en attente.
+      global.document.head.appendChild = oldAppend;
+      if (savedCs) {
+        global.window.CoffeeScript = savedCs;
+      }
+      if (savedPug) {
+        global.window.pug = savedPug;
+      }
+      return flush().then(function() {
+        var body, p;
         body = cv._widgets[0].el._children[1];
         p = body._children[0];
         assert(p != null, 'fallback error element missing');
         assert(p.textContent.includes('Erreur plugin'), 'fallback error should be rendered');
-      } catch (error) {
-        e = error;
-        global.document.createElement = oldCreate;
-        throw e;
-      }
-      return global.document.createElement = oldCreate;
+        return assert(p.textContent.includes('plugin-runtime.bundle.js'), `le message doit nommer le bundle en échec, vu : ${p.textContent}`);
+      });
     });
   });
 
   describe('CustomView — surface API', function() {
     return it('exposes the frozen set of prototype methods', function() {
       var expected;
-      expected = ['constructor', '_setMessage', '_refreshGridLayouts', '_setupResizeObserver', '_createSplitter', '_saveChildFactors', 'mount', '_renderZoneOrWidget', '_renderWidget', '_collectWidgetNodes', '_widgetLinkFields', '_renderAggregate', '_wireDepends', '_applyDependencySelection', '_dependentEntries', '_firstRow', '_selectRow', '_cascadeToDependents', '_cascadeNone', '_initializeCascade', '_setPluginSelectionListener', '_emitPluginSelection', '_renderPluginWidget', '_mountPluginIframe', '_compilePlugin', '_buildPluginIframeDoc', '_sendPluginMessage', '_relayWidgetQuery', '_pluginManifest', '_pluginAccessOf', '_pluginColumnMapping', '_pluginMissingColumns', '_widgetQueryOperation', '_widgetQueryRefusal', '_pluginRenameRow', '_pluginTranslateValues', '_loadPluginSourceRows', '_pluginGqlName', '_handlePluginWrite', '_findSpace', 'unmount', '_addResizeHandle', '_showResizeTooltip', '_hideResizeTooltip', '_onZoneResize', 'toggleGrid', 'isGridVisible', 'togglePresentationMode', 'isPresentationMode'];
+      expected = ['constructor', '_setMessage', '_refreshGridLayouts', '_setupResizeObserver', '_createSplitter', '_saveChildFactors', 'mount', '_renderZoneOrWidget', '_renderWidget', '_collectWidgetNodes', '_widgetLinkFields', '_renderAggregate', '_wireDepends', '_applyDependencySelection', '_dependentEntries', '_firstRow', '_selectRow', '_cascadeToDependents', '_cascadeNone', '_initializeCascade', '_setPluginSelectionListener', '_emitPluginSelection', '_renderPluginWidget', '_mountPluginIframe', '_mountCompiledPluginIframe', '_compilePlugin', '_compilePluginCode', '_buildPluginIframeDoc', '_sendPluginMessage', '_relayWidgetQuery', '_pluginManifest', '_pluginAccessOf', '_pluginColumnMapping', '_pluginMissingColumns', '_widgetQueryOperation', '_widgetQueryRefusal', '_pluginRenameRow', '_pluginTranslateValues', '_loadPluginSourceRows', '_pluginGqlName', '_handlePluginWrite', '_findSpace', 'unmount', '_addResizeHandle', '_showResizeTooltip', '_hideResizeTooltip', '_onZoneResize', 'toggleGrid', 'isGridVisible', 'togglePresentationMode', 'isPresentationMode'];
       return deepEq(Object.getOwnPropertyNames(CV.prototype).sort(), expected.sort());
     });
   });
