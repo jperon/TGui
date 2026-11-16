@@ -654,11 +654,19 @@ R.describe "widget_plugin_resolvers — permissions", ->
     R.ok wpr.Query.widgetPlugin(nil, { id: perm_plugin_id }, ctx_of act_gread)
     R.raises (-> wpr.Mutation.createWidgetPlugin nil, { input: { name: "permpg2_#{SUFFIX}", scriptCode: 'x = 1', templateCode: 'div x' } }, ctx_of act_gread), 'Forbidden'
 
-  R.it "global write creates but cannot delete", ->
+  R.it "global write cannot create nor update (code runs in other users' browsers)", ->
+    -- Spec §6 : écrire le code d'un widget, c'est exécuter du code dans la
+    -- session de qui ouvre la page ; le niveau `write` ne suffit donc plus.
+    R.raises (->
+      wpr.Mutation.createWidgetPlugin nil, {
+        input: { name: "permpg3_#{SUFFIX}", scriptCode: 'x = 1', templateCode: 'div x' }
+      }, ctx_of act_gwrite
+    ), 'Forbidden'
     p2 = wpr.Mutation.createWidgetPlugin nil, {
       input: { name: "permpg3_#{SUFFIX}", scriptCode: 'x = 1', templateCode: 'div x' }
-    }, ctx_of act_gwrite
+    }, ctx_of act_global
     R.ok p2
+    R.raises (-> wpr.Mutation.updateWidgetPlugin nil, { id: p2.id, input: { scriptCode: 'y = 2' } }, ctx_of act_gwrite), 'Forbidden'
     R.raises (-> wpr.Mutation.deleteWidgetPlugin nil, { id: p2.id }, ctx_of act_gwrite), 'Forbidden'
     R.eq wpr.Mutation.deleteWidgetPlugin(nil, { id: p2.id }, ctx_of act_global), true
 

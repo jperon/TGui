@@ -144,12 +144,16 @@ Query =
     get_widget_plugin args.id, args.name
 
 Mutation =
+  -- Widget plugin code runs in the browser of whoever opens a page (sandboxed
+  -- iframe): writing a definition is equivalent to running code in another
+  -- user's session, so it requires the admin level, like deleteWidgetPlugin.
+  -- Spec docs/superpowers/specs/2026-11-16-custom-widgets-design.md §6.
   createWidgetPlugin: (_, args, ctx) ->
-    require_perm ctx, '*', nil, 'write'
+    require_perm ctx, '*', nil, 'admin'
     create_widget_plugin args.input or {}
 
   updateWidgetPlugin: (_, args, ctx) ->
-    require_perm ctx, '*', nil, 'write'
+    require_perm ctx, '*', nil, 'admin'
     update_widget_plugin args.id, args.input or {}
 
   deleteWidgetPlugin: (_, args, ctx) ->

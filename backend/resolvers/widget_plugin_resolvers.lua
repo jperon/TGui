@@ -238,11 +238,11 @@ local Query = {
 }
 local Mutation = {
   createWidgetPlugin = function(_, args, ctx)
-    require_perm(ctx, '*', nil, 'write')
+    require_perm(ctx, '*', nil, 'admin')
     return create_widget_plugin(args.input or { })
   end,
   updateWidgetPlugin = function(_, args, ctx)
-    require_perm(ctx, '*', nil, 'write')
+    require_perm(ctx, '*', nil, 'admin')
     return update_widget_plugin(args.id, args.input or { })
   end,
   deleteWidgetPlugin = function(_, args, ctx)
