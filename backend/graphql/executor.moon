@@ -3,6 +3,7 @@
 
 { :parse }        = require 'graphql.parser'
 { :build_schema } = require 'graphql.schema'
+{ :yield_every }  = require 'core.config'
 
 -- JSON null sentinel: represents "null" in JSON without dropping the Lua table key.
 -- json.encode(json.NULL) -> "null"; required for nullable GraphQL fields.
@@ -234,6 +235,11 @@ class Executor
         error "Expected list at #{table.concat(path, '.')}"
       result = {}
       for i, item in ipairs value
+        -- Central per-row point of a read: every item resolves its own
+        -- computed columns (formulas, FK chains) here. Yielding between items
+        -- lets other requests progress; safe because the read state of this
+        -- request (fk_cache, formula cache) is per request.
+        yield_every i
         item_path = extend path, i
         ok, completed = pcall @complete_value, @, type_ref.ofType, item, field_node, item_path
         if ok

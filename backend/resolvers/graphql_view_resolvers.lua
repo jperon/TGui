@@ -1,6 +1,8 @@
 local triggers_mod = require('core.triggers')
 local graphql_flattener = require('core.graphql_flattener')
 local spaces_mod = require('core.spaces')
+local yield_every
+yield_every = require('core.config').yield_every
 local _ = {
   Query = {
     records_extended = function(_, args, ctx)
@@ -51,12 +53,12 @@ local _ = {
       end
       local records = { }
       local fk_cache = { }
-      local _list_1 = sp:select({ }, {
+      local tuples = sp:select({ }, {
         limit = limit,
         offset = offset
       })
-      for _index_0 = 1, #_list_1 do
-        local t = _list_1[_index_0]
+      for i, t in ipairs(tuples) do
+        yield_every(i)
         local d
         if type(t[2]) == 'string' then
           d = json.decode(t[2])
@@ -66,11 +68,11 @@ local _ = {
         d._id = tostring(t[1])
         local proxy = triggers_mod.make_self_proxy_extended(d, single_fk_map, multiple_fk_map, fk_cache, space_meta[2])
         local record_data = { }
-        local _list_2 = box.space._tdb_fields.index.by_space:select({
+        local _list_1 = box.space._tdb_fields.index.by_space:select({
           space_id
         })
-        for _index_1 = 1, #_list_2 do
-          local field = _list_2[_index_1]
+        for _index_0 = 1, #_list_1 do
+          local field = _list_1[_index_0]
           local field_name = field[3]
           local value = proxy[field_name]
           if value and type(value) == 'table' and value.__self then
@@ -187,7 +189,8 @@ apply_filter_to_records = function(records, formula, space_id)
     return results
   end
   local filtered = { }
-  for record in records do
+  for i, record in ipairs(records) do
+    yield_every(i)
     local single_fk_map, multiple_fk_map = triggers_mod.build_single_and_multiple_maps(space_id)
     local proxy = triggers_mod.make_self_proxy_extended(record, single_fk_map, multiple_fk_map, nil, space_id)
     local success, result = pcall(compiled, proxy, space_helper)

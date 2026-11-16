@@ -2,6 +2,8 @@ local parse
 parse = require('graphql.parser').parse
 local build_schema
 build_schema = require('graphql.schema').build_schema
+local yield_every
+yield_every = require('core.config').yield_every
 local json_null = (require('json')).NULL
 local _schema = nil
 local _reinit_fn = nil
@@ -295,6 +297,7 @@ do
         end
         local result = { }
         for i, item in ipairs(value) do
+          yield_every(i)
           local item_path = extend(path, i)
           local ok, completed = pcall(self.complete_value, self, type_ref.ofType, item, field_node, item_path)
           if ok then

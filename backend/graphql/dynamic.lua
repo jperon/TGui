@@ -115,22 +115,20 @@ apply_filter = function(all, flt, fk_def_map, fk_cache, space_name)
       flt._formula_fn = false
     end
   end
-  local _accum_0 = { }
-  local _len_0 = 1
-  for _index_0 = 1, #all do
-    local r = all[_index_0]
-    if matches_filter(((function()
-      if fk_def_map then
-        return triggers.make_self_proxy(r, fk_def_map, fk_cache, space_name)
-      else
-        return r
-      end
-    end)()), flt) then
-      _accum_0[_len_0] = r
-      _len_0 = _len_0 + 1
+  local filtered = { }
+  for i, r in ipairs(all) do
+    config.yield_every(i)
+    local self_val
+    if fk_def_map then
+      self_val = triggers.make_self_proxy(r, fk_def_map, fk_cache, space_name)
+    else
+      self_val = r
+    end
+    if matches_filter(self_val, flt) then
+      table.insert(filtered, r)
     end
   end
-  return _accum_0
+  return filtered
 end
 local decode_tuple
 decode_tuple = function(t)
@@ -239,17 +237,11 @@ generate = function()
         end
         local limit = args.limit or 100
         local offset = args.offset or 0
-        local all
-        do
-          local _accum_0 = { }
-          local _len_0 = 1
-          local _list_2 = sp_box:select({ })
-          for _index_1 = 1, #_list_2 do
-            local t = _list_2[_index_1]
-            _accum_0[_len_0] = decode_tuple(t)
-            _len_0 = _len_0 + 1
-          end
-          all = _accum_0
+        local all = { }
+        local tuples = sp_box:select({ })
+        for i, t in ipairs(tuples) do
+          config.yield_every(i)
+          table.insert(all, decode_tuple(t))
         end
         local ok_fk, fk_def_map = pcall(triggers.build_fk_def_map, sp_cap.id)
         if ok_fk then
@@ -259,15 +251,9 @@ generate = function()
         end
         ctx._fk_cache = fk_cache_for(ctx)
         if #cfk_cap > 0 then
-          do
-            local _accum_0 = { }
-            local _len_0 = 1
-            for _index_1 = 1, #all do
-              local r = all[_index_1]
-              _accum_0[_len_0] = fill_computed_relation_values(r, cfk_cap, sp_cap.name, ctx._fk_cache)
-              _len_0 = _len_0 + 1
-            end
-            all = _accum_0
+          for i, r in ipairs(all) do
+            config.yield_every(i)
+            fill_computed_relation_values(r, cfk_cap, sp_cap.name, ctx._fk_cache)
           end
         end
         all = apply_filter(all, args.filter, fk_def_map, ctx._fk_cache, sp_cap.name)

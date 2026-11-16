@@ -4,6 +4,7 @@
 triggers_mod = require 'core.triggers'
 graphql_flattener = require 'core.graphql_flattener'
 spaces_mod = require 'core.spaces'
+{ :yield_every } = require 'core.config'
 
 -- Extended Query.records resolver with list support
 Query:
@@ -58,7 +59,11 @@ Query:
     records = {}
     fk_cache = {}
 
-    for t in *sp\select {}, { limit: limit, offset: offset }
+    tuples = sp\select {}, { limit: limit, offset: offset }
+    for i, t in ipairs tuples
+      -- One row per iteration, every field resolved through the extended proxy
+      -- (computed formulas included): yield periodically.
+      yield_every i
       d = if type(t[2]) == 'string' then json.decode(t[2]) else t[2]
       d._id = tostring t[1]
 
@@ -160,7 +165,10 @@ apply_filter_to_records = (records, formula, space_id) ->
 
   -- Filter records
   filtered = {}
-  for record in records
+  for i, record in ipairs records
+    -- Formula filter per row: yield periodically (the relation maps are also
+    -- rebuilt per row here, so this loop is long).
+    yield_every i
     -- Create proxy for formula evaluation
     single_fk_map, multiple_fk_map = triggers_mod.build_single_and_multiple_maps space_id
     proxy = triggers_mod.make_self_proxy_extended record, single_fk_map, multiple_fk_map, nil, space_id

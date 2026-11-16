@@ -14,7 +14,8 @@ package.path = '/app/?.lua;/app/backend/?.lua;/app/backend/?/init.lua;' .. packa
 -- Raise the default fiber slice before the tests run: the whole suite executes
 -- in the single main fiber and accumulates seconds of formula/grid work without
 -- yielding, so the Tarantool default ({warn = 0.5, err = 1}) aborts a legitimate
--- read with "fiber slice is exceeded". Same value as backend/init.moon.
+-- read with "fiber slice is exceeded". The server itself keeps the default and
+-- raises the slice per request (core.config.REQUEST_SLICE): a test-only raise.
 require('fiber').set_max_slice { warn: 2, err: 20 }
 
 -- Bootstrap system
