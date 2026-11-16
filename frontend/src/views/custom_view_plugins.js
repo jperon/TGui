@@ -39,6 +39,14 @@
       }
       return results;
     },
+    // Relais d'une requête GraphQL demandée par un widget. Seul le parent peut
+    // ajouter l'en-tête `X-TDB-Widget` : le serveur n'autorise alors que les
+    // lectures et les mutations d'enregistrements de données (spec §6,
+    // backend/graphql/executor.moon). L'iframe est sandboxée sans jeton ni accès
+    // HTTP direct, elle ne peut donc pas contourner ce contrôle.
+    _relayWidgetQuery: function(query, variables) {
+      return GQL.queryWidget(query, variables || {});
+    },
     _renderPluginWidget: function(container, wNode, runtimeWidgetId = null) {
       var pluginName, pluginParams;
       pluginName = wNode.type;
@@ -90,7 +98,7 @@
           q = msg.query || '';
           vars = msg.variables || {};
           reqId = msg.requestId;
-          return GQL.query(q, vars).then((data) => {
+          return this._relayWidgetQuery(q, vars).then((data) => {
             var ref1;
             return (ref1 = iframe.contentWindow) != null ? ref1.postMessage({
               type: 'gql_response',

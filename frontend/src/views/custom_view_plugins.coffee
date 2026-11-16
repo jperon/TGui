@@ -21,6 +21,14 @@ Object.assign window.CustomView::,
       catch e
         console.warn 'plugin selection listener error', e
 
+  # Relais d'une requête GraphQL demandée par un widget. Seul le parent peut
+  # ajouter l'en-tête `X-TDB-Widget` : le serveur n'autorise alors que les
+  # lectures et les mutations d'enregistrements de données (spec §6,
+  # backend/graphql/executor.moon). L'iframe est sandboxée sans jeton ni accès
+  # HTTP direct, elle ne peut donc pas contourner ce contrôle.
+  _relayWidgetQuery: (query, variables) ->
+    GQL.queryWidget query, variables or {}
+
   _renderPluginWidget: (container, wNode, runtimeWidgetId = null) ->
     pluginName = wNode.type
     pluginParams = wNode.params or {}
@@ -60,7 +68,7 @@ Object.assign window.CustomView::,
         q = msg.query or ''
         vars = msg.variables or {}
         reqId = msg.requestId
-        GQL.query(q, vars).then (data) =>
+        @_relayWidgetQuery(q, vars).then (data) =>
           iframe.contentWindow?.postMessage { type: 'gql_response', widgetId, requestId: reqId, data }, '*'
         .catch (err) =>
           iframe.contentWindow?.postMessage { type: 'gql_error', widgetId, requestId: reqId, error: (err.message or String(err)) }, '*'

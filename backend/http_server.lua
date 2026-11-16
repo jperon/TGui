@@ -121,6 +121,19 @@ extract_token = function(req)
   local tok = auth_header:match('^[Bb]earer%s+(.+)$')
   return tok
 end
+local has_widget_header
+has_widget_header = function(req)
+  local headers = req and req.headers
+  if not (type(headers) == 'table') then
+    return false
+  end
+  for name, value in pairs(headers) do
+    if type(name) == 'string' and string.lower(name) == 'x-tdb-widget' then
+      return value == '1' or value == true
+    end
+  end
+  return false
+end
 local handle_graphql
 handle_graphql = function(req)
   local ok, body = pcall(function()
@@ -157,6 +170,9 @@ handle_graphql = function(req)
       local user = auth_mod.get_user_by_id(session.user_id)
       ctx.must_change_password = user and user.must_change_password or false
     end
+  end
+  if has_widget_header(req) then
+    ctx.widget = true
   end
   set_request_slice()
   local result = graphql.execute({
@@ -328,5 +344,7 @@ return {
   safe_static_path = safe_static_path,
   serve_static = serve_static,
   handle_export = handle_export,
-  parse_export_query = parse_export_query
+  parse_export_query = parse_export_query,
+  has_widget_header = has_widget_header,
+  handle_graphql = handle_graphql
 }

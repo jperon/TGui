@@ -1185,15 +1185,32 @@ R.describe("widget_plugin_resolvers — permissions", function()
       }, ctx_of(act_gread))
     end), 'Forbidden')
   end)
-  R.it("global write creates but cannot delete", function()
+  R.it("global write cannot create nor update (code runs in other users' browsers)", function()
+    R.raises((function()
+      return wpr.Mutation.createWidgetPlugin(nil, {
+        input = {
+          name = "permpg3_" .. tostring(SUFFIX),
+          scriptCode = 'x = 1',
+          templateCode = 'div x'
+        }
+      }, ctx_of(act_gwrite))
+    end), 'Forbidden')
     local p2 = wpr.Mutation.createWidgetPlugin(nil, {
       input = {
         name = "permpg3_" .. tostring(SUFFIX),
         scriptCode = 'x = 1',
         templateCode = 'div x'
       }
-    }, ctx_of(act_gwrite))
+    }, ctx_of(act_global))
     R.ok(p2)
+    R.raises((function()
+      return wpr.Mutation.updateWidgetPlugin(nil, {
+        id = p2.id,
+        input = {
+          scriptCode = 'y = 2'
+        }
+      }, ctx_of(act_gwrite))
+    end), 'Forbidden')
     R.raises((function()
       return wpr.Mutation.deleteWidgetPlugin(nil, {
         id = p2.id

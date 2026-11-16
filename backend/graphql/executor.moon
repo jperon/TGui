@@ -111,6 +111,49 @@ collect_fields = (type_name, selection_set, fragments, variables) ->
   fields
 
 -- ────────────────────────────────────────────────────────────────────────────
+-- Widget-issued operations (spec §6)
+-- ────────────────────────────────────────────────────────────────────────────
+-- A request relayed by a widget iframe carries `context.widget` (set by
+-- http_server.handle_graphql from the X-TDB-Widget header; only the page parent
+-- can add it, the sandboxed iframe holds neither the token nor direct HTTP
+-- access and merely posts messages to its parent). Such an operation may read
+-- (resolvers still enforce core.permissions.can, so a widget never gets more
+-- than its user) and write DATA records only. Schema, user, group, permission,
+-- app and widget-plugin mutations stay out of reach whatever the widget's
+-- `access`: otherwise a `write` user could plant a widget that calls
+-- createUser/grant/addMember in the session of the admin who opens the page.
+-- Spec: docs/superpowers/specs/2026-11-16-custom-widgets-design.md §6
+-- ("Jamais de mutation de schéma, d'utilisateurs ou d'apps depuis un widget").
+WIDGET_ALLOWED_MUTATIONS = {
+  insertRecord:   true
+  insertRecords:  true
+  updateRecord:   true
+  updateRecords:  true
+  deleteRecord:   true
+  deleteRecords:  true
+  restoreRecords: true
+}
+
+-- Returns the refusal message for an operation a widget may not run, nil when
+-- it may. Root fragments are unfolded by collect_fields, so a fragment spread
+-- at the root of a mutation is checked field by field (fragment on the mutation
+-- type) or dropped exactly like the executor would drop it. Only the field NAME
+-- counts: an alias cannot hide a forbidden mutation (`x: createUser(...)` is
+-- refused as createUser).
+widget_operation_error = (operation, selection_set, fragments, mutation_type) ->
+  if operation == 'query'
+    return nil
+  if operation == 'mutation'
+    for f in *collect_fields (mutation_type or 'Mutation'), selection_set, fragments, {}
+      continue if f.name == '__typename'
+      unless WIDGET_ALLOWED_MUTATIONS[f.name]
+        return "Mutation '#{f.name}' not allowed from a widget"
+    return nil
+  if operation == 'subscription'
+    return 'Subscription operations are not allowed from a widget'
+  "Operation '#{operation}' not allowed from a widget"
+
+-- ────────────────────────────────────────────────────────────────────────────
 -- Core executor
 -- ────────────────────────────────────────────────────────────────────────────
 
@@ -132,6 +175,14 @@ class Executor
     op = @_find_operation!
     unless op
       return { data: json_null, errors: { {message: 'No operation found'} } }
+
+    -- A widget may not run this operation: refuse before resolving anything,
+    -- so a mixed mutation has no effect at all, not even on its allowed
+    -- fields (spec docs/superpowers/specs/2026-11-16-custom-widgets-design.md
+    -- §6). See widget_operation_error / WIDGET_ALLOWED_MUTATIONS above.
+    if @context.widget
+      refused = widget_operation_error op.operation, op.selectionSet, @fragments, @schema.mutation_type
+      return { data: json_null, errors: { {message: refused} } } if refused
 
     root_type_name = switch op.operation
       when 'query'        then @schema.query_type

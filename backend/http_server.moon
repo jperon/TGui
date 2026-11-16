@@ -93,6 +93,20 @@ extract_token = (req) ->
   tok = auth_header\match '^[Bb]earer%s+(.+)$'
   tok
 
+-- True when the request was relayed by the parent page of a widget iframe
+-- (frontend/src/views/custom_view_plugins.coffee sends `X-TDB-Widget: 1`).
+-- The sandboxed iframe cannot add it itself: it holds neither the token nor
+-- direct HTTP access, it only posts messages to its parent. Header names are
+-- lower-cased by http.server; the loop below accepts any spelling so direct
+-- unit calls can exercise the guard too.
+has_widget_header = (req) ->
+  headers = req and req.headers
+  return false unless type(headers) == 'table'
+  for name, value in pairs headers
+    if type(name) == 'string' and string.lower(name) == 'x-tdb-widget'
+      return value == '1' or value == true
+  false
+
 handle_graphql = (req) ->
   ok, body = pcall -> json.decode req\read_cached!
   unless ok
@@ -119,6 +133,11 @@ handle_graphql = (req) ->
       -- can refuse everything but me/changePassword/logout (spec §7 / audit 1.4).
       user = auth_mod.get_user_by_id session.user_id
       ctx.must_change_password = user and user.must_change_password or false
+
+  -- A request relayed by a widget (spec §6) may read and write data records
+  -- only: graphql/executor.moon refuses every other root mutation. Only the
+  -- page parent can add the header, so the iframe cannot opt out of the check.
+  ctx.widget = true if has_widget_header req
 
   -- The request gets its own fiber slice: the instance-wide default stays
   -- untouched (a heavy read must not block every other fiber), and this bound
@@ -230,4 +249,5 @@ start = (opts = {}) ->
   server\start!
   log.info "tdb HTTP server listening on #{host}:#{port}"
 
-{ :start, :safe_static_path, :serve_static, :handle_export, :parse_export_query }
+{ :start, :safe_static_path, :serve_static, :handle_export, :parse_export_query,
+  :has_widget_header, :handle_graphql }

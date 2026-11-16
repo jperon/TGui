@@ -2,6 +2,8 @@
   // graphql_client.coffee
   // Minimal GraphQL client backed by the browser fetch API.
   // Token persisted in localStorage.
+  var hasProp = {}.hasOwnProperty;
+
   window.GQL = {
     _token: null,
     _KEY: 'tdb_token',
@@ -23,13 +25,28 @@
         return this._token = saved;
       }
     },
+    // Header marking a request relayed from a widget iframe: the backend then
+    // only allows queries and data-record mutations for it (spec
+    // docs/superpowers/specs/2026-11-16-custom-widgets-design.md paragraph 6,
+    // graphql/executor.moon WIDGET_ALLOWED_MUTATIONS).
+    WIDGET_HEADER: {
+      'X-TDB-Widget': '1'
+    },
     // Execute a GraphQL operation.
+    // `extraHeaders` adds per-call headers (see queryWidget).
     // Returns a promise resolving to { data, errors }.
-    query: function(query, variables = {}, operationName = null) {
-      var body, headers;
+    query: function(query, variables = {}, operationName = null, extraHeaders = null) {
+      var body, headers, name, value;
       headers = {
         'Content-Type': 'application/json'
       };
+      if (extraHeaders) {
+        for (name in extraHeaders) {
+          if (!hasProp.call(extraHeaders, name)) continue;
+          value = extraHeaders[name];
+          headers[name] = value;
+        }
+      }
       if (this._token) {
         headers['Authorization'] = `Bearer ${this._token}`;
       }
@@ -58,6 +75,13 @@
         }
         return result.data;
       });
+    },
+    // Run a GraphQL operation on behalf of a widget iframe. The request carries
+    // the widget header, so the server refuses everything but queries and
+    // data-record mutations; the iframe itself has neither the token nor direct
+    // HTTP access, so it cannot bypass the restriction.
+    queryWidget: function(query, variables = {}, operationName = null) {
+      return this.query(query, variables, operationName, this.WIDGET_HEADER);
     },
     // Convenience: run a mutation
     mutate: function(mutation, variables = {}) {

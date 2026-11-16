@@ -141,6 +141,46 @@ collect_fields = function(type_name, selection_set, fragments, variables)
   end
   return fields
 end
+local WIDGET_ALLOWED_MUTATIONS = {
+  insertRecord = true,
+  insertRecords = true,
+  updateRecord = true,
+  updateRecords = true,
+  deleteRecord = true,
+  deleteRecords = true,
+  restoreRecords = true
+}
+local widget_operation_error
+widget_operation_error = function(operation, selection_set, fragments, mutation_type)
+  if operation == 'query' then
+    return nil
+  end
+  if operation == 'mutation' then
+    local _list_0 = collect_fields((mutation_type or 'Mutation'), selection_set, fragments, { })
+    for _index_0 = 1, #_list_0 do
+      local _continue_0 = false
+      repeat
+        local f = _list_0[_index_0]
+        if f.name == '__typename' then
+          _continue_0 = true
+          break
+        end
+        if not (WIDGET_ALLOWED_MUTATIONS[f.name]) then
+          return "Mutation '" .. tostring(f.name) .. "' not allowed from a widget"
+        end
+        _continue_0 = true
+      until true
+      if not _continue_0 then
+        break
+      end
+    end
+    return nil
+  end
+  if operation == 'subscription' then
+    return 'Subscription operations are not allowed from a widget'
+  end
+  return "Operation '" .. tostring(operation) .. "' not allowed from a widget"
+end
 local Executor
 do
   local _class_0
@@ -162,6 +202,19 @@ do
             }
           }
         }
+      end
+      if self.context.widget then
+        local refused = widget_operation_error(op.operation, op.selectionSet, self.fragments, self.schema.mutation_type)
+        if refused then
+          return {
+            data = json_null,
+            errors = {
+              {
+                message = refused
+              }
+            }
+          }
+        end
       end
       local root_type_name
       local _exp_0 = op.operation
