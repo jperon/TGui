@@ -381,7 +381,7 @@
         if (!(ev != null ? ev.shiftKey : void 0)) {
           return;
         }
-        btn = (ref1 = ev.target) != null ? typeof ref1.closest === "function" ? ref1.closest('.btn-sorting') : void 0 : void 0;
+        btn = (ref1 = ev.target) != null ? typeof ref1.closest === "function" ? ref1.closest('.tui-grid-btn-sorting') : void 0 : void 0;
         if (!btn) {
           return;
         }

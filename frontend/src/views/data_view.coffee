@@ -241,7 +241,7 @@ window.DataView = class DataView
     # pour ajouter (ou inverser) un critère secondaire sans effacer les autres.
     @_shiftSortListener = (ev) =>
       return unless ev?.shiftKey
-      btn = ev.target?.closest? '.btn-sorting'
+      btn = ev.target?.closest? '.tui-grid-btn-sorting'
       return unless btn
       columnName = btn.closest?('[data-column-name]')?.getAttribute? 'data-column-name'
       return unless columnName
