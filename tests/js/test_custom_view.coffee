@@ -300,6 +300,7 @@ describe 'CustomView — surface API', ->
       '_compilePlugin'
       '_buildPluginIframeDoc'
       '_sendPluginMessage'
+      '_relayWidgetQuery'
       '_findSpace'
       'unmount'
       '_addResizeHandle'
