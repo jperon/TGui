@@ -32,6 +32,10 @@
         dragClass: 'widget-dragging',
         handle: this.options.handle || '.widget-header',
         filter: this.options.filter || '.no-drag',
+        // SortableJS appelle preventDefault() au mousedown sur un élément filtré
+        // (preventOnFilter vaut true par défaut) : le champ de filtre λ d'un
+        // widget (classe no-drag) ne prendrait jamais le focus. On le désactive.
+        preventOnFilter: false,
         group: 'widgets', // Permet le drag entre conteneurs
         onStart: (evt) => {
           this.isDragging = true;
@@ -139,6 +143,7 @@
         dragClass: 'widget-dragging',
         handle: this.options.handle || '.widget-header',
         filter: this.options.filter || '.no-drag',
+        preventOnFilter: false,
         group: 'widgets',
         put: function(to, from, item) {
           // Autoriser le drop dans les zones
