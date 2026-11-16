@@ -61,9 +61,13 @@ test.describe.serial 'Widget personnalisé — manifest, mappage et API', ->
         '<div id="status">' + (wrote ? 'UPDATED' : 'INIT') + '</div>' +
         '<div id="param">' + api.params.couleur + '</div>'
       );
-      if (!wrote && rows.length) {
+      var target = null;
+      for (var i = 0; i < rows.length; i++) {
+        if (rows[i].titre === 'Alpha') { target = rows[i]; break; }
+      }
+      if (!wrote && target) {
         wrote = true;
-        api.updateRecord(rows[0].id, { titre: 'MODIFIÉ' });
+        api.updateRecord(target.id, { titre: 'MODIFIÉ' });
       }
     });
   };
@@ -110,11 +114,17 @@ test.describe.serial 'Widget personnalisé — manifest, mappage et API', ->
       "createWidgetPlugin (full): #{JSON.stringify(res)}").toBe fullName
     fullId = res.data.createWidgetPlugin.id
 
+    # Cible : la ligne « Beta », laissée intacte par le test précédent (le test
+    # « Alpha » est renommé en « MODIFIÉ ») ; l'ordre des lignes n'est pas garanti.
     readScript = """
     module.exports = function (api) {
       api.onRecords(function (rows) {
-        if (!rows.length) return;
-        api.gql('mutation { updateRecord(spaceId: "#{spaceId}", id: "' + rows[0].id + '", data: "{\\"nom\\":\\"HACK\\"}") { id } }')
+        var target = null;
+        for (var i = 0; i < rows.length; i++) {
+          if (rows[i].titre === 'Beta') { target = rows[i]; break; }
+        }
+        if (!target) return;
+        api.gql('mutation { updateRecord(spaceId: "#{spaceId}", id: "' + target.id + '", data: "{\\"nom\\":\\"HACK\\"}") { id } }')
           .then(function () { api.render('<div id="res">ALLOWED</div>'); })
           .catch(function (e) { api.render('<div id="res">DENIED ' + e.message + '</div>'); });
       });
