@@ -525,7 +525,7 @@ describe 'DataView prototype surface (frozen)', ->
       'applySortEntries', 'constructor',
       'deleteSelected', 'getFocusedColumnName', 'getSortEntries', 'insertBlank',
       'load', 'mount',
-      'setActiveRow', 'setDefaultValues', 'setFilter', 'setFormulaFilter', 'unmount'
+      'setActiveRow', 'setDefaultValues', 'setFilter', 'setFormulaFilter', 'sortWithShiftClick', 'unmount'
     ]
     deepEq Object.getOwnPropertyNames(DV.prototype).sort(), expected
 

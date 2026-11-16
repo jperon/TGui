@@ -9,7 +9,7 @@
 
   // Portées : `space:<spaceId>` pour la grille principale,
   // `widget:<pageId>:<widgetId>` pour un widget de page.
-  var DELETE_VIEW_PRESET_MUTATION, SAVE_VIEW_PRESET_MUTATION, VIEW_PRESETS_QUERY, applySortViaGrid, clearChildren, createEl, normalizeEntries, parseSort, serializeSort, sortEntriesFrom;
+  var DELETE_VIEW_PRESET_MUTATION, SAVE_VIEW_PRESET_MUTATION, VIEW_PRESETS_QUERY, applySortViaGrid, clearChildren, columnNamesFrom, createEl, moveEntry, normalizeEntries, parseSort, serializeSort, sortEntriesFrom;
 
   VIEW_PRESETS_QUERY = `query ViewPresets($scope: String!, $spaceId: ID!) {
   viewPresets(scope: $scope, spaceId: $spaceId) {
@@ -46,6 +46,34 @@
       results.push(el.removeChild(el.children[0]));
     }
     return results;
+  };
+
+  // Réordonne une liste de critères par glisser-déposer : `from` et `to` sont des
+  // index de la liste finale. Fonction pure (l'entrée n'est pas mutée), isolée du
+  // DOM pour être testable seule. Un déplacement identité ou hors bornes renvoie
+  // une copie inchangée.
+  moveEntry = function(entries, from, to) {
+    var entry, j, len, list, moved;
+    list = [];
+    if (!Array.isArray(entries)) {
+      return list;
+    }
+    for (j = 0, len = entries.length; j < len; j++) {
+      entry = entries[j];
+      list.push(entry);
+    }
+    if (from === to) {
+      return list;
+    }
+    if (from < 0 || from >= list.length) {
+      return list;
+    }
+    if (to < 0 || to >= list.length) {
+      return list;
+    }
+    moved = list.splice(from, 1);
+    list.splice(to, 0, moved[0]);
+    return list;
   };
 
   // Un tri est une liste de { column, ascending }. On ignore la colonne technique
@@ -139,13 +167,42 @@
     return results;
   };
 
+  // Colonnes proposées par « + Ajouter un critère » : les champs de l'espace,
+  // dans l'ordre de la grille. Un champ masqué n'a pas d'en-tête, donc pas de tri.
+  columnNamesFrom = function(dv) {
+    var col, columns, f, fields, j, k, len, len1, out, ref, ref1;
+    out = [];
+    fields = dv != null ? (ref = dv.space) != null ? ref.fields : void 0 : void 0;
+    if (Array.isArray(fields) && fields.length > 0) {
+      for (j = 0, len = fields.length; j < len; j++) {
+        f = fields[j];
+        if (!((f != null ? f.name : void 0) && !f.hidden)) {
+          continue;
+        }
+        out.push(f.name);
+      }
+      return out;
+    }
+    columns = (dv != null ? (ref1 = dv._grid) != null ? typeof ref1.getColumns === "function" ? ref1.getColumns() : void 0 : void 0 : void 0) || [];
+    for (k = 0, len1 = columns.length; k < len1; k++) {
+      col = columns[k];
+      if (!((col != null ? col.name : void 0) && !col.hidden)) {
+        continue;
+      }
+      out.push(col.name);
+    }
+    return out;
+  };
+
   window.ViewPresetsMenu = {
     sortEntriesFrom: sortEntriesFrom,
     normalizeEntries: normalizeEntries,
+    moveEntry: moveEntry,
     parseSort: parseSort,
     serializeSort: serializeSort,
+    columnNamesFrom: columnNamesFrom,
     attach: function(wrapEl, opts = {}) {
-      var actions, api, applyPreset, button, clearActive, clearError, close, dataView, deletePreset, destroy, ensureDataViewBinding, errorEl, isOpen, loadPresets, matchesActive, menu, onDocumentClick, onDocumentKey, onFilterInput, open, positionMenu, presetList, presetSection, ref, ref1, removeSortColumn, renderPresets, renderSort, saveBtn, saveCurrent, showError, sortList, sortSection, state, syncActive, toggle, updateButton;
+      var actions, addBtn, addColumnSelect, addDirectionSelect, addRow, addSortCriterion, api, applyEntries, applyPreset, ascOpt, buildSortRow, button, clearActive, clearDropMarks, clearError, close, dataView, deletePreset, descOpt, destroy, dragState, dropIndex, endDrag, ensureDataViewBinding, errorEl, isOpen, loadPresets, makeSortButton, matchesActive, menu, mutateSort, onDocumentClick, onDocumentKey, onFilterInput, onRowDragEnd, onRowDragOver, onRowDragStart, onRowDrop, open, positionMenu, presetList, presetSection, ref, ref1, removeSortColumn, renderAddSortRow, renderPresets, renderSort, reorderSortEntry, saveBtn, saveCurrent, showError, sortList, sortSection, state, suppressCloseUntil, syncActive, toggle, toggleSortDirection, updateButton;
       if (!wrapEl) {
         return null;
       }
@@ -164,6 +221,29 @@
       sortSection.appendChild(createEl('div', 'view-presets-section-title', 'Tri courant'));
       sortList = createEl('div', 'view-presets-sort-list');
       sortSection.appendChild(sortList);
+      // « + Ajouter un critère » : colonne non encore triée + sens, ajouté en fin
+      // de liste (priorité la plus faible).
+      addRow = createEl('div', 'view-presets-add');
+      addColumnSelect = document.createElement('select');
+      addColumnSelect.className = 'view-presets-add-column';
+      addColumnSelect.title = 'Colonne à ajouter au tri';
+      addDirectionSelect = document.createElement('select');
+      addDirectionSelect.className = 'view-presets-add-direction';
+      addDirectionSelect.title = 'Sens du tri';
+      ascOpt = createEl('option', null, '↑ croissant');
+      ascOpt.value = 'asc';
+      addDirectionSelect.appendChild(ascOpt);
+      descOpt = createEl('option', null, '↓ décroissant');
+      descOpt.value = 'desc';
+      addDirectionSelect.appendChild(descOpt);
+      addDirectionSelect.value = 'asc';
+      addBtn = createEl('button', 'view-presets-add-btn', '+ Ajouter un critère');
+      addBtn.type = 'button';
+      addBtn.title = 'Ajouter un critère de tri en fin de liste';
+      addRow.appendChild(addColumnSelect);
+      addRow.appendChild(addDirectionSelect);
+      addRow.appendChild(addBtn);
+      sortSection.appendChild(addRow);
       presetSection = createEl('div', 'view-presets-section');
       presetSection.appendChild(createEl('div', 'view-presets-section-title', 'Préréglages'));
       presetList = createEl('div', 'view-presets-preset-list');
@@ -206,38 +286,291 @@
       clearError = function() {
         return errorEl.classList.add('hidden');
       };
+      // Applique une liste de critères au DataView (cache persistant) ou, à
+      // défaut, à la grille. Retourne les critères normalisés.
+      applyEntries = function(entries) {
+        var clean, dv;
+        dv = dataView();
+        if (!dv) {
+          return [];
+        }
+        clean = normalizeEntries(entries);
+        if (typeof dv.applySortEntries === 'function') {
+          dv.applySortEntries(clean);
+        } else {
+          applySortViaGrid(dv, clean);
+        }
+        return clean;
+      };
+      // Une seule voie d'écriture : transformer la liste courante, l'appliquer,
+      // puis rafraîchir le menu et l'état « préréglage actif » (matchesActive).
+      mutateSort = function(fn) {
+        var dv, entries;
+        dv = dataView();
+        if (!dv) {
+          return [];
+        }
+        entries = fn(sortEntriesFrom(dv));
+        entries = applyEntries(entries);
+        syncActive();
+        renderSort();
+        return entries;
+      };
+      toggleSortDirection = function(column) {
+        return mutateSort(function(entries) {
+          var entry, j, len;
+          for (j = 0, len = entries.length; j < len; j++) {
+            entry = entries[j];
+            if (entry.column === column) {
+              entry.ascending = !entry.ascending;
+            }
+          }
+          return entries;
+        });
+      };
+      // Réordonnancement : la source est l'index de départ, la cible l'index
+      // d'arrivée dans la liste finale (cf. moveEntry).
+      reorderSortEntry = function(from, to) {
+        return mutateSort(function(entries) {
+          return moveEntry(entries, from, to);
+        });
+      };
+      addSortCriterion = function() {
+        var ascending, name;
+        if (addColumnSelect.disabled) {
+          return;
+        }
+        name = addColumnSelect.value;
+        if (!name) {
+          return;
+        }
+        ascending = addDirectionSelect.value !== 'desc';
+        return mutateSort(function(entries) {
+          if (entries.some(function(e) {
+            return e.column === name;
+          })) {
+            return entries;
+          }
+          entries.push({
+            column: name,
+            ascending: ascending
+          });
+          return entries;
+        });
+      };
+      makeSortButton = function(className, text, title, action, handler) {
+        var btn;
+        btn = createEl('button', className, text);
+        btn.type = 'button';
+        btn.title = title;
+        btn.setAttribute('data-action', action);
+        btn.addEventListener('click', function(ev) {
+          if (ev != null) {
+            if (typeof ev.stopPropagation === "function") {
+              ev.stopPropagation();
+            }
+          }
+          return handler();
+        });
+        return btn;
+      };
+      // ── Glisser-déposer natif (HTML5) des critères ──────────────────────────
+      // Chaque ligne est `draggable` ; la position de dépôt (avant/après la ligne
+      // survolée) suit la moitié haute/basse du curseur et se voit via une barre
+      // d'insertion (classes drop-before / drop-after). Aucun glisser ne doit
+      // fermer le menu : le clic de fermeture global est neutralisé pendant le
+      // glissement, et juste après le dépôt.
+      dragState = {
+        from: null,
+        to: null,
+        after: false
+      };
+      suppressCloseUntil = 0;
+      clearDropMarks = function() {
+        var el, j, len, ref1, results;
+        ref1 = sortList.children || [];
+        results = [];
+        for (j = 0, len = ref1.length; j < len; j++) {
+          el = ref1[j];
+          el.classList.remove('drop-before');
+          results.push(el.classList.remove('drop-after'));
+        }
+        return results;
+      };
+      endDrag = function() {
+        var el, j, len, ref1;
+        dragState.from = null;
+        dragState.to = null;
+        dragState.after = false;
+        ref1 = sortList.children || [];
+        for (j = 0, len = ref1.length; j < len; j++) {
+          el = ref1[j];
+          el.classList.remove('dragging');
+        }
+        return clearDropMarks();
+      };
+      onRowDragStart = function(row, index, ev) {
+        var dt;
+        dragState.from = index;
+        dragState.to = index;
+        dragState.after = false;
+        row.classList.add('dragging');
+        dt = ev != null ? ev.dataTransfer : void 0;
+        if (dt) {
+          dt.effectAllowed = 'move';
+          if (typeof dt.setData === "function") {
+            dt.setData('text/plain', `${index}`);
+          }
+        }
+        return ev != null ? typeof ev.stopPropagation === "function" ? ev.stopPropagation() : void 0 : void 0;
+      };
+      onRowDragOver = function(row, index, ev) {
+        var after, dt, rect, y;
+        if (dragState.from == null) {
+          return;
+        }
+        if (ev != null) {
+          if (typeof ev.preventDefault === "function") {
+            ev.preventDefault();
+          }
+        }
+        dt = ev != null ? ev.dataTransfer : void 0;
+        if (dt) {
+          dt.dropEffect = 'move';
+        }
+        after = false;
+        rect = typeof row.getBoundingClientRect === "function" ? row.getBoundingClientRect() : void 0;
+        y = ev != null ? ev.clientY : void 0;
+        if ((rect != null) && (y != null) && rect.height) {
+          after = y > rect.top + rect.height / 2;
+        }
+        dragState.to = index;
+        dragState.after = after;
+        clearDropMarks();
+        return row.classList.add(after ? 'drop-after' : 'drop-before');
+      };
+      // Index final du dépôt : insérer « après la ligne i » revient à i+1 dans la
+      // liste d'origine, puis à i quand la ligne déplacée vient d'avant.
+      dropIndex = function() {
+        var insertAt;
+        if (!((dragState.from != null) && (dragState.to != null))) {
+          return null;
+        }
+        insertAt = dragState.after ? dragState.to + 1 : dragState.to;
+        if (insertAt > dragState.from) {
+          return insertAt - 1;
+        } else {
+          return insertAt;
+        }
+      };
+      onRowDrop = function(row, index, ev) {
+        var from, to;
+        if (dragState.from == null) {
+          return;
+        }
+        if (ev != null) {
+          if (typeof ev.preventDefault === "function") {
+            ev.preventDefault();
+          }
+        }
+        if (ev != null) {
+          if (typeof ev.stopPropagation === "function") {
+            ev.stopPropagation();
+          }
+        }
+        from = dragState.from;
+        to = dropIndex();
+        endDrag();
+        suppressCloseUntil = Date.now() + 400;
+        if (!((to != null) && to !== from)) {
+          return;
+        }
+        return reorderSortEntry(from, to);
+      };
+      onRowDragEnd = function(row, ev) {
+        endDrag();
+        return suppressCloseUntil = Date.now() + 400;
+      };
+      buildSortRow = function(entry, index) {
+        var dirText, dirTitle, handle, row;
+        row = createEl('div', 'view-presets-sort-row');
+        row.dataset.column = entry.column;
+        row.dataset.rank = `${index + 1}`;
+        row.draggable = true;
+        handle = createEl('span', 'view-presets-sort-handle', '⠿');
+        handle.title = 'Glisser pour changer la priorité du critère';
+        handle.setAttribute('aria-hidden', 'true');
+        row.appendChild(handle);
+        row.appendChild(createEl('span', 'view-presets-sort-rank', `${index + 1}.`));
+        row.appendChild(createEl('span', 'view-presets-sort-label', entry.column));
+        dirText = entry.ascending ? '↑' : '↓';
+        dirTitle = entry.ascending ? 'Croissant — cliquer pour trier en décroissant' : 'Décroissant — cliquer pour trier en croissant';
+        row.appendChild(makeSortButton('view-presets-sort-dir', dirText, dirTitle, 'dir', function() {
+          return toggleSortDirection(entry.column);
+        }));
+        row.appendChild(makeSortButton('view-presets-remove', '✕', 'Retirer ce critère de tri', 'remove', function() {
+          return removeSortColumn(entry.column);
+        }));
+        row.addEventListener('dragstart', function(ev) {
+          return onRowDragStart(row, index, ev);
+        });
+        row.addEventListener('dragover', function(ev) {
+          return onRowDragOver(row, index, ev);
+        });
+        row.addEventListener('drop', function(ev) {
+          return onRowDrop(row, index, ev);
+        });
+        row.addEventListener('dragend', function(ev) {
+          return onRowDragEnd(row, ev);
+        });
+        return row;
+      };
+      // Options de « + Ajouter un critère » : uniquement les colonnes non triées.
+      renderAddSortRow = function(entries) {
+        var available, entry, j, k, l, len, len1, len2, name, names, opt, used;
+        clearChildren(addColumnSelect);
+        used = {};
+        for (j = 0, len = entries.length; j < len; j++) {
+          entry = entries[j];
+          used[entry.column] = true;
+        }
+        names = columnNamesFrom(dataView());
+        available = [];
+        for (k = 0, len1 = names.length; k < len1; k++) {
+          name = names[k];
+          if (used[name]) {
+            continue;
+          }
+          available.push(name);
+        }
+        if (available.length === 0) {
+          addColumnSelect.appendChild(createEl('option', null, 'Toutes les colonnes sont triées'));
+          addColumnSelect.disabled = true;
+          addBtn.disabled = true;
+          return;
+        }
+        addColumnSelect.disabled = false;
+        addBtn.disabled = false;
+        for (l = 0, len2 = available.length; l < len2; l++) {
+          name = available[l];
+          opt = createEl('option', null, name);
+          opt.value = name;
+          addColumnSelect.appendChild(opt);
+        }
+        return addColumnSelect.value = available[0];
+      };
       renderSort = function() {
-        var entries, entry, j, label, len, removeBtn, results, row;
+        var entries, entry, index, j, len;
         clearChildren(sortList);
         entries = sortEntriesFrom(dataView());
         if (entries.length === 0) {
-          sortList.appendChild(createEl('div', 'view-presets-empty', 'Aucun tri (cliquez un en-tête de colonne)'));
-          return;
+          sortList.appendChild(createEl('div', 'view-presets-empty', "Aucun tri — ajoutez un critère ci-dessous, ou cliquez un en-tête de colonne (Maj+clic ou Ctrl/Cmd+clic pour en ajouter un autre)"));
         }
-        results = [];
-        for (j = 0, len = entries.length; j < len; j++) {
-          entry = entries[j];
-          row = createEl('div', 'view-presets-sort-row');
-          row.dataset.column = entry.column;
-          label = createEl('span', 'view-presets-sort-label', `${entry.column} ${entry.ascending ? '↑' : '↓'}`);
-          removeBtn = createEl('button', 'view-presets-remove', '✕');
-          removeBtn.type = 'button';
-          removeBtn.title = 'Retirer ce critère de tri';
-          (function(entry) {
-            return removeBtn.addEventListener('click', function(ev) {
-              if (ev != null) {
-                if (typeof ev.stopPropagation === "function") {
-                  ev.stopPropagation();
-                }
-              }
-              return removeSortColumn(entry.column);
-            });
-          })(entry);
-          row.appendChild(label);
-          row.appendChild(removeBtn);
-          results.push(sortList.appendChild(row));
+        for (index = j = 0, len = entries.length; j < len; index = ++j) {
+          entry = entries[index];
+          sortList.appendChild(buildSortRow(entry, index));
         }
-        return results;
+        return renderAddSortRow(entries);
       };
       renderPresets = function() {
         var delBtn, j, len, preset, ref1, ref2, results, row;
@@ -354,11 +687,7 @@
         }
         // Le tri est posé AVANT le rechargement du filtre : _applyData le
         // réapplique après resetData, sinon Toast UI Grid le perdrait.
-        if (typeof dv.applySortEntries === 'function') {
-          dv.applySortEntries(entries);
-        } else {
-          applySortViaGrid(dv, entries);
-        }
+        applyEntries(entries);
         if (typeof dv.setFormulaFilter === "function") {
           dv.setFormulaFilter(filter);
         }
@@ -368,30 +697,17 @@
         return close();
       };
       removeSortColumn = function(column) {
-        var dv, e, entries;
-        dv = dataView();
-        if (!dv) {
-          return;
-        }
-        entries = (function() {
-          var j, len, ref1, results;
-          ref1 = sortEntriesFrom(dv);
+        return mutateSort(function(entries) {
+          var e, j, len, results;
           results = [];
-          for (j = 0, len = ref1.length; j < len; j++) {
-            e = ref1[j];
+          for (j = 0, len = entries.length; j < len; j++) {
+            e = entries[j];
             if (e.column !== column) {
               results.push(e);
             }
           }
           return results;
-        })();
-        if (typeof dv.applySortEntries === 'function') {
-          dv.applySortEntries(entries);
-        } else {
-          applySortViaGrid(dv, entries);
-        }
-        clearActive();
-        return renderSort();
+        });
       };
       saveCurrent = function() {
         var dv, entered, filter, name, ref1, ref2, ref3, ref4, sort;
@@ -511,6 +827,15 @@
         if (!isOpen()) {
           return;
         }
+        // Ne jamais fermer le menu pendant un glissement de critère, ni dans les
+        // 400 ms qui suivent le dépôt (un navigateur peut émettre un clic tardif
+        // sur le fond après un glisser-déposer).
+        if (dragState.from != null) {
+          return;
+        }
+        if (Date.now() < suppressCloseUntil) {
+          return;
+        }
         target = ev != null ? ev.target : void 0;
         if (target && (typeof wrapEl.contains === "function" ? wrapEl.contains(target) : void 0)) {
           return;
@@ -575,6 +900,10 @@
         menu: menu,
         elements: {
           sortList: sortList,
+          addRow: addRow,
+          addColumnSelect: addColumnSelect,
+          addDirectionSelect: addDirectionSelect,
+          addBtn: addBtn,
           presetList: presetList,
           saveBtn: saveBtn,
           errorEl: errorEl
@@ -605,6 +934,14 @@
           }
         }
         return saveCurrent();
+      });
+      addBtn.addEventListener('click', function(ev) {
+        if (ev != null) {
+          if (typeof ev.stopPropagation === "function") {
+            ev.stopPropagation();
+          }
+        }
+        return addSortCriterion();
       });
       if ((ref1 = opts.filterInput) != null) {
         if (typeof ref1.addEventListener === "function") {

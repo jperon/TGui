@@ -2,7 +2,7 @@
   // tests/js/test_view_presets_menu.coffee
   // Menu « Trier / Filtrer » : sérialisation du tri, application d'un préréglage
   // (filtre + tri), « Enregistrer sous », suppression, mise en évidence.
-  var P_FILTERED, P_SORTED, VPM, assert, confirmAnswers, deepEq, describe, eq, it, makeDv, makeHarness, mutationCalls, promptAnswers, queries, serverPresets, summary;
+  var P_FILTERED, P_SORTED, VPM, assert, confirmAnswers, deepEq, describe, dragRow, eq, it, makeDv, makeHarness, mutationCalls, promptAnswers, queries, serverPresets, sortButton, sortRow, summary;
 
   require('./dom_stub');
 
@@ -89,8 +89,8 @@
     sort: '[]'
   };
 
-  makeDv = function(entries = []) {
-    var dv, e, state;
+  makeDv = function(entries = [], fieldNames = ['date', 'titre', 'note', 'nom', 'age']) {
+    var dv, e, n, state;
     state = {
       sort: (function() {
         var i, len, results;
@@ -106,6 +106,22 @@
     };
     dv = {
       _state: state,
+      space: {
+        id: 's1',
+        name: 'test',
+        fields: (function() {
+          var i, len, results;
+          results = [];
+          for (i = 0, len = fieldNames.length; i < len; i++) {
+            n = fieldNames[i];
+            results.push({
+              name: n,
+              fieldType: 'Str'
+            });
+          }
+          return results;
+        })()
+      },
       _grid: {
         getSortState: function() {
           return {
@@ -185,6 +201,55 @@
     return {wrap, input, dv, api};
   };
 
+  // Bouton d'une ligne de critère (le rang et le libellé ne sont pas des boutons).
+  sortButton = function(row, action) {
+    var btn, i, len, ref;
+    ref = row.children;
+    for (i = 0, len = ref.length; i < len; i++) {
+      btn = ref[i];
+      if (btn.dataset.action === action) {
+        return btn;
+      }
+    }
+    return null;
+  };
+
+  sortRow = function(api, index) {
+    return api.elements.sortList.children[index];
+  };
+
+  // Simule un glisser-déposer natif : dragstart sur la source, dragover sur la
+  // cible (moitié haute → insérer avant, moitié basse → insérer après), drop.
+  // `getBoundingClientRect` du stub renvoie top 0 / height 100 : clientY 10 = haut.
+  dragRow = function(api, from, to, after = false) {
+    var dt, ref, rows, source, target;
+    rows = api.elements.sortList.children;
+    source = rows[from];
+    target = rows[to];
+    dt = {
+      types: ['text/plain'],
+      setData: (function() {}),
+      getData: (function() {
+        return '';
+      })
+    };
+    source._listeners.dragstart[0]({
+      dataTransfer: dt,
+      stopPropagation: function() {}
+    });
+    target._listeners.dragover[0]({
+      dataTransfer: dt,
+      preventDefault: function() {},
+      clientY: after ? 80 : 10
+    });
+    target._listeners.drop[0]({
+      dataTransfer: dt,
+      preventDefault: function() {},
+      stopPropagation: function() {}
+    });
+    return (ref = source._listeners.dragend) != null ? ref[0]({}) : void 0;
+  };
+
   describe('ViewPresetsMenu — sérialisation du tri', function() {
     it('lit getSortState et ignore la colonne technique sortKey', function() {
       var dv;
@@ -240,6 +305,76 @@
         }
       ]);
       return deepEq(VPM.parseSort('pas du json'), []);
+    });
+  });
+
+  describe('ViewPresetsMenu — réordonnancement pur (moveEntry)', function() {
+    var entries;
+    entries = [
+      {
+        column: 'a',
+        ascending: true
+      },
+      {
+        column: 'b',
+        ascending: false
+      },
+      {
+        column: 'c',
+        ascending: true
+      }
+    ];
+    it('déplace un critère vers un index plus grand', function() {
+      return deepEq(VPM.moveEntry(entries, 0, 2), [
+        {
+          column: 'b',
+          ascending: false
+        },
+        {
+          column: 'c',
+          ascending: true
+        },
+        {
+          column: 'a',
+          ascending: true
+        }
+      ]);
+    });
+    it('déplace un critère vers un index plus petit', function() {
+      return deepEq(VPM.moveEntry(entries, 2, 0), [
+        {
+          column: 'c',
+          ascending: true
+        },
+        {
+          column: 'a',
+          ascending: true
+        },
+        {
+          column: 'b',
+          ascending: false
+        }
+      ]);
+    });
+    it('ne mute pas la liste d’origine', function() {
+      var before, e;
+      before = (function() {
+        var i, len, results;
+        results = [];
+        for (i = 0, len = entries.length; i < len; i++) {
+          e = entries[i];
+          results.push(Object.assign({}, e));
+        }
+        return results;
+      })();
+      VPM.moveEntry(entries, 0, 2);
+      return deepEq(entries, before);
+    });
+    return it('renvoie une copie inchangée pour un déplacement identité ou hors bornes', function() {
+      deepEq(VPM.moveEntry(entries, 1, 1), entries);
+      deepEq(VPM.moveEntry(entries, -1, 1), entries);
+      deepEq(VPM.moveEntry(entries, 0, 9), entries);
+      return deepEq(VPM.moveEntry(null, 0, 1), []);
     });
   });
 
@@ -311,7 +446,7 @@
       return eq(h.api.button.textContent, 'Trier / Filtrer');
     });
     return it('permet de retirer un critère de tri', function() {
-      var h, removeBtn, rows;
+      var h, rows;
       h = makeHarness('widget:page1:w1', 's1', [
         {
           column: 'titre',
@@ -325,8 +460,7 @@
       h.api.open();
       rows = h.api.elements.sortList.children;
       eq(rows.length, 2);
-      removeBtn = rows[0].children[1];
-      removeBtn._listeners.click[0]();
+      sortButton(rows[0], 'remove')._listeners.click[0]();
       deepEq(h.dv._state.sort, [
         {
           column: 'note',
@@ -334,6 +468,304 @@
         }
       ]);
       return eq(h.api.elements.sortList.children.length, 1);
+    });
+  });
+
+  describe('ViewPresetsMenu — tri multicritère', function() {
+    it('affiche la poignée, le rang, la colonne, le sens et le retrait', function() {
+      var h, row;
+      h = makeHarness('widget:page1:w1', 's1', [
+        {
+          column: 'titre',
+          ascending: true
+        },
+        {
+          column: 'note',
+          ascending: false
+        }
+      ]);
+      h.api.open();
+      row = sortRow(h.api, 0);
+      eq(row.dataset.rank, '1');
+      eq(sortRow(h.api, 1).dataset.rank, '2');
+      eq(row.draggable, true);
+      eq(row.children[0].className, 'view-presets-sort-handle');
+      eq(row.children[0].textContent, '⠿');
+      eq(row.children[1].textContent, '1.');
+      eq(row.children[2].textContent, 'titre');
+      eq(sortButton(row, 'dir').textContent, '↑');
+      eq(sortButton(sortRow(h.api, 1), 'dir').textContent, '↓');
+      return eq(sortButton(row, 'remove').textContent, '✕');
+    });
+    it('n’a plus de boutons monter/descendre', function() {
+      var child, h, i, len, ref, results, row;
+      h = makeHarness('widget:page1:w1', 's1', [
+        {
+          column: 'titre',
+          ascending: true
+        },
+        {
+          column: 'note',
+          ascending: false
+        }
+      ]);
+      h.api.open();
+      ref = h.api.elements.sortList.children;
+      results = [];
+      for (i = 0, len = ref.length; i < len; i++) {
+        row = ref[i];
+        eq(sortButton(row, 'up'), null);
+        eq(sortButton(row, 'down'), null);
+        results.push((function() {
+          var j, len1, ref1, results1;
+          ref1 = row.children;
+          results1 = [];
+          for (j = 0, len1 = ref1.length; j < len1; j++) {
+            child = ref1[j];
+            results1.push(assert(child.className.indexOf('view-presets-sort-move') === -1, `bouton de priorité encore présent : ${child.className}`));
+          }
+          return results1;
+        })());
+      }
+      return results;
+    });
+    it('rappelle l’astuce Maj/Ctrl+clic dans le texte vide', function() {
+      var h, txt;
+      h = makeHarness();
+      h.api.open();
+      txt = h.api.elements.sortList.children[0].textContent;
+      return assert(/Maj\+clic/.test(txt), `astuce absente : ${txt}`);
+    });
+    it('ajoute un critère non trié en fin de liste', function() {
+      var h, opt, select, values;
+      h = makeHarness('widget:page1:w1', 's1', [
+        {
+          column: 'titre',
+          ascending: true
+        }
+      ]);
+      h.api.open();
+      select = h.api.elements.addColumnSelect;
+      values = (function() {
+        var i, len, ref, results;
+        ref = select.children;
+        results = [];
+        for (i = 0, len = ref.length; i < len; i++) {
+          opt = ref[i];
+          results.push(opt.value);
+        }
+        return results;
+      })();
+      assert(values.indexOf('titre') === -1, `la colonne déjà triée ne doit pas être proposée : ${values}`);
+      assert(values.indexOf('note') !== -1, `la colonne note doit être proposée : ${values}`);
+      select.value = 'note';
+      h.api.elements.addDirectionSelect.value = 'desc';
+      h.api.elements.addBtn._listeners.click[0]();
+      deepEq(h.dv._state.applied[h.dv._state.applied.length - 1], [
+        {
+          column: 'titre',
+          ascending: true
+        },
+        {
+          column: 'note',
+          ascending: false
+        }
+      ]);
+      eq(h.api.elements.sortList.children.length, 2);
+      return eq(sortRow(h.api, 1).dataset.column, 'note');
+    });
+    it('réordonne les critères par glisser-déposer', function() {
+      var h;
+      h = makeHarness('widget:page1:w1', 's1', [
+        {
+          column: 'titre',
+          ascending: true
+        },
+        {
+          column: 'note',
+          ascending: false
+        },
+        {
+          column: 'nom',
+          ascending: true
+        }
+      ]);
+      h.api.open();
+      // Dépose le 1er critère après le 3e : il devient le dernier.
+      dragRow(h.api, 0, 2, true);
+      deepEq(h.dv._state.sort, [
+        {
+          column: 'note',
+          ascending: false
+        },
+        {
+          column: 'nom',
+          ascending: true
+        },
+        {
+          column: 'titre',
+          ascending: true
+        }
+      ]);
+      eq(sortRow(h.api, 0).dataset.column, 'note');
+      eq(sortRow(h.api, 2).dataset.column, 'titre');
+      // Puis le dernier avant le premier : il reprend la priorité maximale.
+      dragRow(h.api, 2, 0, false);
+      deepEq(h.dv._state.sort, [
+        {
+          column: 'titre',
+          ascending: true
+        },
+        {
+          column: 'note',
+          ascending: false
+        },
+        {
+          column: 'nom',
+          ascending: true
+        }
+      ]);
+      return eq(sortRow(h.api, 0).dataset.column, 'titre');
+    });
+    it('affiche une barre d’insertion sur la ligne survolée, effacée au dépôt', function() {
+      var dt, h, i, len, ref, results, row, rows;
+      h = makeHarness('widget:page1:w1', 's1', [
+        {
+          column: 'titre',
+          ascending: true
+        },
+        {
+          column: 'note',
+          ascending: false
+        }
+      ]);
+      h.api.open();
+      rows = h.api.elements.sortList.children;
+      dt = {
+        setData: (function() {}),
+        getData: (function() {
+          return '';
+        }),
+        types: []
+      };
+      rows[0]._listeners.dragstart[0]({
+        dataTransfer: dt,
+        stopPropagation: function() {}
+      });
+      rows[1]._listeners.dragover[0]({
+        dataTransfer: dt,
+        preventDefault: function() {},
+        clientY: 80
+      });
+      eq(rows[1].classList.contains('drop-after'), true);
+      eq(rows[1].classList.contains('drop-before'), false);
+      eq(rows[0].classList.contains('dragging'), true);
+      rows[1]._listeners.dragover[0]({
+        dataTransfer: dt,
+        preventDefault: function() {},
+        clientY: 10
+      });
+      eq(rows[1].classList.contains('drop-before'), true);
+      eq(rows[1].classList.contains('drop-after'), false);
+      rows[1]._listeners.drop[0]({
+        dataTransfer: dt,
+        preventDefault: function() {},
+        stopPropagation: function() {}
+      });
+      ref = h.api.elements.sortList.children;
+      results = [];
+      for (i = 0, len = ref.length; i < len; i++) {
+        row = ref[i];
+        eq(row.classList.contains('drop-before'), false);
+        eq(row.classList.contains('drop-after'), false);
+        results.push(eq(row.classList.contains('dragging'), false));
+      }
+      return results;
+    });
+    it('laisse le menu ouvert pendant et après un glissement', function() {
+      var h;
+      h = makeHarness('widget:page1:w1', 's1', [
+        {
+          column: 'titre',
+          ascending: true
+        },
+        {
+          column: 'note',
+          ascending: false
+        }
+      ]);
+      h.api.open();
+      dragRow(h.api, 0, 1, true);
+      eq(h.api.isOpen(), true);
+      return eq(h.api.menu.classList.contains('hidden'), false);
+    });
+    it('bascule le sens d’un critère sans changer sa priorité', function() {
+      var h;
+      h = makeHarness('widget:page1:w1', 's1', [
+        {
+          column: 'titre',
+          ascending: true
+        },
+        {
+          column: 'note',
+          ascending: false
+        }
+      ]);
+      h.api.open();
+      sortButton(sortRow(h.api, 1), 'dir')._listeners.click[0]();
+      deepEq(h.dv._state.sort, [
+        {
+          column: 'titre',
+          ascending: true
+        },
+        {
+          column: 'note',
+          ascending: true
+        }
+      ]);
+      return eq(sortButton(sortRow(h.api, 1), 'dir').textContent, '↑');
+    });
+    it('sérialise les critères dans l’ordre de priorité', function() {
+      var h;
+      h = makeHarness('space:s1', 's1', [
+        {
+          column: 'titre',
+          ascending: true
+        },
+        {
+          column: 'note',
+          ascending: false
+        }
+      ]);
+      h.api.open();
+      dragRow(h.api, 1, 0, false);
+      promptAnswers.push('Priorité');
+      return h.api.saveCurrent().then(function() {
+        var c, call;
+        call = ((function() {
+          var i, len, results;
+          results = [];
+          for (i = 0, len = mutationCalls.length; i < len; i++) {
+            c = mutationCalls[i];
+            if (c.vars.name === 'Priorité') {
+              results.push(c);
+            }
+          }
+          return results;
+        })())[0];
+        assert(call, 'mutation saveViewPreset attendue');
+        return eq(call.vars.sort, '[{"column":"note","ascending":false},{"column":"titre","ascending":true}]');
+      });
+    });
+    return it('retire la mise en évidence du préréglage actif quand le tri change', function() {
+      var h;
+      h = makeHarness();
+      h.api.applyPreset(P_SORTED);
+      eq(h.api.button.textContent, 'Trier / Filtrer · Récents');
+      h.api.open();
+      h.api.elements.addColumnSelect.value = 'titre';
+      h.api.elements.addBtn._listeners.click[0]();
+      return eq(h.api.button.textContent, 'Trier / Filtrer');
     });
   });
 
