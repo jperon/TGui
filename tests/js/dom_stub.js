@@ -213,7 +213,15 @@
 
   global.document = {
     createElement: function(tag) {
-      return makeElement(tag);
+      var el;
+      el = makeElement(tag);
+      // Plugin widget iframes: le parent poste des messages via contentWindow.
+      if (String(tag).toLowerCase() === 'iframe' && !el.contentWindow) {
+        el.contentWindow = {
+          postMessage: function() {}
+        };
+      }
+      return el;
     },
     getElementById: function(id) {
       return _elementsById[id] || null;
@@ -231,6 +239,10 @@
       return _elementsById[id] = el; // helper for tests
     }
   };
+
+  
+  // <head> used by the on-demand <script> loader (views/plugin_runtimes.js).
+  global.document.head = makeElement('head');
 
   module.exports = {makeElement, localStorageStub};
 
