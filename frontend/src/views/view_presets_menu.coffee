@@ -362,9 +362,14 @@ window.ViewPresetsMenu =
           renderSort()
           renderPresets()
 
+    onFilterInput = -> clearActive()
+
     destroy = ->
       document.removeEventListener? 'click', onDocumentClick, true
       document.removeEventListener? 'keydown', onDocumentKey
+      # La grille principale réattache le menu au même input à chaque changement
+      # d'espace : sans ce retrait, les écouteurs s'accumuleraient.
+      opts.filterInput?.removeEventListener? 'input', onFilterInput
       dv = dataView()
       if dv and dv._viewPresetsMenu == api
         dv._viewPresetsMenu = null
@@ -397,7 +402,7 @@ window.ViewPresetsMenu =
     saveBtn.addEventListener 'click', (ev) ->
       ev?.stopPropagation?()
       saveCurrent()
-    opts.filterInput?.addEventListener 'input', -> clearActive()
+    opts.filterInput?.addEventListener? 'input', onFilterInput
 
     wrapEl._viewPresetsMenu = api
     ensureDataViewBinding()

@@ -788,7 +788,7 @@
     }
 
     _applyData() {
-      var base, base1, base2, columnName, displayVal, f, isError, isNew, j, l, lastIdx, len, len1, name1, ref, ref1, ref2, row, rowId, rows, sentinel, sentinelRow, targetRow, val;
+      var base, base1, base2, columnName, displayVal, f, isError, isNew, j, l, len, len1, name1, ref, ref1, ref2, row, rowId, rows, sentinel, sentinelRow, targetRow, val;
       if (!this._grid) {
         return;
       }
@@ -846,13 +846,16 @@
         }
       }
       this._grid.resetData(this._currentData);
-      if ((ref2 = this._sortState) != null ? ref2.length : void 0) {
-        // resetData remet le tri de Toast UI Grid à zéro : réapplique celui demandé
-        // (préréglage ou tri manuel mémorisé) pour qu'il persiste après un load.
-        this._applySortState();
-      }
       // resetData rebuilds rows: the highlighted row key is no longer tracked.
       this._activeRowKey = null;
+      // resetData remet le tri de Toast UI Grid à zéro : réapplique celui demandé
+      // (préréglage ou tri manuel mémorisé) pour qu'il persiste après un load.
+      // Le tri porte sur TOUTES les lignes, sentinelle comprise : on la remet
+      // ensuite en dernière position (cf. _pinSentinelLast).
+      if ((ref2 = this._sortState) != null ? ref2.length : void 0) {
+        this._applySortState();
+        this._pinSentinelLast();
+      }
       // Restore focus if we have saved it
       if (this._lastFocus) {
         ({rowId, isNew, columnName} = this._lastFocus);
@@ -870,9 +873,11 @@
           }), 0);
         }
       }
-      // Find the actual rowKey tui.Grid assigned to the sentinel (last visual row)
-      lastIdx = this._currentData.length - 1;
-      sentinelRow = this._grid.getRowAt(lastIdx);
+      // La sentinelle se repère par `__isNew`, jamais par son index : le tri peut
+      // avoir changé l'ordre visuel. Repli par index pour une grille sans getData.
+      sentinelRow = typeof this._grid.getData === 'function' ? (this._grid.getData() || []).find(function(row) {
+        return row != null ? row.__isNew : void 0;
+      }) : this._grid.getRowAt(this._currentData.length - 1);
       if (sentinelRow != null) {
         return this._grid.addRowClassName(sentinelRow.rowKey, 'tdb-new-row');
       }

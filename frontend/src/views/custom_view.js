@@ -527,10 +527,13 @@ transition: all 0.3s ease;`;
     }
 
     // Séparateur glissable entre deux enfants consécutifs d'une zone. Le glisser
-    // redistribue l'espace des DEUX voisins (minimum 80 px chacun) ; un double-clic
-    // les remet à parts égales.
+    // redistribue l'espace des DEUX voisins (minimum 80 px chacun) en conservant
+    // la SOMME de leurs facteurs : les autres enfants de la zone ne changent donc
+    // pas de taille. Un double-clic les remet à parts égales. Les écouteurs
+    // `document` ne vivent que pendant le glisser (posés au mousedown, retirés au
+    // mouseup) et un clic sans déplacement n'écrit rien dans le YAML.
     _createSplitter(direction, a, b, path, index) {
-      var axis, dir, dragging, horizontal, sp, startA, startB, startPos;
+      var axis, dir, dragging, factorOf, horizontal, onMouseMove, onMouseUp, sp, startA, startB, startFactorA, startFactorB, startPos, stopDrag, sumFactors;
       horizontal = direction === 'horizontal';
       dir = horizontal ? 'horizontal' : 'vertical';
       axis = horizontal ? 'width' : 'height';
@@ -540,42 +543,54 @@ transition: all 0.3s ease;`;
       startPos = 0;
       startA = 0;
       startB = 0;
-      sp.addEventListener('mousedown', (ev) => {
-        var ra, rb;
-        dragging = true;
-        startPos = horizontal ? ev.clientX : ev.clientY;
-        ra = a.getBoundingClientRect();
-        rb = b.getBoundingClientRect();
-        startA = ra[axis] || 0;
-        startB = rb[axis] || 0;
-        document.body.style.cursor = horizontal ? 'col-resize' : 'row-resize';
-        return typeof ev.preventDefault === "function" ? ev.preventDefault() : void 0;
-      });
-      document.addEventListener('mousemove', (ev) => {
-        var na, nb, pos;
+      startFactorA = 1;
+      startFactorB = 1;
+      sumFactors = 2;
+      // Facteur courant d'un enfant : le flex rendu est un simple nombre.
+      factorOf = function(el) {
+        var f;
+        f = parseFloat(el.style.flex);
+        if (isNaN(f)) {
+          return 1;
+        } else {
+          return f;
+        }
+      };
+      onMouseMove = (ev) => {
+        var delta, fa, fb, na, nb, pos, total;
         if (!dragging) {
           return;
         }
         pos = horizontal ? ev.clientX : ev.clientY;
-        [na, nb] = CustomView.redistribute(startA, startB, pos - startPos, 80);
-        a.style.flex = String(na);
-        return b.style.flex = String(nb);
-      });
-      document.addEventListener('mouseup', (ev) => {
-        var fa, fb, na, nb, total;
-        if (!dragging) {
+        delta = pos - startPos;
+        if (delta === 0) {
           return;
         }
-        dragging = false;
-        document.body.style.cursor = '';
-        na = parseFloat(a.style.flex);
-        nb = parseFloat(b.style.flex);
+        [na, nb] = CustomView.redistribute(startA, startB, delta, 80);
         total = na + nb;
         if (total <= 0) {
           return;
         }
-        fa = Math.round((2 * na / total) * 100) / 100;
-        fb = Math.round((2 * nb / total) * 100) / 100;
+        // Pixels → facteurs, à somme constante : les voisins hors de la paire,
+        // dont le flex reste inchangé, gardent leur taille.
+        fa = Math.round((sumFactors * na / total) * 100) / 100;
+        fb = Math.round((sumFactors - fa) * 100) / 100;
+        a.style.flex = String(fa);
+        return b.style.flex = String(fb);
+      };
+      onMouseUp = () => {
+        var fa, fb;
+        if (!dragging) {
+          return;
+        }
+        stopDrag();
+        fa = factorOf(a);
+        fb = factorOf(b);
+        // Aucun déplacement : ne pas réécrire le YAML (jsyaml.dump y perdrait
+        // les commentaires) ni redimensionner quoi que ce soit.
+        if (fa === startFactorA && fb === startFactorB) {
+          return;
+        }
         return this._saveChildFactors(path, [
           {
             index: index,
@@ -586,6 +601,39 @@ transition: all 0.3s ease;`;
             factor: fb
           }
         ]);
+      };
+      stopDrag = function() {
+        var ref;
+        dragging = false;
+        if (typeof document.removeEventListener === "function") {
+          document.removeEventListener('mousemove', onMouseMove);
+        }
+        if (typeof document.removeEventListener === "function") {
+          document.removeEventListener('mouseup', onMouseUp);
+        }
+        return (ref = document.body) != null ? ref.style.cursor = '' : void 0;
+      };
+      sp.addEventListener('mousedown', (ev) => {
+        var ra, rb, ref;
+        dragging = true;
+        startPos = horizontal ? ev.clientX : ev.clientY;
+        ra = a.getBoundingClientRect();
+        rb = b.getBoundingClientRect();
+        startA = ra[axis] || 0;
+        startB = rb[axis] || 0;
+        startFactorA = factorOf(a);
+        startFactorB = factorOf(b);
+        sumFactors = startFactorA + startFactorB;
+        if ((ref = document.body) != null) {
+          ref.style.cursor = horizontal ? 'col-resize' : 'row-resize';
+        }
+        if (typeof document.addEventListener === "function") {
+          document.addEventListener('mousemove', onMouseMove);
+        }
+        if (typeof document.addEventListener === "function") {
+          document.addEventListener('mouseup', onMouseUp);
+        }
+        return typeof ev.preventDefault === "function" ? ev.preventDefault() : void 0;
       });
       sp.addEventListener('dblclick', () => {
         a.style.flex = '1';
@@ -804,7 +852,9 @@ transition: all 0.3s ease;`;
       });
       dv._formulaInputEl = filterInput;
       // Même menu que la grille principale, avec la portée du widget de page.
-      if (this.pageId && wNode.id) {
+      // Jamais pour un widget dont la source est une Data View : `sp.id` est alors
+      // l'id de la vue, et `saveViewPreset` le refuse (« Space not found »).
+      if (this.pageId && wNode.id && !sp.isView) {
         if ((ref3 = window.ViewPresetsMenu) != null) {
           ref3.attach(filterWrap, {
             getDataView: function() {
@@ -999,20 +1049,38 @@ transition: all 0.3s ease;`;
       return results;
     }
 
-    // Première ligne affichée (hors sentinelle __isNew) d'une entrée, ou null.
+    // Première ligne VISUELLE (hors sentinelle `__isNew`) d'une entrée, ou null.
+    // L'index dans `_currentData` suit l'ordre de chargement alors que la grille
+    // peut être triée : on parcourt donc les lignes affichées par la grille (qui
+    // portent leur `rowKey`) au lieu de relier un index à `getRowAt`.
     _firstRow(entry) {
-      var data, grid, i, j, len, ref, row;
+      var found, grid, i, j, k, len, len1, ref, ref1, row, rows;
       grid = entry != null ? (ref = entry.dataView) != null ? ref._grid : void 0 : void 0;
       if (!grid) {
         return null;
       }
-      data = entry.dataView._currentData || [];
-      for (i = j = 0, len = data.length; j < len; i = ++j) {
-        row = data[i];
-        if (row.__isNew) {
+      rows = typeof grid.getData === 'function' ? grid.getData() || [] : [];
+      for (j = 0, len = rows.length; j < len; j++) {
+        row = rows[j];
+        if (row != null ? row.__isNew : void 0) {
           continue;
         }
-        return grid.getRowAt(i) || row;
+        found = ((row != null ? row.rowKey : void 0) != null) && typeof grid.getRow === 'function' ? grid.getRow(row.rowKey) : row;
+        if ((found != null) && !found.__isNew) {
+          return found;
+        }
+      }
+      ref1 = entry.dataView._currentData || [];
+      // Repli (grille sans getData, double de test minimal) : ordre de chargement.
+      for (i = k = 0, len1 = ref1.length; k < len1; i = ++k) {
+        row = ref1[i];
+        if (row != null ? row.__isNew : void 0) {
+          continue;
+        }
+        found = typeof grid.getRowAt === "function" ? grid.getRowAt(i) : void 0;
+        if ((found != null) && !found.__isNew) {
+          return found;
+        }
       }
       return null;
     }

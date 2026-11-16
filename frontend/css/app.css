@@ -311,6 +311,10 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   font-size: 0.82rem;
 }
 /* Sentinel (new row) styling */
+/* Ligne sentinelle (nouvel enregistrement). Toast UI Grid pose la classe sur
+   chaque cellule `td` de la ligne ; on garde aussi la forme `td` descendante au
+   cas où la classe serait posée sur le `tr`. */
+.tdb-new-row,
 .tdb-new-row td {
   opacity: 0.5;
   border-top: 1px dashed #b0b8c8 !important;

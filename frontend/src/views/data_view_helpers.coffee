@@ -49,6 +49,7 @@ Object.assign window.DataView::,
   applySortEntries: (entries) ->
     @_sortState = normalizeSortEntries entries
     @_applySortState()
+    @_pinSentinelLast()
     @_sortState
 
   _sortEntriesFromGrid: ->
@@ -77,8 +78,46 @@ Object.assign window.DataView::,
   _onGridSortChanged: ->
     return if @_applyingSort
     @_sortState = @_sortEntriesFromGrid()
+    @_pinSentinelLast()
     @_onSortChanged?()
     @_sortState
+
+  # Toast UI Grid trie TOUTES les lignes, sentinelle comprise, et inverse même le
+  # résultat d'un comparateur en tri descendant : aucun comparateur ne peut donc
+  # la maintenir en fin de grille. On réinjecte l'ordre obtenu par la grille en
+  # terminant par la sentinelle. Le `sortState` transmis à `resetData` ne sert
+  # qu'à réafficher les flèches d'en-tête : il ne réordonne pas les lignes (cf.
+  # la documentation de `resetData` dans Toast UI Grid, options.sortState).
+  _pinSentinelLast: ->
+    grid = @_grid
+    return unless grid and typeof grid.getData == 'function'
+    data = grid.getData() or []
+    sentinel = data.find (row) -> row?.__isNew
+    return unless sentinel
+    # Déjà en dernière position : rien à réordonner (cas sans tri).
+    return if data[data.length - 1]?.__isNew
+    ordered = (row for row in data when not row?.__isNew)
+    ordered.push sentinel
+    options = {}
+    first = (@_sortState or [])[0]
+    if first
+      options.sortState =
+        columnName: first.column
+        ascending:  first.ascending
+        multiple:   (@_sortState or []).length > 1
+    # resetData efface les classes de ligne : mémoriser la ligne active pour la
+    # remettre en évidence après le réordonnancement.
+    activeRowId = null
+    if @_activeRowKey? and typeof grid.getRow == 'function'
+      activeRowId = grid.getRow(@_activeRowKey)?.__rowId ? null
+    grid.resetData ordered, options
+    @_currentData = ordered
+    @_activeRowKey = null
+    if activeRowId?
+      idx = ordered.findIndex (row) -> row.__rowId == activeRowId
+      if idx >= 0 and ordered[idx].rowKey?
+        @_activeRowKey = ordered[idx].rowKey
+        grid.addRowClassName @_activeRowKey, 'tdb-selected-row'
 
   # ── Error display ─────────────────────────────────────────────────────────────
   _showError: (msg) ->

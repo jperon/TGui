@@ -398,8 +398,11 @@ window.CustomView = class CustomView
     el
 
   # Séparateur glissable entre deux enfants consécutifs d'une zone. Le glisser
-  # redistribue l'espace des DEUX voisins (minimum 80 px chacun) ; un double-clic
-  # les remet à parts égales.
+  # redistribue l'espace des DEUX voisins (minimum 80 px chacun) en conservant
+  # la SOMME de leurs facteurs : les autres enfants de la zone ne changent donc
+  # pas de taille. Un double-clic les remet à parts égales. Les écouteurs
+  # `document` ne vivent que pendant le glisser (posés au mousedown, retirés au
+  # mouseup) et un clic sans déplacement n'écrit rien dans le YAML.
   _createSplitter: (direction, a, b, path, index) ->
     horizontal = direction == 'horizontal'
     dir = if horizontal then 'horizontal' else 'vertical'
@@ -411,6 +414,48 @@ window.CustomView = class CustomView
     startPos = 0
     startA = 0
     startB = 0
+    startFactorA = 1
+    startFactorB = 1
+    sumFactors = 2
+
+    # Facteur courant d'un enfant : le flex rendu est un simple nombre.
+    factorOf = (el) ->
+      f = parseFloat el.style.flex
+      if isNaN(f) then 1 else f
+
+    onMouseMove = (ev) =>
+      return unless dragging
+      pos = if horizontal then ev.clientX else ev.clientY
+      delta = pos - startPos
+      return if delta == 0
+      [na, nb] = CustomView.redistribute startA, startB, delta, 80
+      total = na + nb
+      return if total <= 0
+      # Pixels → facteurs, à somme constante : les voisins hors de la paire,
+      # dont le flex reste inchangé, gardent leur taille.
+      fa = Math.round((sumFactors * na / total) * 100) / 100
+      fb = Math.round((sumFactors - fa) * 100) / 100
+      a.style.flex = String fa
+      b.style.flex = String fb
+
+    onMouseUp = =>
+      return unless dragging
+      stopDrag()
+      fa = factorOf a
+      fb = factorOf b
+      # Aucun déplacement : ne pas réécrire le YAML (jsyaml.dump y perdrait
+      # les commentaires) ni redimensionner quoi que ce soit.
+      return if fa == startFactorA and fb == startFactorB
+      @_saveChildFactors path, [
+        { index: index, factor: fa }
+        { index: index + 1, factor: fb }
+      ]
+
+    stopDrag = ->
+      dragging = false
+      document.removeEventListener? 'mousemove', onMouseMove
+      document.removeEventListener? 'mouseup', onMouseUp
+      document.body?.style.cursor = ''
 
     sp.addEventListener 'mousedown', (ev) =>
       dragging = true
@@ -419,30 +464,13 @@ window.CustomView = class CustomView
       rb = b.getBoundingClientRect()
       startA = ra[axis] or 0
       startB = rb[axis] or 0
-      document.body.style.cursor = if horizontal then 'col-resize' else 'row-resize'
+      startFactorA = factorOf a
+      startFactorB = factorOf b
+      sumFactors = startFactorA + startFactorB
+      document.body?.style.cursor = if horizontal then 'col-resize' else 'row-resize'
+      document.addEventListener? 'mousemove', onMouseMove
+      document.addEventListener? 'mouseup', onMouseUp
       ev.preventDefault?()
-
-    document.addEventListener 'mousemove', (ev) =>
-      return unless dragging
-      pos = if horizontal then ev.clientX else ev.clientY
-      [na, nb] = CustomView.redistribute startA, startB, pos - startPos, 80
-      a.style.flex = String na
-      b.style.flex = String nb
-
-    document.addEventListener 'mouseup', (ev) =>
-      return unless dragging
-      dragging = false
-      document.body.style.cursor = ''
-      na = parseFloat a.style.flex
-      nb = parseFloat b.style.flex
-      total = na + nb
-      return if total <= 0
-      fa = Math.round((2 * na / total) * 100) / 100
-      fb = Math.round((2 * nb / total) * 100) / 100
-      @_saveChildFactors path, [
-        { index: index, factor: fa }
-        { index: index + 1, factor: fb }
-      ]
 
     sp.addEventListener 'dblclick', =>
       a.style.flex = '1'
@@ -581,7 +609,9 @@ window.CustomView = class CustomView
     dv._formulaInputEl = filterInput
 
     # Même menu que la grille principale, avec la portée du widget de page.
-    if @pageId and wNode.id
+    # Jamais pour un widget dont la source est une Data View : `sp.id` est alors
+    # l'id de la vue, et `saveViewPreset` le refuse (« Space not found »).
+    if @pageId and wNode.id and not sp.isView
       window.ViewPresetsMenu?.attach filterWrap, {
         getDataView: -> dv
         scope: "widget:#{@pageId}:#{wNode.id}"
@@ -693,14 +723,23 @@ window.CustomView = class CustomView
     return [] unless depId
     (e for e in @_widgets when e.node?.depends_on?.widget == depId)
 
-  # Première ligne affichée (hors sentinelle __isNew) d'une entrée, ou null.
+  # Première ligne VISUELLE (hors sentinelle `__isNew`) d'une entrée, ou null.
+  # L'index dans `_currentData` suit l'ordre de chargement alors que la grille
+  # peut être triée : on parcourt donc les lignes affichées par la grille (qui
+  # portent leur `rowKey`) au lieu de relier un index à `getRowAt`.
   _firstRow: (entry) ->
     grid = entry?.dataView?._grid
     return null unless grid
-    data = entry.dataView._currentData or []
-    for row, i in data
-      continue if row.__isNew
-      return grid.getRowAt(i) or row
+    rows = if typeof grid.getData == 'function' then (grid.getData() or []) else []
+    for row in rows
+      continue if row?.__isNew
+      found = if row?.rowKey? and typeof grid.getRow == 'function' then grid.getRow(row.rowKey) else row
+      return found if found? and not found.__isNew
+    # Repli (grille sans getData, double de test minimal) : ordre de chargement.
+    for row, i in (entry.dataView._currentData or [])
+      continue if row?.__isNew
+      found = grid.getRowAt? i
+      return found if found? and not found.__isNew
     null
 
   # Marque `rowKey` active sur un widget dataView, puis propage la ligne à ses

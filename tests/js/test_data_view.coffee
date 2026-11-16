@@ -520,7 +520,7 @@ describe 'DataView prototype surface (frozen)', ->
       '_actionContext', '_applyData', '_applySortState', '_buildFkMaps', '_clearError',
       '_cloneJson', '_coerceCellValue', '_columnWidth', '_defaultCellValue',
       '_escapeHtml', '_extractInsertedRecords', '_formatFormulaError',
-      '_loadColWidths', '_lsKey', '_onGridSortChanged', '_saveColWidths', '_sentinel',
+      '_loadColWidths', '_lsKey', '_onGridSortChanged', '_pinSentinelLast', '_saveColWidths', '_sentinel',
       '_serializeRowForMutation', '_showError', '_sortEntriesFromGrid', '_toBoolean',
       'applySortEntries', 'constructor',
       'deleteSelected', 'getFocusedColumnName', 'getSortEntries', 'insertBlank',
