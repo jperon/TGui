@@ -1,8 +1,13 @@
 # Vendor bundles (large, regenerate with `make vendor`)
-# Les bundles actifs (tui-grid, jsyaml) sont commités ; le reste est ignoré.
-frontend/vendor/
+# Les bundles chargés par la page sont commités ; régénérer avec `make vendor`.
+# Tout bundle chargé doit être commité, sinon un clone neuf le reçoit en 404
+# (contrôlé par tests/js/test_vendor_bundles_tracked.coffee).
+frontend/vendor/*
 !frontend/vendor/tui-grid.bundle.*
 !frontend/vendor/jsyaml.bundle.*
+!frontend/vendor/codemirror.bundle.*
+!frontend/vendor/sortablejs.bundle.*
+!frontend/vendor/plugin-runtime.bundle.*
 
 # Docker data volumes
 data/
