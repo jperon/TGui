@@ -2,7 +2,7 @@
 
 > Auto-generated file. Do not edit manually.
 >
-> Generated at: 2026-11-16 18:02:51 UTC
+> Generated at: 2026-11-16 18:23:47 UTC
 
 Tarantool startup, HTTP lifecycle and subsystem initialization details.
 
@@ -19,7 +19,7 @@ Tarantool startup, HTTP lifecycle and subsystem initialization details.
 | `backend/core/formula_sandbox.moon` | Sandbox used to compile and run user formulas. |
 | `backend/core/graphql_flattener.moon` | GraphQL Flattener with intelligent list handling |
 | `backend/core/permissions.moon` | Unix-style group permissions management. |
-| `backend/core/plugin_compile.moon` | Compilation of a custom widget definition's script (spec widgets |
+| `backend/core/plugin_compile.moon` | Server-side compilation of a custom widget definition's script (spec §7). |
 | `backend/core/relation_maps.moon` | Builds FK / relation definition maps for a space from the _tdb_relations, |
 | `backend/core/spaces.moon` | Bootstrap and manage tdb system spaces (metadata) in Tarantool. |
 | `backend/core/triggers.moon` | Manages Tarantool before_replace triggers for trigger formula fields. |

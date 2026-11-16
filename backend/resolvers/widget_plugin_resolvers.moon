@@ -10,9 +10,10 @@ plugin_compile = require 'core.plugin_compile'
 { :require_auth, :require_perm } = require 'resolvers.utils'
 
 -- Langages de script (spec widgets personnalisés §7) : javascript et
--- coffeescript sont compilés par le navigateur ; lua et moonscript sont
--- compilés/vérifiés côté serveur (moonscript.base.to_lua, loadstring) et le
--- résultat est mis en cache dans `compiled`.
+-- coffeescript sont compilés par le navigateur ; moonscript est compilé côté
+-- serveur (moonscript.base.to_lua) et le résultat est mis en cache dans
+-- `compiled` ; lua y est stocké tel quel, sans vérification de syntaxe côté
+-- serveur (l'erreur est signalée à l'exécution, dans le widget, par wasmoon).
 VALID_SCRIPT_LANGS = {
   coffeescript: true
   javascript: true

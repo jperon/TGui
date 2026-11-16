@@ -1,14 +1,23 @@
 -- core/plugin_compile.moon
--- Compilation of a custom widget definition's script (spec widgets
--- personnalisés §7). `lua` is syntax-checked with loadstring and stored as
--- written; `moonscript` is transpiled to Lua with moonscript.base.to_lua — the
--- same compiler the trigger formulas use — and the resulting chunk is cached in
--- the `compiled` column of _tdb_widget_plugins. Other languages (javascript,
--- coffeescript) are compiled by the browser and store no compiled code.
+-- Server-side compilation of a custom widget definition's script (spec §7).
+--
+-- `moonscript` is transpiled to Lua with moonscript.base.to_lua — the same
+-- compiler the trigger formulas use — and the resulting chunk is cached in the
+-- `compiled` column of _tdb_widget_plugins. A parse error refuses the save with
+-- a message naming the offending line; the Lua produced by moonc is valid in
+-- Lua 5.1 (Tarantool) as well as Lua 5.4 (browser).
+--
+-- `lua` is stored as written and never syntax-checked here: the widget runs in
+-- the browser under wasmoon (Lua 5.4), whose syntax is not LuaJIT's (Lua 5.1) —
+-- `//`, `&`, `|`, `~`, `<<`, `>>`, `<const>`, `goto` are valid there and would
+-- be refused for nothing by `loadstring`. A syntax error is reported inside the
+-- widget by wasmoon, with the offending line (`[string "..."]:N:`).
+--
+-- Other languages (javascript, coffeescript) are compiled by the browser and
+-- store no compiled code.
 --
 -- The source stays the reference for export and fingerprints (§5): `compiled`
--- is only a cache, recomputed at every save. A compilation error refuses the
--- save with a message naming the offending line.
+-- is only a cache, recomputed at every save (for `lua` it is the source).
 --
 -- Depends on: moonscript.base (vendored MoonScript 0.8.0).
 -- Used by: resolvers/widget_plugin_resolvers.moon, core/app_apply.moon,
@@ -16,8 +25,7 @@
 
 MAX_COMPILED_LEN = 400000
 
--- Line number reported by Lua (`[string "..."]:3:`) or MoonScript
--- (`failed to parse at line 3, column 5`).
+-- Line number reported by MoonScript (`failed to parse at line 3, column 5`).
 line_of = (err) ->
   s = tostring err
   line = s\match 'line (%d+)'
@@ -31,11 +39,9 @@ location_suffix = (err) ->
 compile_error = (language, err) ->
   error "WidgetPlugin script: #{language} invalide#{location_suffix err} : #{tostring err}", 0
 
--- Lua: only the syntax is checked; the source itself is executed in the
--- browser by wasmoon (Lua 5.4), so no chunk is cached.
+-- Lua: no server-side syntax check (see the header). The source is executed as
+-- written by wasmoon in the browser; storing it verbatim is the cache.
 compile_lua = (code) ->
-  fn, err = loadstring code
-  compile_error 'Lua', err unless fn
   code
 
 -- MoonScript: transpile to Lua now, so the browser only ever runs Lua and a
@@ -51,7 +57,8 @@ compile_moonscript = (code) ->
   lua
 
 -- Compiled text to cache for `language`, or '' for a browser-compiled language.
--- Raises with a field-precise message: the editor shows it next to the script.
+-- MoonScript raises with a field-precise message: the editor shows it next to
+-- the script. Lua never raises here: its errors surface in the widget.
 compile_script = (language, code) ->
   source = tostring code or ''
   switch string.lower tostring(language or '')

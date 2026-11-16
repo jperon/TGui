@@ -1121,7 +1121,7 @@ Only the definitions **referenced by the package pages** are embedded, library o
 
 `origin` is **not part of the fingerprint**: the fingerprint covers the manifest, script, template and their languages, so two identical copies in two scopes share it.
 
-The `compiled` field of `WidgetPlugin` exposes the server-compiled code (custom widgets spec §7): Lua produced by `moonscript.base.to_lua` for a MoonScript script, the checked source for a Lua script, `''` for browser-compiled languages. It is recomputed at every save (a compilation error refuses the save with its line); it is not part of the fingerprint, which stays source-based.
+The `compiled` field of `WidgetPlugin` exposes the server-compiled code (custom widgets spec §7): Lua produced by `moonscript.base.to_lua` for a MoonScript script, the source as written for a Lua script (its syntax is only checked at run time, inside the widget, by wasmoon), `''` for browser-compiled languages. It is recomputed at every save (a MoonScript compilation error refuses the save with its line; an invalid Lua script is only reported inside the widget); it is not part of the fingerprint, which stays source-based.
 
 On install, per delivered definition:
 

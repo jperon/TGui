@@ -2,7 +2,8 @@
 -- Définitions Lua / MoonScript des widgets personnalisés (spec
 -- docs/superpowers/specs/2026-11-16-custom-widgets-design.md §7) :
 -- compilation côté serveur dans le champ `compiled`, refus d'enregistrer un
--- script invalide (message avec la ligne), migration tdb_v7.
+-- MoonScript invalide (message avec la ligne), Lua stocké tel quel (sa syntaxe
+-- n'est vérifiée qu'à l'exécution, par wasmoon en Lua 5.4), migration tdb_v7.
 
 R = require 'tests.runner'
 wpr = require 'resolvers.widget_plugin_resolvers'
@@ -26,6 +27,16 @@ widget.onRecords (rows) ->
 
 TEMPLATE = 'div.plugin-root'
 
+-- Syntaxes valides en Lua 5.4 (wasmoon) mais pas en LuaJIT 5.1 (loadstring) :
+-- le serveur ne doit plus les refuser (spec widgets personnalisés §7).
+LUA54_SNIPPETS = {
+  'x = 7 // 2'
+  'y = 5 & 3'
+  'z = 1 << 4'
+  'local c <const> = 1'
+  'x = ~0'
+}
+
 created = {}
 
 R.describe "WidgetPlugins — langages Lua / MoonScript", ->
@@ -46,10 +57,25 @@ R.describe "WidgetPlugins — langages Lua / MoonScript", ->
       R.eq p.scriptLanguage, lang
       created[lang] = p
 
-  R.it "lua : le source est vérifié et stocké tel quel dans compiled", ->
+  R.it "lua : le source est stocké tel quel dans compiled", ->
     p = created.lua
     R.ok p
     R.eq p.compiled, 'widget.render("ok")'
+
+  R.it "lua : les syntaxes Lua 5.4 sont acceptées (vérification à l'exécution)", ->
+    for i, code in ipairs LUA54_SNIPPETS
+      name = "#{BASE}_lua54_#{i}"
+      p = wpr.Mutation.createWidgetPlugin {}, {
+        input: {
+          name: name
+          scriptLanguage: 'lua'
+          templateLanguage: 'html'
+          scriptCode: code
+          templateCode: TEMPLATE
+        }
+      }, CTX
+      R.eq p.compiled, code, "le source doit être gardé tel quel : #{code}"
+      box.space._tdb_widget_plugins\delete p.id
 
   R.it "moonscript : compiled contient le Lua transpilé, exécutable", ->
     p = created.moonscript
@@ -76,7 +102,7 @@ R.describe "WidgetPlugins — langages Lua / MoonScript", ->
     }, CTX
     R.eq res.compiled, p.compiled
 
-R.describe "WidgetPlugins — refus d’un script invalide", ->
+R.describe "WidgetPlugins — refus d’un MoonScript invalide", ->
 
   R.it "refuse un MoonScript invalide en nommant la ligne", ->
     ok, err = pcall ->
@@ -94,22 +120,6 @@ R.describe "WidgetPlugins — refus d’un script invalide", ->
     R.ok msg\find('MoonScript invalide', 1, true) != nil, "message attendu, vu : #{msg}"
     R.ok msg\find('ligne 2', 1, true) != nil, "la ligne doit être nommée, vu : #{msg}"
 
-  R.it "refuse un Lua invalide en nommant la ligne", ->
-    ok, err = pcall ->
-      wpr.Mutation.createWidgetPlugin {}, {
-        input: {
-          name: "#{BASE}_badlua"
-          scriptLanguage: 'lua'
-          templateLanguage: 'html'
-          scriptCode: "widget.render \"a\"\nif then\n"
-          templateCode: TEMPLATE
-        }
-      }, CTX
-    R.eq ok, false, 'createWidgetPlugin devait refuser le Lua invalide'
-    msg = tostring err
-    R.ok msg\find('Lua invalide', 1, true) != nil, "message attendu, vu : #{msg}"
-    R.ok msg\find('ligne 2', 1, true) != nil, "la ligne doit être nommée, vu : #{msg}"
-
   R.it "updateWidgetPlugin refuse et laisse la définition intacte", ->
     p = created.lua
     ok, err = pcall ->
@@ -122,6 +132,23 @@ R.describe "WidgetPlugins — refus d’un script invalide", ->
     row = box.space._tdb_widget_plugins\get p.id
     R.eq row[4], 'lua', 'le langage enregistré ne change pas'
     R.eq row[6], 'widget.render("ok")', 'le script enregistré ne change pas'
+
+R.describe "WidgetPlugins — Lua invalide enregistré tel quel", ->
+
+  R.it "un Lua syntaxiquement faux est enregistré sans refus", ->
+    code = "widget.render \"a\"\nif then\n"
+    p = wpr.Mutation.createWidgetPlugin {}, {
+      input: {
+        name: "#{BASE}_badlua"
+        scriptLanguage: 'lua'
+        templateLanguage: 'html'
+        scriptCode: code
+        templateCode: TEMPLATE
+      }
+    }, CTX
+    R.eq p.scriptLanguage, 'lua'
+    R.eq p.compiled, code, 'le source doit être gardé tel quel (erreur à l’exécution)'
+    box.space._tdb_widget_plugins\delete p.id
 
 R.describe "WidgetPlugins — migration tdb_v7 (compiled)", ->
 

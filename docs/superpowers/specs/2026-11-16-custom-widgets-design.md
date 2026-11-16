@@ -159,6 +159,13 @@ Lua / MoonScript :
 - La définition stocke le source ; le Lua compilé est mis en cache (champ
   `compiled`, recalculé à chaque enregistrement ; erreur de compilation →
   refus d'enregistrer, message avec ligne).
+- Le Lua n'est **pas** vérifié côté serveur : Tarantool tourne en LuaJIT
+  (Lua 5.1), le widget sous wasmoon (Lua 5.4). `//`, `&`, `|`, `~`, `<<`, `>>`,
+  `<const>`, `goto` sont valides en 5.4 et seraient refusés à tort par
+  `loadstring`. Le source est donc stocké tel quel dans `compiled` et une erreur
+  de syntaxe est signalée **dans le widget**, par wasmoon, avec sa ligne
+  (`[string "..."]:N:`). Le Lua produit par moonc est valable en 5.1 comme en
+  5.4 : MoonScript reste compilé et refusé côté serveur.
 - L'API (§6) est exposée à Lua par l'interop wasmoon ; les rappels JS → Lua et
   les promesses (`gql`) sont adaptés par une petite couche (`await` wasmoon).
 - Écart Lua 5.4 (navigateur) / LuaJIT 5.1 (Tarantool) : documenté ; le code

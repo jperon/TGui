@@ -23,10 +23,6 @@ compile_error = function(language, err)
 end
 local compile_lua
 compile_lua = function(code)
-  local fn, err = loadstring(code)
-  if not (fn) then
-    compile_error('Lua', err)
-  end
   return code
 end
 local compile_moonscript

@@ -1121,7 +1121,7 @@ Seules les définitions de widgets **référencées par les pages** du paquet so
 
 `origin` est **hors de l'empreinte** : l'empreinte couvre le manifest, le script, le gabarit et leurs langages. Deux copies identiques du même code dans deux portées ont donc la même empreinte.
 
-Le champ `compiled` de `WidgetPlugin` expose le code compilé côté serveur (spec widgets personnalisés §7) : Lua issu de `moonscript.base.to_lua` pour un script MoonScript, source vérifié pour un script Lua, `''` pour les langages compilés par le navigateur. Il est recalculé à chaque enregistrement (une erreur de compilation refuse l'enregistrement avec sa ligne) ; il n'entre pas dans l'empreinte, qui reste fondée sur le source.
+Le champ `compiled` de `WidgetPlugin` expose le code compilé côté serveur (spec widgets personnalisés §7) : Lua issu de `moonscript.base.to_lua` pour un script MoonScript, source tel quel pour un script Lua (sa syntaxe n'est vérifiée qu'à l'exécution, dans le widget, par wasmoon), `''` pour les langages compilés par le navigateur. Il est recalculé à chaque enregistrement (une erreur de compilation MoonScript refuse l'enregistrement avec sa ligne ; un script Lua invalide n'est signalé que dans le widget) ; il n'entre pas dans l'empreinte, qui reste fondée sur le source.
 
 À l'installation, par définition livrée :
 
