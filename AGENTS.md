@@ -59,6 +59,12 @@ entrées `nixpkgs` et `flake-utils` sont **épinglées à une révision exacte**
 l'hôte pour rester hermétique (sinon les navigateurs Playwright échouent sur
 une version de glibc).
 
+**direnv** : le fichier `.envrc` à la racine (`use flake`) charge ce shell
+automatiquement. Une seule fois par clone : `direnv allow .` ; ensuite
+l'environnement s'active en entrant dans le répertoire (et se recharge quand
+`flake.nix` ou `flake.lock` change). Hors de ce shell, `make build`/`make up`
+échouent : `scripts/moonc.sh` s'arrête alors avec un message explicite.
+
 **MoonScript est un sous-module git** (`backend/vendor/moonscript`), épinglé sur
 le tag **v0.8.0** : c'est la même version qui compile les sources et qui tourne
 dans Tarantool (`moonscript.base.to_lua` pour les formules). Après un clone (ou
@@ -66,7 +72,8 @@ un changement de branche) :
 
 ```bash
 git submodule update --init  # récupère backend/vendor/moonscript
-nix develop                  # entre dans le shell de dev reproductible
+direnv allow                 # une fois : charge le shell Nix à chaque entrée
+# (sans direnv : nix develop, pour un shell ponctuel)
 make doctor                  # vérifie outils, sous-module, hermétisme, navigateur
 # puis : make build, make test, npx playwright test ...
 ```

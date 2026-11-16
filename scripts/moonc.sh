@@ -21,6 +21,11 @@ if [ ! -f "$ms/bin/moonc" ]; then
   exit 1
 fi
 
+if ! command -v "$lua" >/dev/null 2>&1; then
+  echo "❌ interpréteur Lua introuvable : entrer dans le shell Nix ('direnv allow' une fois, ou 'nix develop')" >&2
+  exit 1
+fi
+
 exec env \
   LUA_PATH="$ms/?.lua;$ms/?/init.lua;;" \
   LUA_CPATH="$root/build/?.so;;" \
