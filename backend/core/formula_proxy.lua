@@ -242,37 +242,6 @@ eval_computed_formula = function(t, k, v, space_name, fk_cache)
   end
   return v, false
 end
-local relation_field_value
-relation_field_value = function(record, field_name, space_name, fk_cache)
-  return eval_computed_formula(record, field_name, record[field_name], space_name, prepare_cache(fk_cache))
-end
-local fill_computed_relation_values
-fill_computed_relation_values = function(record, field_names, space_name, fk_cache)
-  if not (space_name and field_names) then
-    return record
-  end
-  fk_cache = prepare_cache(fk_cache)
-  for _index_0 = 1, #field_names do
-    local _continue_0 = false
-    repeat
-      local field_name = field_names[_index_0]
-      local v = record[field_name]
-      if not (v == nil or v == '') then
-        _continue_0 = true
-        break
-      end
-      local val, is_err = eval_computed_formula(record, field_name, v, space_name, fk_cache)
-      if is_err and val ~= nil then
-        record[field_name] = val
-      end
-      _continue_0 = true
-    until true
-    if not _continue_0 then
-      break
-    end
-  end
-  return record
-end
 local make_self_proxy
 make_self_proxy = function(record, fk_def_map, fk_cache, space_name)
   fk_cache = prepare_cache(fk_cache)
@@ -422,6 +391,78 @@ make_self_proxy_extended = function(record, single_fk_map, multiple_fk_map, fk_c
     end
   })
   return proxy
+end
+local space_id_for
+space_id_for = function(fk_cache, space_name)
+  fk_cache.space_ids = fk_cache.space_ids or { }
+  local id = fk_cache.space_ids[space_name]
+  if id then
+    return id
+  end
+  local meta = box.space._tdb_spaces.index.by_name:get({
+    space_name
+  })
+  id = meta and meta[1]
+  if id then
+    fk_cache.space_ids[space_name] = id
+  end
+  return id
+end
+local record_proxy_for
+record_proxy_for = function(record, space_name, fk_cache, fk_def_map)
+  if not (fk_def_map) then
+    local space_id = space_id_for(fk_cache, space_name)
+    if space_id then
+      fk_def_map = ensure_fk_def_map(fk_cache, space_id)
+    else
+      fk_def_map = { }
+    end
+  end
+  return make_self_proxy(record, fk_def_map, fk_cache, space_name)
+end
+local relation_field_value
+relation_field_value = function(record, field_name, space_name, fk_cache, fk_def_map)
+  fk_cache = prepare_cache(fk_cache)
+  local v = record[field_name]
+  local fns
+  if space_name then
+    fns = ensure_formulas(space_name)
+  else
+    fns = { }
+  end
+  if not ((v == nil or v == '') and fns[field_name]) then
+    return v, false
+  end
+  local proxy = record_proxy_for(record, space_name, fk_cache, fk_def_map)
+  return eval_computed_formula(proxy, field_name, v, space_name, fk_cache)
+end
+local fill_computed_relation_values
+fill_computed_relation_values = function(record, field_names, space_name, fk_cache, fk_def_map)
+  if not (space_name and field_names) then
+    return record
+  end
+  fk_cache = prepare_cache(fk_cache)
+  for _index_0 = 1, #field_names do
+    local _continue_0 = false
+    repeat
+      local field_name = field_names[_index_0]
+      local v = record[field_name]
+      if not (v == nil or v == '') then
+        _continue_0 = true
+        break
+      end
+      local proxy = record_proxy_for(record, space_name, fk_cache, fk_def_map)
+      local val, is_err = eval_computed_formula(proxy, field_name, v, space_name, fk_cache)
+      if val ~= nil and val ~= '' then
+        record[field_name] = val
+      end
+      _continue_0 = true
+    until true
+    if not _continue_0 then
+      break
+    end
+  end
+  return record
 end
 return {
   make_self_proxy = make_self_proxy,

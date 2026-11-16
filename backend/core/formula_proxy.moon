@@ -231,33 +231,6 @@ eval_computed_formula = (t, k, v, space_name, fk_cache) ->
     return val, false
   return v, false
 
--- ── Relation fields backed by a read-time formula ──────────────────────────────
-
--- Value of a relation (FK source) field on read: the stored value when there is
--- one, otherwise the read-time formula's result. A relation may be declared on
--- a COMPUTED Int field, which has no stored column at all.
--- Returns (value, is_error): is_error=true means `value` is the formatted error
--- string of a broken formula.
-relation_field_value = (record, field_name, space_name, fk_cache) ->
-  eval_computed_formula record, field_name, record[field_name], space_name, prepare_cache(fk_cache)
-
--- Fill, on `record`, the computed relation fields listed in `field_names`
--- (relation fields of the space that carry a read-time formula). Consumers that
--- only read the raw record — the executor's raw FK value for a grid column,
--- Query.records, back-references — then see the same Int a stored relation
--- would provide, instead of a missing column.
-fill_computed_relation_values = (record, field_names, space_name, fk_cache) ->
-  return record unless space_name and field_names
-  fk_cache = prepare_cache fk_cache
-  for field_name in *field_names
-    v = record[field_name]
-    continue unless v == nil or v == ''
-    val, is_err = eval_computed_formula record, field_name, v, space_name, fk_cache
-    -- Surface a broken formula on the record (the grid renders the [ERROR|…]
-    -- text); eval_computed_formula only stores successful values.
-    record[field_name] = val if is_err and val != nil
-  record
-
 -- ── Self proxy ────────────────────────────────────────────────────────────────
 
 -- Build a self proxy that resolves FK fields lazily, with recursive chaining.
@@ -378,5 +351,63 @@ make_self_proxy_extended = (record, single_fk_map, multiple_fk_map, fk_cache, sp
       v
   }
   proxy
+
+-- ── Relation fields backed by a read-time formula ──────────────────────────────
+
+-- Space id from its name, memoized on the per-request cache: the self proxy
+-- built for a relation formula needs that space's fk_def_map.
+space_id_for = (fk_cache, space_name) ->
+  fk_cache.space_ids = fk_cache.space_ids or {}
+  id = fk_cache.space_ids[space_name]
+  return id if id
+  meta = box.space._tdb_spaces.index.by_name\get { space_name }
+  id = meta and meta[1]
+  fk_cache.space_ids[space_name] = id if id
+  id
+
+-- The `self` a relation formula sees is the same proxy as a computed column's
+-- (make_self_proxy): `@exemplaire.livre` (FK traversal) and other computed
+-- columns must resolve, instead of the raw stored Int of a relation field.
+record_proxy_for = (record, space_name, fk_cache, fk_def_map) ->
+  unless fk_def_map
+    space_id = space_id_for fk_cache, space_name
+    fk_def_map = if space_id then ensure_fk_def_map(fk_cache, space_id) else {}
+  make_self_proxy record, fk_def_map, fk_cache, space_name
+
+-- Value of a relation (FK source) field on read: the stored value when there is
+-- one, otherwise the read-time formula's result, evaluated against a self proxy
+-- (fk_def_map is optional: it is looked up when the caller has none).
+-- Returns (value, is_error): is_error=true means `value` is the formatted error
+-- string of a broken formula.
+relation_field_value = (record, field_name, space_name, fk_cache, fk_def_map) ->
+  fk_cache = prepare_cache fk_cache
+  v = record[field_name]
+  -- No formula for this field: the stored value is the answer, no proxy needed.
+  fns = if space_name then ensure_formulas space_name else {}
+  return v, false unless (v == nil or v == '') and fns[field_name]
+  proxy = record_proxy_for record, space_name, fk_cache, fk_def_map
+  eval_computed_formula proxy, field_name, v, space_name, fk_cache
+
+-- Fill, on `record`, the computed relation fields listed in `field_names`
+-- (relation fields of the space that carry a read-time formula). Consumers that
+-- only read the raw record — the executor's raw FK value for a grid column,
+-- Query.records, back-references — then see the same Int a stored relation
+-- would provide, instead of a missing column.
+fill_computed_relation_values = (record, field_names, space_name, fk_cache, fk_def_map) ->
+  return record unless space_name and field_names
+  fk_cache = prepare_cache fk_cache
+  for field_name in *field_names
+    v = record[field_name]
+    continue unless v == nil or v == ''
+    -- Same self proxy as a computed column, rebuilt for every field: evaluating
+    -- a formula caches its raw Int on the proxy it was given (eval_computed_formula),
+    -- which would hide the FK resolution of that field from the next formula.
+    proxy = record_proxy_for record, space_name, fk_cache, fk_def_map
+    val, is_err = eval_computed_formula proxy, field_name, v, space_name, fk_cache
+    -- eval_computed_formula stores a successful value on the proxy; copy it
+    -- back so raw consumers see the Int. A broken formula surfaces its
+    -- [ERROR|…] text (the grid renders it), as before.
+    record[field_name] = val if val != nil and val != ''
+  record
 
 { :make_self_proxy, :make_self_proxy_extended, :make_space_helper, :format_formula_error, :invalidate_formula_cache, :relation_field_value, :fill_computed_relation_values }
