@@ -11,11 +11,13 @@ on:
 #   - `submodules: true` est INDISPENSABLE : le compilateur MoonScript est le
 #     sous-module backend/vendor/moonscript (tag v0.8.0), et `make build`
 #     compile son analyseur natif (moonscript/parse/native.c).
-#   - Toute commande `make` passe par `nix develop .#build --command …` : la
+#   - Toute commande `make` passe par `nix develop --command …` : la
 #     compilation MoonScript exige l'interpréteur Lua 5.1 du shell Nix avec
 #     lpeg/argparse/luafilesystem (TGUI_LUA), les en-têtes de Lua pour
 #     native.so et un `coffee` de version déterministe. Hors de ce shell, ces
-#     outils viennent du système et peuvent manquer ou diverger.
+#     outils viennent du système et peuvent manquer ou diverger. Les jobs de
+#     compilation utilisent `.#build` (outils seuls) ; le job e2e utilise le
+#     devShell par défaut, seul à fournir les navigateurs Playwright.
 #   - Nix est installé par cachix/install-nix-action (l'ancien
 #     DeterminateSystems/nix-installer-action@v9 échoue avec « Invalid URL »).
 
@@ -96,44 +98,41 @@ jobs:
           extra_nix_config: |
             experimental-features = nix-command flakes
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Install JS toolchain
-        # Installation reproductible : `npm ci` installe exactement les versions
-        # verrouillées dans package-lock.json (ici @playwright/test et
-        # playwright 1.59.1). Playwright n'est PAS dans le devShell `.#build`
-        # (navigateurs trop lourds pour la seule compilation) : il vient de npm
-        # et tourne hors du shell Nix. `npm install -g coffeescript` n'est plus
-        # nécessaire, `coffee` venant alors de Nix.
-        run: npm ci
+      - name: Install JS dependencies
+        # `npm ci` installe exactement les versions verrouillées dans
+        # package-lock.json (ici @playwright/test et playwright 1.59.1) ; cette
+        # version doit rester égale à `playwright-driver.version` de Nix
+        # (`make doctor` le contrôle). Le npm utilisé est celui du devShell
+        # par défaut (`nodejs_22`), comme le reste du job.
+        run: nix develop --command npm ci
 
       - name: Start test instance
-        # `make test-up` compile d'abord les sources (`build`) : il faut donc
-        # le shell Nix. Le nom de conteneur `tgui-tarantool-test` est unique sur
-        # la machine, d'où l'arrêt explicite en fin de job.
+        # `make test-up` compile d'abord les sources (`build`). Le nom de
+        # conteneur `tgui-tarantool-test` est unique sur la machine, d'où
+        # l'arrêt explicite en fin de job.
         run: |
-          nix develop .#build --command make test-up
+          nix develop --command make test-up
           # Attendre que l'API réponde
           for i in $(seq 1 60); do
             if curl -fsS -o /dev/null http://localhost:8081/; then echo "up"; break; fi
             sleep 2
           done
 
-      - name: Install Playwright browser
-        # Hors shell Nix : le navigateur téléchargé par npm doit voir les
-        # bibliothèques système du runner (--with-deps les installe).
-        run: npx playwright install --with-deps chromium
-
       - name: Compile and run Playwright specs
+        # Les navigateurs viennent du devShell par défaut
+        # (`playwright-driver.browsers`, exposés par PLAYWRIGHT_BROWSERS_PATH) :
+        # pas de `npx playwright install --with-deps`, qui télécharge un
+        # navigateur pour l'hôte et échoue sur les distributions non
+        # supportées (run 43847907925 : « Playwright does not support chromium
+        # on ubuntu26.04-x64 »). PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS,
+        # posé par le même shell, écarte le contrôle des bibliothèques hôte.
         run: |
-          nix develop .#build --command make playwright-compile
-          npx playwright test --config=tests/playwright/playwright-optimized.config.js
+          nix develop --command make playwright-compile
+          nix develop --command npx playwright test --config=tests/playwright/playwright-optimized.config.js
 
       - name: Stop test instance
         if: always()
-        run: nix develop .#build --command make test-down
+        run: nix develop --command make test-down
 
       - name: Upload Playwright report
         if: failure()
