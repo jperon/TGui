@@ -18,7 +18,9 @@ box.cfg {
 }
 
 -- Add /app/backend to the Lua path so all backend modules are reachable
-package.path = '/app/backend/?.lua;/app/backend/?/init.lua;' .. package.path
+-- (backend/vendor/moonscript : sous-module MoonScript 0.8.0, même version
+-- que le compilateur de `make build`)
+package.path = '/app/backend/?.lua;/app/backend/?/init.lua;/app/backend/vendor/moonscript/?.lua;/app/backend/vendor/moonscript/?/init.lua;' .. package.path
 
 -- The instance-wide fiber slice stays at the Tarantool default: raising it here
 -- would apply to EVERY fiber, so one heavy grid read (formulas scanning other

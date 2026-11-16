@@ -14,7 +14,7 @@ bad()  { printf '  ÉCHEC %s\n' "$*"; fail=1; }
 warn() { printf '  AVERT %s\n' "$*"; }
 
 echo "== Outils =="
-for tool in moonc coffee node make; do
+for tool in lua coffee node make; do
   if command -v "$tool" >/dev/null 2>&1; then
     ok "$tool -> $(command -v "$tool")"
   else
@@ -22,13 +22,21 @@ for tool in moonc coffee node make; do
   fi
 done
 
-# moonc n'expose pas de --version exploitable dans cette version : `moon -v`
-# affiche la version de MoonScript.
-if command -v moon >/dev/null 2>&1; then
-  printf '  version moonc/moonscript : %s\n' "$(moon -v 2>&1)"
-elif command -v moonc >/dev/null 2>&1; then
-  printf '  version moonc : (binaire présent, --version non exploitable)\n'
+# Le compilateur MoonScript est celui du sous-module backend/vendor/moonscript
+# (tag v0.8.0), exécuté par le Lua du dev shell : même version qu'à l'exécution.
+if [ -f "$repo_root/backend/vendor/moonscript/bin/moonc" ]; then
+  ok "sous-module backend/vendor/moonscript présent"
+  printf '  version moonc/moonscript : %s\n' "$("$repo_root/scripts/moonc.sh" -v 2>&1)"
+else
+  bad "sous-module absent : lancer 'git submodule update --init'"
 fi
+for mod in lpeg argparse lfs; do
+  if lua -e "require('$mod')" >/dev/null 2>&1; then
+    ok "module Lua $mod"
+  else
+    bad "module Lua $mod introuvable (moonc en dépend)"
+  fi
+done
 command -v coffee >/dev/null 2>&1 && printf '  version coffee : %s\n' "$(coffee --version 2>&1)"
 command -v node   >/dev/null 2>&1 && printf '  version node   : %s\n' "$(node --version 2>&1)"
 command -v make   >/dev/null 2>&1 && printf '  version make   : %s\n' "$(make --version 2>&1 | head -1)"

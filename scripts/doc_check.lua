@@ -280,7 +280,7 @@ local domain_for_operation
 domain_for_operation = require('doc_domains').domain_for_operation
 local collect_backend_files
 collect_backend_files = function()
-  return run_lines("find ./backend -name '*.moon' -type f ! -path './backend/moonscript/*' | sed 's#^\\./##'")
+  return run_lines("find ./backend -name '*.moon' -type f ! -path './backend/vendor/*' | sed 's#^\\./##'")
 end
 local critical_modules = {
   'backend/init.moon',

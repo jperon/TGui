@@ -9,7 +9,8 @@ box.cfg {
 }
 
 -- Add /app/backend to the Lua path so all backend modules are reachable
-package.path = '/app/?.lua;/app/backend/?.lua;/app/backend/?/init.lua;' .. package.path
+-- (backend/vendor/moonscript : sous-module MoonScript 0.8.0)
+package.path = '/app/?.lua;/app/backend/?.lua;/app/backend/?/init.lua;/app/backend/vendor/moonscript/?.lua;/app/backend/vendor/moonscript/?/init.lua;' .. package.path
 
 -- Raise the default fiber slice before the tests run: the whole suite executes
 -- in the single main fiber and accumulates seconds of formula/grid work without

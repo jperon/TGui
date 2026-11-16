@@ -1,0 +1,3 @@
+[submodule "backend/vendor/moonscript"]
+	path = backend/vendor/moonscript
+	url = https://github.com/leafo/moonscript

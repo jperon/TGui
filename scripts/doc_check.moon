@@ -193,7 +193,7 @@ package.path = "#{script_dir}/?.lua;" .. package.path
 { :domain_for_operation } = require 'doc_domains'
 
 collect_backend_files = ->
-  run_lines "find ./backend -name '*.moon' -type f ! -path './backend/moonscript/*' | sed 's#^\\./##'"
+  run_lines "find ./backend -name '*.moon' -type f ! -path './backend/vendor/*' | sed 's#^\\./##'"
 
 critical_modules = {
   'backend/init.moon'

@@ -642,7 +642,7 @@ modules_from_rel = function(rels)
 end
 local collect_modules
 collect_modules = function()
-  local backend_files = list_files("cd " .. tostring(shell_quote(ROOT_DIR)) .. " && find ./backend -name '*.moon' -type f ! -path './backend/moonscript/*' | sed 's#^\\./##'")
+  local backend_files = list_files("cd " .. tostring(shell_quote(ROOT_DIR)) .. " && find ./backend -name '*.moon' -type f ! -path './backend/vendor/*' | sed 's#^\\./##'")
   local backend_abs = { }
   for _index_0 = 1, #backend_files do
     local rel = backend_files[_index_0]

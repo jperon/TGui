@@ -27,3 +27,6 @@ Thumbs.db
 # PDF files (generated documentation)
 *.pdf
 
+
+# MoonScript native parser (compiled by make build, never committed)
+build/
