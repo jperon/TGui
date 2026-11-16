@@ -382,6 +382,23 @@ Deleting a library definition still used by a page is **refused**: the message l
 pages. Changing the scope of a used definition is refused too (the pages resolving it
 would lose their widget). A definition owned by an app goes away with it.
 
+#### Detach an instance
+
+The **Detach** button in a custom widget's title bar (admins, page edit mode) makes a single
+instance independent from the shared definition:
+
+- the resolved definition — script, template, languages, manifest and description — is
+  copied under a new name, prefilled `<name> (<page title>)` and editable (a numeric suffix
+  is appended when the name is taken);
+- the copy lives in the page's scope (the page's app, otherwise the library);
+- only **this instance's** `type:` is rewritten: the other instances of the page, the other
+  pages and the original definition stay untouched; `params`, `columns` and the rest of the
+  node are kept.
+
+The page is reloaded and the plugin editor opens on the copy: later edits only affect the
+detached instance. GraphQL mutation: `detachWidgetPlugin(pageId, widgetId, newName)`
+(admin).
+
 #### Create a plugin
 
 1. Open a custom view.

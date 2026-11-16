@@ -1133,6 +1133,8 @@ Un conflit sur une définition de widget liste aussi les **pages touchées** (`p
 
 Une définition globale utilisée par une page ne peut pas être supprimée : `deleteWidgetPlugin` échoue en listant les pages.
 
+`detachWidgetPlugin(pageId, widgetId, newName)` (admin, spec widgets personnalisés §4) copie la définition résolue par une instance dans la **portée de sa page** (app de la page, sinon bibliothèque) et ne réécrit que le `type:` de cette instance. La copie est donc exportée avec l'app si elle est dans sa portée ; les autres pages gardent l'original.
+
 ### GraphQL API
 
 ```graphql

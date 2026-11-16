@@ -509,4 +509,213 @@ add_widget_to_view = (viewId, widget) ->
     updatedAt: tostring(os.time())
   }
 
-{ :reorder_widgets, :add_widget_to_view, :add_data_view_to_page, :encode_layout_yaml }
+-- ────────────────────────────────────────────────────────────────────────────
+-- Réécriture d'UNE instance de widget (spec widgets personnalisés, §4
+-- « détacher »). Le patch est textuel : commentaires, ordre des clés et mise en
+-- forme du reste de la page sont conservés. Le résultat est vérifié en relisant
+-- le YAML : l'arbre obtenu doit être identique, sauf le `type:` de l'instance
+-- visée. Une erreur claire est levée plutôt qu'une réécriture silencieuse d'une
+-- autre instance.
+-- ────────────────────────────────────────────────────────────────────────────
+
+-- Mapping `widget` d'id `widget_id` dans l'arbre décodé, ou nil.
+find_widget_mapping = (node, widget_id, depth = 0) ->
+  return nil unless type(node) == 'table' and depth <= 32
+  if type(node.widget) == 'table'
+    return node.widget if tostring(node.widget.id) == tostring(widget_id)
+    return nil
+  for _, child in pairs node
+    continue unless type(child) == 'table'
+    found = find_widget_mapping child, widget_id, depth + 1
+    return found if found
+  nil
+
+-- Configuration décodée d'une page, ou nil (YAML vide ou invalide).
+decode_page_config = (text) ->
+  return nil unless type(text) == 'string' and text\match '%S'
+  ok, config = pcall yaml.decode, text
+  return nil unless ok and type(config) == 'table'
+  config
+
+-- Mapping de l'instance `widget_id` dans le YAML d'une page, ou nil.
+find_widget_in_text = (text, widget_id) ->
+  config = decode_page_config text
+  return nil unless config
+  find_widget_mapping config, widget_id
+
+-- Lignes du texte, avec l'information « se terminait par un saut de ligne »
+-- pour restituer les octets d'origine.
+_split_lines = (text) ->
+  lines = {}
+  for line in (text .. "\n")\gmatch '([^\n]*)\n'
+    table.insert lines, line
+  last_break = #lines > 0 and lines[#lines] == '' and text\sub(-1) == "\n"
+  table.remove lines if last_break
+  { lines: lines, trailing: last_break }
+
+-- Valeur d'un scalaire YAML, sans guillemets ni commentaire.
+_scalar_value = (raw) ->
+  v = tostring(raw or '')\match '^([^#]*)' or tostring(raw or '')
+  v = v\match '^%s*(.-)%s*$'
+  if #v >= 2
+    q = v\sub 1, 1
+    v = v\sub 2, -2 if (q == '"' or q == "'") and v\sub(-1) == q
+  v
+
+-- Ligne d'en-tête d'un mapping `widget:` (avec ou sans « - »), ou nil.
+_match_widget_key = (line) ->
+  indent = line\match '^%s*'
+  body = line\sub #indent + 1
+  key_col = #indent
+  dash = body\match '^%-%s+'
+  if dash
+    key_col += #dash
+    body = body\sub #dash + 1
+  rest = body\match '^widget%s*:%s*(.*)$'
+  return nil unless rest
+  { key_col: key_col, rest: rest }
+
+-- Première et dernière ligne enfant directe du mapping (indentation
+-- strictement supérieure à `key_col`). `nil` quand le mapping est vide.
+_child_range = (lines, header_idx, key_col) ->
+  first = nil
+  last = nil
+  for j = header_idx + 1, #lines
+    raw = lines[j]
+    continue if raw\match '^%s*$' or raw\match '^%s*#'
+    ind = #(raw\match '^%s*')
+    break if ind <= key_col
+    first = j unless first
+    last = j
+  { first: first, last: last }
+
+-- Ligne `key:` parmi les enfants DIRECTS du mapping, ou nil. Seule
+-- l'indentation du premier enfant est acceptée : une clé de même nom plus
+-- profondément imbriquée (`depends_on.id`, `params.type`…) ne doit jamais être
+-- prise pour celle du widget.
+_find_child_key = (lines, range, key) ->
+  return nil unless range.first
+  base = #(lines[range.first]\match '^%s*')
+  for j = range.first, range.last
+    continue unless #(lines[j]\match '^%s*') == base
+    k, value = lines[j]\match '^%s*([%w_%-%.]+)%s*:%s*(.*)$'
+    return { line: j, value: value } if k == key
+  nil
+
+-- Ligne `type:` réécrite, indentation, style de guillemets et commentaire final
+-- conservés (un nom simple reste nu, un nom déjà entre guillemets le reste).
+_rewrite_type_value = (line, new_type) ->
+  prefix, value, suffix = line\match '^(%s*type%s*:%s*)(.-)(%s*)$'
+  return nil unless prefix
+  comment = value\match '(%s*#.*)$'
+  if comment
+    value = value\sub 1, #value - #comment
+  bare = value\match '^%s*(.-)%s*$'
+  new_value = yaml_scalar new_type
+  first = bare\sub 1, 1
+  if first == "'" and bare\sub(-1) == "'"
+    new_value = "'" .. new_type\gsub("'", "''") .. "'"
+  elseif first == '"' and bare\sub(-1) == '"'
+    new_value = '"' .. new_type .. '"'
+  prefix .. new_value .. (comment or '') .. suffix
+
+-- Forme « flow » (`- widget: {id: w1, type: x}`) : réécriture dans les
+-- accolades. Best-effort, l'appelant vérifie le résultat en relisant le YAML.
+_flow_patch = (line, widget_id, new_type) ->
+  header = line\find 'widget%s*:%s*{'
+  return nil unless header
+  open = line\find '{', header
+  return nil unless open
+  close = line\find '}', open
+  return nil unless close
+  inside = line\sub open + 1, close - 1
+  id_raw = inside\match 'id%s*:%s*([^,}]*)'
+  return nil unless id_raw and _scalar_value(id_raw) == tostring(widget_id)
+  return nil unless inside\match 'type%s*:%s*[^,}]*'
+  patched = inside\gsub 'type%s*:%s*[^,}]*', 'type: ' .. yaml_scalar(new_type), 1
+  line\sub(1, open) .. patched .. line\sub(close)
+
+-- Égalité profonde de deux valeurs YAML décodées.
+_deep_equal = (a, b) ->
+  return false unless type(a) == type(b)
+  return a == b unless type(a) == 'table'
+  count = 0
+  for k, v in pairs a
+    count += 1
+    return false unless _deep_equal v, b[k]
+  for _ in pairs b
+    count -= 1
+  count == 0
+
+-- Relit le YAML patché et exige que l'arbre soit identique à l'original, au
+-- `type:` près de l'instance visée.
+_verify_widget_type = (before_config, target, new_text, widget_id, new_type) ->
+  target.type = new_type
+  ok, after = pcall yaml.decode, new_text
+  error "Rewritten page YAML is invalid" unless ok and type(after) == 'table'
+  unless _deep_equal before_config, after
+    error "Rewriting widget '#{widget_id}' would change the rest of the page YAML"
+  nil
+
+-- Réécrit le `type:` d'une seule instance. Renvoie le texte patché ; lève une
+-- erreur si l'instance, sa ligne `type:` ou la vérification échoue.
+rewrite_widget_type = (text, widget_id, new_type) ->
+  config = decode_page_config text
+  error "Page YAML is empty or invalid" unless config
+  target = find_widget_mapping config, widget_id
+  error "Widget not found in page YAML: #{widget_id}" unless target
+  unless type(target.type) == 'string' and target.type != ''
+    error "Widget '#{widget_id}' has no custom type to rewrite"
+
+  split = _split_lines text
+  lines = split.lines
+  patched = false
+  for idx, raw in ipairs lines
+    header = _match_widget_key raw
+    continue unless header
+    if header.rest\sub(1, 1) == '{'
+      flow = _flow_patch raw, widget_id, new_type
+      if flow
+        lines[idx] = flow
+        patched = true
+        break
+    else
+      range = _child_range lines, idx, header.key_col
+      id_entry = _find_child_key lines, range, 'id'
+      continue unless id_entry and _scalar_value(id_entry.value) == tostring(widget_id)
+      type_entry = _find_child_key lines, range, 'type'
+      error "Widget '#{widget_id}' has no type line" unless type_entry
+      rewritten = _rewrite_type_value lines[type_entry.line], new_type
+      error "Cannot rewrite the type of widget '#{widget_id}'" unless rewritten
+      lines[type_entry.line] = rewritten
+      patched = true
+      break
+  error "Widget not found in page YAML: #{widget_id}" unless patched
+
+  new_text = table.concat lines, "\n"
+  new_text ..= "\n" if split.trailing
+  _verify_widget_type config, target, new_text, widget_id, new_type
+  new_text
+
+-- Réécrit le `type:` d'une instance puis enregistre la page. Renvoie la page
+-- mise à jour, dans la même forme que les autres écritures de ce module.
+set_widget_type = (page_id, widget_id, new_type) ->
+  t = box.space._tdb_custom_views\get page_id
+  error "CustomView not found: #{page_id}" unless t
+  new_yaml = rewrite_widget_type t[4], widget_id, new_type
+  now = os.time!
+  box.space._tdb_custom_views\update page_id, {
+    { '=', 4, new_yaml }
+    { '=', 6, now }
+  }
+  {
+    id: t[1]
+    name: t[2]
+    description: t[3]
+    yaml: new_yaml
+    createdAt: tostring(t[5])
+    updatedAt: tostring(now)
+  }
+
+{ :reorder_widgets, :add_widget_to_view, :add_data_view_to_page, :encode_layout_yaml,
+  :find_widget_in_text, :rewrite_widget_type, :set_widget_type }

@@ -23,6 +23,41 @@ DELETE_RECORD_MUTATION = """
   }
 """
 
+# « Détacher » une instance (spec widgets personnalisés §4) : la mutation copie
+# la définition et réécrit le `type:` de cette seule instance.
+DETACH_WIDGET_PLUGIN_MUTATION = """
+  mutation DetachWidgetPlugin($pageId: ID!, $widgetId: ID!, $newName: String) {
+    detachWidgetPlugin(pageId: $pageId, widgetId: $widgetId, newName: $newName) {
+      id
+      name
+      description
+      scriptLanguage
+      templateLanguage
+      scriptCode
+      templateCode
+      manifest
+      appId
+    }
+  }
+"""
+
+# Relecture de la page après détachement : le serveur a réécrit son YAML.
+DETACHED_PAGE_QUERY = """
+  query DetachedPage($id: ID!) {
+    customView(id: $id) {
+      id
+      name
+      description
+      yaml
+      createdAt
+      updatedAt
+    }
+  }
+"""
+
+# Types fournis par le programme : ils n'ont pas de définition à détacher.
+BUILTIN_WIDGET_TYPES = ['aggregate', 'table']
+
 Object.assign window.CustomView::,
   _setPluginSelectionListener: (widgetId, listener) ->
     return unless widgetId
@@ -565,3 +600,69 @@ Object.assign window.CustomView::,
     return unless st?.iframe?.contentWindow
     payload = Object.assign { widgetId }, msg
     st.iframe.contentWindow.postMessage payload, '*'
+
+  # ── Détacher une instance (spec widgets personnalisés §4) ────────────────────
+  # Le bouton n'apparaît qu'en édition de page (une page montée avec un id), pour
+  # un admin, et sur un widget personnalisé (pas un widget fourni par le
+  # programme). Le type seul ne prouve pas qu'une définition existe ; le serveur
+  # répond alors par une erreur claire.
+  _canDetachPluginWidget: (wNode) ->
+    return false unless @pageId and not @presentationMode
+    return false unless wNode?.type
+    return false if wNode.type in BUILTIN_WIDGET_TYPES
+    return false unless window.Auth?.isAdmin?()
+    true
+
+  _addPluginDetachButton: (titleBar, wNode) ->
+    return null unless titleBar and @_canDetachPluginWidget wNode
+    btn = document.createElement 'button'
+    btn.type = 'button'
+    btn.className = 'cv-widget-detach-btn no-drag'
+    btn.textContent = 'Détacher'
+    btn.title = 'Détacher — copier ce widget personnalisé pour cette page'
+    btn.addEventListener 'click', (ev) =>
+      ev?.preventDefault?()
+      ev?.stopPropagation?()
+      @_detachPluginWidget wNode
+    titleBar.appendChild btn
+    btn
+
+  # Demande le nom de la copie (pré-rempli « <type> (<titre de page>) »),
+  # envoie detachWidgetPlugin puis recharge la page. Le nom réellement retenu
+  # (suffixé si pris) revient dans `detachWidgetPlugin.name`.
+  _detachPluginWidget: (wNode) ->
+    pageId = @pageId
+    widgetId = wNode?.id
+    return unless pageId and widgetId
+    pageTitle = window.App?._currentCustomView?.name or ''
+    defaultName = if pageTitle then "#{wNode.type} (#{pageTitle})" else wNode.type
+    name = await tdbPrompt 'Nom du widget détaché :', defaultName
+    return unless name?
+    name = String(name).trim()
+    return if name == ''
+    GQL.mutate DETACH_WIDGET_PLUGIN_MUTATION, { pageId, widgetId, newName: name }
+      .then (data) =>
+        created = data?.detachWidgetPlugin
+        return unless created
+        window.CustomView?.showNotification? "Widget détaché sous « #{created.name} »", 'success'
+        @_reloadPageAfterDetach created
+      .catch (err) =>
+        tdbAlert window.App?._err?(err) or err?.message or String(err), 'error'
+
+  # Recharge le YAML de la page depuis la base (le serveur vient de le réécrire),
+  # puis ouvre l'éditeur de définitions sur la copie : c'est elle que l'on vient
+  # de créer et que l'on veut personnaliser.
+  _reloadPageAfterDetach: (created) ->
+    app = window.App
+    return unless app and typeof GQL != 'undefined'
+    GQL.query(DETACHED_PAGE_QUERY, { id: @pageId })
+      .then (data) =>
+        cv = data?.customView
+        return unless cv
+        app._currentCustomView = cv
+        app._cmYaml?.setValue cv.yaml
+        window.AppViewHelpers?.renderCustomViewPreview? app, cv.yaml
+        if window.AppViewHelpers?.openWidgetPluginModal
+          window.AppViewHelpers.openWidgetPluginModal app, created.id
+      .catch (err) ->
+        tdbAlert window.App?._err?(err) or err?.message or String(err), 'error'

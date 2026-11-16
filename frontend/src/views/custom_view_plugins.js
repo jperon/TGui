@@ -6,7 +6,8 @@
   // Mutations d'enregistrements autorisées depuis un widget (spec §6). Elles sont
   // relayées avec l'en-tête widget : le serveur garde sa propre liste blanche
   // (backend/graphql/executor.moon WIDGET_ALLOWED_MUTATIONS).
-  var DELETE_RECORD_MUTATION, INSERT_RECORD_MUTATION, UPDATE_RECORD_MUTATION;
+  var BUILTIN_WIDGET_TYPES, DELETE_RECORD_MUTATION, DETACHED_PAGE_QUERY, DETACH_WIDGET_PLUGIN_MUTATION, INSERT_RECORD_MUTATION, UPDATE_RECORD_MUTATION,
+    indexOf = [].indexOf;
 
   UPDATE_RECORD_MUTATION = `mutation WidgetUpdateRecord($spaceId: ID!, $id: ID!, $data: JSON!) {
   updateRecord(spaceId: $spaceId, id: $id, data: $data) { id data }
@@ -19,6 +20,37 @@
   DELETE_RECORD_MUTATION = `mutation WidgetDeleteRecord($spaceId: ID!, $id: ID!) {
   deleteRecord(spaceId: $spaceId, id: $id)
 }`;
+
+  // « Détacher » une instance (spec widgets personnalisés §4) : la mutation copie
+  // la définition et réécrit le `type:` de cette seule instance.
+  DETACH_WIDGET_PLUGIN_MUTATION = `mutation DetachWidgetPlugin($pageId: ID!, $widgetId: ID!, $newName: String) {
+  detachWidgetPlugin(pageId: $pageId, widgetId: $widgetId, newName: $newName) {
+    id
+    name
+    description
+    scriptLanguage
+    templateLanguage
+    scriptCode
+    templateCode
+    manifest
+    appId
+  }
+}`;
+
+  // Relecture de la page après détachement : le serveur a réécrit son YAML.
+  DETACHED_PAGE_QUERY = `query DetachedPage($id: ID!) {
+  customView(id: $id) {
+    id
+    name
+    description
+    yaml
+    createdAt
+    updatedAt
+  }
+}`;
+
+  // Types fournis par le programme : ils n'ont pas de définition à détacher.
+  BUILTIN_WIDGET_TYPES = ['aggregate', 'table'];
 
   Object.assign(window.CustomView.prototype, {
     _setPluginSelectionListener: function(widgetId, listener) {
@@ -828,6 +860,128 @@ ${js}
       }
       payload = Object.assign({widgetId}, msg);
       return st.iframe.contentWindow.postMessage(payload, '*');
+    },
+    // ── Détacher une instance (spec widgets personnalisés §4) ────────────────────
+    // Le bouton n'apparaît qu'en édition de page (une page montée avec un id), pour
+    // un admin, et sur un widget personnalisé (pas un widget fourni par le
+    // programme). Le type seul ne prouve pas qu'une définition existe ; le serveur
+    // répond alors par une erreur claire.
+    _canDetachPluginWidget: function(wNode) {
+      var ref, ref1;
+      if (!(this.pageId && !this.presentationMode)) {
+        return false;
+      }
+      if (!(wNode != null ? wNode.type : void 0)) {
+        return false;
+      }
+      if (ref = wNode.type, indexOf.call(BUILTIN_WIDGET_TYPES, ref) >= 0) {
+        return false;
+      }
+      if (!((ref1 = window.Auth) != null ? typeof ref1.isAdmin === "function" ? ref1.isAdmin() : void 0 : void 0)) {
+        return false;
+      }
+      return true;
+    },
+    _addPluginDetachButton: function(titleBar, wNode) {
+      var btn;
+      if (!(titleBar && this._canDetachPluginWidget(wNode))) {
+        return null;
+      }
+      btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'cv-widget-detach-btn no-drag';
+      btn.textContent = 'Détacher';
+      btn.title = 'Détacher — copier ce widget personnalisé pour cette page';
+      btn.addEventListener('click', (ev) => {
+        if (ev != null) {
+          if (typeof ev.preventDefault === "function") {
+            ev.preventDefault();
+          }
+        }
+        if (ev != null) {
+          if (typeof ev.stopPropagation === "function") {
+            ev.stopPropagation();
+          }
+        }
+        return this._detachPluginWidget(wNode);
+      });
+      titleBar.appendChild(btn);
+      return btn;
+    },
+    // Demande le nom de la copie (pré-rempli « <type> (<titre de page>) »),
+    // envoie detachWidgetPlugin puis recharge la page. Le nom réellement retenu
+    // (suffixé si pris) revient dans `detachWidgetPlugin.name`.
+    _detachPluginWidget: async function(wNode) {
+      var defaultName, name, pageId, pageTitle, ref, ref1, widgetId;
+      pageId = this.pageId;
+      widgetId = wNode != null ? wNode.id : void 0;
+      if (!(pageId && widgetId)) {
+        return;
+      }
+      pageTitle = ((ref = window.App) != null ? (ref1 = ref._currentCustomView) != null ? ref1.name : void 0 : void 0) || '';
+      defaultName = pageTitle ? `${wNode.type} (${pageTitle})` : wNode.type;
+      name = (await tdbPrompt('Nom du widget détaché :', defaultName));
+      if (name == null) {
+        return;
+      }
+      name = String(name).trim();
+      if (name === '') {
+        return;
+      }
+      return GQL.mutate(DETACH_WIDGET_PLUGIN_MUTATION, {
+        pageId,
+        widgetId,
+        newName: name
+      }).then((data) => {
+        var created, ref2;
+        created = data != null ? data.detachWidgetPlugin : void 0;
+        if (!created) {
+          return;
+        }
+        if ((ref2 = window.CustomView) != null) {
+          if (typeof ref2.showNotification === "function") {
+            ref2.showNotification(`Widget détaché sous « ${created.name} »`, 'success');
+          }
+        }
+        return this._reloadPageAfterDetach(created);
+      }).catch((err) => {
+        var ref2;
+        return tdbAlert(((ref2 = window.App) != null ? typeof ref2._err === "function" ? ref2._err(err) : void 0 : void 0) || (err != null ? err.message : void 0) || String(err), 'error');
+      });
+    },
+    // Recharge le YAML de la page depuis la base (le serveur vient de le réécrire),
+    // puis ouvre l'éditeur de définitions sur la copie : c'est elle que l'on vient
+    // de créer et que l'on veut personnaliser.
+    _reloadPageAfterDetach: function(created) {
+      var app;
+      app = window.App;
+      if (!(app && typeof GQL !== 'undefined')) {
+        return;
+      }
+      return GQL.query(DETACHED_PAGE_QUERY, {
+        id: this.pageId
+      }).then((data) => {
+        var cv, ref, ref1, ref2;
+        cv = data != null ? data.customView : void 0;
+        if (!cv) {
+          return;
+        }
+        app._currentCustomView = cv;
+        if ((ref = app._cmYaml) != null) {
+          ref.setValue(cv.yaml);
+        }
+        if ((ref1 = window.AppViewHelpers) != null) {
+          if (typeof ref1.renderCustomViewPreview === "function") {
+            ref1.renderCustomViewPreview(app, cv.yaml);
+          }
+        }
+        if ((ref2 = window.AppViewHelpers) != null ? ref2.openWidgetPluginModal : void 0) {
+          return window.AppViewHelpers.openWidgetPluginModal(app, created.id);
+        }
+      }).catch(function(err) {
+        var ref;
+        return tdbAlert(((ref = window.App) != null ? typeof ref._err === "function" ? ref._err(err) : void 0 : void 0) || (err != null ? err.message : void 0) || String(err), 'error');
+      });
     }
   });
 

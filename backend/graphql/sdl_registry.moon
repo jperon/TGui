@@ -52,6 +52,7 @@ Mutation = {
   { name: 'createWidgetPlugin', args: 'input: CreateWidgetPluginInput!', returns: 'WidgetPlugin!' }
   { name: 'updateWidgetPlugin', args: 'id: ID!, input: UpdateWidgetPluginInput!', returns: 'WidgetPlugin!' }
   { name: 'deleteWidgetPlugin', args: 'id: ID!',                         returns: 'Boolean!' }
+  { name: 'detachWidgetPlugin', args: 'pageId: ID!, widgetId: ID!, newName: String', returns: 'WidgetPlugin!' }
   { name: 'saveViewPreset',   args: 'scope: String!, spaceId: ID!, name: String!, filter: String, sort: String', returns: 'ViewPreset!' }
   { name: 'deleteViewPreset', args: 'id: ID!',                           returns: 'Boolean!' }
   { name: 'addWidgetToView',   args: 'viewId: ID!, widget: WidgetInput!',   returns: 'CustomView!' }

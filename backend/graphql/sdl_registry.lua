@@ -232,6 +232,11 @@ local Mutation = {
     returns = 'Boolean!'
   },
   {
+    name = 'detachWidgetPlugin',
+    args = 'pageId: ID!, widgetId: ID!, newName: String',
+    returns = 'WidgetPlugin!'
+  },
+  {
     name = 'saveViewPreset',
     args = 'scope: String!, spaceId: ID!, name: String!, filter: String, sort: String',
     returns = 'ViewPreset!'

@@ -533,6 +533,9 @@ window.CustomView = class CustomView
     # Custom plugin widget (type = plugin name)
     if wNode.type
       runtimeWidgetId = wNode.id or "plugin_#{Math.random().toString(36).slice(2)}"
+      # Action « Détacher » (spec widgets personnalisés §4) : ajoutée par
+      # custom_view_plugins.js, seulement en édition de page et pour un admin.
+      @_addPluginDetachButton? titleBar, wNode
       @_renderPluginWidget body, wNode, runtimeWidgetId
       entry = { dataView: null, node: wNode, el: wrapper, plugin: true, runtimeWidgetId }
       @_widgets.push entry

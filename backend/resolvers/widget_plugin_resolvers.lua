@@ -2,6 +2,7 @@ local uuid_mod = require('uuid')
 local clock = require('clock')
 local yaml = require('yaml')
 local scopes = require('core.widget_scopes')
+local cv_widgets = require('resolvers.custom_view_widgets')
 local require_auth, require_perm
 do
   local _obj_0 = require('resolvers.utils')
@@ -18,6 +19,8 @@ local VALID_TEMPLATE_LANGS = {
 local MAX_NAME_LEN = 120
 local MAX_DESC_LEN = 2000
 local MAX_CODE_LEN = 200000
+local NAME_PATTERN = "^[%a_\128-\255][%w_%-%.%(%) \128-\255]*$"
+local NAME_ALLOWED = "[^%w_%-%.%(%) \128-\255]"
 local normalize_script_lang
 normalize_script_lang = function(lang)
   local l = tostring(lang or 'coffeescript')
@@ -37,9 +40,12 @@ validate_name = function(name)
   if #n > MAX_NAME_LEN then
     error("WidgetPlugin name too long: " .. tostring(#n))
   end
-  local ok = n:find('^[%a_][%w_%-]*$')
+  if n:match('^%s' or n:match('%s$')) then
+    error('WidgetPlugin name must not start or end with a space')
+  end
+  local ok = n:find(NAME_PATTERN)
   if not (ok) then
-    error('WidgetPlugin name must match [A-Za-z_][A-Za-z0-9_-]*')
+    error('WidgetPlugin name must match [A-Za-z_][A-Za-z0-9_-.() ]*')
   end
   return n
 end
@@ -406,6 +412,98 @@ delete_widget_plugin = function(id)
   box.space._tdb_widget_plugins:delete(id)
   return true
 end
+local sanitize_name
+sanitize_name = function(text)
+  local n = tostring(text or ''):gsub(NAME_ALLOWED, '_')
+  n = n:gsub('%s+', ' ')
+  n = n:match('^%s*(.-)%s*$')
+  return n
+end
+local truncate_name
+truncate_name = function(name, limit)
+  if #name <= limit then
+    return name
+  end
+  local cut = name:sub(1, limit)
+  cut = cut:match('^(.*)%s' or cut)
+  return cut:match('^(.-)%s*$')
+end
+local default_copy_name
+default_copy_name = function(plugin_name, page_name)
+  local base
+  if type(page_name) == 'string' and page_name:match('%S') then
+    base = tostring(plugin_name) .. " (" .. tostring(page_name) .. ")"
+  else
+    base = tostring(plugin_name) .. "_copie"
+  end
+  return sanitize_name(base)
+end
+local copy_name_for
+copy_name_for = function(requested, plugin_name, page_name, app_id)
+  local base = nil
+  if type(requested) == 'string' and requested:match('%S') then
+    base = validate_name(requested)
+  else
+    local candidate = truncate_name((default_copy_name(plugin_name, page_name)), MAX_NAME_LEN - 8)
+    if candidate == '' then
+      error('WidgetPlugin name is required')
+    end
+    if not (candidate:match('^[%a_\128-\255]')) then
+      candidate = 'w_' .. candidate
+    end
+    base = validate_name(candidate)
+  end
+  return scopes.unique_name(base, app_id)
+end
+local copy_widget_plugin
+copy_widget_plugin = function(source, name, app_id)
+  return create_widget_plugin({
+    name = name,
+    description = source[3] or '',
+    scriptLanguage = source[4] or 'coffeescript',
+    templateLanguage = source[5] or 'pug',
+    scriptCode = source[6] or '',
+    templateCode = source[7] or '',
+    manifest = source[10] or '',
+    appId = app_id
+  })
+end
+local detach_widget_plugin
+detach_widget_plugin = function(page_id, widget_id, new_name)
+  if page_id == nil or page_id == '' then
+    error('pageId is required')
+  end
+  if widget_id == nil or widget_id == '' then
+    error('widgetId is required')
+  end
+  local page = box.space._tdb_custom_views:get(page_id)
+  if not (page) then
+    error("Custom view not found: " .. tostring(page_id))
+  end
+  local node = cv_widgets.find_widget_in_text(page[4], widget_id)
+  if not (node) then
+    error("Widget not found in page '" .. tostring(page[2]) .. "': " .. tostring(widget_id))
+  end
+  local instance_type = node.type
+  if not (type(instance_type) == 'string' and instance_type ~= '' and not scopes.BUILTIN_WIDGET_TYPES[instance_type]) then
+    error("Widget '" .. tostring(widget_id) .. "' is not a custom widget")
+  end
+  local source = scopes.resolve_for_page(instance_type, page_id)
+  if not (source) then
+    error("Widget definition not found for type '" .. tostring(instance_type) .. "'")
+  end
+  local app_id = scopes.page_app_id(page_id)
+  local copy_name = copy_name_for(new_name, source[2], page[2], app_id)
+  local copy = copy_widget_plugin(source, copy_name, app_id)
+  local ok, err = pcall(function()
+    return cv_widgets.set_widget_type(page_id, widget_id, copy.name)
+  end)
+  if not (ok) then
+    box.space._tdb_widget_plugins:delete(copy.id)
+    error(tostring(err), 0)
+  end
+  return copy
+end
 local Query = {
   widgetPlugins = function(_, args, ctx)
     require_perm(ctx, '*', nil, 'read')
@@ -471,6 +569,10 @@ local Mutation = {
   deleteWidgetPlugin = function(_, args, ctx)
     require_perm(ctx, '*', nil, 'admin')
     return delete_widget_plugin(args.id)
+  end,
+  detachWidgetPlugin = function(_, args, ctx)
+    require_perm(ctx, '*', nil, 'admin')
+    return detach_widget_plugin(args.pageId, args.widgetId, args.newName)
   end
 }
 return {

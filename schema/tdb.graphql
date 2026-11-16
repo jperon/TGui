@@ -135,6 +135,11 @@ type Mutation {
   createWidgetPlugin(input: CreateWidgetPluginInput!): WidgetPlugin!
   updateWidgetPlugin(id: ID!, input: UpdateWidgetPluginInput!): WidgetPlugin!
   deleteWidgetPlugin(id: ID!): Boolean!
+  # Detach one instance of a custom widget (§4): copy the definition it resolves
+  # under `newName` (default "<name> (<page title>)", numeric suffix when taken)
+  # in the page's scope (its app, else the library), then rewrite that instance's
+  # `type:` only. `params`, `columns` and the rest of the node are kept.
+  detachWidgetPlugin(pageId: ID!, widgetId: ID!, newName: String): WidgetPlugin!
 
   # View presets
   saveViewPreset(scope: String!, spaceId: ID!, name: String!, filter: String, sort: String): ViewPreset!

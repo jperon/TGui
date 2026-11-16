@@ -384,6 +384,23 @@ le message liste les pages concernées. De même, changer la portée d'une défi
 est refusé (les pages qui la résolvent perdraient leur widget). Une définition propre à une
 app est supprimée avec elle.
 
+#### Détacher une instance
+
+Le bouton **Détacher** de la barre d'un widget personnalisé (admins, en mode édition de
+page) rend une seule instance indépendante de la définition commune :
+
+- la définition résolue — script, gabarit, langages, manifest et description — est copiée
+  sous un nouveau nom, pré-rempli `<nom> (<titre de la page>)` et modifiable (un suffixe
+  numérique est ajouté si le nom est déjà pris) ;
+- la copie vit dans la portée de la page (app de la page, sinon bibliothèque) ;
+- seul le `type:` de **cette instance** est réécrit : les autres instances de la page, les
+  autres pages et la définition d'origine ne changent pas ; `params`, `columns` et le reste
+  du nœud sont conservés.
+
+La page est rechargée et l'éditeur de plugins s'ouvre sur la copie : les modifications
+suivantes ne concernent que l'instance détachée. Mutation GraphQL :
+`detachWidgetPlugin(pageId, widgetId, newName)` (admin).
+
 #### Créer un plugin
 
 1. Ouvrir une page.

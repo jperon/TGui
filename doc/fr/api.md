@@ -2,7 +2,7 @@
 
 > Auto-generated file. Do not edit manually.
 >
-> Generated at: 2026-11-16 16:05:09 UTC
+> Generated at: 2026-11-16 17:25:26 UTC
 >
 > Source: `schema/tdb.graphql`
 
@@ -152,6 +152,7 @@
 | `createWidgetPlugin` | `input: CreateWidgetPluginInput!` | `WidgetPlugin!` | Manage custom widget plugins (script + template) usable in views. |
 | `updateWidgetPlugin` | `id: ID!, input: UpdateWidgetPluginInput!` | `WidgetPlugin!` | Manage custom widget plugins (script + template) usable in views. |
 | `deleteWidgetPlugin` | `id: ID!` | `Boolean!` | Manage custom widget plugins (script + template) usable in views. |
+| `detachWidgetPlugin` | `pageId: ID!, widgetId: ID!, newName: String` | `WidgetPlugin!` | Manage custom widget plugins (script + template) usable in views. |
 
 ### Layouts & Zones
 

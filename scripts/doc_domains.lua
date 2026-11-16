@@ -25,7 +25,7 @@ domain_for_operation = function(name)
   if starts_with(name, 'dataView') or starts_with(name, 'createDataView') or starts_with(name, 'updateDataView') or starts_with(name, 'deleteDataView') or starts_with(name, 'executeDataView') or starts_with(name, 'addDataViewToPage') then
     return 'data_views'
   end
-  if starts_with(name, 'widgetPlugin') or starts_with(name, 'createWidgetPlugin') or starts_with(name, 'updateWidgetPlugin') or starts_with(name, 'deleteWidgetPlugin') then
+  if starts_with(name, 'widgetPlugin') or starts_with(name, 'createWidgetPlugin') or starts_with(name, 'updateWidgetPlugin') or starts_with(name, 'deleteWidgetPlugin') or name == 'detachWidgetPlugin' then
     return 'widget_plugins'
   end
   if starts_with(name, 'layoutSnapshot') or starts_with(name, 'listLayoutSnapshots') or starts_with(name, 'createLayoutSnapshot') or starts_with(name, 'restoreLayoutSnapshot') or starts_with(name, 'exportLayout') or starts_with(name, 'importLayout') or starts_with(name, 'createZone') or starts_with(name, 'resizeZone') or starts_with(name, 'mergeZones') or starts_with(name, 'splitZone') or starts_with(name, 'addWidgetToView') or starts_with(name, 'reorderWidgets') or starts_with(name, 'updateWidgetInView') or starts_with(name, 'removeWidgetFromView') then

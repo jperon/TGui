@@ -728,6 +728,9 @@ transition: all 0.3s ease;`;
       // Custom plugin widget (type = plugin name)
       if (wNode.type) {
         runtimeWidgetId = wNode.id || `plugin_${Math.random().toString(36).slice(2)}`;
+        if (typeof this._addPluginDetachButton === "function") {
+          this._addPluginDetachButton(titleBar, wNode);
+        }
         this._renderPluginWidget(body, wNode, runtimeWidgetId);
         entry = {
           dataView: null,

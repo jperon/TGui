@@ -1133,6 +1133,8 @@ A widget-definition conflict also lists the **affected pages** (`pages`). The `r
 
 A library definition used by a page cannot be deleted: `deleteWidgetPlugin` fails and lists the pages.
 
+`detachWidgetPlugin(pageId, widgetId, newName)` (admin, custom widgets spec §4) copies the definition an instance resolves into the **page's scope** (the page's app, otherwise the library) and rewrites that instance's `type:` only. The copy is therefore exported with the app when it lives in its scope; the other pages keep the original.
+
 ### GraphQL API
 
 ```graphql

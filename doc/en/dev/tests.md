@@ -2,7 +2,7 @@
 
 > Auto-generated file. Do not edit manually.
 >
-> Generated at: 2026-11-16 16:05:09 UTC
+> Generated at: 2026-11-16 17:25:26 UTC
 
 Backend/frontend test panorama and per-file intent.
 
@@ -74,6 +74,7 @@ Backend/frontend test panorama and per-file intent.
 | `tests/test_validation.moon` | Write-time record validation (core.validation), through validate_record and |
 | `tests/test_view_presets.moon` | Named view presets: scope isolation, overwrite by (scope, name), validation, |
 | `tests/test_views_core.moon` | Non-regression tests for the two bugs of core/views.moon (task T5). |
+| `tests/test_widget_detach.moon` | « Détacher » une instance de widget personnalisé (spec |
 | `tests/test_widget_gql_policy.moon` | Requêtes relayées depuis une iframe de widget (en-tête `X-TDB-Widget: 1` |
 | `tests/test_widget_ids.moon` | Tests core/widget_ids: every widget of a page YAML text carries a stable id, |
 | `tests/test_widget_plugin_manifest.moon` | Manifest des widgets personnalisés (spec |
@@ -121,6 +122,7 @@ Backend/frontend test panorama and per-file intent.
 | `tests/js/test_view_helpers.coffee` | Régression pour AppViewHelpers.renderCustomViewPreview. |
 | `tests/js/test_view_helpers_dedup.coffee` | T11 refactor guard: AppViewHelpers must not define any key twice, and every |
 | `tests/js/test_view_presets_menu.coffee` | Menu « Trier / Filtrer » : sérialisation du tri, application d'un préréglage |
+| `tests/js/test_widget_detach.coffee` | Action « Détacher » d'une instance de widget personnalisé (spec |
 | `tests/js/test_widget_manifest_access.coffee` | Manifest des widgets personnalisés : accès effectif (none/read/full), |
 | `tests/js/test_widget_plugins_dedup.coffee` | T13 guard: LIST_WIDGET_PLUGINS must be defined in exactly one frontend source |
 | `tests/js/test_widget_relay_header.coffee` | Le relais des requêtes d'un widget (custom_view_plugins.coffee) doit passer |
