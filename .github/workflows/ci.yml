@@ -71,6 +71,21 @@ jobs:
   # Tests navigateur Playwright contre l'instance de test (port 8081).
   e2e:
     runs-on: ubuntu-latest
+    # Deux réglages pour que le build de l'image ne demande pas le privilège
+    # `network.host`, que buildx refuse à l'intérieur d'un bake :
+    #   - TGUI_BUILD_NETWORK=default : le bridge Docker du runner fait du NAT,
+    #     le build (apt-get, tt rocks install, wget) n'a donc pas besoin du
+    #     réseau de l'hôte. Le demander fait émettre par compose l'entitlement
+    #     `network.host` et le build meurt avec « additional privileges
+    #     requested: pass "--allow=network.host" » (run 43845425772).
+    #   - COMPOSE_BAKE=false : les compose qui reconnaissent ce commutateur
+    #     repassent à leur builder interne, qui accepte `network: host`. Les
+    #     compose plus récents l'ignorent (la chaîne est absente du binaire 5.4.0
+    #     de Nix), d'où le garde-fou précédent. Même commutateur dans le
+    #     Makefile, pour `make up` / `make test-up` en local sous direnv.
+    env:
+      TGUI_BUILD_NETWORK: default
+      COMPOSE_BAKE: "false"
     steps:
       - uses: actions/checkout@v4
         with:

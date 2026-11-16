@@ -100,7 +100,10 @@ make install-hooks          # git config core.hooksPath .githooks (une fois)
 
 > **Réseau Docker sur cet hôte** : le bridge ne fait pas de masquerade. Les
 > builds passent par `--network=host` (variable `DOCKER_BUILD_NET` du Makefile
-> et `build.network: host` des compose). À retirer si le NAT du bridge est réparé.
+> et `build.network: host` des compose, valeur par défaut de
+> `TGUI_BUILD_NETWORK`). Sur un hôte dont le bridge fait du NAT, exporter
+> `TGUI_BUILD_NETWORK=default` : buildx refuse `network: host` dans un bake
+> (« additional privileges requested »). À retirer si le NAT du bridge est réparé.
 
 ## Compilation
 

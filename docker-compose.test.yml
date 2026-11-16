@@ -4,8 +4,12 @@ services:
     build:
       context: .
       # Voir docker-compose.yml : le bridge Docker de cet hôte ne masquerade pas,
-      # la phase build (tt rocks) passe donc par le réseau de l'hôte.
-      network: host
+      # la phase build (tt rocks) passe donc par le réseau de l'hôte. Les
+      # runners GitHub, eux, NATent correctement leur bridge : la CI met
+      # TGUI_BUILD_NETWORK=default pour ne pas demander le privilège
+      # network.host, que buildx refuse dans un bake (« additional privileges
+      # requested: pass "--allow=network.host" »).
+      network: ${TGUI_BUILD_NETWORK:-host}
     command: tarantool /app/backend/init.lua
     volumes:
       - ./backend:/app/backend:ro
