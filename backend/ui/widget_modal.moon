@@ -95,8 +95,8 @@ _widgetParamsSection = ->
       }
       -- Formulaire tiré du manifest (colonnes de la source + options typées),
       -- rempli par app_view_helpers_add_widget.coffee.
-      H.div {id: 'widget-manifest-form', class: 'widget-manifest-form hidden'}
-      H.div {id: 'widget-manifest-hint', class: 'widget-type-hint hidden'}
+      H.div {id: 'widget-manifest-form', class: 'widget-manifest-form hidden', ''}
+      H.div {id: 'widget-manifest-hint', class: 'widget-type-hint hidden', ''}
     }
   }
 

@@ -10,15 +10,6 @@ local select = select
 local tostring = tostring
 local pairs = pairs
 
--- HTML void elements: they have no content and never get a closing tag.
--- Any other empty element must be rendered as <x></x>: in HTML, <div/> is
--- not self-closing and makes the browser swallow the following markup.
-local void_elements = {
-	area = true, base = true, br = true, col = true, embed = true,
-	hr = true, img = true, input = true, link = true, meta = true,
-	source = true, track = true, wbr = true,
-}
-
 local html = {
 	__index = function(self, k)
 		-- k is the HTML tag name (e.g., "div", "p")
@@ -53,14 +44,8 @@ local html = {
 			local attributesHtml = concat(attributeStrings) -- Joins attribute strings (e.g., " id='x'" .. " class='y'")
 
 			if #childrenContent == 0 then
-				if void_elements[k] then
-					-- Void element (e.g., <img src="..."/>)
-					return "<" .. k .. attributesHtml .. "/>"
-				end
-				-- Empty but non-void element: must carry an explicit closing tag
-				-- (e.g., <div id="a"></div>), otherwise the browser swallows
-				-- everything that follows.
-				return "<" .. k .. attributesHtml .. "></" .. k .. ">"
+				-- Self-closing tag (e.g., <img src="..."/>)
+				return "<" .. k .. attributesHtml .. "/>"
 			else
 				-- Tag with content (e.g., <div><span>hello</span></div>)
 				local contentHtml = concat(childrenContent, '\n') -- Join children, separated by newlines
