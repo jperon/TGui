@@ -366,14 +366,31 @@ Une définition existante figure sous **Widgets personnalisés** dans la fenêtr
 La même fenêtre renvoie vers l'éditeur de plugins (**Nouveau widget personnalisé…**,
 réservé aux admins).
 
+#### Portée d'une définition
+
+Une définition vit dans **une seule portée** :
+
+- la **bibliothèque** (globale) : utilisable par toutes les pages de l'installation ;
+- une **app installée** : la définition appartient au paquet de cette app.
+
+Une instance de page résout d'abord la définition de **l'app de la page** (celle qui a
+livré la page), puis celle de la bibliothèque. Le nom n'est unique que **par portée** : deux
+apps, ou une app et la bibliothèque, peuvent définir le même nom sans se gêner. La fenêtre
+**＋ Widget** et l'éditeur affichent la portée (`bibliothèque` ou `app <id>`), et l'éditeur
+permet de la choisir à la création (elle peut être changée ensuite).
+
+Supprimer une définition de la bibliothèque encore utilisée par une page est **refusé** :
+le message liste les pages concernées. Une définition propre à une app est supprimée avec
+elle.
+
 #### Créer un plugin
 
 1. Ouvrir une page.
 2. Cliquer sur **🧩 Plugins** dans la barre d'outils.
 3. Cliquer sur **+ Nouveau**.
-4. Renseigner `name` (le `type` du widget en YAML), la description, le langage et le code
-   du script, le langage et le code du gabarit, et éventuellement le **manifest YAML**
-   (troisième éditeur).
+4. Renseigner `name` (le `type` du widget en YAML), la description, la **portée**
+   (bibliothèque ou app), le langage et le code du script, le langage et le code du
+   gabarit, et éventuellement le **manifest YAML** (troisième éditeur).
 5. Cliquer sur **💾 Enregistrer**, puis fermer (`✕`) pour recharger les pages qui
    utilisent le plugin.
 

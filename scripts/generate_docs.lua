@@ -436,6 +436,7 @@ local DOMAIN_LABELS = {
   spaces_fields = 'Spaces & Fields',
   views = 'Views',
   data_views = 'Data Views',
+  view_presets = 'View Presets',
   widget_plugins = 'Widget Plugins',
   layouts = 'Layouts & Zones',
   relations = 'Relations',
@@ -456,6 +457,9 @@ describe_operation = function(op_name, kind)
   end
   if domain == 'data_views' then
     return "Create, update and execute Data Views (server-side filters, joins and aggregations)."
+  end
+  if domain == 'view_presets' then
+    return "List, save or delete a named view preset (filter + sort) of one widget or space grid."
   end
   if domain == 'widget_plugins' then
     return "Manage custom widget plugins (script + template) usable in views."
@@ -542,6 +546,7 @@ append_operation_groups = function(out, rows, kind)
     'spaces_fields',
     'views',
     'data_views',
+    'view_presets',
     'widget_plugins',
     'layouts',
     'relations',
