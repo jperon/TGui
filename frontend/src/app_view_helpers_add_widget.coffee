@@ -1,5 +1,12 @@
 # app_view_helpers_add_widget.coffee — add-widget modal helpers extracted from app_view_helpers.coffee
 Object.assign window.AppViewHelpers,
+  # État de la fenêtre (définitions connues, manifest et mappage du type
+  # choisi). Déclaré ici pour que les appels internes aient une définition
+  # visible, même si ce ne sont pas des fonctions.
+  _widgetPluginsByName: {}
+  _currentWidgetManifest: null
+  _currentWidgetColumns: null
+
   _openAddWidgetModal: (app) ->
     cv = app._currentCustomView
     return unless cv
@@ -39,6 +46,15 @@ Object.assign window.AppViewHelpers,
         </div>
       '''
       dataSourceConfig.appendChild fieldsSection
+
+    # Formulaire de manifest (widgets personnalisés) : conteneur des paires et
+    # conteneur du formulaire déclaré, si le HTML servi est ancien.
+    paramsConfig = document.querySelector '.widget-params-config'
+    if paramsConfig and not document.getElementById 'widget-manifest-form'
+      manifestForm = document.createElement 'div'
+      manifestForm.id = 'widget-manifest-form'
+      manifestForm.className = 'widget-manifest-form hidden'
+      paramsConfig.appendChild manifestForm
 
   # Vide un conteneur : innerHTML (navigateur) et tableaux d'enfants (stub DOM
   # des tests JS, où innerHTML ne vide rien).
@@ -90,6 +106,12 @@ Object.assign window.AppViewHelpers,
     return unless list
     window.AppViewHelpers._clearWidgetTypeContainer list
 
+    # Définitions courantes, indexées par nom : la fenêtre en tire le manifest
+    # (colonnes déclarées, options, access) quand l'utilisateur choisit le type.
+    window.AppViewHelpers._widgetPluginsByName = {}
+    for plugin in plugins or [] when plugin?.name
+      window.AppViewHelpers._widgetPluginsByName[plugin.name] = plugin
+
     unless plugins and plugins.length > 0
       empty = document.createElement 'div'
       empty.className = 'widget-type-hint'
@@ -123,6 +145,187 @@ Object.assign window.AppViewHelpers,
         console.error 'load widget plugins for the add-widget modal failed', err
         window.AppViewHelpers._renderWidgetTypePluginsError err
         []
+
+  # ── Formulaire tiré du manifest (spec §3 bis) ─────────────────────────────
+  # Manifest analysé côté fenêtre. Le serveur l'a validé à l'enregistrement ;
+  # un manifest illisible (import direct) est ignoré : paires clé/valeur, comme
+  # avant. Une définition sans manifest garde le formulaire libre.
+  _parseWidgetManifest: (text) ->
+    return null unless text and String(text).trim() != ''
+    parser = window.jsyaml
+    return null unless parser and typeof parser.load == 'function'
+    try
+      parsed = parser.load String(text)
+    catch e
+      console.warn 'widget manifest: YAML invalide', e
+      return null
+    return null unless parsed and typeof parsed == 'object'
+    {
+      access: parsed.access
+      columns: if Array.isArray(parsed.columns) then parsed.columns else []
+      options: if Array.isArray(parsed.options) then parsed.options else []
+    }
+
+  _manifestTypeKind: (type) ->
+    t = String(type or '').toLowerCase()
+    return 'date' if t in ['date', 'datetime']
+    return 'number' if t in ['int', 'float', 'number', 'decimal']
+    return 'boolean' if t == 'boolean'
+    return 'string' if t in ['string', 'id', 'uuid', 'sequence']
+    'any'
+
+  # Type compatible pour un sélecteur de colonne : type déclaré identique,
+  # `Any` (ou type de champ inconnu), ou même famille (Date/Datetime,
+  # Int/Float, String/ID/UUID/Sequence).
+  _manifestFieldCompatible: (declaredType, field) ->
+    declared = String(declaredType or '')
+    actual = String(field?.fieldType or '')
+    return true if declared == '' or actual == ''
+    return true if declared.toLowerCase() == actual.toLowerCase()
+    return true if actual.toLowerCase() == 'any'
+    declaredKind = window.AppViewHelpers._manifestTypeKind declared
+    actualKind = window.AppViewHelpers._manifestTypeKind actual
+    return true if declaredKind == 'any'
+    declaredKind == actualKind
+
+  # Champs de la source choisie dans la fenêtre (espace ou Data View).
+  _fieldsForSourceId: (spaceId) ->
+    return [] unless spaceId
+    spaces = window._currentSpacesData or []
+    views = window._currentDataViewsData or []
+    space = spaces.find((s) -> s.id == spaceId)
+    return (space.fields or []) if space
+    view = views.find((v) -> v.id == spaceId)
+    return [] unless view
+    view.fields or (view.config?.columns or []).map (c) ->
+      { name: c, fieldType: 'String' }
+
+  _clearWidgetManifestForm: ->
+    form = document.getElementById 'widget-manifest-form'
+    return unless form
+    window.AppViewHelpers._clearWidgetTypeContainer form
+    form
+
+  # Rend le formulaire du manifest : un sélecteur de champ par colonne déclarée
+  # (filtré par type, « — » pour une optionnelle) et un champ par option, avec
+  # la valeur par défaut. Aucun manifest : on ne touche pas aux paires.
+  _renderWidgetManifestForm: (manifest) ->
+    form = window.AppViewHelpers._clearWidgetManifestForm()
+    return unless form
+    hint = document.getElementById 'widget-manifest-hint'
+    hint?.classList.add 'hidden'
+
+    spaceSelect = document.getElementById 'widget-space-select'
+    fields = window.AppViewHelpers._fieldsForSourceId spaceSelect?.value
+
+    for col in manifest.columns or [] when col and col.name
+      form.appendChild window.AppViewHelpers._makeManifestColumnRow col, fields
+    for opt in manifest.options or [] when opt and opt.name
+      form.appendChild window.AppViewHelpers._makeManifestOptionRow opt
+
+    if (manifest.columns or []).length == 0 and (manifest.options or []).length == 0
+      empty = document.createElement 'div'
+      empty.className = 'widget-type-hint'
+      empty.textContent = 'Ce manifest ne déclare ni colonne ni option.'
+      form.appendChild empty
+    form
+
+  _makeManifestColumnRow: (col, fields) ->
+    row = document.createElement 'div'
+    row.className = 'manifest-form-row'
+
+    label = document.createElement 'label'
+    label.textContent = "#{col.name} (#{col.type or 'Any'})"
+    label.textContent += ' *' unless col.optional == true
+
+    select = document.createElement 'select'
+    select.className = 'manifest-column-select'
+    select.dataset.declared = col.name
+    select.dataset.required = if col.optional == true then '0' else '1'
+
+    none = document.createElement 'option'
+    none.value = ''
+    none.textContent = '—'
+    select.appendChild none
+
+    mapping = window.AppViewHelpers._currentWidgetColumns or {}
+    for field in fields or [] when field?.name
+      continue unless window.AppViewHelpers._manifestFieldCompatible col.type, field
+      opt = document.createElement 'option'
+      opt.value = field.name
+      opt.textContent = "#{field.name} (#{field.fieldType or 'String'})"
+      select.appendChild opt
+    select.value = mapping[col.name] or ''
+
+    row.appendChild label
+    row.appendChild select
+    row
+
+  _makeManifestOptionRow: (opt) ->
+    row = document.createElement 'div'
+    row.className = 'manifest-form-row'
+
+    label = document.createElement 'label'
+    label.textContent = opt.name
+    row.appendChild label
+
+    type = String(opt.type or 'text').toLowerCase()
+    input = document.createElement 'input'
+    input.dataset.option = opt.name
+    input.dataset.optionType = type
+    switch type
+      when 'color'
+        input.type = 'color'
+        input.value = if opt.default then String(opt.default) else '#000000'
+      when 'number'
+        input.type = 'number'
+        input.value = if opt.default? then String(opt.default) else ''
+      when 'boolean'
+        input.type = 'checkbox'
+        input.checked = opt.default == true
+      else
+        input.type = 'text'
+        input.value = if opt.default? then String(opt.default) else ''
+    row.appendChild input
+    row
+
+  # Choix du type : un plugin avec manifest remplace les paires clé/valeur par
+  # le formulaire déclaré. `pluginName` vide (ou « table ») = paires.
+  _updateWidgetParamsForm: (pluginName) ->
+    plugin = window.AppViewHelpers._widgetPluginsByName?[pluginName]
+    manifest = if plugin then window.AppViewHelpers._parseWidgetManifest plugin.manifest else null
+    window.AppViewHelpers._currentWidgetManifest = manifest
+    window.AppViewHelpers._currentWidgetColumns = null
+
+    form = document.getElementById 'widget-manifest-form'
+    pairs = document.getElementById 'widget-params-pairs'
+    hint = document.getElementById 'widget-manifest-hint'
+    unless form
+      return manifest
+    if manifest
+      pairs?.classList.add 'hidden'
+      form.classList.remove 'hidden'
+      window.AppViewHelpers._renderWidgetManifestForm manifest
+      hint?.classList.add 'hidden'
+    else
+      form.classList.add 'hidden'
+      pairs?.classList.remove 'hidden'
+      window.AppViewHelpers._clearWidgetTypeContainer form
+      hint?.classList.add 'hidden'
+    manifest
+
+  # Le changement de source change les champs proposés : on redessine les
+  # sélecteurs du manifest. Les valeurs déjà choisies sont conservées.
+  _refreshWidgetManifestForm: ->
+    manifest = window.AppViewHelpers._currentWidgetManifest
+    return unless manifest
+    form = document.getElementById 'widget-manifest-form'
+    return unless form
+    selected = {}
+    for sel in (document.querySelectorAll '#widget-manifest-form .manifest-column-select' or [])
+      selected[sel.dataset?.declared] = sel.value if sel.dataset?.declared
+    window.AppViewHelpers._currentWidgetColumns = selected
+    window.AppViewHelpers._renderWidgetManifestForm manifest
 
   # Sélection d'un type : une seule option marquée, radio coché. Appelée par
   # délégation, les options de plugins étant créées après le montage.
@@ -239,10 +442,13 @@ Object.assign window.AppViewHelpers,
             selectedSource.fields = selectedSource.config.columns?.map (c) -> { name: c, fieldType: 'String' }
             window.AppViewHelpers._populateFieldsLists selectedSource
             window.AppViewHelpers._populateGroupByOptions selectedSource
+            # Les sélecteurs du manifest dépendent des champs de la source.
+            window.AppViewHelpers._refreshWidgetManifestForm()
           else if selectedSource
             window.AppViewHelpers._loadSpaceFields selectedSource, ->
               window.AppViewHelpers._populateFieldsLists selectedSource
               window.AppViewHelpers._populateGroupByOptions selectedSource
+              window.AppViewHelpers._refreshWidgetManifestForm()
 
   _loadSpaceFields: (space, callback) ->
     # Charger les champs d'un espace spécifique
@@ -323,6 +529,8 @@ Object.assign window.AppViewHelpers,
     if tableRadio
       tableRadio.checked = true
       window.AppViewHelpers._selectWidgetType tableRadio.parentNode if tableRadio.parentNode
+    # ... et donc du formulaire de paramètres par défaut (paires clé/valeur).
+    window.AppViewHelpers._updateWidgetParamsForm 'table'
 
     # Sélection du type de widget : délégation sur le conteneur, car les
     # options des widgets personnalisés sont créées à chaque ouverture.
@@ -334,6 +542,9 @@ Object.assign window.AppViewHelpers,
         option = ev.target?.closest? '.widget-type-option'
         return unless option
         window.AppViewHelpers._selectWidgetType option
+        pluginName = option.dataset?.pluginName
+        pluginName ?= option.querySelector?('input[type="radio"]')?.value
+        window.AppViewHelpers._updateWidgetParamsForm pluginName
 
     # Lien vers l'éditeur de plugins (admin uniquement, si l'info est connue).
     newPluginBtn = document.getElementById 'widget-type-new-plugin'
@@ -397,6 +608,35 @@ Object.assign window.AppViewHelpers,
       btn.addEventListener 'click', ->
         @parentElement.remove()
 
+  # Colonnes obligatoires du manifest : chaque `<select>` doit avoir un champ.
+  _validateWidgetManifestForm: ->
+    errors = []
+    for sel in (document.querySelectorAll '#widget-manifest-form .manifest-column-select' or [])
+      declared = sel.dataset?.declared
+      continue unless declared
+      continue unless sel.dataset?.required == '1'
+      continue if sel.value
+      errors.push "Colonne obligatoire non mappée : #{declared}"
+    errors
+
+  _collectWidgetManifestData: ->
+    columns = {}
+    for sel in (document.querySelectorAll '#widget-manifest-form .manifest-column-select' or [])
+      declared = sel.dataset?.declared
+      continue unless declared and sel.value
+      columns[declared] = sel.value
+    params = {}
+    for input in (document.querySelectorAll '#widget-manifest-form [data-option]' or [])
+      name = input.dataset?.option
+      continue unless name
+      type = String(input.dataset?.optionType or 'text')
+      params[name] = switch type
+        when 'boolean' then input.checked == true
+        when 'number'
+          if input.value == '' or input.value == null then '' else Number input.value
+        else String(input.value or '')
+    { columns, params }
+
   _validateWidgetForm: ->
     titleInput = document.getElementById 'widget-title-input'
     spaceSelect = document.getElementById 'widget-space-select'
@@ -419,6 +659,11 @@ Object.assign window.AppViewHelpers,
     if type == 'table' and selectedFields.length == 0
       errors.push 'Au moins un champ doit être sélectionné'
 
+    # Widget personnalisé avec manifest : ses colonnes obligatoires doivent
+    # être mappées sur un champ de la source.
+    if window.AppViewHelpers._currentWidgetManifest
+      errors = errors.concat window.AppViewHelpers._validateWidgetManifestForm()
+
     return errors
 
   _collectWidgetData: ->
@@ -433,20 +678,27 @@ Object.assign window.AppViewHelpers,
     for field in selectedFields
       fields.push field.dataset.fieldName or field.textContent
 
-    # Collecter les paramètres
-    params = {}
-    for paramRow in paramRows
-      keyInput = paramRow.querySelector '.param-key'
-      valueInput = paramRow.querySelector '.param-value'
+    # Widget personnalisé avec manifest : mappage déclaré → champ + options.
+    manifestData = null
+    if window.AppViewHelpers._currentWidgetManifest
+      manifestData = window.AppViewHelpers._collectWidgetManifestData()
 
-      if keyInput and valueInput and keyInput.value.trim()
-        params[keyInput.value.trim()] = valueInput.value.trim()
+    # Collecter les paramètres (paires clé/valeur, ou options du manifest)
+    params = if manifestData then manifestData.params else {}
+    unless manifestData
+      for paramRow in paramRows
+        keyInput = paramRow.querySelector '.param-key'
+        valueInput = paramRow.querySelector '.param-value'
+
+        if keyInput and valueInput and keyInput.value.trim()
+          params[keyInput.value.trim()] = valueInput.value.trim()
 
     return {
       title: titleInput.value.trim()
       spaceId: spaceSelect.value
       type: selectedType?.value or 'table'
       fields: fields
+      columns: manifestData?.columns
       params: params
     }
 
@@ -498,6 +750,7 @@ Object.assign window.AppViewHelpers,
         type: widgetData.type
         spaceId: widgetData.spaceId
         fields: widgetData.fields
+        columns: widgetData.columns
         groupBy: widgetData.groupBy
         params: widgetData.params
         position: {

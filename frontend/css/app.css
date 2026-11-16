@@ -1731,6 +1731,39 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   gap: 0.5rem;
 }
 
+/* Formulaire tiré du manifest d'un widget personnalisé */
+.widget-manifest-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.manifest-form-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.manifest-form-row label {
+  flex: 0 0 40%;
+  color: var(--color-text-muted, #aaa);
+  font-size: 0.9rem;
+}
+
+.manifest-form-row select,
+.manifest-form-row input {
+  flex: 1;
+  padding: 0.4rem;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.manifest-form-row input[type="checkbox"] {
+  flex: 0 0 auto;
+}
+
 .param-row {
   display: flex;
   gap: 0.5rem;
