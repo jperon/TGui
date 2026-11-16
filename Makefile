@@ -75,6 +75,11 @@ $(NATIVE_SO): $(MOONSCRIPT_DIR)/moonscript/parse/native.c
 	@mkdir -p $(@D)
 	$(CC) -shared -O2 -fPIC -I$(LUA_INCDIR) -o $@ $<
 
+# Message explicite quand le sous-module n'a pas été récupéré (clone sans
+# --recurse-submodules) : la règle ci-dessus ne peut pas s'appliquer.
+$(MOONSCRIPT_DIR)/moonscript/parse/native.c:
+	@echo "❌ sous-module MoonScript absent : lancer 'git submodule update --init'"; exit 1
+
 %.lua: %.moon | $(NATIVE_SO)
 	$(MOONC) $<
 
