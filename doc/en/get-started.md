@@ -429,6 +429,57 @@ module.exports = ({ gql, emitSelection, onInputSelection, onRecords, onRecord, s
   `updateRecord(id, values)`, `insertRecord(values)`, `deleteRecord(id)`: the data API
   described below.
 
+#### Lua and MoonScript
+
+The script language may be **Lua** or **MoonScript** (in addition to CoffeeScript and
+JavaScript). The editor offers all four; highlighting follows the language (Lua through
+CodeMirror, MoonScript as plain text).
+
+- **MoonScript** is compiled **server-side** by `moonscript.base.to_lua` (the trigger
+  formula compiler) when saved; the resulting Lua is cached in the `compiled` field
+  (`WidgetPlugin.compiled`). A compilation error **refuses the save** with its line.
+  App export and fingerprints stay based on the **source**.
+- **Lua** is syntax-checked (`loadstring`) when saved and stored as written.
+- In the browser the code runs under **wasmoon** (Lua 5.4 in WebAssembly), loaded only
+  inside a Lua/MoonScript widget's iframe: no other page pays for it (~400 kB `.wasm`).
+- The widget API is exposed as a global `widget` (same API as the JavaScript contract):
+  `widget.params`, `widget.render(html)`, `widget.emitSelection`, `widget.onInputSelection`,
+  `widget.onRecords`, `widget.onRecord`, `widget.setCursor`, and according to `access`
+  `widget.gql`, `widget.updateRecord`, `widget.insertRecord`, `widget.deleteRecord`.
+  Promise-returning functions (`gql`, writes) are awaited with `:await()`.
+  `unpack` is provided as an alias of `table.unpack`.
+
+MoonScript example — render the rows received:
+
+```moonscript
+widget.render "<h3>#{widget.params.titre or 'Widget'}</h3>"
+
+widget.onRecords (rows) ->
+  items = for row in *rows
+    "<li>#{row.nom}</li>"
+  widget.render "<ul>#{table.concat items}</ul>"
+```
+
+Lua example — read through `gql` (`manifest access: read`); `:await()` resolves to the
+response's `data` content, like the JavaScript promise:
+
+```lua
+local data = widget.gql('query { spaces { id name } }', {}):await()
+local out = {}
+for _, s in ipairs(data.spaces) do
+  out[#out + 1] = '<li>' .. s.name .. '</li>'
+end
+widget.render('<ul>' .. table.concat(out) .. '</ul>')
+```
+
+**Lua 5.4 (browser) vs LuaJIT 5.1 (Tarantool)**: widgets run on Lua 5.4, trigger
+formulas and computed columns on LuaJIT 5.1. Lua produced by MoonScript and ordinary Lua
+work on both (`unpack` is aliased); differences to know: `//` and `&`/`|`/`~` operators
+(5.4 only), `goto`, `table.pack`/`table.unpack`, no `bit`/`jit` in the browser, and no
+filesystem or network access from a widget. A runtime error is displayed in the widget;
+for MoonScript the line number refers to the compiled Lua (compilation errors do cite the
+MoonScript line).
+
 #### Manifest (optional)
 
 ```yaml
@@ -512,6 +563,12 @@ options:                # typed instance options
   `Erreur plugin : Échec du chargement de /vendor/plugin-runtime.bundle.js …`.
 - A denied request shows the parent's explicit message inside the iframe (`manifest
   access: read`, `access: none`, "lectures seules", …).
+- A **Lua/MoonScript** widget that fails to load: `Erreur plugin : Échec du chargement de
+  /vendor/wasmoon.bundle.js …` (bundle) or `wasmoon : chargement de
+  /vendor/wasmoon.bundle.wasm impossible` (binary). A Lua error is shown in the widget as
+  `Plugin <name> — exécution <language> invalide : [string …]:<line> …`; for MoonScript that
+  line refers to the compiled Lua (compilation errors do cite the MoonScript line and
+  refuse the save).
 
 ---
 

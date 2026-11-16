@@ -3,6 +3,17 @@
   var hasProp = {}.hasOwnProperty;
 
   Object.assign(window.AppViewHelpers, {
+    // CodeMirror 5 shipped in frontend/vendor knows Lua but has no MoonScript
+    // mode: Lua definitions are highlighted, MoonScript is edited as plain text
+    // (spec widgets personnalisés §7). Unknown modes fall back to plain text too.
+    _widgetScriptEditorMode: function(lang) {
+      var l;
+      l = String(lang || 'coffeescript').toLowerCase();
+      if (l === 'moonscript') {
+        return null;
+      }
+      return l;
+    },
     _pulseModalButton: function(btn) {
       if (!btn) {
         return;
@@ -121,7 +132,7 @@
           app.el.widgetPluginScriptLanguage().value = defaults.scriptLanguage;
           app.el.widgetPluginTemplateLanguage().value = defaults.templateLanguage;
           if ((ref4 = app._cmWidgetPluginScript) != null) {
-            ref4.setOption('mode', defaults.scriptLanguage);
+            ref4.setOption('mode', window.AppViewHelpers._widgetScriptEditorMode(defaults.scriptLanguage));
           }
           if ((ref5 = app._cmWidgetPluginTemplate) != null) {
             ref5.setOption('mode', defaults.templateLanguage);
@@ -200,7 +211,7 @@
         ref4.addEventListener('change', function() {
           var mode, ref5;
           mode = app.el.widgetPluginScriptLanguage().value || 'coffeescript';
-          return (ref5 = app._cmWidgetPluginScript) != null ? ref5.setOption('mode', mode) : void 0;
+          return (ref5 = app._cmWidgetPluginScript) != null ? ref5.setOption('mode', window.AppViewHelpers._widgetScriptEditorMode(mode)) : void 0;
         });
       }
       if ((ref5 = app.el.widgetPluginTemplateLanguage()) != null) {
@@ -231,7 +242,7 @@
         app.el.widgetPluginScriptLanguage().value = plugin.scriptLanguage || 'coffeescript';
         app.el.widgetPluginTemplateLanguage().value = plugin.templateLanguage || 'pug';
         if ((ref8 = app._cmWidgetPluginScript) != null) {
-          ref8.setOption('mode', app.el.widgetPluginScriptLanguage().value);
+          ref8.setOption('mode', window.AppViewHelpers._widgetScriptEditorMode(app.el.widgetPluginScriptLanguage().value));
         }
         if ((ref9 = app._cmWidgetPluginTemplate) != null) {
           ref9.setOption('mode', app.el.widgetPluginTemplateLanguage().value);
@@ -297,7 +308,7 @@
           app.el.widgetPluginScriptLanguage().value = p.scriptLanguage || 'coffeescript';
           app.el.widgetPluginTemplateLanguage().value = p.templateLanguage || 'pug';
           if ((ref1 = app._cmWidgetPluginScript) != null) {
-            ref1.setOption('mode', app.el.widgetPluginScriptLanguage().value);
+            ref1.setOption('mode', window.AppViewHelpers._widgetScriptEditorMode(app.el.widgetPluginScriptLanguage().value));
           }
           if ((ref2 = app._cmWidgetPluginTemplate) != null) {
             ref2.setOption('mode', app.el.widgetPluginTemplateLanguage().value);
@@ -344,7 +355,7 @@
           app.el.widgetPluginScriptLanguage().value = defaults.scriptLanguage;
           app.el.widgetPluginTemplateLanguage().value = defaults.templateLanguage;
           if ((ref2 = app._cmWidgetPluginScript) != null) {
-            ref2.setOption('mode', defaults.scriptLanguage);
+            ref2.setOption('mode', window.AppViewHelpers._widgetScriptEditorMode(defaults.scriptLanguage));
           }
           if ((ref3 = app._cmWidgetPluginTemplate) != null) {
             ref3.setOption('mode', defaults.templateLanguage);
@@ -599,7 +610,7 @@
       window.AppViewHelpers._ensureWidgetPluginEditorsSplit(app);
       if (!app._cmWidgetPluginScript) {
         app._cmWidgetPluginScript = CodeMirror(app.el.widgetPluginScriptEditor(), {
-          mode: app.el.widgetPluginScriptLanguage().value || 'coffeescript',
+          mode: window.AppViewHelpers._widgetScriptEditorMode(app.el.widgetPluginScriptLanguage().value || 'coffeescript'),
           theme: 'monokai',
           lineNumbers: true,
           lineWrapping: true,

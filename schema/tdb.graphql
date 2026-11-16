@@ -288,6 +288,9 @@ type WidgetPlugin {
   manifest:         String
   # App the definition belongs to; null = library (global).
   appId:            String
+  # Lua compiled (or syntax-checked source for `lua`) at save time; '' for
+  # browser-compiled languages. Spec §7: the browser never runs MoonScript.
+  compiled:         String
   createdAt:        String!
   updatedAt:        String!
 }

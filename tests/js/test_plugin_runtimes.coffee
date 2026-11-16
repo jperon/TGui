@@ -11,6 +11,8 @@ require '../../frontend/src/views/plugin_runtimes'
 R = global.window.PluginRuntimes
 
 BUNDLE = '/vendor/plugin-runtime.bundle.js'
+WASMOON = '/vendor/wasmoon.bundle.js'
+WASMOON_WASM = '/vendor/wasmoon.bundle.wasm'
 
 # Le runner lance tous les `it` du fichier avant que les promesses ne se
 # résolvent, et ces tests partagent des globales (window.CoffeeScript, …) et le
@@ -26,6 +28,7 @@ resetHead = ->
   R._reset()
   delete global.window.CoffeeScript
   delete global.window.pug
+  delete global.window.wasmoon
   head = global.document.head
   head._children.length = 0
   head.children.length = 0
@@ -159,5 +162,77 @@ describe 'PluginRuntimes — résolution du compilateur', ->
     global.window.pug = { compile: pugCompile }
     eq R.compiler('coffeescript'), csCompile
     eq R.compiler('pug'), pugCompile
+
+describe 'PluginRuntimes — Lua / MoonScript (wasmoon, spec §7)', ->
+  # Simulated wasmoon load: installs window.wasmoon then fires onload.
+  installWasmoon = (el) ->
+    global.window.wasmoon = { LuaFactory: -> }
+    Promise.resolve().then -> el.onload?()
+    el
+
+  it 'lua et moonscript chargent le même bundle wasmoon, une seule fois', -> serial ->
+    head = resetHead()
+    appended = []
+    oldAppend = head.appendChild
+    head.appendChild = (el) ->
+      appended.push el
+      installWasmoon el
+    Promise.all([R.ensure(['lua']), R.ensure(['moonscript'])])
+      .then ->
+        eq appended.length, 1, 'un seul <script> pour lua et moonscript'
+        eq appended[0].getAttribute('src'), WASMOON
+        R.ensure ['moonscript']
+      .then ->
+        eq appended.length, 1, 'aucun rechargement une fois le runtime présent'
+      .then(
+        -> head.appendChild = oldAppend
+        (e) ->
+          head.appendChild = oldAppend
+          throw e
+      )
+
+  it 'coffeescript et javascript ne chargent jamais wasmoon', -> serial ->
+    head = resetHead()
+    appended = []
+    oldAppend = head.appendChild
+    head.appendChild = (el) ->
+      appended.push el
+      global.window.CoffeeScript = { compile: -> 'js' }
+      Promise.resolve().then -> el.onload?()
+      el
+    Promise.resolve()
+      .then -> R.ensure ['javascript']
+      .then ->
+        eq appended.length, 0, 'javascript ne charge rien'
+        R.ensure ['coffeescript']
+      .then ->
+        eq appended.length, 1
+        eq appended[0].getAttribute('src'), BUNDLE,
+          'coffeescript charge plugin-runtime, pas wasmoon'
+      .then(
+        -> head.appendChild = oldAppend
+        (e) ->
+          head.appendChild = oldAppend
+          throw e
+      )
+
+  it 'déclare la compilation côté serveur pour lua et moonscript seulement', ->
+    eq R.serverCompiled('lua'), true
+    eq R.serverCompiled('moonscript'), true
+    eq R.serverCompiled('coffeescript'), false
+    eq R.serverCompiled('javascript'), false
+    eq R.serverCompiled('inconnu'), false
+
+  it 'expose le .wasm de wasmoon pour lua et moonscript', ->
+    eq R.wasmSrc('lua'), WASMOON_WASM
+    eq R.wasmSrc('moonscript'), WASMOON_WASM
+    eq R.wasmSrc('coffeescript'), null
+    eq R.wasmSrc('javascript'), null
+
+  it 'aucun compilateur JS pour lua/moonscript (compilés par Tarantool)', ->
+    resetHead()
+    global.window.wasmoon = { LuaFactory: -> }
+    eq R.compiler('lua'), null
+    eq R.compiler('moonscript'), null
 
 summary()

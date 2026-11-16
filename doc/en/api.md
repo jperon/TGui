@@ -2,7 +2,7 @@
 
 > Auto-generated file. Do not edit manually.
 >
-> Generated at: 2026-11-16 17:25:26 UTC
+> Generated at: 2026-11-16 18:02:51 UTC
 >
 > Source: `schema/tdb.graphql`
 

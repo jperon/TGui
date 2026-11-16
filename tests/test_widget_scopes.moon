@@ -455,8 +455,9 @@ R.describe "WidgetScopes — migration d’un tuple d’ancien format", ->
     R.ok n >= 1, "au moins un tuple normalisé (obtenu #{n})"
     row = scopes.find_row old_name, nil
     R.ok row, 'la définition est désormais globale'
-    R.eq #row, 11
+    R.eq #row, 12
     R.eq row[11], ''
+    R.eq row[12], '', 'aucun code compilé avant tdb_v7'
     R.eq spaces.migrate_widget_plugin_app_id!, 0, 'idempotente'
     box.space._tdb_widget_plugins\delete old_id
 

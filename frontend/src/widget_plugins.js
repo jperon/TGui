@@ -20,6 +20,7 @@
     templateCode
     manifest
     appId
+    compiled
     updatedAt
   }
 }`;
@@ -35,6 +36,7 @@
     templateCode
     manifest
     appId
+    compiled
     updatedAt
   }
 }`;

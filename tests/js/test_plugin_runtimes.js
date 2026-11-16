@@ -4,7 +4,7 @@
   // `window.PluginRuntimes.ensure(langs)` inserts /vendor/plugin-runtime.bundle.js
   // only for the languages a widget actually uses, once per session, with the
   // promise shared by widgets mounted concurrently.
-  var BUNDLE, R, _chain, assert, describe, eq, it, resetHead, serial, summary;
+  var BUNDLE, R, WASMOON, WASMOON_WASM, _chain, assert, describe, eq, it, resetHead, serial, summary;
 
   require('./dom_stub');
 
@@ -15,6 +15,10 @@
   R = global.window.PluginRuntimes;
 
   BUNDLE = '/vendor/plugin-runtime.bundle.js';
+
+  WASMOON = '/vendor/wasmoon.bundle.js';
+
+  WASMOON_WASM = '/vendor/wasmoon.bundle.wasm';
 
   // Le runner lance tous les `it` du fichier avant que les promesses ne se
   // résolvent, et ces tests partagent des globales (window.CoffeeScript, …) et le
@@ -34,6 +38,7 @@
     R._reset();
     delete global.window.CoffeeScript;
     delete global.window.pug;
+    delete global.window.wasmoon;
     head = global.document.head;
     head._children.length = 0;
     head.children.length = 0;
@@ -233,6 +238,99 @@
         eq(R.compiler('coffeescript'), csCompile);
         return eq(R.compiler('pug'), pugCompile);
       });
+    });
+  });
+
+  describe('PluginRuntimes — Lua / MoonScript (wasmoon, spec §7)', function() {
+    var installWasmoon;
+    // Simulated wasmoon load: installs window.wasmoon then fires onload.
+    installWasmoon = function(el) {
+      global.window.wasmoon = {
+        LuaFactory: function() {}
+      };
+      Promise.resolve().then(function() {
+        return typeof el.onload === "function" ? el.onload() : void 0;
+      });
+      return el;
+    };
+    it('lua et moonscript chargent le même bundle wasmoon, une seule fois', function() {
+      return serial(function() {
+        var appended, head, oldAppend;
+        head = resetHead();
+        appended = [];
+        oldAppend = head.appendChild;
+        head.appendChild = function(el) {
+          appended.push(el);
+          return installWasmoon(el);
+        };
+        return Promise.all([R.ensure(['lua']), R.ensure(['moonscript'])]).then(function() {
+          eq(appended.length, 1, 'un seul <script> pour lua et moonscript');
+          eq(appended[0].getAttribute('src'), WASMOON);
+          return R.ensure(['moonscript']);
+        }).then(function() {
+          return eq(appended.length, 1, 'aucun rechargement une fois le runtime présent');
+        }).then(function() {
+          return head.appendChild = oldAppend;
+        }, function(e) {
+          head.appendChild = oldAppend;
+          throw e;
+        });
+      });
+    });
+    it('coffeescript et javascript ne chargent jamais wasmoon', function() {
+      return serial(function() {
+        var appended, head, oldAppend;
+        head = resetHead();
+        appended = [];
+        oldAppend = head.appendChild;
+        head.appendChild = function(el) {
+          appended.push(el);
+          global.window.CoffeeScript = {
+            compile: function() {
+              return 'js';
+            }
+          };
+          Promise.resolve().then(function() {
+            return typeof el.onload === "function" ? el.onload() : void 0;
+          });
+          return el;
+        };
+        return Promise.resolve().then(function() {
+          return R.ensure(['javascript']);
+        }).then(function() {
+          eq(appended.length, 0, 'javascript ne charge rien');
+          return R.ensure(['coffeescript']);
+        }).then(function() {
+          eq(appended.length, 1);
+          return eq(appended[0].getAttribute('src'), BUNDLE, 'coffeescript charge plugin-runtime, pas wasmoon');
+        }).then(function() {
+          return head.appendChild = oldAppend;
+        }, function(e) {
+          head.appendChild = oldAppend;
+          throw e;
+        });
+      });
+    });
+    it('déclare la compilation côté serveur pour lua et moonscript seulement', function() {
+      eq(R.serverCompiled('lua'), true);
+      eq(R.serverCompiled('moonscript'), true);
+      eq(R.serverCompiled('coffeescript'), false);
+      eq(R.serverCompiled('javascript'), false);
+      return eq(R.serverCompiled('inconnu'), false);
+    });
+    it('expose le .wasm de wasmoon pour lua et moonscript', function() {
+      eq(R.wasmSrc('lua'), WASMOON_WASM);
+      eq(R.wasmSrc('moonscript'), WASMOON_WASM);
+      eq(R.wasmSrc('coffeescript'), null);
+      return eq(R.wasmSrc('javascript'), null);
+    });
+    return it('aucun compilateur JS pour lua/moonscript (compilés par Tarantool)', function() {
+      resetHead();
+      global.window.wasmoon = {
+        LuaFactory: function() {}
+      };
+      eq(R.compiler('lua'), null);
+      return eq(R.compiler('moonscript'), null);
     });
   });
 

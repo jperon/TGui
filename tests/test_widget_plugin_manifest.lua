@@ -198,9 +198,10 @@ R.describe("WidgetPlugins — migration d’un tuple d’ancien format", functio
       '',
       "wpman_old_name_" .. tostring(SUFFIX)
     })
-    R.eq(#old, 11, 'le tuple a maintenant 11 champs (manifest, app_id)')
+    R.eq(#old, 12, 'le tuple a maintenant 12 champs (manifest, app_id, compiled)')
     R.eq(old[10], '')
     R.eq(old[11], '', 'définition globale (bibliothèque)')
+    R.eq(old[12], '', 'aucun code compilé avant tdb_v7')
     R.eq(spaces.migrate_widget_plugin_manifest(), 0, 'idempotente')
     return box.space._tdb_widget_plugins:delete(old[1])
   end)

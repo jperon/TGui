@@ -4,19 +4,26 @@
 # The CoffeeScript/pug bundle is no longer a page script
 # (backend/ui/scripts.moon SCRIPT_SRCS): it is fetched the first time a widget
 # definition actually needs it, so a `javascript` + `html` widget — the common
-# case — loads nothing.
+# case — loads nothing. Lua/MoonScript load wasmoon (Lua 5.4 in WebAssembly)
+# the same way, and only inside the widget iframe: the parent page never loads
+# it, and the .wasm binary is fetched only when such a widget mounts.
 #
 # `ensure(langs)` inserts the missing <script src> tag(s) once and returns a
 # promise memoised per bundle, shared by every widget mounted concurrently. On
 # failure it rejects with an explicit message (custom_view_plugins.coffee shows
 # it in the widget, never swallows it) and drops the memo so a later widget may
 # retry after a transient network error.
-#
-# Lua / MoonScript (wasmoon, §7 phase 2) only need new LANGUAGES entries.
 
-# lang -> { lang, src, runtime }. `runtime()` returns the global installed by
-# the bundle; a language absent from this table (javascript, html, unknown)
-# needs nothing. Lua / MoonScript (wasmoon, §7 phase 2) will add entries here.
+# Bundle that provides the Lua 5.4 runtime (§7); its Emscripten wasm binary is
+# declared per language below and fetched only when such a widget mounts.
+WASMOON_SRC = '/vendor/wasmoon.bundle.js'
+
+# lang -> { lang, src, wasm?, runtime(), ready()?, serverCompiled? }.
+# `runtime()` returns the global installed by the bundle; `ready()` (fallback:
+# a `compile` function on the runtime) tells whether the language is usable.
+# `serverCompiled` means the code is compiled by Tarantool at save time
+# (`compiled` column): the parent must not load the runtime to compile it.
+# A language absent from this table (javascript, html, unknown) needs nothing.
 LANGUAGES =
   coffeescript:
     lang: 'coffeescript'
@@ -26,6 +33,20 @@ LANGUAGES =
     lang: 'pug'
     src: '/vendor/plugin-runtime.bundle.js'
     runtime: -> window.pug
+  lua:
+    lang: 'lua'
+    src: WASMOON_SRC
+    wasm: '/vendor/wasmoon.bundle.wasm'
+    runtime: -> window.wasmoon
+    ready: -> typeof window.wasmoon?.LuaFactory == 'function'
+    serverCompiled: true
+  moonscript:
+    lang: 'moonscript'
+    src: WASMOON_SRC
+    wasm: '/vendor/wasmoon.bundle.wasm'
+    runtime: -> window.wasmoon
+    ready: -> typeof window.wasmoon?.LuaFactory == 'function'
+    serverCompiled: true
 
 # Le bundle expose le compilateur CoffeeScript sous `window.CoffeeScript.CoffeeScript`
 # (interop ESM/CJS de rollup) et pug directement sous `window.pug` ; `default`
@@ -33,7 +54,10 @@ LANGUAGES =
 _compileFn = (runtime) ->
   runtime?.compile or runtime?.default?.compile or runtime?.CoffeeScript?.compile
 
-_ready = (spec) -> typeof _compileFn(spec.runtime()) == 'function'
+_ready = (spec) ->
+  if typeof spec.ready == 'function'
+    return spec.ready()
+  typeof _compileFn(spec.runtime()) == 'function'
 
 # src -> Promise. One entry per bundle: concurrent widgets share the same load.
 loads = {}
@@ -95,9 +119,21 @@ compiler = (lang) ->
   fn = _compileFn spec.runtime()
   if typeof fn == 'function' then fn else null
 
+# True when Tarantool compiles this language at save time (Lua, MoonScript):
+# the parent page has nothing to load before building the iframe.
+serverCompiled = (lang) ->
+  spec = LANGUAGES[String(lang or '').toLowerCase()]
+  spec?.serverCompiled == true
+
+# /vendor/... URL of the WebAssembly binary needed by `lang`, or null.
+wasmSrc = (lang) ->
+  LANGUAGES[String(lang or '').toLowerCase()]?.wasm or null
+
 window.PluginRuntimes =
   ensure: ensure
   compiler: compiler
   languages: LANGUAGES
+  serverCompiled: serverCompiled
+  wasmSrc: wasmSrc
   # Tests only: forget memoised loads (the DOM and the globals stay as they are).
   _reset: -> loads = {}

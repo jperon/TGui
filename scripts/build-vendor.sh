@@ -29,7 +29,8 @@ npm install --save-dev \
   codemirror@5 \
   coffeescript \
   pug \
-  sortablejs
+  sortablejs \
+  wasmoon@1.16.0
 
 # ── Entry: tui-grid (expose as window.tui.Grid) ───────────────────────────
 cat > entry-tui.js <<'JSEOF'
@@ -201,6 +202,16 @@ JSEOF
 
 ./node_modules/.bin/rollup -c rollup-sortablejs.mjs
 
+# ── wasmoon: Lua 5.4 in WebAssembly (spec widgets §7) ──────────────────────
+# Le paquet fournit déjà un UMD navigateur (dist/index.js) qui installe
+# window.wasmoon, et son binaire Emscripten (dist/glue.wasm). Les deux sont
+# copiés tels quels, version épinglée par `npm install wasmoon@1.16.0` :
+# re-bundler le glue Emscripten avec rollup n'apporterait rien et risquerait de
+# casser la localisation du .wasm. Chargé uniquement dans l'iframe d'un widget
+# lua/moonscript (frontend/src/views/plugin_runtimes.coffee).
+cp node_modules/wasmoon/dist/index.js "$VENDOR/wasmoon.bundle.js"
+cp node_modules/wasmoon/dist/glue.wasm "$VENDOR/wasmoon.bundle.wasm"
+
 # ── CSS: CodeMirror core + monokai theme ──────────────────────────────────
 cat node_modules/codemirror/lib/codemirror.css \
     node_modules/codemirror/theme/monokai.css \
@@ -213,3 +224,6 @@ echo "  $VENDOR/jsyaml.bundle.js"
 echo "  $VENDOR/codemirror.bundle.js"
 echo "  $VENDOR/codemirror.bundle.css"
 echo "  $VENDOR/plugin-runtime.bundle.js"
+echo "  $VENDOR/sortablejs.bundle.js"
+echo "  $VENDOR/wasmoon.bundle.js"
+echo "  $VENDOR/wasmoon.bundle.wasm"

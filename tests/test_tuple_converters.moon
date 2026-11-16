@@ -60,7 +60,7 @@ CV_KEYS    = {"createdAt", "description", "id", "name", "updatedAt", "yaml"}
 DV_KEYS    = {"config", "createdAt", "description", "id", "name", "sourceSpace", "updatedAt"}
 -- `appId` est facultatif (absent/nil = bibliothèque) : vérifié à part.
 PLUGIN_KEYS = {
-  "createdAt", "description", "id", "manifest", "name"
+  "compiled", "createdAt", "description", "id", "manifest", "name"
   "scriptCode", "scriptLanguage", "templateCode", "templateLanguage", "updatedAt"
 }
 REL_KEYS = {

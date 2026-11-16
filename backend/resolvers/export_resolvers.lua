@@ -5,6 +5,7 @@ local auth_mod = require('core.auth')
 local view_presets = require('core.view_presets')
 local app_package = require('core.app_package')
 local widget_scopes = require('core.widget_scopes')
+local plugin_compile = require('core.plugin_compile')
 local executor = require('graphql.executor')
 local uuid_mod = require('uuid')
 local yaml = require('yaml')
@@ -723,18 +724,22 @@ do_import = function(snap, mode)
       local ok, err = pcall(function()
         local id = tostring(uuid_mod.new())
         local now = clock.time()
+        local lang = iwp.scriptLanguage or 'coffeescript'
+        local code = iwp.scriptCode or ''
+        local compiled = plugin_compile.compile_script(lang, code)
         return box.space._tdb_widget_plugins:insert({
           id,
           iwp.name,
           iwp.description or '',
-          iwp.scriptLanguage or 'coffeescript',
+          lang,
           iwp.templateLanguage or 'pug',
-          iwp.scriptCode or '',
+          code,
           iwp.templateCode or '',
           now,
           now,
           iwp.manifest or '',
-          ''
+          '',
+          compiled
         })
       end)
       if ok then

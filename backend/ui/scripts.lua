@@ -1,6 +1,7 @@
 local H = require('html')
 local LAZY_SCRIPT_SRCS = {
-  '/vendor/plugin-runtime.bundle.js'
+  '/vendor/plugin-runtime.bundle.js',
+  '/vendor/wasmoon.bundle.js'
 }
 local SCRIPT_SRCS = {
   '/vendor/tui-grid.bundle.js',

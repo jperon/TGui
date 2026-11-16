@@ -1,5 +1,13 @@
 # app_view_helpers_widget_plugins.coffee — widget plugin helpers extracted from app_view_helpers.coffee
 Object.assign window.AppViewHelpers,
+  # CodeMirror 5 shipped in frontend/vendor knows Lua but has no MoonScript
+  # mode: Lua definitions are highlighted, MoonScript is edited as plain text
+  # (spec widgets personnalisés §7). Unknown modes fall back to plain text too.
+  _widgetScriptEditorMode: (lang) ->
+    l = String(lang or 'coffeescript').toLowerCase()
+    return null if l == 'moonscript'
+    l
+
   _pulseModalButton: (btn) ->
     return unless btn
     btn.classList.remove 'is-pressed'
@@ -64,7 +72,7 @@ Object.assign window.AppViewHelpers,
       app.el.widgetPluginScope()?.value = ''
       app.el.widgetPluginScriptLanguage().value = defaults.scriptLanguage
       app.el.widgetPluginTemplateLanguage().value = defaults.templateLanguage
-      app._cmWidgetPluginScript?.setOption 'mode', defaults.scriptLanguage
+      app._cmWidgetPluginScript?.setOption 'mode', window.AppViewHelpers._widgetScriptEditorMode(defaults.scriptLanguage)
       app._cmWidgetPluginTemplate?.setOption 'mode', defaults.templateLanguage
       app._cmWidgetPluginScript?.setValue defaults.scriptCode
       app._cmWidgetPluginTemplate?.setValue defaults.templateCode
@@ -110,7 +118,7 @@ Object.assign window.AppViewHelpers,
 
     app.el.widgetPluginScriptLanguage()?.addEventListener 'change', ->
       mode = app.el.widgetPluginScriptLanguage().value or 'coffeescript'
-      app._cmWidgetPluginScript?.setOption 'mode', mode
+      app._cmWidgetPluginScript?.setOption 'mode', window.AppViewHelpers._widgetScriptEditorMode(mode)
 
     app.el.widgetPluginTemplateLanguage()?.addEventListener 'change', ->
       mode = app.el.widgetPluginTemplateLanguage().value or 'pug'
@@ -127,7 +135,7 @@ Object.assign window.AppViewHelpers,
       app.el.widgetPluginScope()?.value = plugin.appId or ''
       app.el.widgetPluginScriptLanguage().value = plugin.scriptLanguage or 'coffeescript'
       app.el.widgetPluginTemplateLanguage().value = plugin.templateLanguage or 'pug'
-      app._cmWidgetPluginScript?.setOption 'mode', app.el.widgetPluginScriptLanguage().value
+      app._cmWidgetPluginScript?.setOption 'mode', window.AppViewHelpers._widgetScriptEditorMode(app.el.widgetPluginScriptLanguage().value)
       app._cmWidgetPluginTemplate?.setOption 'mode', app.el.widgetPluginTemplateLanguage().value
       app._cmWidgetPluginScript?.setValue plugin.scriptCode or ''
       app._cmWidgetPluginTemplate?.setValue plugin.templateCode or ''
@@ -182,7 +190,7 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
           app.el.widgetPluginScope()?.value = p.appId or ''
           app.el.widgetPluginScriptLanguage().value = p.scriptLanguage or 'coffeescript'
           app.el.widgetPluginTemplateLanguage().value = p.templateLanguage or 'pug'
-          app._cmWidgetPluginScript?.setOption 'mode', app.el.widgetPluginScriptLanguage().value
+          app._cmWidgetPluginScript?.setOption 'mode', window.AppViewHelpers._widgetScriptEditorMode(app.el.widgetPluginScriptLanguage().value)
           app._cmWidgetPluginTemplate?.setOption 'mode', app.el.widgetPluginTemplateLanguage().value
           app._cmWidgetPluginScript?.setValue p.scriptCode or ''
           app._cmWidgetPluginTemplate?.setValue p.templateCode or ''
@@ -214,7 +222,7 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
           app.el.widgetPluginDescription().value = defaults.description
           app.el.widgetPluginScriptLanguage().value = defaults.scriptLanguage
           app.el.widgetPluginTemplateLanguage().value = defaults.templateLanguage
-          app._cmWidgetPluginScript?.setOption 'mode', defaults.scriptLanguage
+          app._cmWidgetPluginScript?.setOption 'mode', window.AppViewHelpers._widgetScriptEditorMode(defaults.scriptLanguage)
           app._cmWidgetPluginTemplate?.setOption 'mode', defaults.templateLanguage
           app._cmWidgetPluginScript?.setValue defaults.scriptCode
           app._cmWidgetPluginTemplate?.setValue defaults.templateCode
@@ -407,7 +415,7 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
 
     unless app._cmWidgetPluginScript
       app._cmWidgetPluginScript = CodeMirror app.el.widgetPluginScriptEditor(),
-        mode: (app.el.widgetPluginScriptLanguage().value or 'coffeescript')
+        mode: window.AppViewHelpers._widgetScriptEditorMode(app.el.widgetPluginScriptLanguage().value or 'coffeescript')
         theme: 'monokai'
         lineNumbers: true
         lineWrapping: true

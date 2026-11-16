@@ -325,6 +325,14 @@ _widgetPluginModal = function()
                 H.option({
                   value = 'javascript',
                   'JavaScript'
+                }),
+                H.option({
+                  value = 'lua',
+                  'Lua'
+                }),
+                H.option({
+                  value = 'moonscript',
+                  'MoonScript'
                 })
               }),
               H.label({

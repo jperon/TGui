@@ -378,7 +378,7 @@ local ObjectTypes = {
   },
   {
     name = 'WidgetPlugin',
-    definition = 'type WidgetPlugin {\n  id:              ID!\n  name:            String!\n  description:     String\n  templateCode:    String!\n  templateLanguage: String!\n  scriptCode:      String!\n  scriptLanguage:  String!\n  createdAt:       String!\n  updatedAt:       String!\n}'
+    definition = 'type WidgetPlugin {\n  id:              ID!\n  name:            String!\n  description:     String\n  templateCode:    String!\n  templateLanguage: String!\n  scriptCode:      String!\n  scriptLanguage:  String!\n  compiled:        String\n  createdAt:       String!\n  updatedAt:       String!\n}'
   },
   {
     name = 'DataView',

@@ -6,11 +6,18 @@ clock = require 'clock'
 yaml = require 'yaml'
 scopes = require 'core.widget_scopes'
 cv_widgets = require 'resolvers.custom_view_widgets'
+plugin_compile = require 'core.plugin_compile'
 { :require_auth, :require_perm } = require 'resolvers.utils'
 
+-- Langages de script (spec widgets personnalisés §7) : javascript et
+-- coffeescript sont compilés par le navigateur ; lua et moonscript sont
+-- compilés/vérifiés côté serveur (moonscript.base.to_lua, loadstring) et le
+-- résultat est mis en cache dans `compiled`.
 VALID_SCRIPT_LANGS = {
   coffeescript: true
   javascript: true
+  lua: true
+  moonscript: true
 }
 
 VALID_TEMPLATE_LANGS = {
@@ -186,6 +193,7 @@ tuple_to_plugin = (t) ->
     templateCode: t[7] or ''
     manifest: t[10] or ''
     appId: scopes.row_app_id t
+    compiled: t[12] or ''
     createdAt: tostring t[8]
     updatedAt: tostring t[9]
   }
@@ -235,12 +243,15 @@ create_widget_plugin = (input) ->
   template_code = validate_template_code input.templateCode
   manifest = validate_manifest input.manifest
   app_id = validate_app_scope input.appId
+  -- Refuse d'enregistrer un script qui ne compile pas (spec §7) : l'erreur
+  -- nomme la ligne, sinon elle n'apparaîtrait qu'au rendu de la page.
+  compiled = plugin_compile.compile_script script_lang, script_code
 
   assert_unique_name name, nil, app_id
 
   id = tostring uuid_mod.new!
   now = clock.time!
-  box.space._tdb_widget_plugins\insert { id, name, description, script_lang, template_lang, script_code, template_code, now, now, manifest, scopes.scope_column(app_id) }
+  box.space._tdb_widget_plugins\insert { id, name, description, script_lang, template_lang, script_code, template_code, now, now, manifest, scopes.scope_column(app_id), compiled }
   tuple_to_plugin box.space._tdb_widget_plugins\get id
 
 update_widget_plugin = (id, input) ->
@@ -266,8 +277,12 @@ update_widget_plugin = (id, input) ->
 
   assert_unique_name name, id, app_id
 
+  -- Recompilation à chaque enregistrement (le source reste la référence) :
+  -- changer de langage sans changer de code doit donc recompiler.
+  compiled = plugin_compile.compile_script script_lang, script_code
+
   now = clock.time!
-  box.space._tdb_widget_plugins\replace { id, name, description, script_lang, template_lang, script_code, template_code, t[8], now, manifest, scopes.scope_column(app_id) }
+  box.space._tdb_widget_plugins\replace { id, name, description, script_lang, template_lang, script_code, template_code, t[8], now, manifest, scopes.scope_column(app_id), compiled }
   tuple_to_plugin box.space._tdb_widget_plugins\get id
 
 -- Une définition de la bibliothèque encore utilisée par une page ne peut pas

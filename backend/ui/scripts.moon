@@ -13,9 +13,11 @@
 
 H = require 'html'
 
--- Widget compilers (CoffeeScript, pug) : chargés à la demande, jamais par la SPA.
+-- Widget compilers (CoffeeScript, pug) and the Lua runtime (wasmoon) : chargés
+-- à la demande, jamais par la SPA.
 LAZY_SCRIPT_SRCS = {
   '/vendor/plugin-runtime.bundle.js'
+  '/vendor/wasmoon.bundle.js'
 }
 
 SCRIPT_SRCS = {
