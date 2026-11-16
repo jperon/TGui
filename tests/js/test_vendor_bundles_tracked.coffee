@@ -42,6 +42,17 @@ extractLazyVendorPaths = ->
   found = block[1].match VENDOR_PATH_RE or []
   found.sort()
 
+# /vendor/... WebAssembly binaries declared by the language registry
+# (`wasm:` entries of frontend/src/views/plugin_runtimes.coffee). A missing
+# .wasm makes every Lua/MoonScript widget fail at runtime, never at page load.
+extractWasmVendorPaths = ->
+  src = fs.readFileSync path.join(ROOT, 'frontend/src/views/plugin_runtimes.coffee'), 'utf8'
+  found = []
+  pattern = /wasm:\s*'(\/vendor\/[A-Za-z0-9_.-]+)'/g
+  while (m = pattern.exec src)
+    found.push m[1]
+  found.sort()
+
 # True when git tracks +filePath+ in this checkout.
 isTracked = (filePath) ->
   try
@@ -76,14 +87,30 @@ describe 'Vendor bundles loaded by the page', ->
 describe 'Vendor bundles loaded on demand (LAZY_SCRIPT_SRCS)', ->
   lazyPaths = extractLazyVendorPaths()
 
-  it 'LAZY_SCRIPT_SRCS déclare le bundle des compilateurs de widgets', ->
+  it 'LAZY_SCRIPT_SRCS déclare les bundles des compilateurs de widgets', ->
     assert lazyPaths.length > 0,
       'LAZY_SCRIPT_SRCS est vide : les compilateurs de widgets ne seraient ' +
       'plus chargeables à la demande'
     assert '/vendor/plugin-runtime.bundle.js' in lazyPaths,
       "plugin-runtime.bundle.js absent de LAZY_SCRIPT_SRCS (#{lazyPaths.join ', '})"
+    assert '/vendor/wasmoon.bundle.js' in lazyPaths,
+      "wasmoon.bundle.js absent de LAZY_SCRIPT_SRCS (#{lazyPaths.join ', '})"
 
   for vendorPath in lazyPaths
+    do (vendorPath) ->
+      it "#{vendorPath} est suivi par git", ->
+        assertTracked vendorPath, 'est chargé à la demande'
+
+describe 'Binaires WebAssembly des runtimes de widgets', ->
+  wasmPaths = extractWasmVendorPaths()
+
+  it 'le registre de langages déclare le .wasm de wasmoon', ->
+    assert wasmPaths.length > 0,
+      'aucun chemin wasm: extrait de frontend/src/views/plugin_runtimes.coffee'
+    assert '/vendor/wasmoon.bundle.wasm' in wasmPaths,
+      "wasmoon.bundle.wasm absent du registre (#{wasmPaths.join ', '})"
+
+  for vendorPath in wasmPaths
     do (vendorPath) ->
       it "#{vendorPath} est suivi par git", ->
         assertTracked vendorPath, 'est chargé à la demande'

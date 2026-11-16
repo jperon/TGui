@@ -9,7 +9,7 @@
   // dans la page, mais frontend/src/views/plugin_runtimes.js les insère plus tard ;
   // ils doivent donc être committés tout autant. La liste LAZY_SCRIPT_SRCS de
   // backend/ui/scripts.moon est contrôlée séparément.
-  var PAGE_SOURCES, ROOT, VENDOR_PATH_RE, assert, assertTracked, describe, execFileSync, extractLazyVendorPaths, extractVendorPaths, fs, isTracked, it, path, summary,
+  var PAGE_SOURCES, ROOT, VENDOR_PATH_RE, assert, assertTracked, describe, execFileSync, extractLazyVendorPaths, extractVendorPaths, extractWasmVendorPaths, fs, isTracked, it, path, summary,
     indexOf = [].indexOf;
 
   ({execFileSync} = require('child_process'));
@@ -51,6 +51,20 @@
     block = src.match(/LAZY_SCRIPT_SRCS\s*=\s*\{([\s\S]*?)\}/);
     assert(block, 'LAZY_SCRIPT_SRCS introuvable dans backend/ui/scripts.moon');
     found = block[1].match(VENDOR_PATH_RE || []);
+    return found.sort();
+  };
+
+  // /vendor/... WebAssembly binaries declared by the language registry
+  // (`wasm:` entries of frontend/src/views/plugin_runtimes.coffee). A missing
+  // .wasm makes every Lua/MoonScript widget fail at runtime, never at page load.
+  extractWasmVendorPaths = function() {
+    var found, m, pattern, src;
+    src = fs.readFileSync(path.join(ROOT, 'frontend/src/views/plugin_runtimes.coffee'), 'utf8');
+    found = [];
+    pattern = /wasm:\s*'(\/vendor\/[A-Za-z0-9_.-]+)'/g;
+    while ((m = pattern.exec(src))) {
+      found.push(m[1]);
+    }
     return found.sort();
   };
 
@@ -96,13 +110,33 @@
   describe('Vendor bundles loaded on demand (LAZY_SCRIPT_SRCS)', function() {
     var i, lazyPaths, len, results, vendorPath;
     lazyPaths = extractLazyVendorPaths();
-    it('LAZY_SCRIPT_SRCS déclare le bundle des compilateurs de widgets', function() {
+    it('LAZY_SCRIPT_SRCS déclare les bundles des compilateurs de widgets', function() {
       assert(lazyPaths.length > 0, 'LAZY_SCRIPT_SRCS est vide : les compilateurs de widgets ne seraient ' + 'plus chargeables à la demande');
-      return assert(indexOf.call(lazyPaths, '/vendor/plugin-runtime.bundle.js') >= 0, `plugin-runtime.bundle.js absent de LAZY_SCRIPT_SRCS (${lazyPaths.join(', ')})`);
+      assert(indexOf.call(lazyPaths, '/vendor/plugin-runtime.bundle.js') >= 0, `plugin-runtime.bundle.js absent de LAZY_SCRIPT_SRCS (${lazyPaths.join(', ')})`);
+      return assert(indexOf.call(lazyPaths, '/vendor/wasmoon.bundle.js') >= 0, `wasmoon.bundle.js absent de LAZY_SCRIPT_SRCS (${lazyPaths.join(', ')})`);
     });
     results = [];
     for (i = 0, len = lazyPaths.length; i < len; i++) {
       vendorPath = lazyPaths[i];
+      results.push((function(vendorPath) {
+        return it(`${vendorPath} est suivi par git`, function() {
+          return assertTracked(vendorPath, 'est chargé à la demande');
+        });
+      })(vendorPath));
+    }
+    return results;
+  });
+
+  describe('Binaires WebAssembly des runtimes de widgets', function() {
+    var i, len, results, vendorPath, wasmPaths;
+    wasmPaths = extractWasmVendorPaths();
+    it('le registre de langages déclare le .wasm de wasmoon', function() {
+      assert(wasmPaths.length > 0, 'aucun chemin wasm: extrait de frontend/src/views/plugin_runtimes.coffee');
+      return assert(indexOf.call(wasmPaths, '/vendor/wasmoon.bundle.wasm') >= 0, `wasmoon.bundle.wasm absent du registre (${wasmPaths.join(', ')})`);
+    });
+    results = [];
+    for (i = 0, len = wasmPaths.length; i < len; i++) {
+      vendorPath = wasmPaths[i];
       results.push((function(vendorPath) {
         return it(`${vendorPath} est suivi par git`, function() {
           return assertTracked(vendorPath, 'est chargé à la demande');

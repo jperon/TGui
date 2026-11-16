@@ -113,7 +113,9 @@ VENDOR_OUTS := frontend/vendor/tui-grid.bundle.js \
 	frontend/vendor/codemirror.bundle.js \
 	frontend/vendor/codemirror.bundle.css \
 	frontend/vendor/sortablejs.bundle.js \
-	frontend/vendor/plugin-runtime.bundle.js
+	frontend/vendor/plugin-runtime.bundle.js \
+	frontend/vendor/wasmoon.bundle.js \
+	frontend/vendor/wasmoon.bundle.wasm
 
 vendor: $(VENDOR_OUTS)
 

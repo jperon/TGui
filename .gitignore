@@ -8,6 +8,7 @@ frontend/vendor/*
 !frontend/vendor/codemirror.bundle.*
 !frontend/vendor/sortablejs.bundle.*
 !frontend/vendor/plugin-runtime.bundle.*
+!frontend/vendor/wasmoon.bundle.*
 
 # Docker data volumes
 data/
