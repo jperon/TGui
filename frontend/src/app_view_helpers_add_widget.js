@@ -41,6 +41,128 @@
         return dataSourceConfig.appendChild(fieldsSection);
       }
     },
+    // Vide un conteneur : innerHTML (navigateur) et tableaux d'enfants (stub DOM
+    // des tests JS, où innerHTML ne vide rien).
+    _clearWidgetTypeContainer: function(container) {
+      container.innerHTML = '';
+      if (Array.isArray(container._children)) {
+        container._children.length = 0;
+      }
+      if (Array.isArray(container.children)) {
+        return container.children.length = 0;
+      }
+    },
+    // Un admin peut ouvrir l'éditeur de plugins depuis la fenêtre « ＋ Widget ».
+    // Information absente du frontend (Auth non chargé) → on laisse le lien
+    // visible : le serveur refuse de toute façon.
+    _canEditWidgetPlugins: function() {
+      var ref;
+      if (!((ref = window.Auth) != null ? ref.isAdmin : void 0)) {
+        return true;
+      }
+      return window.Auth.isAdmin();
+    },
+    // Option de type correspondant à un widget personnalisé (plugin). La valeur
+    // du radio est le NOM du plugin : c'est ce que `_renderWidget` attend dans
+    // `type` du nœud YAML.
+    _makeWidgetTypePluginOption: function(plugin) {
+      var desc, input, label, name, option, safeId;
+      name = plugin.name;
+      option = document.createElement('div');
+      option.className = 'widget-type-option widget-type-option--plugin';
+      option.title = plugin.description || name;
+      option.dataset.pluginName = name;
+      safeId = String(name).replace(/[^a-zA-Z0-9_-]/g, '-');
+      input = document.createElement('input');
+      input.type = 'radio';
+      input.name = 'widget-type';
+      input.value = name;
+      input.id = `widget-type-plugin-${safeId}`;
+      label = document.createElement('label');
+      label.setAttribute('for', input.id);
+      label.textContent = name;
+      if (plugin.description) {
+        desc = document.createElement('span');
+        desc.className = 'widget-type-option-desc';
+        desc.textContent = plugin.description;
+        label.appendChild(desc);
+      }
+      option.appendChild(input);
+      option.appendChild(label);
+      return option;
+    },
+    _renderWidgetTypePlugins: function(plugins) {
+      var empty, i, len, list, plugin, results;
+      list = document.getElementById('widget-type-plugin-list');
+      if (!list) {
+        return;
+      }
+      window.AppViewHelpers._clearWidgetTypeContainer(list);
+      if (!(plugins && plugins.length > 0)) {
+        empty = document.createElement('div');
+        empty.className = 'widget-type-hint';
+        empty.textContent = 'Aucun widget personnalisé';
+        list.appendChild(empty);
+        return;
+      }
+      results = [];
+      for (i = 0, len = plugins.length; i < len; i++) {
+        plugin = plugins[i];
+        if (plugin != null ? plugin.name : void 0) {
+          results.push(list.appendChild(window.AppViewHelpers._makeWidgetTypePluginOption(plugin)));
+        }
+      }
+      return results;
+    },
+    // Échec de chargement : message visible dans la fenêtre, jamais avalé.
+    _renderWidgetTypePluginsError: function(err) {
+      var list, message;
+      list = document.getElementById('widget-type-plugin-list');
+      if (!list) {
+        return;
+      }
+      window.AppViewHelpers._clearWidgetTypeContainer(list);
+      message = document.createElement('div');
+      message.className = 'widget-type-hint widget-type-hint--error';
+      message.textContent = `Erreur de chargement des widgets personnalisés : ${(err != null ? err.message : void 0) || err}`;
+      return list.appendChild(message);
+    },
+    _reloadWidgetTypePlugins: function(app) {
+      var api;
+      api = window.WidgetPlugins;
+      if (!(api != null ? api.list : void 0)) {
+        window.AppViewHelpers._renderWidgetTypePluginsError('API WidgetPlugins indisponible');
+        return Promise.resolve([]);
+      }
+      return api.list().then(function(plugins) {
+        window.AppViewHelpers._renderWidgetTypePlugins(plugins || []);
+        return plugins || [];
+      }).catch(function(err) {
+        console.error('load widget plugins for the add-widget modal failed', err);
+        window.AppViewHelpers._renderWidgetTypePluginsError(err);
+        return [];
+      });
+    },
+    // Sélection d'un type : une seule option marquée, radio coché. Appelée par
+    // délégation, les options de plugins étant créées après le montage.
+    _selectWidgetType: function(option) {
+      var el, i, len, radio, ref, scope;
+      if (!option) {
+        return;
+      }
+      scope = document.getElementById('widget-type-options') || option.parentNode;
+      ref = (scope != null ? typeof scope.querySelectorAll === "function" ? scope.querySelectorAll('.widget-type-option') : void 0 : void 0) || [];
+      for (i = 0, len = ref.length; i < len; i++) {
+        el = ref[i];
+        el.classList.remove('selected');
+      }
+      option.classList.add('selected');
+      radio = option.querySelector('input[type="radio"]');
+      if (radio) {
+        radio.checked = true;
+      }
+      return option;
+    },
     _populateSpaceSelect: function(select, spaces, dataViews) {
       var i, j, len, len1, option, space, spacesGroup, view, viewsGroup;
       console.log('Populating space select with:', {
@@ -88,6 +210,8 @@
       }
       // Charger les espaces disponibles
       window.AppViewHelpers._loadAvailableSources(app);
+      // Remplir le groupe « Widgets personnalisés » (définitions courantes)
+      window.AppViewHelpers._reloadWidgetTypePlugins(app);
       // Lier les événements de base
       window.AppViewHelpers._bindBasicWidgetEvents(app);
       // Charger la liste des espaces et des Data Views
@@ -242,22 +366,50 @@
       return results;
     },
     _bindBasicWidgetEvents: function(app) {
-      var cancelBtn, confirmBtn, i, len, option, typeOptions;
-      // Gérer la sélection du type de widget
-      typeOptions = document.querySelectorAll('.widget-type-option');
-      for (i = 0, len = typeOptions.length; i < len; i++) {
-        option = typeOptions[i];
-        option.addEventListener('click', function() {
-          var j, len1, opt;
-// Désélectionner les autres
-          for (j = 0, len1 = typeOptions.length; j < len1; j++) {
-            opt = typeOptions[j];
-            opt.classList.remove('selected');
+      var cancelBtn, confirmBtn, newPluginBtn, tableRadio, typeOptionsRoot;
+      // Rouvrir la fenêtre repart du type par défaut (« Tableau simple »).
+      tableRadio = document.getElementById('widget-type-table');
+      if (tableRadio) {
+        tableRadio.checked = true;
+        if (tableRadio.parentNode) {
+          window.AppViewHelpers._selectWidgetType(tableRadio.parentNode);
+        }
+      }
+      // Sélection du type de widget : délégation sur le conteneur, car les
+      // options des widgets personnalisés sont créées à chaque ouverture.
+      typeOptionsRoot = document.getElementById('widget-type-options');
+      if (typeOptionsRoot && !typeOptionsRoot._tdbTypeBound) {
+        typeOptionsRoot._tdbTypeBound = true;
+        typeOptionsRoot.addEventListener('click', function(ev) {
+          var option, ref;
+          option = (ref = ev.target) != null ? typeof ref.closest === "function" ? ref.closest('.widget-type-option') : void 0 : void 0;
+          if (!option) {
+            return;
           }
-          // Sélectionner celui-ci
-          this.classList.add('selected');
-          return this.querySelector('input[type="radio"]').checked = true;
+          return window.AppViewHelpers._selectWidgetType(option);
         });
+      }
+      // Lien vers l'éditeur de plugins (admin uniquement, si l'info est connue).
+      newPluginBtn = document.getElementById('widget-type-new-plugin');
+      if (newPluginBtn) {
+        if (window.AppViewHelpers._canEditWidgetPlugins()) {
+          newPluginBtn.classList.remove('hidden');
+          if (!newPluginBtn._tdbBound) {
+            newPluginBtn._tdbBound = true;
+            newPluginBtn.addEventListener('click', function(ev) {
+              var ref;
+              if (typeof ev.preventDefault === "function") {
+                ev.preventDefault();
+              }
+              if ((ref = app.el.addWidgetModal()) != null) {
+                ref.classList.add('hidden');
+              }
+              return window.AppViewHelpers.openWidgetPluginModal(app);
+            });
+          }
+        } else {
+          newPluginBtn.classList.add('hidden');
+        }
       }
       // Gérer les boutons de la modale
       confirmBtn = document.getElementById('add-widget-confirm-btn');
@@ -313,10 +465,12 @@
       return results;
     },
     _validateWidgetForm: function() {
-      var errors, selectedFields, spaceSelect, titleInput;
+      var errors, selectedFields, selectedType, spaceSelect, titleInput, type;
       titleInput = document.getElementById('widget-title-input');
       spaceSelect = document.getElementById('widget-space-select');
       selectedFields = document.querySelectorAll('#selected-fields .field-item');
+      selectedType = document.querySelector('input[name="widget-type"]:checked');
+      type = (selectedType != null ? selectedType.value : void 0) || 'table';
       errors = [];
       // Valider le titre
       if (!(titleInput && titleInput.value.trim())) {
@@ -326,8 +480,9 @@
       if (!(spaceSelect && spaceSelect.value)) {
         errors.push('La sélection d\'un espace est requise');
       }
-      // Valider les champs (au moins un champ sélectionné)
-      if (!(selectedFields.length > 0)) {
+      // Colonnes obligatoires pour le tableau simple seulement : un widget
+      // personnalisé (plugin) lit ses données lui-même (spec §3 bis).
+      if (type === 'table' && selectedFields.length === 0) {
         errors.push('Au moins un champ doit être sélectionné');
       }
       return errors;
@@ -358,13 +513,31 @@
       return {
         title: titleInput.value.trim(),
         spaceId: spaceSelect.value,
-        type: selectedType.value || 'table',
+        type: (selectedType != null ? selectedType.value : void 0) || 'table',
         fields: fields,
         params: params
       };
     },
+    // Identifiant de la page ouverte : celui de la vue personnalisée courante,
+    // sinon celui du hash (`#page/<id>` pour une page, `#view/<id>` pour une data
+    // view). L'ancienne version ne reconnaissait que `view/` et refusait donc tout
+    // ajout de widget depuis une page.
+    _resolveAddWidgetViewId: function(app, hash) {
+      var h, m, ref;
+      if (app != null ? (ref = app._currentCustomView) != null ? ref.id : void 0 : void 0) {
+        return app._currentCustomView.id;
+      }
+      h = hash || '';
+      if (m = h.match(/^#page\/([^\/?#]+)/)) {
+        return m[1];
+      }
+      if (m = h.match(/^#view\/([^\/?#]+)/)) {
+        return m[1];
+      }
+      return null;
+    },
     _submitWidget: function(app) {
-      var errors, mutation, ref, variables, viewId, widgetData;
+      var errors, mutation, variables, viewId, widgetData;
       // Valider le formulaire
       errors = window.AppViewHelpers._validateWidgetForm();
       if (errors.length > 0) {
@@ -373,8 +546,8 @@
       }
       // Collecter les données
       widgetData = window.AppViewHelpers._collectWidgetData();
-      // Récupérer l'ID de la vue actuelle depuis l'URL
-      viewId = (ref = window.location.hash.match(/view\/([a-f0-9-]+)/)) != null ? ref[1] : void 0;
+      // Page ouverte (hash #page/… ou #view/…)
+      viewId = window.AppViewHelpers._resolveAddWidgetViewId(app, window.location.hash);
       if (!viewId) {
         tdbAlert('Erreur: impossible de déterminer l\'ID de la vue actuelle', 'error');
         return;

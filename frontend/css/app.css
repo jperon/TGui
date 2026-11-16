@@ -1853,6 +1853,69 @@ body { background: var(--color-bg); height: 100vh; overflow: hidden; }
   border-color: #89b4fa;
 }
 
+/* Groupe « Widgets personnalisés » de la fenêtre « ＋ Widget » */
+.widget-type-group {
+  margin-top: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.widget-type-group-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-muted, #aaa);
+}
+
+.widget-type-plugins {
+  margin-bottom: 0.5rem;
+}
+
+.widget-type-option--plugin {
+  align-items: flex-start;
+}
+
+.widget-type-option--plugin label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  cursor: pointer;
+}
+
+.widget-type-option-desc {
+  font-size: 0.8rem;
+  color: var(--color-muted, #aaa);
+}
+
+.widget-type-hint {
+  padding: 0.5rem;
+  font-size: 0.9rem;
+  font-style: italic;
+  color: var(--color-muted, #aaa);
+}
+
+.widget-type-hint--error {
+  color: #c55;
+  font-style: normal;
+}
+
+.widget-type-new-plugin {
+  margin-top: 0.25rem;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.85rem;
+  background: transparent;
+  border: 1px dashed var(--color-border);
+  border-radius: 4px;
+  color: var(--color-accent);
+  cursor: pointer;
+}
+
+.widget-type-new-plugin:hover {
+  background: rgba(137, 180, 250, 0.1);
+}
+
 .widget-type-note {
   padding: 1rem;
   background: rgba(255, 193, 7, 0.1);
