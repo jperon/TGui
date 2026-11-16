@@ -397,7 +397,7 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
       .catch (err) ->
         console.warn 'load widget plugin scopes failed', err
 
-  openWidgetPluginModal: (app) ->
+  openWidgetPluginModal: (app, preferredId = null) ->
     app.el.widgetPluginModal()?.classList.remove 'hidden'
     window.AppViewHelpers._loadWidgetPluginScopes app
     app._widgetPluginDirty = false
@@ -433,5 +433,5 @@ module.exports = ({ gql, emitSelection, onInputSelection, render, params }) ->
     setTimeout (-> app._cmWidgetPluginScript?.refresh()), 10
     setTimeout (-> app._cmWidgetPluginTemplate?.refresh()), 10
     setTimeout (-> app._cmWidgetPluginManifest?.refresh()), 10
-    window.AppViewHelpers._loadWidgetPlugins app
+    window.AppViewHelpers._loadWidgetPlugins app, preferredId
 

@@ -961,7 +961,7 @@ ${js}
       return GQL.query(DETACHED_PAGE_QUERY, {
         id: this.pageId
       }).then((data) => {
-        var base, cv, ref, ref1, ref2;
+        var cv, ref, ref1, ref2;
         cv = data != null ? data.customView : void 0;
         if (!cv) {
           return;
@@ -976,8 +976,7 @@ ${js}
           }
         }
         if ((ref2 = window.AppViewHelpers) != null ? ref2.openWidgetPluginModal : void 0) {
-          window.AppViewHelpers.openWidgetPluginModal(app);
-          return typeof (base = window.AppViewHelpers)._loadWidgetPlugins === "function" ? base._loadWidgetPlugins(app, created.id) : void 0;
+          return window.AppViewHelpers.openWidgetPluginModal(app, created.id);
         }
       }).catch(function(err) {
         var ref;

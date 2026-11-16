@@ -597,14 +597,21 @@ _find_child_key = (lines, range, key) ->
     return { line: j, value: value } if k == key
   nil
 
--- Ligne `type:` réécrite, indentation et commentaire final conservés.
+-- Ligne `type:` réécrite, indentation, style de guillemets et commentaire final
+-- conservés (un nom simple reste nu, un nom déjà entre guillemets le reste).
 _rewrite_type_value = (line, new_type) ->
   prefix, value, suffix = line\match '^(%s*type%s*:%s*)(.-)(%s*)$'
   return nil unless prefix
   comment = value\match '(%s*#.*)$'
   if comment
     value = value\sub 1, #value - #comment
+  bare = value\match '^%s*(.-)%s*$'
   new_value = yaml_scalar new_type
+  first = bare\sub 1, 1
+  if first == "'" and bare\sub(-1) == "'"
+    new_value = "'" .. new_type\gsub("'", "''") .. "'"
+  elseif first == '"' and bare\sub(-1) == '"'
+    new_value = '"' .. new_type .. '"'
   prefix .. new_value .. (comment or '') .. suffix
 
 -- Forme « flow » (`- widget: {id: w1, type: x}`) : réécriture dans les

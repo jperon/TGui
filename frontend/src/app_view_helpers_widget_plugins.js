@@ -587,7 +587,7 @@
         return console.warn('load widget plugin scopes failed', err);
       });
     },
-    openWidgetPluginModal: function(app) {
+    openWidgetPluginModal: function(app, preferredId = null) {
       var ref;
       if ((ref = app.el.widgetPluginModal()) != null) {
         ref.classList.remove('hidden');
@@ -639,7 +639,7 @@
         var ref1;
         return (ref1 = app._cmWidgetPluginManifest) != null ? ref1.refresh() : void 0;
       }), 10);
-      return window.AppViewHelpers._loadWidgetPlugins(app);
+      return window.AppViewHelpers._loadWidgetPlugins(app, preferredId);
     }
   });
 

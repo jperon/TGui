@@ -663,7 +663,6 @@ Object.assign window.CustomView::,
         app._cmYaml?.setValue cv.yaml
         window.AppViewHelpers?.renderCustomViewPreview? app, cv.yaml
         if window.AppViewHelpers?.openWidgetPluginModal
-          window.AppViewHelpers.openWidgetPluginModal app
-          window.AppViewHelpers._loadWidgetPlugins? app, created.id
+          window.AppViewHelpers.openWidgetPluginModal app, created.id
       .catch (err) ->
         tdbAlert window.App?._err?(err) or err?.message or String(err), 'error'

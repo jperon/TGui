@@ -117,6 +117,7 @@ type Mutation {
   createWidgetPlugin(input: CreateWidgetPluginInput!): WidgetPlugin!
   updateWidgetPlugin(id: ID!, input: UpdateWidgetPluginInput!): WidgetPlugin!
   deleteWidgetPlugin(id: ID!): Boolean!
+  detachWidgetPlugin(pageId: ID!, widgetId: ID!, newName: String): WidgetPlugin!
   saveViewPreset(scope: String!, spaceId: ID!, name: String!, filter: String, sort: String): ViewPreset!
   deleteViewPreset(id: ID!): Boolean!
   addWidgetToView(viewId: ID!, widget: WidgetInput!): CustomView!

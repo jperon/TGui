@@ -705,7 +705,14 @@ _rewrite_type_value = function(line, new_type)
   if comment then
     value = value:sub(1, #value - #comment)
   end
+  local bare = value:match('^%s*(.-)%s*$')
   local new_value = yaml_scalar(new_type)
+  local first = bare:sub(1, 1)
+  if first == "'" and bare:sub(-1) == "'" then
+    new_value = "'" .. new_type:gsub("'", "''") .. "'"
+  elseif first == '"' and bare:sub(-1) == '"' then
+    new_value = '"' .. new_type .. '"'
+  end
   return prefix .. new_value .. (comment or '') .. suffix
 end
 local _flow_patch
