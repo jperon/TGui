@@ -10,6 +10,7 @@ This guide walks you step by step from zero to a fully functional **school libra
 
 - [Docker](https://www.docker.com/) (or Tarantool 3.x installed locally)
 - `make`, `git` et `coffee` (CoffeeScript) — nécessaires seulement pour modifier les sources ; le compilateur MoonScript est un sous-module git (lancer `git submodule update --init`)
+- [Nix](https://nixos.org/) avec [direnv](https://direnv.net/) (recommandé pour modifier les sources) : lancer `direnv allow` une fois à la racine ; le shell de développement se charge ensuite automatiquement en entrant dans le répertoire (sans direnv, utiliser `nix develop`)
 
 ---
 

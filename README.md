@@ -55,6 +55,10 @@ présenter dans des vues et des pages.
   sous-module (Lua 5.1 + lpeg, même version qu'à l'exécution), `coffee`,
   `node`, les navigateurs Playwright, `shot-scraper` et le client Docker
   (voir `flake.nix`).
+- **direnv** (facultatif, avec Nix) : le `.envrc` du dépôt charge ce shell
+  automatiquement. Lancer `direnv allow` une fois à la racine ; ensuite
+  l'environnement s'active en entrant dans le répertoire. Sans direnv,
+  `nix develop` reste nécessaire pour `make build`, `make up` et `make test`.
 
 Le compilateur MoonScript est le sous-module git `backend/vendor/moonscript`
 (épinglé sur le tag v0.8.0) : après un clone, lancer
@@ -65,6 +69,8 @@ Le compilateur MoonScript est le sous-module git `backend/vendor/moonscript`
 
 ```bash
 # 1. Entrer dans l'environnement de développement (recommandé)
+#    Avec direnv : `direnv allow` une fois, puis l'environnement se charge
+#    automatiquement en entrant dans le répertoire. Sinon : `nix develop`.
 nix develop
 
 # 2. Compiler les sources MoonScript et CoffeeScript

@@ -126,3 +126,6 @@ msgstr "- `purgeAppObsolete` exige `confirmed: true` et n'accepte que les élém
 
 msgid "- `make`, `git` and `coffee` (CoffeeScript) — only needed to modify sources; the MoonScript compiler is a git submodule (run `git submodule update --init`)"
 msgstr "- `make`, `git` et `coffee` (CoffeeScript) — nécessaires seulement pour modifier les sources ; le compilateur MoonScript est un sous-module git (lancer `git submodule update --init`)"
+
+msgid "- [Nix](https://nixos.org/) with [direnv](https://direnv.net/) (recommended to modify sources): run `direnv allow` once at the repository root; the dev shell then loads automatically when entering the directory (without direnv, use `nix develop`)"
+msgstr "- [Nix](https://nixos.org/) avec [direnv](https://direnv.net/) (recommandé pour modifier les sources) : lancer `direnv allow` une fois à la racine ; le shell de développement se charge ensuite automatiquement en entrant dans le répertoire (sans direnv, utiliser `nix develop`)"

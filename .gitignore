@@ -30,3 +30,6 @@ Thumbs.db
 
 # MoonScript native parser (compiled by make build, never committed)
 build/
+
+# direnv (Nix dev shell cache)
+.direnv/
