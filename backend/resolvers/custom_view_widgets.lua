@@ -1,5 +1,78 @@
 local yaml = require('yaml')
 local uuid_mod = require('uuid')
+local yaml_quote
+yaml_quote = function(value)
+  local escaped = tostring(value):gsub("'", "''")
+  return "'" .. escaped .. "'"
+end
+local yaml_scalar
+yaml_scalar = function(value)
+  local s = tostring(value)
+  if s == '' then
+    return yaml_quote(s)
+  end
+  if s:match('^%s' or s:match('%s$')) then
+    return yaml_quote(s)
+  end
+  if s:match('[:#%[%]{},&*!|>%%@`"\']') then
+    return yaml_quote(s)
+  end
+  if s:match('^[-?]') then
+    return yaml_quote(s)
+  end
+  if s:match('^[%d%.]+$') then
+    return yaml_quote(s)
+  end
+  if s == 'true' or s == 'false' or s == 'null' or s == '~' then
+    return yaml_quote(s)
+  end
+  return s
+end
+local position_index
+position_index = function(value, fallback)
+  if type(value) == 'number' then
+    return value
+  end
+  return fallback or 1
+end
+local encode_widget_type
+encode_widget_type = function(widget, indent)
+  if not (widget.type) then
+    return ''
+  end
+  return indent .. "type: " .. yaml_quote(widget.type) .. "\n"
+end
+local encode_widget_params
+encode_widget_params = function(params, indent)
+  if not (params and type(params) == 'table') then
+    return ''
+  end
+  local keys = { }
+  for key in pairs(params) do
+    table.insert(keys, key)
+  end
+  table.sort(keys)
+  local body = ''
+  for _, key in ipairs(keys) do
+    local _continue_0 = false
+    repeat
+      local value = params[key]
+      if type(value) == 'table' then
+        _continue_0 = true
+        break
+      end
+      body = body .. (indent .. "  " .. yaml_quote(key) .. ": " .. yaml_quote(value) .. "\n")
+      _continue_0 = true
+    until true
+    if not _continue_0 then
+      break
+    end
+  end
+  if body == '' then
+    return ''
+  end
+  return indent .. "params:\n" .. body
+end
 local encode_layout_yaml
 encode_layout_yaml = function(config)
   local yaml_content = "layout:\n"
@@ -12,9 +85,10 @@ encode_layout_yaml = function(config)
       if child.widget then
         yaml_content = yaml_content .. (indent .. "- widget:\n")
         yaml_content = yaml_content .. (indent .. "    id: " .. tostring(child.widget.id) .. "\n")
-        yaml_content = yaml_content .. (indent .. "    title: " .. child.widget.title .. "\n")
-        yaml_content = yaml_content .. (indent .. "    space: " .. tostring(child.widget.space) .. "\n")
-        yaml_content = yaml_content .. (indent .. "    position: " .. tostring(child.widget.position) .. "\n")
+        yaml_content = yaml_content .. (indent .. "    title: " .. yaml_scalar(child.widget.title or '') .. "\n")
+        yaml_content = yaml_content .. (indent .. "    space: " .. yaml_scalar(child.widget.space or '') .. "\n")
+        yaml_content = yaml_content .. (indent .. "    position: " .. tostring(position_index(child.widget.position, 1)) .. "\n")
+        yaml_content = yaml_content .. encode_widget_type(child.widget, indent .. "    ")
         if child.widget.dataViewId then
           yaml_content = yaml_content .. (indent .. "    dataViewId: " .. tostring(child.widget.dataViewId) .. "\n")
         end
@@ -27,15 +101,16 @@ encode_layout_yaml = function(config)
         if child.widget.groupBy then
           yaml_content = yaml_content .. (indent .. "    groupBy: " .. tostring(child.widget.groupBy) .. "\n")
         end
+        yaml_content = yaml_content .. encode_widget_params(child.widget.params, indent .. "    ")
         for key, value in pairs(child.widget) do
-          if key ~= 'id' and key ~= 'title' and key ~= 'space' and key ~= 'position' and key ~= 'columns' and key ~= 'groupBy' and key ~= 'dataViewId' then
+          if key ~= 'id' and key ~= 'title' and key ~= 'space' and key ~= 'position' and key ~= 'columns' and key ~= 'groupBy' and key ~= 'dataViewId' and key ~= 'type' and key ~= 'params' then
             yaml_content = yaml_content .. (indent .. "    " .. key .. ": " .. tostring(value) .. "\n")
           end
         end
       elseif child.zone then
         yaml_content = yaml_content .. (indent .. "- zone:\n")
         yaml_content = yaml_content .. (indent .. "    id: " .. tostring(child.zone.id) .. "\n")
-        yaml_content = yaml_content .. (indent .. "    title: " .. child.zone.title .. "\n")
+        yaml_content = yaml_content .. (indent .. "    title: " .. yaml_scalar(child.zone.title or '') .. "\n")
         yaml_content = yaml_content .. (indent .. "    factor: " .. tostring(child.zone.factor) .. "\n")
         yaml_content = yaml_content .. (indent .. "    direction: " .. (child.zone.direction or 'vertical') .. "\n")
         if child.zone.children and #child.zone.children > 0 then
@@ -199,7 +274,7 @@ reorder_widgets = function(pageId, widgetPositions)
       local zone = child.zone
       yaml_content = yaml_content .. "    - zone:\n"
       yaml_content = yaml_content .. ("        id: " .. tostring(zone.id) .. "\n")
-      yaml_content = yaml_content .. ("        title: " .. tostring(zone.title or '') .. "\n")
+      yaml_content = yaml_content .. ("        title: " .. yaml_scalar(zone.title or '') .. "\n")
       yaml_content = yaml_content .. ("        factor: " .. tostring(zone.factor or 1) .. "\n")
       yaml_content = yaml_content .. ("        direction: " .. tostring(zone.direction or 'vertical') .. "\n")
       if zone.children and #zone.children > 0 then
@@ -209,9 +284,10 @@ reorder_widgets = function(pageId, widgetPositions)
             local widget = zone_child.widget
             yaml_content = yaml_content .. "          - widget:\n"
             yaml_content = yaml_content .. ("              id: " .. tostring(widget.id) .. "\n")
-            yaml_content = yaml_content .. ("              title: " .. tostring(widget.title or '') .. "\n")
-            yaml_content = yaml_content .. ("              space: " .. tostring(widget.space or '') .. "\n")
-            yaml_content = yaml_content .. ("              position: " .. tostring(widget.position or 1) .. "\n")
+            yaml_content = yaml_content .. ("              title: " .. yaml_scalar(widget.title or '') .. "\n")
+            yaml_content = yaml_content .. ("              space: " .. yaml_scalar(widget.space or '') .. "\n")
+            yaml_content = yaml_content .. ("              position: " .. tostring(position_index(widget.position, 1)) .. "\n")
+            yaml_content = yaml_content .. encode_widget_type(widget, "              ")
             if widget.columns and #widget.columns > 0 then
               yaml_content = yaml_content .. "              columns:\n"
               for _, col in ipairs(widget.columns) do
@@ -221,15 +297,17 @@ reorder_widgets = function(pageId, widgetPositions)
             if widget.groupBy then
               yaml_content = yaml_content .. ("              groupBy: " .. tostring(widget.groupBy) .. "\n")
             end
+            yaml_content = yaml_content .. encode_widget_params(widget.params, "              ")
           end
         end
       end
     elseif child.widget then
       yaml_content = yaml_content .. "    - widget:\n"
       yaml_content = yaml_content .. ("        id: " .. tostring(child.widget.id) .. "\n")
-      yaml_content = yaml_content .. ("        title: " .. child.widget.title .. "\n")
-      yaml_content = yaml_content .. ("        space: " .. tostring(child.widget.space) .. "\n")
-      yaml_content = yaml_content .. ("        position: " .. tostring(child.widget.position) .. "\n")
+      yaml_content = yaml_content .. ("        title: " .. yaml_scalar(child.widget.title or '') .. "\n")
+      yaml_content = yaml_content .. ("        space: " .. yaml_scalar(child.widget.space or '') .. "\n")
+      yaml_content = yaml_content .. ("        position: " .. tostring(position_index(child.widget.position, 1)) .. "\n")
+      yaml_content = yaml_content .. encode_widget_type(child.widget, "        ")
       if child.widget.columns and #child.widget.columns > 0 then
         yaml_content = yaml_content .. "        columns:\n"
         for _, col in ipairs(child.widget.columns) do
@@ -239,8 +317,9 @@ reorder_widgets = function(pageId, widgetPositions)
       if child.widget.groupBy then
         yaml_content = yaml_content .. ("        groupBy: " .. tostring(child.widget.groupBy) .. "\n")
       end
+      yaml_content = yaml_content .. encode_widget_params(child.widget.params, "        ")
       for key, value in pairs(child.widget) do
-        if key ~= 'id' and key ~= 'title' and key ~= 'space' and key ~= 'position' and key ~= 'columns' and key ~= 'groupBy' then
+        if key ~= 'id' and key ~= 'title' and key ~= 'space' and key ~= 'position' and key ~= 'columns' and key ~= 'groupBy' and key ~= 'type' and key ~= 'params' then
           yaml_content = yaml_content .. ("        " .. key .. ": " .. tostring(value) .. "\n")
         end
       end
@@ -376,11 +455,12 @@ add_widget_to_view = function(viewId, widget)
     config.layout.children = { }
   end
   local position = #config.layout.children + 1
+  local yaml_position = position_index(widget.position, position)
   local new_widget = {
     id = widget.id or tostring(uuid_mod.new()),
     title = widget.title,
     space = space_name,
-    position = widget.position or position
+    position = yaml_position
   }
   if widget.type then
     new_widget.type = widget.type

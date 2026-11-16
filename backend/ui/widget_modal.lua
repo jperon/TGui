@@ -86,6 +86,30 @@ _widgetTypeOption = function(value, label, checked)
     })
   })
 end
+local _widgetTypePluginsGroup
+_widgetTypePluginsGroup = function()
+  return H.div({
+    class = 'widget-type-group',
+    H.h4({
+      class = 'widget-type-group-title',
+      'Widgets personnalisés'
+    }),
+    H.div({
+      id = 'widget-type-plugin-list',
+      class = 'widget-type-plugins',
+      H.div({
+        class = 'widget-type-hint',
+        'Chargement…'
+      })
+    }),
+    H.button({
+      id = 'widget-type-new-plugin',
+      type = 'button',
+      class = 'widget-type-new-plugin hidden',
+      'Nouveau widget personnalisé…'
+    })
+  })
+end
 local _widgetParamRow
 _widgetParamRow = function()
   return H.div({
@@ -132,8 +156,10 @@ _widgetTypeSection = function()
     H.div({
       class = 'widget-type-config',
       H.div({
+        id = 'widget-type-options',
         class = 'widget-type-options',
-        _widgetTypeOption('table', 'Tableau simple', true)
+        _widgetTypeOption('table', 'Tableau simple', true),
+        _widgetTypePluginsGroup()
       })
     })
   })

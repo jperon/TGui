@@ -39,6 +39,20 @@ _widgetTypeOption = (value, label, checked = false) ->
     H.label {['for']: "widget-type-#{value}", label}
   }
 
+-- Groupe « Widgets personnalisés » : la liste est remplie par le frontend
+-- (app_view_helpers_add_widget.coffee) à chaque ouverture de la fenêtre.
+-- Markup initial : « Chargement… » remplacé par les définitions, ou par
+-- « Aucun widget personnalisé », ou par un message d'erreur visible.
+_widgetTypePluginsGroup = ->
+  H.div {class: 'widget-type-group',
+    H.h4 {class: 'widget-type-group-title', 'Widgets personnalisés'}
+    H.div {id: 'widget-type-plugin-list', class: 'widget-type-plugins',
+      H.div {class: 'widget-type-hint', 'Chargement…'}
+    }
+    H.button {id: 'widget-type-new-plugin', type: 'button',
+      class: 'widget-type-new-plugin hidden', 'Nouveau widget personnalisé…'}
+  }
+
 _widgetParamRow = ->
   H.div {class: 'param-row',
     H.input {type: 'text', placeholder: 'Clé', class: 'param-key'}
@@ -60,8 +74,9 @@ _widgetTypeSection = ->
   H.div {class: 'widget-section',
     H.h3 {'2. Type de widget'}
     H.div {class: 'widget-type-config',
-      H.div {class: 'widget-type-options',
+      H.div {id: 'widget-type-options', class: 'widget-type-options',
         _widgetTypeOption('table', 'Tableau simple', true)
+        _widgetTypePluginsGroup!
       }
     }
   }

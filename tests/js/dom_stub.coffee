@@ -71,6 +71,17 @@ makeElement = (tag) ->
       return false unless node?
       return true if node is el
       el._children.indexOf(node) != -1
+  # `className` affecté directement doit alimenter classList (comme dans le DOM),
+  # sinon `el.className = 'a b'` puis `classList.contains('a')` est faux.
+  classValue = ''
+  Object.defineProperty el, 'className',
+    get: -> classValue
+    set: (value) ->
+      classValue = if value? then String(value) else ''
+      classes.clear()
+      for c in classValue.split /\s+/
+        classes.add c if c
+      return
   el
 
 _elementsById = {}

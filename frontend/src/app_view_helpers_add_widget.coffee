@@ -40,6 +40,102 @@ Object.assign window.AppViewHelpers,
       '''
       dataSourceConfig.appendChild fieldsSection
 
+  # Vide un conteneur : innerHTML (navigateur) et tableaux d'enfants (stub DOM
+  # des tests JS, où innerHTML ne vide rien).
+  _clearWidgetTypeContainer: (container) ->
+    container.innerHTML = ''
+    container._children.length = 0 if Array.isArray container._children
+    container.children.length = 0 if Array.isArray container.children
+
+  # Un admin peut ouvrir l'éditeur de plugins depuis la fenêtre « ＋ Widget ».
+  # Information absente du frontend (Auth non chargé) → on laisse le lien
+  # visible : le serveur refuse de toute façon.
+  _canEditWidgetPlugins: ->
+    return true unless window.Auth?.isAdmin
+    window.Auth.isAdmin()
+
+  # Option de type correspondant à un widget personnalisé (plugin). La valeur
+  # du radio est le NOM du plugin : c'est ce que `_renderWidget` attend dans
+  # `type` du nœud YAML.
+  _makeWidgetTypePluginOption: (plugin) ->
+    name = plugin.name
+    option = document.createElement 'div'
+    option.className = 'widget-type-option widget-type-option--plugin'
+    option.title = plugin.description or name
+    option.dataset.pluginName = name
+
+    safeId = String(name).replace /[^a-zA-Z0-9_-]/g, '-'
+    input = document.createElement 'input'
+    input.type = 'radio'
+    input.name = 'widget-type'
+    input.value = name
+    input.id = "widget-type-plugin-#{safeId}"
+
+    label = document.createElement 'label'
+    label.setAttribute 'for', input.id
+    label.textContent = name
+
+    if plugin.description
+      desc = document.createElement 'span'
+      desc.className = 'widget-type-option-desc'
+      desc.textContent = plugin.description
+      label.appendChild desc
+
+    option.appendChild input
+    option.appendChild label
+    option
+
+  _renderWidgetTypePlugins: (plugins) ->
+    list = document.getElementById 'widget-type-plugin-list'
+    return unless list
+    window.AppViewHelpers._clearWidgetTypeContainer list
+
+    unless plugins and plugins.length > 0
+      empty = document.createElement 'div'
+      empty.className = 'widget-type-hint'
+      empty.textContent = 'Aucun widget personnalisé'
+      list.appendChild empty
+      return
+
+    for plugin in plugins when plugin?.name
+      list.appendChild window.AppViewHelpers._makeWidgetTypePluginOption plugin
+
+  # Échec de chargement : message visible dans la fenêtre, jamais avalé.
+  _renderWidgetTypePluginsError: (err) ->
+    list = document.getElementById 'widget-type-plugin-list'
+    return unless list
+    window.AppViewHelpers._clearWidgetTypeContainer list
+    message = document.createElement 'div'
+    message.className = 'widget-type-hint widget-type-hint--error'
+    message.textContent = "Erreur de chargement des widgets personnalisés : #{err?.message or err}"
+    list.appendChild message
+
+  _reloadWidgetTypePlugins: (app) ->
+    api = window.WidgetPlugins
+    unless api?.list
+      window.AppViewHelpers._renderWidgetTypePluginsError 'API WidgetPlugins indisponible'
+      return Promise.resolve []
+    api.list()
+      .then (plugins) ->
+        window.AppViewHelpers._renderWidgetTypePlugins plugins or []
+        plugins or []
+      .catch (err) ->
+        console.error 'load widget plugins for the add-widget modal failed', err
+        window.AppViewHelpers._renderWidgetTypePluginsError err
+        []
+
+  # Sélection d'un type : une seule option marquée, radio coché. Appelée par
+  # délégation, les options de plugins étant créées après le montage.
+  _selectWidgetType: (option) ->
+    return unless option
+    scope = document.getElementById('widget-type-options') or option.parentNode
+    for el in (scope?.querySelectorAll?('.widget-type-option') or [])
+      el.classList.remove 'selected'
+    option.classList.add 'selected'
+    radio = option.querySelector 'input[type="radio"]'
+    radio.checked = true if radio
+    return option
+
   _populateSpaceSelect: (select, spaces, dataViews) ->
     console.log 'Populating space select with:', { spaces: spaces?.length, dataViews: dataViews?.length }
 
@@ -81,6 +177,9 @@ Object.assign window.AppViewHelpers,
 
     # Charger les espaces disponibles
     window.AppViewHelpers._loadAvailableSources app
+
+    # Remplir le groupe « Widgets personnalisés » (définitions courantes)
+    window.AppViewHelpers._reloadWidgetTypePlugins app
 
     # Lier les événements de base
     window.AppViewHelpers._bindBasicWidgetEvents app
@@ -219,18 +318,36 @@ Object.assign window.AppViewHelpers,
       availableContainer.appendChild fieldItem
 
   _bindBasicWidgetEvents: (app) ->
-    # Gérer la sélection du type de widget
-    typeOptions = document.querySelectorAll '.widget-type-option'
+    # Rouvrir la fenêtre repart du type par défaut (« Tableau simple »).
+    tableRadio = document.getElementById 'widget-type-table'
+    if tableRadio
+      tableRadio.checked = true
+      window.AppViewHelpers._selectWidgetType tableRadio.parentNode if tableRadio.parentNode
 
-    for option in typeOptions
-      option.addEventListener 'click', ->
-        # Désélectionner les autres
-        for opt in typeOptions
-          opt.classList.remove 'selected'
+    # Sélection du type de widget : délégation sur le conteneur, car les
+    # options des widgets personnalisés sont créées à chaque ouverture.
+    typeOptionsRoot = document.getElementById 'widget-type-options'
 
-        # Sélectionner celui-ci
-        @classList.add 'selected'
-        @querySelector('input[type="radio"]').checked = true
+    if typeOptionsRoot and not typeOptionsRoot._tdbTypeBound
+      typeOptionsRoot._tdbTypeBound = true
+      typeOptionsRoot.addEventListener 'click', (ev) ->
+        option = ev.target?.closest? '.widget-type-option'
+        return unless option
+        window.AppViewHelpers._selectWidgetType option
+
+    # Lien vers l'éditeur de plugins (admin uniquement, si l'info est connue).
+    newPluginBtn = document.getElementById 'widget-type-new-plugin'
+    if newPluginBtn
+      if window.AppViewHelpers._canEditWidgetPlugins()
+        newPluginBtn.classList.remove 'hidden'
+        unless newPluginBtn._tdbBound
+          newPluginBtn._tdbBound = true
+          newPluginBtn.addEventListener 'click', (ev) ->
+            ev.preventDefault?()
+            app.el.addWidgetModal()?.classList.add 'hidden'
+            window.AppViewHelpers.openWidgetPluginModal app
+      else
+        newPluginBtn.classList.add 'hidden'
 
     # Gérer les boutons de la modale
     confirmBtn = document.getElementById 'add-widget-confirm-btn'
@@ -284,6 +401,8 @@ Object.assign window.AppViewHelpers,
     titleInput = document.getElementById 'widget-title-input'
     spaceSelect = document.getElementById 'widget-space-select'
     selectedFields = document.querySelectorAll '#selected-fields .field-item'
+    selectedType = document.querySelector 'input[name="widget-type"]:checked'
+    type = selectedType?.value or 'table'
 
     errors = []
 
@@ -295,8 +414,9 @@ Object.assign window.AppViewHelpers,
     unless spaceSelect and spaceSelect.value
       errors.push 'La sélection d\'un espace est requise'
 
-    # Valider les champs (au moins un champ sélectionné)
-    unless selectedFields.length > 0
+    # Colonnes obligatoires pour le tableau simple seulement : un widget
+    # personnalisé (plugin) lit ses données lui-même (spec §3 bis).
+    if type == 'table' and selectedFields.length == 0
       errors.push 'Au moins un champ doit être sélectionné'
 
     return errors
@@ -325,10 +445,21 @@ Object.assign window.AppViewHelpers,
     return {
       title: titleInput.value.trim()
       spaceId: spaceSelect.value
-      type: selectedType.value or 'table'
+      type: selectedType?.value or 'table'
       fields: fields
       params: params
     }
+
+  # Identifiant de la page ouverte : celui de la vue personnalisée courante,
+  # sinon celui du hash (`#page/<id>` pour une page, `#view/<id>` pour une data
+  # view). L'ancienne version ne reconnaissait que `view/` et refusait donc tout
+  # ajout de widget depuis une page.
+  _resolveAddWidgetViewId: (app, hash) ->
+    return app._currentCustomView.id if app?._currentCustomView?.id
+    h = hash or ''
+    return m[1] if m = h.match /^#page\/([^\/?#]+)/
+    return m[1] if m = h.match /^#view\/([^\/?#]+)/
+    null
 
   _submitWidget: (app) ->
     # Valider le formulaire
@@ -341,8 +472,8 @@ Object.assign window.AppViewHelpers,
     # Collecter les données
     widgetData = window.AppViewHelpers._collectWidgetData()
 
-    # Récupérer l'ID de la vue actuelle depuis l'URL
-    viewId = window.location.hash.match(/view\/([a-f0-9-]+)/)?[1]
+    # Page ouverte (hash #page/… ou #view/…)
+    viewId = window.AppViewHelpers._resolveAddWidgetViewId app, window.location.hash
 
     unless viewId
       tdbAlert 'Erreur: impossible de déterminer l\'ID de la vue actuelle', 'error'

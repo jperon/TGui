@@ -5,7 +5,7 @@
   var _elementsById, _lsStore, fetchStub, localStorageStub, makeElement;
 
   makeElement = function(tag) {
-    var classes, el;
+    var classValue, classes, el;
     classes = new Set();
     el = {
       tagName: tag.toUpperCase(),
@@ -132,6 +132,26 @@
         return el._children.indexOf(node) !== -1;
       }
     };
+    // `className` affecté directement doit alimenter classList (comme dans le DOM),
+    // sinon `el.className = 'a b'` puis `classList.contains('a')` est faux.
+    classValue = '';
+    Object.defineProperty(el, 'className', {
+      get: function() {
+        return classValue;
+      },
+      set: function(value) {
+        var c, l, len, ref;
+        classValue = value != null ? String(value) : '';
+        classes.clear();
+        ref = classValue.split(/\s+/);
+        for (l = 0, len = ref.length; l < len; l++) {
+          c = ref[l];
+          if (c) {
+            classes.add(c);
+          }
+        }
+      }
+    });
     return el;
   };
 

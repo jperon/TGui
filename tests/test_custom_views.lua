@@ -172,7 +172,7 @@ R.describe("CustomViews — addWidgetToView", function()
     R.ok(res.yaml:find("- id"), "doit contenir la colonne id")
     return R.ok(res.yaml:find("- name"), "doit contenir la colonne name")
   end)
-  return R.it("addWidgetToView on unknown view -> error", function()
+  R.it("addWidgetToView on unknown view -> error", function()
     local widget_input = {
       title = "Test",
       type = "table",
@@ -187,6 +187,78 @@ R.describe("CustomViews — addWidgetToView", function()
         widget = widget_input
       }, CTX)
     end), 'not found')
+  end)
+  R.it("addWidgetToView keeps a custom widget type and params in the YAML", function()
+    local empty_yaml = [[layout:
+  direction: vertical
+  children: []
+]]
+    local cv = cvr.Mutation.createCustomView({ }, {
+      name = "test_plugin_cv_" .. tostring(SUFFIX),
+      yaml = empty_yaml
+    }, CTX)
+    local widget_input = {
+      title = "Calendrier",
+      type = "mon_plugin",
+      spaceId = space_id,
+      fields = { },
+      params = {
+        couleur = '#c33',
+        titre = "L'été"
+      }
+    }
+    local res = cvr.Mutation.addWidgetToView({ }, {
+      viewId = cv.id,
+      widget = widget_input
+    }, CTX)
+    R.ok(res.yaml)
+    local parsed = yaml.decode(res.yaml)
+    R.eq(#(parsed.layout.children), 1)
+    local node = parsed.layout.children[1].widget
+    R.eq(node.type, 'mon_plugin')
+    R.eq(node.params.couleur, '#c33')
+    R.eq(node.params.titre, "L'été")
+    R.eq(node.space, SPACE_NAME)
+    R.ok(node.id, "le nœud YAML doit garder son identifiant")
+    R.eq(node.columns, nil)
+    return cvr.Mutation.deleteCustomView({ }, {
+      id = cv.id
+    }, CTX)
+  end)
+  return R.it("addWidgetToView accepts a layout position without breaking the YAML", function()
+    local empty_yaml = [[layout:
+  direction: vertical
+  children: []
+]]
+    local cv = cvr.Mutation.createCustomView({ }, {
+      name = "test_pos_cv_" .. tostring(SUFFIX),
+      yaml = empty_yaml
+    }, CTX)
+    local widget_input = {
+      title = "Avec position",
+      type = "table",
+      spaceId = space_id,
+      fields = {
+        "id"
+      },
+      position = {
+        x = 0,
+        y = 0,
+        w = 6,
+        h = 4
+      }
+    }
+    local res = cvr.Mutation.addWidgetToView({ }, {
+      viewId = cv.id,
+      widget = widget_input
+    }, CTX)
+    local parsed = yaml.decode(res.yaml)
+    local node = parsed.layout.children[1].widget
+    R.eq(node.position, 1)
+    R.eq(node.title, 'Avec position')
+    return cvr.Mutation.deleteCustomView({ }, {
+      id = cv.id
+    }, CTX)
   end)
 end)
 R.describe("CustomViews — deletion", function()

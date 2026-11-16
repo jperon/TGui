@@ -353,6 +353,8 @@ Available functions are `sum`, `count`, `avg`, `min`, `max`. The `as` alias is o
 
 You can add custom widgets to a YAML view with a plugin (`CoffeeScript` or `JavaScript` for logic, `Pug` or `HTML` for template).
 
+Once a plugin exists, it is also listed under **Custom widgets** in the page's **＋ Widget** window: pick it as the widget type, fill the key/value parameters and click **Add** — the page YAML gets a `type: <plugin name>` node carrying those `params`, and no column selection is required. The same window links to the plugin editor (**New custom widget…**, admins only).
+
 #### Create a plugin
 
 1. Open a custom view.

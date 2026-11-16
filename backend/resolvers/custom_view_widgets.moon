@@ -4,6 +4,55 @@
 yaml = require 'yaml'
 uuid_mod = require 'uuid'
 
+-- Valeur scalaire au format YAML. Guillemets simples systématiques : une chaîne
+-- reste une chaîne (un UUID, un nombre ou « oui » écrit en paramètre ne change
+-- pas de type à la relecture), et `'` se double.
+yaml_quote = (value) ->
+  escaped = tostring(value)\gsub "'", "''"
+  "'" .. escaped .. "'"
+
+-- Scalaire laissé nu quand c'est sans risque, entre guillemets simples sinon :
+-- un titre contenant « : », « # » ou des guillemets casserait le YAML sans eux
+-- (ex. « Data View: ma vue »).
+yaml_scalar = (value) ->
+  s = tostring value
+  return yaml_quote s if s == ''
+  return yaml_quote s if s\match '^%s' or s\match '%s$'
+  return yaml_quote s if s\match '[:#%[%]{},&*!|>%%@`"\']'
+  return yaml_quote s if s\match '^[-?]'
+  return yaml_quote s if s\match '^[%d%.]+$'
+  return yaml_quote s if s == 'true' or s == 'false' or s == 'null' or s == '~'
+  s
+
+-- Index de position écrit dans le YAML (nombre entier). Toute autre valeur — en
+-- particulier la position de mise en page `{x, y, w, h}` envoyée par la fenêtre
+-- « ＋ Widget » — est ignorée : la page est une liste ordonnée.
+position_index = (value, fallback) ->
+  return value if type(value) == 'number'
+  fallback or 1
+
+-- Ligne `type:` d'un widget : nom du widget personnalisé (plugin) quand il y en
+-- a un, « aggregate », « table »… Vide sinon.
+encode_widget_type = (widget, indent) ->
+  return '' unless widget.type
+  indent .. "type: " .. yaml_quote(widget.type) .. "\n"
+
+-- Bloc `params:` d'un widget : mapping clé → valeur, clés triées pour un YAML
+-- stable d'un enregistrement à l'autre. Valeurs non scalaires ignorées.
+encode_widget_params = (params, indent) ->
+  return '' unless params and type(params) == 'table'
+  keys = {}
+  for key in pairs params
+    table.insert keys, key
+  table.sort keys
+  body = ''
+  for _, key in ipairs(keys)
+    value = params[key]
+    continue if type(value) == 'table'
+    body ..= indent .. "  " .. yaml_quote(key) .. ": " .. yaml_quote(value) .. "\n"
+  return '' if body == ''
+  indent .. "params:\n" .. body
+
 -- Fonction utilitaire pour encoder le YAML
 encode_layout_yaml = (config) ->
   yaml_content = "layout:\n"
@@ -17,9 +66,13 @@ encode_layout_yaml = (config) ->
        if child.widget
           yaml_content ..= indent .. "- widget:\n"
           yaml_content ..= indent .. "    id: " .. tostring(child.widget.id) .. "\n"
-          yaml_content ..= indent .. "    title: " .. child.widget.title .. "\n"
-          yaml_content ..= indent .. "    space: " .. tostring(child.widget.space) .. "\n"
-          yaml_content ..= indent .. "    position: " .. tostring(child.widget.position) .. "\n"
+          yaml_content ..= indent .. "    title: " .. yaml_scalar(child.widget.title or '') .. "\n"
+          yaml_content ..= indent .. "    space: " .. yaml_scalar(child.widget.space or '') .. "\n"
+          yaml_content ..= indent .. "    position: " .. tostring(position_index(child.widget.position, 1)) .. "\n"
+
+          -- Type du widget (widget personnalisé : c'est le nom du plugin que
+          -- `_renderWidget` lit dans `type`).
+          yaml_content ..= encode_widget_type child.widget, indent .. "    "
 
           -- Ajouter le dataViewId si présent
           if child.widget.dataViewId
@@ -35,15 +88,18 @@ encode_layout_yaml = (config) ->
           if child.widget.groupBy
             yaml_content ..= indent .. "    groupBy: " .. tostring(child.widget.groupBy) .. "\n"
 
+          -- Paramètres du widget personnalisé (mapping, pas tostring)
+          yaml_content ..= encode_widget_params child.widget.params, indent .. "    "
+
           -- Ajouter les autres propriétés
           for key, value in pairs(child.widget)
-            if key ~= 'id' and key ~= 'title' and key ~= 'space' and key ~= 'position' and key ~= 'columns' and key ~= 'groupBy' and key ~= 'dataViewId'
+            if key ~= 'id' and key ~= 'title' and key ~= 'space' and key ~= 'position' and key ~= 'columns' and key ~= 'groupBy' and key ~= 'dataViewId' and key ~= 'type' and key ~= 'params'
               yaml_content ..= indent .. "    " .. key .. ": " .. tostring(value) .. "\n"
 
        elseif child.zone
          yaml_content ..= indent .. "- zone:\n"
          yaml_content ..= indent .. "    id: " .. tostring(child.zone.id) .. "\n"
-         yaml_content ..= indent .. "    title: " .. child.zone.title .. "\n"
+         yaml_content ..= indent .. "    title: " .. yaml_scalar(child.zone.title or '') .. "\n"
          yaml_content ..= indent .. "    factor: " .. tostring(child.zone.factor) .. "\n"
          yaml_content ..= indent .. "    direction: " .. (child.zone.direction or 'vertical') .. "\n"
 
@@ -197,7 +253,7 @@ reorder_widgets = (pageId, widgetPositions) ->
       zone = child.zone
       yaml_content ..= "    - zone:\n"
       yaml_content ..= "        id: " .. tostring(zone.id) .. "\n"
-      yaml_content ..= "        title: " .. tostring(zone.title or '') .. "\n"
+      yaml_content ..= "        title: " .. yaml_scalar(zone.title or '') .. "\n"
       yaml_content ..= "        factor: " .. tostring(zone.factor or 1) .. "\n"
       yaml_content ..= "        direction: " .. tostring(zone.direction or 'vertical') .. "\n"
 
@@ -209,9 +265,10 @@ reorder_widgets = (pageId, widgetPositions) ->
             widget = zone_child.widget
             yaml_content ..= "          - widget:\n"
             yaml_content ..= "              id: " .. tostring(widget.id) .. "\n"
-            yaml_content ..= "              title: " .. tostring(widget.title or '') .. "\n"
-            yaml_content ..= "              space: " .. tostring(widget.space or '') .. "\n"
-            yaml_content ..= "              position: " .. tostring(widget.position or 1) .. "\n"
+            yaml_content ..= "              title: " .. yaml_scalar(widget.title or '') .. "\n"
+            yaml_content ..= "              space: " .. yaml_scalar(widget.space or '') .. "\n"
+            yaml_content ..= "              position: " .. tostring(position_index(widget.position, 1)) .. "\n"
+            yaml_content ..= encode_widget_type widget, "              "
 
             if widget.columns and #widget.columns > 0
               yaml_content ..= "              columns:\n"
@@ -220,12 +277,15 @@ reorder_widgets = (pageId, widgetPositions) ->
 
             if widget.groupBy
               yaml_content ..= "              groupBy: " .. tostring(widget.groupBy) .. "\n"
+
+            yaml_content ..= encode_widget_params widget.params, "              "
     elseif child.widget
       yaml_content ..= "    - widget:\n"
       yaml_content ..= "        id: " .. tostring(child.widget.id) .. "\n"
-      yaml_content ..= "        title: " .. child.widget.title .. "\n"
-      yaml_content ..= "        space: " .. tostring(child.widget.space) .. "\n"
-      yaml_content ..= "        position: " .. tostring(child.widget.position) .. "\n"
+      yaml_content ..= "        title: " .. yaml_scalar(child.widget.title or '') .. "\n"
+      yaml_content ..= "        space: " .. yaml_scalar(child.widget.space or '') .. "\n"
+      yaml_content ..= "        position: " .. tostring(position_index(child.widget.position, 1)) .. "\n"
+      yaml_content ..= encode_widget_type child.widget, "        "
 
       -- Ajouter les colonnes si présentes
       if child.widget.columns and #child.widget.columns > 0
@@ -237,9 +297,11 @@ reorder_widgets = (pageId, widgetPositions) ->
       if child.widget.groupBy
         yaml_content ..= "        groupBy: " .. tostring(child.widget.groupBy) .. "\n"
 
+      yaml_content ..= encode_widget_params child.widget.params, "        "
+
       -- Ajouter les autres propriétés
       for key, value in pairs(child.widget)
-        if key ~= 'id' and key ~= 'title' and key ~= 'space' and key ~= 'position' and key ~= 'columns' and key ~= 'groupBy'
+        if key ~= 'id' and key ~= 'title' and key ~= 'space' and key ~= 'position' and key ~= 'columns' and key ~= 'groupBy' and key ~= 'type' and key ~= 'params'
           yaml_content ..= "        " .. key .. ": " .. tostring(value) .. "\n"
 
   -- Mettre à jour la vue dans la base de données
@@ -357,12 +419,17 @@ add_widget_to_view = (viewId, widget) ->
   -- Calculer la position (à la fin de la liste)
   position = #config.layout.children + 1
 
+  -- Position dans le YAML = index dans la liste. La fenêtre « ＋ Widget » envoie
+  -- une position de mise en page (`{x, y, w, h}`) qui n'a pas de sens ici et
+  -- dont `tostring` casserait le YAML : on garde alors l'index calculé.
+  yaml_position = position_index widget.position, position
+
   -- Préparer le widget avec toutes les propriétés
   new_widget = {
     id: widget.id or tostring(uuid_mod.new!)
     title: widget.title
     space: space_name
-    position: widget.position or position
+    position: yaml_position
   }
 
   -- Ajouter le type si présent
